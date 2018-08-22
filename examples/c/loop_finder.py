@@ -5,7 +5,7 @@ import os
 import logging
 from ppci.lang.c import COptions
 from ppci.api import c_to_ir, get_arch, optimize
-from ppci.irs.wasm import ir_to_wasm, export_wasm_example, WasmArchitecture
+from ppci.wasm import ir_to_wasm, export_wasm_example, WasmArchitecture
 
 logging.basicConfig(level=logging.DEBUG)
 this_dir = os.path.dirname(os.path.abspath(__file__))

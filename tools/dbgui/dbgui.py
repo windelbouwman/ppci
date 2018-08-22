@@ -5,77 +5,27 @@
 """
 
 import logging
-from qtwrapper import QtGui, QtCore, QtWidgets, pyqtSignal, get_icon
-from qtwrapper import abspath, Qt
+from qtwrapper import QtGui, QtCore, QtWidgets
+from qtwrapper import Qt
 from codeedit import CodeEdit
 from logview import LogView as BuildOutput
 from regview import RegisterView
 from memview import MemoryView
 from varview import VariablesView, LocalsView
 from disasm import Disassembly
+from aboutdialog import AboutDialog
+from build_errors import BuildErrors
 from dbgtoolbar import DebugToolbar
-
-
-class BuildErrors(QtWidgets.QTreeView):
-    sigErrorSelected = pyqtSignal(object)
-
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        model = QtGui.QStandardItemModel()
-        self.setModel(model)
-        self.clicked.connect(self.itemSelected)
-        self.errorIcon = get_icon('error.png')
-        self.model = QtGui.QStandardItemModel()
-        self.model.setHorizontalHeaderLabels(['Message', 'Row', 'Column'])
-        self.header().setStretchLastSection(True)
-        self.setModel(self.model)
-
-    def setErrorList(self, errorlist):
-        c = self.model.rowCount()
-        self.model.removeRows(0, c)
-        for e in errorlist:
-            item = QtGui.QStandardItem(self.errorIcon, str(e.msg))
-            item.setData(e)
-            row = str(e.loc.row) if e.loc else ''
-            irow = QtGui.QStandardItem(row)
-            irow.setData(e)
-            col = str(e.loc.col) if e.loc else ''
-            icol = QtGui.QStandardItem(col)
-            icol.setData(e)
-            self.model.appendRow([item, irow, icol])
-        for i in range(3):
-            self.resizeColumnToContents(i)
-
-    def itemSelected(self, index):
-        if not index.isValid():
-            return
-        item = self.model.itemFromIndex(index)
-        err = item.data()
-        self.sigErrorSelected.emit(err)
-
-
-class AboutDialog(QtWidgets.QDialog):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setWindowTitle('About')
-        l = QtWidgets.QVBoxLayout(self)
-        txt = QtWidgets.QTextEdit(self)
-        txt.setReadOnly(True)
-        aboutText = "ppci debugger"
-        txt.append(aboutText)
-        l.addWidget(txt)
-        but = QtWidgets.QPushButton('OK')
-        but.setDefault(True)
-        but.clicked.connect(self.close)
-        l.addWidget(but)
+from qdebugger import QDebugger
+from gdbconsole import GdbConsole
 
 
 class DebugUi(QtWidgets.QMainWindow):
     """ Provide a nice gui for this debugger """
     def __init__(self, debugger, parent=None):
         super().__init__(parent)
-        self.debugger = debugger
-        self.debugger.state_event.subscribe(self.on_state_changed)
+        self.qdebugger = QDebugger(debugger)
+        self.qdebugger.stopped.connect(self.on_stopped)
         self.logger = logging.getLogger('dbgui')
         self.setWindowTitle('PPCI DBGUI')
 
@@ -103,12 +53,13 @@ class DebugUi(QtWidgets.QMainWindow):
 
         self.buildOutput = addComponent('Build output', BuildOutput())
         self.builderrors = addComponent('Build errors', BuildErrors())
-        self.regview = addComponent('Registers', RegisterView(debugger))
-        self.memview = addComponent('Memory', MemoryView(debugger))
-        self.disasm = addComponent('Disasm', Disassembly(debugger))
-        self.variables = addComponent('Variables', VariablesView(debugger))
-        self.locals = addComponent('Locals', LocalsView(debugger))
-        self.ctrlToolbar = DebugToolbar(debugger)
+        self.regview = addComponent('Registers', RegisterView(self.qdebugger))
+        self.memview = addComponent('Memory', MemoryView(self.qdebugger))
+        self.disasm = addComponent('Disasm', Disassembly(self.qdebugger))
+        self.variables = addComponent('Variables', VariablesView(self.qdebugger))
+        self.locals = addComponent('Locals', LocalsView(self.qdebugger))
+        self.gdb_console = addComponent('Gdb', GdbConsole(self.qdebugger))
+        self.ctrlToolbar = DebugToolbar(self.qdebugger)
         self.addToolBar(self.ctrlToolbar)
         self.ctrlToolbar.setObjectName('debugToolbar')
         self.aboutDialog = AboutDialog()
@@ -155,7 +106,7 @@ class DebugUi(QtWidgets.QMainWindow):
             with open(filename) as f:
                 ce.Source = f.read()
                 ce.FileName = filename
-                possible_breakpoints = self.debugger.get_possible_breakpoints(
+                possible_breakpoints = self.qdebugger.debugger.get_possible_breakpoints(
                     filename)
                 ce.set_possible_breakpoints(possible_breakpoints)
             return ce
@@ -185,7 +136,7 @@ class DebugUi(QtWidgets.QMainWindow):
 
     def open_all_source_files(self):
         """ Open all debugged source files """
-        for location in self.debugger.debug_info.locations:
+        for location in self.qdebugger.debugger.debug_info.locations:
             filename = location.loc.filename
             if not self.find_mdi_child(filename):
                 self.load_file(filename)
@@ -203,9 +154,9 @@ class DebugUi(QtWidgets.QMainWindow):
 
     def toggle_breakpoint(self, filename, row, state):
         if state:
-            self.debugger.set_breakpoint(filename, row)
+            self.qdebugger.debugger.set_breakpoint(filename, row)
         else:
-            self.debugger.clear_breakpoint(filename, row)
+            self.qdebugger.debugger.clear_breakpoint(filename, row)
 
     # Error handling:
     def show_loc(self, filename, row, col):
@@ -220,10 +171,9 @@ class DebugUi(QtWidgets.QMainWindow):
         ce.set_current_row(row)
         ce.setFocus()
 
-    def on_state_changed(self):
-        """ When the debugger is halted or started again .. """
-        if self.debugger.is_halted:
-            res = self.debugger.find_pc()
-            if res:
-                filename, row = res
-                self.show_loc(filename, row, 1)
+    def on_stopped(self):
+        """ When the debugger is halted """
+        res = self.qdebugger.debugger.find_pc()
+        if res:
+            filename, row = res
+            self.show_loc(filename, row, 1)

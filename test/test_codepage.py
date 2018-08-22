@@ -58,7 +58,25 @@ class CodePageTestCase(unittest.TestCase):
         y = m.x(101)
         self.assertEqual(102, y)
 
-    @unittest.skip('TODO: research array index handling')
+    def test_callback_from_c(self):
+        """ Test calling a python function from C code """
+        source = io.StringIO("""
+            int add(int x, int y);
+            int x(int a) {
+                return add(a + 1, 13);
+            }
+            """)
+        arch = get_current_arch()
+        obj = cc(source, arch, debug=True)
+        def my_add(x: int, y: int) -> int:
+            return x + y + 2
+        imports = {
+            'add': my_add
+        }
+        m = load_obj(obj, imports=imports)
+        y = m.x(101)
+        self.assertEqual(117, y)
+
     def test_jit_example(self):
         """ Test loading of C code from jit example """
         source = io.StringIO("""
@@ -75,13 +93,14 @@ class CodePageTestCase(unittest.TestCase):
         with open(html_filename, 'w') as f, HtmlReportGenerator(f) as reporter:
             obj = cc(source, arch, debug=True, reporter=reporter)
         m = load_obj(obj)
-        print(m.x.argtypes)
-        T = ctypes.c_int * 3
+        # print(m.x.argtypes)
+        T = ctypes.c_int * 6
         a = T()
-        a[:] = 1, 2, 3
+        # TODO: integers in ctypes are 32 bit, they are 64 bit in ppci?
+        a[:] = 1, 0, 2, 0, 3, 0
         # ap = ctypes.cast(a, ctypes.POINTER(ctypes.c_long))
         b = T()
-        b[:] = 5, 4, 9
+        b[:] = 5, 0, 4, 0, 9, 0
         # bp = ctypes.cast(b, ctypes.POINTER(ctypes.c_long))
         y = m.x(a, b, 3)
         self.assertEqual(40, y)
@@ -134,7 +153,9 @@ class NumpyCodePageTestCase(unittest.TestCase):
                 }
             }
             """)
-        m = load_code_as_module(source_file)
+        html_filename = make_filename(self.id()) + '.html'
+        with open(html_filename, 'w') as f, HtmlReportGenerator(f) as r:
+            m = load_code_as_module(source_file, reporter=r)
 
         import numpy as np
         a = np.array([12, 7, 3, 5, 42, 100], dtype=float)

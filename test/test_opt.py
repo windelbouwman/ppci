@@ -7,7 +7,7 @@ import sys
 from ppci import ir
 from ppci import irutils
 from ppci.binutils.debuginfo import DebugDb
-from ppci.irutils import Verifier
+from ppci.irutils import verify_module
 from ppci.opt import Mem2RegPromotor
 from ppci.opt import CleanPass
 from ppci.opt.constantfolding import correct
@@ -26,7 +26,6 @@ class OptTestCase(unittest.TestCase):
         entry = self.builder.new_block()
         self.function.entry = entry
         self.builder.set_block(entry)
-        self.verifier = Verifier()
 
     def dump(self):
         iof = io.StringIO()
@@ -35,7 +34,7 @@ class OptTestCase(unittest.TestCase):
         print(iof.getvalue())
 
     def tearDown(self):
-        self.verifier.verify(self.module)
+        verify_module(self.module)
 
 
 class CleanTestCase(OptTestCase):
@@ -71,7 +70,7 @@ class CleanTestCase(OptTestCase):
         binop = self.builder.emit(ir.add(phi, cnst2, 'binop', ir.i16))
         phi.set_incoming(block6, binop)
         self.builder.emit(ir.Jump(block6))
-        self.verifier.verify(self.module)
+        verify_module(self.module)
 
         # Act:
         self.clean_pass.run(self.module)
@@ -175,23 +174,29 @@ class TailCallTestCase(unittest.TestCase):
         builder.set_function(function)
         entry = builder.new_block()
         function.entry = entry
+        a = ir.Parameter('a', ir.i8)
+        function.add_parameter(a)
+        b = ir.Parameter('b', ir.i8)
+        function.add_parameter(b)
         builder.set_block(entry)
-        result = builder.emit(ir.FunctionCall('x', [], 'rv', ir.i8))
+        one = builder.emit(ir.Const(1, 'const', ir.i8))
+        a2 = builder.emit(ir.add(a, one, 'a2', ir.i8))
+        b2 = builder.emit(ir.add(b, one, 'b2', ir.i8))
+        result = builder.emit(ir.FunctionCall(function, [a2, b2], 'rv', ir.i8))
         builder.emit(ir.Return(result))
 
         # Verify first version:
-        verifier = Verifier()
-        verifier.verify(module)
         module.display()
+        verify_module(module)
+        self.assertFalse(function.is_leaf())
 
         # Run optimizer:
         self.opt.run(module)
 
-        module.display()
-
         # Verify again:
-        verifier.verify(module)
-        # TODO: assert something here?
+        module.display()
+        verify_module(module)
+        self.assertTrue(function.is_leaf())
 
 
 if __name__ == '__main__':

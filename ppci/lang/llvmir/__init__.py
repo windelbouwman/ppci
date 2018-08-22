@@ -10,13 +10,9 @@ llvm assembly. The next phase would be to convert that into ppci ir.
 Another nice idea is to generate llvm ir code from ppci. When generating
 and parsing are combined, the llvm optimizers can be used.
 
-.. autoclass:: ppci.lang.llvmir.frontend.LlvmIrFrontend
-
-.. autoclass:: ppci.lang.llvmir.parser.LlvmIrParser
-
 """
 
-from .frontend import LlvmIrFrontend
+from .frontend import LlvmIrFrontend, llvm_to_ir
 
 
-__all__ = ['LlvmIrFrontend']
+__all__ = ['llvm_to_ir', 'LlvmIrFrontend']

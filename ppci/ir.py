@@ -11,6 +11,7 @@ The only types available are basic integer types and a pointer type.
 
 from binascii import hexlify
 import logging
+from .utils.collections import OrderedSet
 
 
 # Types:
@@ -53,6 +54,17 @@ class PointerTyp(Typ):
 
 class BasicTyp(Typ):
     """ Basic arithmatic type """
+    _instances = {}
+
+    def __new__(cls, name, bits):
+        key = (name, bits)
+        if key in cls._instances:
+            obj = cls._instances[key]
+        else:
+            obj = super().__new__(cls)
+            cls._instances[key] = obj
+        return obj
+
     def __init__(self, name, bits):
         super().__init__(name)
         self.bits = bits
@@ -78,9 +90,32 @@ class FloatingPointTyp(BasicTyp):
     pass
 
 
-# TODO: what is the type of a larger slab of data?
 class BlobDataTyp(Typ):
+    """ The type of a opaque data blob.
+
+    Note that blob types can be compared by using the is operator:
+
+    .. doctest::
+
+        >>> from ppci.ir import BlobDataTyp
+        >>> typ1 = BlobDataTyp(8, 8)
+        >>> typ2 = BlobDataTyp(8, 8)
+        >>> typ1 is typ2
+        True
+
+    """
     _cache = {}
+
+    def __new__(cls, size, alignment):
+        """ Create instance of blob type for the given size and alignment.
+        """
+        key = (size, alignment)
+        if key in cls._cache:
+            obj = cls._cache[key]
+        else:
+            obj = super().__new__(cls)
+            cls._cache[key] = obj
+        return obj
 
     def __init__(self, size: int, alignment: int):
         super().__init__('blob')
@@ -90,17 +125,6 @@ class BlobDataTyp(Typ):
     def __str__(self):
         # More or less the same as 'u8[size]'.
         return 'blob<{}:{}>'.format(self.size, self.alignment)
-
-    @classmethod
-    def get(cls, size: int, alignment: int):
-        """ Get instance of blob type for the given size and alignment """
-        key = (size, alignment)
-        if key in cls._cache:
-            typ = cls._cache[key]
-        else:
-            typ = cls(size, alignment=alignment)
-            cls._cache[key] = typ
-        return typ
 
 
 # The builtin types:
@@ -192,12 +216,12 @@ class Value:
         # Has a name and a type?
         super().__init__()
         if not isinstance(name, str):
-            raise TypeError('name must be a string')
+            raise TypeError('name must be a string, got {}'.format(type(name)))
         self.name = name
         if not isinstance(ty, Typ):
             raise TypeError('ty argument must be an instance of Typ')
         self.ty = ty
-        self.used_by = set()
+        self.used_by = OrderedSet()
 
     def add_user(self, i):
         """ Add a usage for this value """
@@ -238,28 +262,29 @@ class External(GlobalValue):
 
 
 class ExternalSubRoutine(External):
-    """ External object """
+    """ External subroutine base class """
     def __init__(self, name, argument_types):
         super().__init__(name)
         self.argument_types = argument_types
 
 
 class ExternalProcedure(ExternalSubRoutine):
-    """ External function """
+    """ External procedure """
     def __repr__(self):
         args = ', '.join(map(str, self.argument_types))
-        return 'external {}({})'.format(self.name, args)
+        return 'external procedure {}({})'.format(self.name, args)
 
 
 class ExternalFunction(ExternalSubRoutine):
     """ External function """
-    def __init__(self, name, argument_types, return_type):
+    def __init__(self, name, argument_types, return_ty):
         super().__init__(name, argument_types)
-        self.return_type = return_type
+        self.return_ty = return_ty
 
     def __repr__(self):
         args = ', '.join(map(str, self.argument_types))
-        return 'external {} {}({})'.format(self.return_type, self.name, args)
+        return 'external function {} {}({})'.format(
+            self.return_ty, self.name, args)
 
 
 class ExternalVariable(External):
@@ -291,7 +316,7 @@ class SubRoutine(GlobalValue):
         super().__init__(name)
         self.blocks = []
         self.entry = None
-        self.defined_names = set()
+        self.defined_names = OrderedSet()
         self.unique_counter = 0
         self.arguments = []
 
@@ -326,17 +351,22 @@ class SubRoutine(GlobalValue):
 
         A leaf function calls no other functions.
         """
-        return bool(self.get_out_calls())
+        return not bool(self.get_out_calls())
 
     def get_out_calls(self):
         """ Return the calls that leave this function. """
-        out_calls = []
+        return list(
+            self.get_instructions_of_type((ProcedureCall, FunctionCall)))
+
+    def get_instructions_of_type(self, typ):
+        for instruction in self.get_instructions():
+            if isinstance(instruction, typ):
+                yield instruction
+
+    def get_instructions(self):
         for block in self:
             for instruction in block:
-                if isinstance(
-                        instruction, (BaseProcedureCall, BaseFunctionCall)):
-                    out_calls.append(instruction)
-        return out_calls
+                yield instruction
 
     def calc_reachable_blocks(self):
         """ Determine all blocks that can be reached """
@@ -354,12 +384,23 @@ class SubRoutine(GlobalValue):
         """ Calculate all reachable blocks from entry and delete all others """
         reachable = self.calc_reachable_blocks()
         unreachable = {b for b in self if b not in reachable}
+
         for block in unreachable:
+            # Important! Loop over successors first, since last instruction
+            # determines the successors:
+            for successor in block.successors:
+                self.logger.debug('updating successor %s', successor)
+                for phi in successor.phis:
+                    self.logger.debug('updating phi %s', phi)
+                    phi.del_incoming(block)
+
+            # Now remove instructions:
             il = list(block)
             for instruction in il:
                 block.remove_instruction(instruction)
                 self.logger.debug('deleting %s', instruction)
                 instruction.delete()
+
         for block in unreachable:
             self.logger.debug('deleting block %s', block.name)
             self.remove_block(block)
@@ -367,7 +408,9 @@ class SubRoutine(GlobalValue):
 
     def add_block(self, block):
         """ Add a block to this function """
-        assert block.name not in self.block_names
+        # if block.name in self.block_names:
+        #    raise ValueError(
+        #        'A block with name {} already exists'.format(block.name))
         block.function = self
         self.make_unique_name(block)
         self.blocks.append(block)
@@ -421,7 +464,7 @@ class Block:
         self.name = name
         self.function = None
         self.instructions = list()
-        self.references = set()
+        self.references = OrderedSet()
 
     def dump(self):
         print('  ', self)
@@ -581,7 +624,7 @@ class Instruction:
         # TODO: think of better naming..
         self._var_map = {}
         self.block = None
-        self.uses = set()
+        self.uses = OrderedSet()
 
     @property
     def function(self):
@@ -666,7 +709,7 @@ class LocalValue(Value, Instruction):
 
     def used_in_blocks(self):
         """ Returns a set of blocks where this value is used """
-        return set(i.block for i in self.used_by)
+        return OrderedSet(i.block for i in self.used_by)
 
 
 class AddressOf(LocalValue):
@@ -719,7 +762,7 @@ class LiteralData(LocalValue):
         instruction, a label and its data is emitted in the literal area
     """
     def __init__(self, data, name):
-        super().__init__(name, BlobDataTyp.get(len(data), 1))
+        super().__init__(name, BlobDataTyp(len(data), 1))
         self.data = data
         assert isinstance(data, bytes), str(data)
 
@@ -728,10 +771,23 @@ class LiteralData(LocalValue):
         return '{} {} = Literal {}'.format(self.ty, self.name, data)
 
 
-class BaseFunctionCall(LocalValue):
-    """ Base function call """
-    def __init__(self, arguments, name, ty):
+class FunctionCall(LocalValue):
+    """ Call a function with some arguments and a return value """
+    callee = value_use('callee')
+
+    def __init__(self, callee, arguments, name, ty):
         super().__init__(name, ty)
+
+        if not isinstance(callee, Value):
+            raise TypeError(
+                'Callee must be a Value, not {}'.format(type(callee)))
+
+        if callee.ty is not ptr:
+            raise ValueError(
+                'Callee must be ptr, not {}'.format(callee.ty))
+
+        self.callee = callee
+
         self.arguments = arguments
         for arg in self.arguments:
             self.add_use(arg)
@@ -743,47 +799,28 @@ class BaseFunctionCall(LocalValue):
             self.del_use(old)
             self.arguments[idx] = new
             self.add_use(new)
-
-
-class FunctionCall(BaseFunctionCall):
-    """ Call a function with some arguments and a return value """
-    def __init__(self, function_name, arguments, name, ty):
-        super().__init__(arguments, name, ty)
-        assert isinstance(function_name, str)
-        self.function_name = function_name
 
     def __str__(self):
         args = ', '.join(arg.name for arg in self.arguments)
         return '{} {} = call {}({})'.format(
-            self.ty, self.name, self.function_name, args)
+            self.ty, self.name, self.callee.name, args)
 
 
-# TODO: do we really need a seperate type for a pointer to a function?
-class FunctionPointerCall(BaseFunctionCall):
-    """ Call a function with some arguments and a return value """
-    function_ptr = value_use('function_ptr')
+class ProcedureCall(Instruction):
+    """ Call a procedure with some arguments """
+    callee = value_use('callee')
 
-    def __init__(self, function_ptr, arguments, name, ty):
-        super().__init__(arguments, name, ty)
-        if not isinstance(function_ptr, Value):
-            raise TypeError(
-                'Pointer must be a value, not {}'.format(function_ptr))
-
-        if function_ptr.ty is not ptr:
-            raise ValueError(
-                'Pointer must be ptr, not {}'.format(function_ptr.ty))
-
-        self.function_ptr = function_ptr
-
-    def __str__(self):
-        args = ', '.join(arg.name for arg in self.arguments)
-        return '{} {} = ptrcall {}({})'.format(
-            self.ty, self.name, self.function_ptr.name, args)
-
-
-class BaseProcedureCall(Instruction):
-    def __init__(self, arguments):
+    def __init__(self, callee, arguments):
         super().__init__()
+        if not isinstance(callee, Value):
+            raise TypeError(
+                'Callee must be a Value, not {}'.format(type(callee)))
+
+        if callee.ty is not ptr:
+            raise ValueError(
+                'Pointer must be ptr, not {}'.format(callee.ty))
+        self.callee = callee
+
         self.arguments = arguments
         for arg in self.arguments:
             self.add_use(arg)
@@ -796,38 +833,14 @@ class BaseProcedureCall(Instruction):
             self.arguments[idx] = new
             self.add_use(new)
 
-
-class ProcedureCall(BaseProcedureCall):
-    """ Call a procedure with some arguments """
-    def __init__(self, function_name, arguments):
-        super().__init__(arguments)
-        assert isinstance(function_name, str)
-        self.function_name = function_name
-
     def __str__(self):
         args = ', '.join(arg.name for arg in self.arguments)
-        return 'call {}({})'.format(self.function_name, args)
-
-
-class ProcedurePointerCall(BaseProcedureCall):
-    """ Call a procedure pointer with some arguments """
-    function_ptr = value_use('function_ptr')
-
-    def __init__(self, function_ptr, arguments):
-        super().__init__(arguments)
-        if function_ptr.ty is not ptr:
-            raise ValueError(
-                'Pointer must be ptr, not {}'.format(function_ptr.ty))
-        self.function_ptr = function_ptr
-
-    def __str__(self):
-        args = ', '.join(arg.name for arg in self.arguments)
-        return 'ptrcall {}({})'.format(self.function_ptr.name, args)
+        return 'call {}({})'.format(self.callee.name, args)
 
 
 class Unop(LocalValue):
     """ Generic unary operation """
-    ops = ['-', '~']
+    ops = ['-', '~']  # someday perhaps: 'floor', 'sqrt'
     a = value_use('a')
 
     def __init__(self, operation, a, name, ty):
@@ -932,7 +945,7 @@ class Phi(LocalValue):
 class Alloc(LocalValue):
     """ Allocates space on the stack. The type of this value is a ptr """
     def __init__(self, name: str, amount: int, alignment: int):
-        super().__init__(name, BlobDataTyp.get(amount, alignment))
+        super().__init__(name, BlobDataTyp(amount, alignment))
 
         if not isinstance(amount, int):
             raise TypeError(
@@ -951,6 +964,11 @@ class Alloc(LocalValue):
     def __str__(self):
         return '{} {} = alloc {} bytes aligned at {}'.format(
             self.ty, self.name, self.amount, self.alignment)
+
+
+class CopyBlob(Instruction):
+    def __str__(self):
+        return 'copyblob'
 
 
 class Variable(GlobalValue):
@@ -1010,9 +1028,9 @@ class Store(Instruction):
         if not isinstance(value, Value):
             raise TypeError('Expected a value, got {}'.format(value))
 
-        if not isinstance(value.ty, (BasicTyp, PointerTyp)):
-            raise ValueError(
-                'Can only store basic types, not {}'.format(value.ty))
+        # if not isinstance(value.ty, (BasicTyp, PointerTyp)):
+        #    raise ValueError(
+        #        'Can only store basic types, not {}'.format(value.ty))
 
         self.address = address
         self.value = value
@@ -1142,3 +1160,23 @@ class CJump(JumpBase):
         return 'cjmp {} {} {} ? {} : {}'\
                .format(self.a.name, self.cond, self.b.name,
                        self.lab_yes.name, self.lab_no.name)
+
+
+class JumpTable(JumpBase):
+    """ Jump table.
+
+    In the worst case, this is expanded to a whole bunch of CJump statements.
+    """
+    v = value_use('v')
+    lab_default = block_use('lab_default')
+
+    def __init__(self, v, table, default):
+        super().__init__()
+        self.v = v
+        self.table = table
+        self.lab_default = default
+        raise NotImplementedError('TODO')
+
+    def __str__(self):
+        return 'jmp_table {}'\
+               .format(self.v.name)

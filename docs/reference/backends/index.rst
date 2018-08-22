@@ -39,8 +39,10 @@ Backend details
 
 .. toctree::
 
+    architecture
     arm
     avr
+    microblaze
     mcs6500
     msp430
     mips

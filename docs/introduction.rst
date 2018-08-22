@@ -9,8 +9,9 @@ The project contains:
 
 - A :ref:`compiler<ppci-c3c>`, an :ref:`assembler<ppci-asm>`,
   a :ref:`linker<ppci-ld>` and a :ref:`build system<ppci-build>`
-- Language front-ends: Brainfuck, :doc:`c3<reference/c3>`,
-  :doc:`C<reference/c>`
+- Language front-ends: :doc:`Brainfuck<reference/lang/bf>`,
+  :doc:`c3<reference/lang/c3>`,
+  :doc:`C<reference/lang/c>`
 - Backends for various target architectures, such as
   :ref:`6500<mcs6500>`, :ref:`arm`,
   :ref:`avr`,

@@ -6,7 +6,7 @@
             source="boot.asm"
             arch="avr"
             output="boot.oj" />
-        <compile
+        <c3compile
             arch="avr"
             sources="blinky.c3"
             output="main.oj"

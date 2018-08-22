@@ -25,6 +25,7 @@ class ArmToken(Token):
     shift_imm = bit_range(7, 12)
     imm24 = bit_range(0, 24)
     imm8 = bit_range(0, 8)
+    imm4h_imm4l = bit_range(8, 12) + bit_range(0, 4)
 
 
 class ArmImmToken(Token):

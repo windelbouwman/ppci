@@ -6,7 +6,7 @@ import ppci.common
 import logging
 from ppci import api
 from ppci.binutils.dbg import Debugger
-from linux64debugdriver import Linux64DebugDriver
+from ppci.binutils.dbg.linux64debugdriver import Linux64DebugDriver
 from dbgui import DebugUi, QtWidgets
 
 

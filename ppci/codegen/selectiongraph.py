@@ -5,6 +5,7 @@ of a function or a basic block.
 """
 
 from collections import namedtuple
+from ..utils.collections import OrderedSet
 
 
 SGEdge = namedtuple('SGEdge', ['src', 'dst', 'name', 'kind'])
@@ -16,8 +17,8 @@ class SelectionGraph:
     # TODO: can this derive from graph class?
     def __init__(self):
         self.roots = []
-        self.nodes = set()
-        self.groups = set()
+        self.nodes = OrderedSet()
+        self.groups = OrderedSet()
 
     def get_node(self, value):
         return value.src()
@@ -31,7 +32,7 @@ class SelectionGraph:
     def get_group(self, group):
         """ Get all nodes of a group """
         assert group in self.groups
-        return set(node for node in self.nodes if node.group == group)
+        return OrderedSet(node for node in self.nodes if node.group == group)
 
     @property
     def edges(self):

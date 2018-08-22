@@ -6,7 +6,7 @@
             source="../boot.asm"
             arch="msp430"
             output="boot.oj" />
-        <compile
+        <c3compile
             arch="msp430"
             sources="../../src/hello/hello.c3;../../../librt/io.c3;../bsp.c3"
             output="rest.oj"

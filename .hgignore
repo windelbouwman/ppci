@@ -22,10 +22,12 @@ docs/examples.zip
 examples/linux64/hello/hello
 examples/linux64/snake/snake
 examples/toydsl/dslenv
+.pytest_cache/
 test/.coverage
 test/listings
 test/FORTRAN
 .tox
+.mypy_cache
 *report.html
 .cache
 .coverage
@@ -35,7 +37,12 @@ ppci.egg-info
 build
 examples/riscvpulpino/jtagserver/.deps
 obj_dir
+obj_dir_dbg
+Vsystem
+Vsystemdbg
 .spyderproject
 .idea
 junit.xml
 coverage.xml
+ppci/wasm/libwabt_*.js
+test/wasm/spec_suite_*/

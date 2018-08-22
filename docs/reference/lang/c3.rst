@@ -1,0 +1,193 @@
+
+C3 language
+===========
+
+Introduction
+------------
+
+As an example language, the c3 language was created. As pointed out clearly
+in c2lang_, the C language is widely used, but has some strange contraptions.
+These include the following:
+
+- The include system. This results in lots of code duplication and file
+  creation. Why would you need filenames in source code?
+- The comma statement: x = a(), 2; assigns 2 to x, after calling function a.
+- C is difficult to parse with a simple parser. The parser has to know what
+  a symbol is when it is parsed. This is also referred to as the
+  `lexer hack <https://en.wikipedia.org/wiki/The_lexer_hack>`_.
+
+In part for these reasons (and of course, for fun), C3 was created.
+
+The hello world example in c3 is:
+
+.. code::
+
+    module hello;
+    import io;
+
+    function void main()
+    {
+        io.println("Hello world");
+    }
+
+Language reference
+------------------
+
+Modules
+~~~~~~~
+
+Modules in C3 live in file, and can be defined in multiple files. Modules can
+import each other by using the import statement.
+
+For example:
+
+`pkg1.c3`:
+
+.. code::
+
+    module pkg1;
+    import pkg2;
+
+
+`pkg2.c3`:
+
+.. code::
+
+    module pkg2;
+    import pkg1;
+
+
+Functions
+~~~~~~~~~
+
+Function can be defined by using the function keyword, followed by a type
+and the function name.
+
+.. code::
+
+    module example;
+
+    function void compute()
+    {
+    }
+
+    function void main()
+    {
+        main();
+    }
+
+Variables
+~~~~~~~~~
+
+Variables require the var keyword, and can be either global are function local.
+
+.. code::
+
+    module example;
+
+    var int global_var;
+
+    function void compute()
+    {
+        var int x = global_var + 13;
+        global_var = 200 - x;
+    }
+
+
+Types
+~~~~~
+
+Types can be specified when a variable is declared, and also typedeffed.
+
+.. code::
+
+    module example;
+    var int number;
+    var int* ptr_num;
+    type int* ptr_num_t;
+    var ptr_num_t number2;
+
+
+If statement
+~~~~~~~~~~~~
+
+The following code example demonstrates the if statement. The else part
+is optional.
+
+.. code::
+
+    module example;
+
+    function void compute(int a)
+    {
+        var int b = 10;
+        if (a > 100)
+        {
+            b += a;
+        }
+
+        if (b > 50)
+        {
+            b += 1000;
+        }
+        else
+        {
+            b = 2;
+        }
+    }
+
+While statement
+~~~~~~~~~~~~~~~
+
+The while statement can be used as follows:
+
+.. code::
+
+    module example;
+
+    function void compute(int a)
+    {
+        var int b = 10;
+        while (b > a)
+        {
+            b -= 1;
+        }
+    }
+
+For statement
+~~~~~~~~~~~~~
+
+The for statement works like in C. The first item
+is initialized before the loop. The second is the condition
+for the loop. The third part is executed when one run of the
+loop is done.
+
+.. code::
+
+    module example;
+
+    function void compute(int a)
+    {
+        var int b = 0;
+        for (b = 100; b > a; b -= 1)
+        {
+            // Do something here!
+        }
+    }
+
+
+.. _c2lang: http://c2lang.org/
+
+Other
+-----
+
+C3 does not contain a preprocessor. For these kind of things it might be
+better to use a templating engine such as `ninja2 <http://jinja.pocoo.org/>`_.
+
+Module reference
+----------------
+
+
+.. automodule:: ppci.lang.c3
+    :members:
+

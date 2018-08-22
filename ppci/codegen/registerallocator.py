@@ -120,15 +120,8 @@ from .interferencegraph import InterferenceGraph
 from ..arch.arch import Architecture, Frame
 from ..arch.registers import Register
 from ..utils.tree import Tree
+from ..utils.collections import OrderedSet, OrderedDict
 from .instructionselector import ContextInterface
-
-
-# Nifty first function:
-def first(x):
-    """ Take the first element of a collection after sorting the things """
-    x = list(x)
-    # x.sort()
-    return next(iter(x))
 
 
 class MiniCtx(ContextInterface):
@@ -185,6 +178,17 @@ class MiniGen:
         return offset_tree
 
 
+def dfs_alias(r):
+    """ Do a depth first search on the aliases member.
+
+    This can be used to find aliases of aliases.
+    """
+    for r2 in r.aliases:
+        for r3 in dfs_alias(r2):
+            yield r3
+        yield r2
+
+
 # TODO: implement linear scan allocator and other allocators!
 
 class GraphColoringRegisterAllocator:
@@ -205,17 +209,17 @@ class GraphColoringRegisterAllocator:
         # TODO: Improve different register classes
         self.K = {}  # type: Dict[Register, int]
         self.cls_regs = {}  # Mapping from class to register set
-        self.alias = defaultdict(set)
+        self.alias = defaultdict(OrderedSet)
         for reg_class in self.arch.info.register_classes:
             kls, regs = reg_class.typ, reg_class.registers
             if self.verbose:
                 self.logger.debug('Register class "%s" contains %s', kls, regs)
 
             self.K[kls] = len(regs)
-            self.cls_regs[kls] = set(regs)
+            self.cls_regs[kls] = OrderedSet(regs)
             for r in regs:
                 self.alias[r].add(r)  # The trivial alias: itself!
-                for r2 in r.aliases:
+                for r2 in dfs_alias(r):
                     self.alias[r].add(r2)
                     self.alias[r2].add(r)
 
@@ -252,6 +256,21 @@ class GraphColoringRegisterAllocator:
         self.remove_redundant_moves()
         self.apply_colors()
 
+    def link_move(self, move):
+        """ Associate move with its source and destination """
+        src = self.node(move.used_registers[0])
+        dst = self.node(move.defined_registers[0])
+        src.moves.add(move)
+        dst.moves.add(move)
+
+    def unlink_move(self, move):
+        src = self.node(move.used_registers[0])
+        dst = self.node(move.defined_registers[0])
+        if move in src.moves:
+            src.moves.remove(move)
+        if move in dst.moves:
+            dst.moves.remove(move)
+
     def init_data(self, frame):
         """ Initialize data structures """
         self.frame = frame
@@ -270,29 +289,26 @@ class GraphColoringRegisterAllocator:
 
         self.moves = [i for i in self.frame.instructions if i.ismove]
         for mv in self.moves:
-            src = self.node(mv.used_registers[0])
-            dst = self.node(mv.defined_registers[0])
-            src.moves.add(mv)
-            dst.moves.add(mv)
+            self.link_move(mv)
 
         self.select_stack = []
 
         # Move related sets:
-        self.coalescedMoves = set()
-        self.constrainedMoves = set()
-        self.frozenMoves = set()
-        self.activeMoves = set()
-        self.worklistMoves = set()
+        self.coalescedMoves = OrderedSet()
+        self.constrainedMoves = OrderedSet()
+        self.frozenMoves = OrderedSet()
+        self.activeMoves = OrderedSet()
+        self.worklistMoves = OrderedSet()
 
         # Fill initial move set, try to remove all moves:
         for m in self.moves:
             self.worklistMoves.add(m)
 
         # Make worklists for nodes:
-        self.spill_worklist = []
-        self.freeze_worklist = []
-        self.simplify_worklist = []
-        self.precolored = set()
+        self.spill_worklist = OrderedSet()
+        self.freeze_worklist = OrderedSet()
+        self.simplify_worklist = OrderedSet()
+        self.precolored = OrderedSet()
 
         # Divide nodes into categories:
         for node in self.frame.ig.nodes:
@@ -302,11 +318,12 @@ class GraphColoringRegisterAllocator:
 
                 self.precolored.add(node)
             elif not self.is_colorable(node):
-                self.spill_worklist.append(node)
+                self.spill_worklist.add(node)
             elif self.is_move_related(node):
-                self.freeze_worklist.append(node)
+                self.freeze_worklist.add(node)
             else:
-                self.simplify_worklist.append(node)
+                self.simplify_worklist.add(node)
+        self.logger.debug('%s node in spill list, %s in freeze list and %s in simplify list', len(self.spill_worklist), len(self.freeze_worklist), len(self.simplify_worklist))
 
     def node(self, vreg):
         return self.frame.ig.get_node(vreg)
@@ -369,7 +386,7 @@ class GraphColoringRegisterAllocator:
         return num_blocked < self.K[B]
 
     def NodeMoves(self, n):
-        return n.moves & (self.activeMoves | self.worklistMoves)
+        return n.moves
 
     def is_move_related(self, n):
         """ Check if a node is used by move instructions """
@@ -398,9 +415,9 @@ class GraphColoringRegisterAllocator:
             self.enable_moves({m} | m.adjecent)
             self.spill_worklist.remove(m)
             if self.is_move_related(m):
-                self.freeze_worklist.append(m)
+                self.freeze_worklist.add(m)
             else:
-                self.simplify_worklist.append(m)
+                self.simplify_worklist.add(m)
 
     def enable_moves(self, nodes):
         for node in nodes:
@@ -427,6 +444,7 @@ class GraphColoringRegisterAllocator:
         if u is v:
             # u is v, so we do 'mov x, x', which is redundant
             self.coalescedMoves.add(m)
+            self.unlink_move(m)
             self.add_worklist(u)
             if self.verbose:
                 self.logger.debug('Move was an identity move')
@@ -435,6 +453,7 @@ class GraphColoringRegisterAllocator:
             # or there is an interfering edge
             # between the two nodes:
             self.constrainedMoves.add(m)
+            self.unlink_move(m)
             self.add_worklist(u)
             self.add_worklist(v)
             if self.verbose:
@@ -445,6 +464,7 @@ class GraphColoringRegisterAllocator:
             # Check if v can be given the class of u, in other words:
             # is u a subclass of v?
             self.coalescedMoves.add(m)
+            self.unlink_move(m)
             self.combine(u, v)
             self.add_worklist(u)
         else:
@@ -455,7 +475,7 @@ class GraphColoringRegisterAllocator:
         if (u not in self.precolored) and (not self.is_move_related(u))\
                 and self.is_colorable(u):
             self.freeze_worklist.remove(u)
-            self.simplify_worklist.append(u)
+            self.simplify_worklist.add(u)
 
     def ok(self, t, r):
         """ Implement coalescing testing with pre-colored register """
@@ -504,7 +524,7 @@ class GraphColoringRegisterAllocator:
         # Move node to spill worklist if higher degree is reached:
         if (not self.is_colorable(u)) and u in self.freeze_worklist:
             self.freeze_worklist.remove(u)
-            self.spill_worklist.append(u)
+            self.spill_worklist.add(u)
 
     @lru_cache(maxsize=None)
     def common_reg_class(self, u, v):
@@ -531,14 +551,15 @@ class GraphColoringRegisterAllocator:
         if self.verbose:
             self.logger.debug('freezing %s', u)
 
-        self.simplify_worklist.append(u)
+        self.simplify_worklist.add(u)
 
         # Freeze moves for node u
-        for m in self.NodeMoves(u):
+        for m in list(self.NodeMoves(u)):
             if m in self.activeMoves:
                 self.activeMoves.remove(m)
             else:
                 self.worklistMoves.remove(m)
+            self.unlink_move(m)
             self.frozenMoves.add(m)
             # Check other part of the move for still being move related:
             src = self.node(m.used_registers[0])
@@ -548,7 +569,7 @@ class GraphColoringRegisterAllocator:
                     and self.is_colorable(v):
                 assert v in self.freeze_worklist
                 self.freeze_worklist.remove(v)
-                self.simplify_worklist.append(v)
+                self.simplify_worklist.add(v)
 
     def spill(self):
         """ Do spilling """
@@ -583,7 +604,7 @@ class GraphColoringRegisterAllocator:
         self.logger.debug('Allocating stack slot %s', slot)
         # TODO: maybe break-up coalesced node before doing this?
         for tmp in node.temps:
-            instructions = set(
+            instructions = OrderedSet(
                 self.frame.ig.uses(tmp) + self.frame.ig.defs(tmp))
             for instruction in instructions:
                 vreg2 = self.frame.new_reg(type(tmp))
@@ -607,7 +628,7 @@ class GraphColoringRegisterAllocator:
                     takenregs.add(r)
             ok_regs = self.cls_regs[node.reg_class] - takenregs
             assert ok_regs
-            reg = first(ok_regs)
+            reg = ok_regs[0]
 
             if self.verbose:
                 self.logger.debug('Assign %s to node %s', reg, node)

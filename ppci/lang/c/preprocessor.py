@@ -787,7 +787,13 @@ class Expander:
             if self.enabled:
                 self.warning(message)
             yield new_line_token
-        else:
+        elif directive == 'pragma':
+            # Pragma's must be handled, or ignored.
+            message = self.tokens_to_string(self.eat_line())
+            if self.enabled:
+                self.logger.warning('Ignoring pragma: %s', message)
+            yield new_line_token
+        else:  # pragma: no cover
             self.logger.error('todo: %s', directive)
             self.error('not implemented', directive_token)
             raise NotImplementedError(directive)
@@ -813,7 +819,8 @@ class Expander:
 
     def eval_expr(self):
         """ Evaluate an expression """
-        return self.parse_expression()
+        ast_tree = self.parse_expression()
+        return self._eval_tree(ast_tree)
 
     OP_MAP = {
         '*': (11, False, operator.mul),
@@ -849,13 +856,13 @@ class Expander:
             return
 
         if token.typ == '!':
-            lhs = int(not(bool(self.parse_expression(11))))
+            lhs = Unop('!', self.parse_expression(11))
         elif token.typ == '-':
-            lhs = -self.parse_expression(11)
+            lhs = Unop('-', self.parse_expression(11))
         elif token.typ == '+':
-            lhs = -self.parse_expression(11)
+            lhs = self.parse_expression(11)
         elif token.typ == '~':
-            lhs = ~self.parse_expression(11)
+            lhs = Unop('~', self.parse_expression(11))
         elif token.typ == '(':
             self.paren_level += 1
             lhs = self.parse_expression()
@@ -877,12 +884,15 @@ class Expander:
                 if self.verbose:
                     self.logger.warning('Attention: undefined "%s"', name)
                 lhs = 0
+            lhs = Const(lhs)
         elif token.typ == 'NUMBER':
             lhs, _ = cnum(token.val)
             # TODO: check type specifier?
+            lhs = Const(lhs)
         elif token.typ == 'CHAR':
             lhs, _ = charval(replace_escape_codes(token.val))
             # TODO: check type specifier?
+            lhs = Const(lhs)
         else:
             raise NotImplementedError(token.val)
 
@@ -925,15 +935,82 @@ class Expander:
             if op in self.OP_MAP:
                 func = self.OP_MAP[op][2]
                 if func:
-                    lhs = func(lhs, rhs)
+                    lhs = Binop(lhs, op, rhs)
                 elif op == '?':
-                    lhs = middle if lhs != 0 else rhs
+                    lhs = Ternop(lhs, middle, rhs)
+                    # middle if lhs != 0 else rhs
                 else:  # pragma: no cover
                     raise NotImplementedError(op)
             else:  # pragma: no cover
                 raise NotImplementedError(op)
 
         return lhs
+
+    def _eval_tree(self, expr):
+        """ Evaluate a parsed tree """
+        if isinstance(expr, Const):
+            return expr.value
+        elif isinstance(expr, Unop):
+            a = self._eval_tree(expr.a)
+            if expr.op == '!':
+                return int(not bool(a))
+            elif expr.op == '-':
+                return -a
+            elif expr.op == '~':
+                return ~a
+            else:  # pragma: no cover
+                raise NotImplementedError(expr.op)
+        elif isinstance(expr, Binop):
+            if expr.op == '||':
+                # Short circuit logic:
+                a = self._eval_tree(expr.a)
+                if a:
+                    return True
+                else:
+                    return self._eval_tree(expr.b)
+            elif expr.op == '&&':
+                # Short circuit logic:
+                a = self._eval_tree(expr.a)
+                if a:
+                    return self._eval_tree(expr.b)
+                else:
+                    return False
+            else:
+                func = self.OP_MAP[expr.op][2]
+                return func(self._eval_tree(expr.a), self._eval_tree(expr.b))
+        elif isinstance(expr, Ternop):
+            a = self._eval_tree(expr.a)
+            if a:
+                return self._eval_tree(expr.b)
+            else:
+                return self._eval_tree(expr.c)
+        else:  # pragma: no cover
+            raise NotImplementedError(str(expr))
+
+
+class Const:
+    def __init__(self, value):
+        self.value = value
+
+
+class Unop:
+    def __init__(self, op, a):
+        self.op = op
+        self.a = a
+
+
+class Binop:
+    def __init__(self, a, op, b):
+        self.a = a
+        self.op = op
+        self.b = b
+
+
+class Ternop:
+    def __init__(self, a, b, c):
+        self.a = a
+        self.b = b
+        self.c = c
 
 
 class BaseMacro:

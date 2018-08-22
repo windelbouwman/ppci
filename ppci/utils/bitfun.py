@@ -14,6 +14,88 @@ def rotate_left(v, n):
     return rotate_right(v, 32 - n)
 
 
+def rotl(v, count, bits):
+    """ Rotate v left count bits """
+    mask = (1 << bits) - 1
+    count = count % bits
+    return (((v << count) & mask) | (v >> (bits - count)))
+
+
+def rotr(v, count, bits):
+    """ Rotate v right count bits """
+    mask = (1 << bits) - 1
+    count = count % bits
+    return ((v >> count) | ((v << (bits - count)) & mask))
+
+
+def to_signed(value, bits):
+    return correct(value, bits, True)
+
+
+def to_unsigned(value, bits):
+    return correct(value, bits, False)
+
+
+def correct(value, bits, signed):
+    base = 1 << bits
+    value %= base
+    if signed and value.bit_length() == bits:
+        return value - base
+    else:
+        return value
+
+
+def clz(v: int, bits: int) -> int:
+    """ count leading zeroes """
+    mask = 1 << (bits - 1)
+    count = 0
+    while (count < bits) and (v & mask) == 0:
+        count += 1
+        v = v * 2
+    return count
+
+
+def ctz(v: int, bits: int) -> int:
+    """ count trailing zeroes """
+    count = 0
+    while count < bits and (v % 2) == 0:
+        count += 1
+        v //= 2
+    return count
+
+
+def popcnt(v: int, bits: int) -> int:
+    """ count number of one bits """
+    count = 0
+    for i in range(bits):
+        if v & (1 << i):
+            count += 1
+    return count
+
+
+def value_to_bits(v, bits):
+    """ Convert a value to a list of booleans """
+    b = []
+    for i in range(bits):
+        b.append(bool((1 << i) & v))
+    return b
+
+
+def bits_to_bytes(bits):
+    """ Convert a sequence of booleans into bytes """
+    while len(bits) % 8 != 0:
+        bits.append(False)
+
+    m = bytearray()
+    for i in range(0, len(bits), 8):
+        v = 0
+        for j in range(8):
+            if bits[i+j]:
+                v = v | (1 << j)
+        m.append(v)
+    return bytes(m)
+
+
 def encode_imm32(v):
     """ Bundle 32 bit value into 4 bits rotation and 8 bits value """
     for i in range(0, 16):

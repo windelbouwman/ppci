@@ -1,6 +1,11 @@
 
 # wasm demos
 
+## Manual
+
+Illustrate a few ways by which WASM code can be written using ``ppci.wasm``.
+
+
 ## Primes demo
 
 A search for prime numbers implemented in python. Run:

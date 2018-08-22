@@ -42,6 +42,9 @@ def unsigned_leb128_encode(value: int) -> bytes:
         >>> unsigned_leb128_encode(42)
         b'*'
     """
+    if not isinstance(value, int):
+        raise TypeError('Expected int but got {}'.format(type(value)))
+
     if value < 0:
         raise ValueError('Cannot encode negative number as unsigned leb128')
 

@@ -28,6 +28,7 @@ class CodeGenerator:
         self.context = None
         self.debug_db = debuginfo.DebugDb()
         self.module_ok = False
+        self.funcion_map = {}
 
     def gencode(self, unit: nodes.Program, context):
         """ Generate code for a single unit """
@@ -36,8 +37,10 @@ class CodeGenerator:
         self.context = context
         self.builder.prepare()
         self.module_ok = True
+        self.funcion_map = {}
         self.logger.info('Generating ir-code for %s', unit.name)
         self.builder.module = ir.Module(unit.name, debug_db=self.debug_db)
+        self._define_builtins()
 
         # Generate global variables:
         self.gen_globals(unit)
@@ -67,6 +70,16 @@ class CodeGenerator:
         self.builder.set_function(None)
 
         return self.builder.module
+
+    def _define_builtins(self):
+        io_print = ir.ExternalProcedure('io_print', [ir.ptr])
+        self.builder.module.add_external(io_print)
+        self.funcion_map['io_print'] = io_print
+
+        io_print_int = ir.ExternalProcedure(
+            'io_print_int', [self.get_ir_int()])
+        self.builder.module.add_external(io_print_int)
+        self.funcion_map['io_print_int'] = io_print_int
 
     def gen_global_ival(self, ival, typ):
         """ Create memory image for initial value """
@@ -482,12 +495,12 @@ class CodeGenerator:
             val = self.gen_expr_code(argument, rvalue=True)
 
             if self.context.equal_types('string', argument.typ):
-                self.emit(ir.ProcedureCall('io_print', [val]))
+                self.emit(ir.ProcedureCall(self.funcion_map['io_print'], [val]))
             elif isinstance(
                     self.context.get_type(argument.typ), nodes.IntegerType):
                 val = self.do_coerce(
                     argument, self.context.get_type('integer'), val)
-                self.emit(ir.ProcedureCall('io_print_int', [val]))
+                self.emit(ir.ProcedureCall(self.funcion_map['io_print_int'], [val]))
             else:
                 raise NotImplementedError(str(argument.typ))
         # self.emit(ir.ProcedureCall('bsp_putc', [val]))
@@ -841,6 +854,7 @@ class CodeGenerator:
         assert isinstance(target_func, nodes.Function)
         ftyp = target_func.typ
         fname = target_func.package.name + '_' + target_func.name
+        fname = self.funcion_map[fname]
 
         # Check arguments:
         ptypes = ftyp.parametertypes

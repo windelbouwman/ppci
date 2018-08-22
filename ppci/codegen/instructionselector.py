@@ -84,7 +84,7 @@ ops = [
 
 terminals = tuple(x + y for x in ops for y in data_types) + (
              "CALL", "LABEL",
-             'MOVB', 'BLOB',
+             'MOVB',  # Attempts at blob data copies
              "JMP",
              "EXIT", "ENTRY",
              'ALLOCA', 'FREEA')
@@ -206,6 +206,8 @@ class InstructionSelector1:
 
         This one does selection and scheduling combined.
     """
+    verbose = False
+
     def __init__(self, arch, sgraph_builder, weights=(1, 1, 1)):
         """ Create a new instruction selector.
 
@@ -222,15 +224,6 @@ class InstructionSelector1:
 
         # Generate burm table of rules:
         self.sys = BurgSystem()
-
-        # Allow register results as root rule:
-        # by adding a chain rule 'stm -> reg'
-        # TODO: chain rules or register classes as root?
-        self.sys.add_rule('stm', Tree('reg'), 0, None, lambda ct, tr, rg: None)
-        self.sys.add_rule(
-            'stm', Tree('reg64'), 0, None, lambda ct, tr, rg: None)
-        self.sys.add_rule(
-            'stm', Tree('reg16'), 0, None, lambda ct, tr, rg: None)
 
         for terminal in terminals:
             self.sys.add_terminal(terminal)
@@ -273,7 +266,11 @@ class InstructionSelector1:
         # Create selection dag (directed acyclic graph):
         sgraph = self.dag_builder.build(
             ir_function, function_info, frame.debug_db)
-        reporter.dump_sgraph(sgraph)
+
+        if self.verbose:
+            # Graph drawing takes considerable time
+            # only do this in verbose mode.
+            reporter.dump_sgraph(sgraph)
 
         # Split the selection graph into a forest of trees:
         forest = self.dag_splitter.split_into_trees(
@@ -295,6 +292,7 @@ class InstructionSelector1:
             rv = (ir_function.return_ty, function_info.rv_vreg)
         else:
             rv = None
+
         for instruction in self.arch.gen_function_exit(rv):
             context.emit(instruction)
 

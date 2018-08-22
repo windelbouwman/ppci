@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Wasm faculity</title>
+<meta charset="utf-8">
+</head>
+<body>
+
+<script>
+/* Define functions to provide to the WASM module. */
+function print_ln(x) {
+    var el = document.getElementById('wasm_output');
+    el.innerHTML += String(x).replace('\n', '<br>') + '<br>';
+    console.log(x);
+}
+
+/* Pack importable funcs into a dict */
+var providedfuncs = {
+    print_ln: print_ln,
+};
+
+async function compile_my_wasm() {
+    const wasm = await fetch('./fact.wasm');
+    const wasm_data = await wasm.arrayBuffer();
+    print_ln('Compiling wasm module');
+    var module_ = new WebAssembly.Module(wasm_data);
+    print_ln('Initializing wasm module');
+    var module = new WebAssembly.Instance(module_, {js: providedfuncs});
+    print_ln('Calling main_fac(5)');
+    print_ln('Result: ' + module.exports.main_fac(5));
+    print_ln('\n');  // flush
+}
+
+window.onload = compile_my_wasm;
+</script>
+
+<div style='display:flex;'>
+
+<div style='flex: 1;'>
+<h2> Code </h2>
+<pre>
+(module
+  (func $fac (param i32) (result i32)
+    get_local 0
+    i32.const 1
+    i32.lt_s
+    if (result i32)
+      i32.const 1
+    else
+      get_local 0
+      get_local 0
+      i32.const 1
+      i32.sub
+      call $fac
+      i32.mul
+    end)
+  (export "main_fac" (func $fac)))
+</pre>
+</div>
+
+<div style='flex: 1;'>
+<h2> Output </h2>
+<div id='wasm_output' ></div>
+</div>
+
+</div>
+
+</body>
+</html>

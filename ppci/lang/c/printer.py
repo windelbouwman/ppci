@@ -1,14 +1,38 @@
-from . import types, declarations, expressions, statements
+""" Ast to sourcecode printer.
+
+"""
+
+from contextlib import contextmanager
+from .nodes import types, declarations, expressions, statements
+
+
+def render_ast(ast):
+    """ Render a C program as text
+
+    For example:
+
+    >>> from ppci.lang.c import parse_text, print_ast, render_ast
+    >>> ast = parse_text('int a;')
+    >>> print_ast(ast)
+    Compilation unit with 1 declarations
+        Variable [storage=None typ=Basic type int name=a]
+            Basic type int
+    >>> render_ast(ast)
+    int a;
+    """
+    CPrinter().print(ast)
 
 
 class CPrinter:
-    """ Render a C program as text """
-    def __init__(self):
-        self.indent = 0
+    """ Render a C program as text
 
-    def print(self, cu):
+    """
+    def __init__(self):
+        self._indent = 0
+
+    def print(self, compile_unit):
         """ Render compilation unit as C """
-        for declaration in cu.declarations:
+        for declaration in compile_unit.declarations:
             self.gen_declaration(declaration)
 
     def gen_declaration(self, declaration):
@@ -36,16 +60,28 @@ class CPrinter:
         else:  # pragma: no cover
             raise NotImplementedError(str(declaration))
 
-    def render_type(self, typ, name=''):
+    def render_type(self, typ, name=None):
         """ Generate a proper C-string for the given type """
         if name is None:
             name = ''
         if isinstance(typ, types.BasicType):
-            return '{} {}'.format(typ.type_id, name)
+            if name:
+                return '{} {}'.format(typ.type_id, name)
+            else:
+                return str(typ.type_id)
         elif isinstance(typ, types.PointerType):
             return self.render_type(typ.element_type, '* {}'.format(name))
         elif isinstance(typ, types.ArrayType):
-            return self.render_type(typ.element_type, '{}[]'.format(name))
+            if isinstance(typ.size, expressions.CExpression):
+                size = self.gen_expr(typ.size)
+            else:
+                size = ''
+            return self.render_type(
+                typ.element_type, '{}[{}]'.format(name, size))
+        elif isinstance(typ, types.UnionType):
+            return str(typ)  # self.render_type()
+        elif isinstance(typ, types.StructType):
+            return str(typ)  # self.render_type()
         elif isinstance(typ, types.FunctionType):
             parameters = ', '.join(
                 self.render_type(p.typ, p.name) for p in typ.arguments)
@@ -57,16 +93,18 @@ class CPrinter:
         #         typ.typ, '{} {}'.format(qualifiers, name))
         elif isinstance(typ, types.EnumType):
             return '{}'.format(typ)
+        elif isinstance(typ, types.BitFieldType):
+            return '{}'.format(typ)
         else:  # pragma: no cover
             raise NotImplementedError(str(typ))
 
     def gen_statement(self, statement):
+        """ Render a single statement as text """
         if isinstance(statement, statements.Compound):
             self._print('{')
-            self.indent += 1
-            for inner_statement in statement.statements:
-                self.gen_statement(inner_statement)
-            self.indent -= 1
+            with self._indented(1):
+                for inner_statement in statement.statements:
+                    self.gen_statement(inner_statement)
             self._print('}')
         elif isinstance(statement, statements.If):
             self._print('if ({})'.format(self.gen_expr(statement.condition)))
@@ -99,14 +137,12 @@ class CPrinter:
             self.gen_statement(statement.statement)
         elif isinstance(statement, statements.Case):
             self._print('case {}:'.format(statement.value))
-            self.indent += 1
-            self.gen_statement(statement.statement)
-            self.indent -= 1
+            with self._indented(1):
+                self.gen_statement(statement.statement)
         elif isinstance(statement, statements.Default):
             self._print('default:')
-            self.indent += 1
-            self.gen_statement(statement.statement)
-            self.indent -= 1
+            with self._indented(1):
+                self.gen_statement(statement.statement)
         elif isinstance(statement, statements.Break):
             self._print('break;')
         elif isinstance(statement, statements.Continue):
@@ -132,19 +168,36 @@ class CPrinter:
             raise NotImplementedError(str(statement))
 
     def gen_expr(self, expr):
-        if isinstance(expr, expressions.Binop):
+        """ Format an expression as text """
+        if expr is None:
+            return ''
+        elif isinstance(expr, expressions.BinaryOperator):
             return '({} {} {})'.format(
                 self.gen_expr(expr.a), expr.op, self.gen_expr(expr.b))
-        elif isinstance(expr, expressions.Unop):
+        elif isinstance(expr, expressions.TernaryOperator):
+            return '({} ? {} : {})'.format(
+                self.gen_expr(expr.a),
+                self.gen_expr(expr.b),
+                self.gen_expr(expr.c))
+        elif isinstance(expr, expressions.UnaryOperator):
             return '({}){}'.format(
                 self.gen_expr(expr.a), expr.op)
         elif isinstance(expr, expressions.VariableAccess):
             return expr.name
+        elif isinstance(expr, expressions.FieldSelect):
+            base = self.gen_expr(expr.base)
+            return '{}.{}'.format(base, expr.field.name)
+        elif isinstance(expr, expressions.ArrayIndex):
+            base = self.gen_expr(expr.base)
+            index = self.gen_expr(expr.index)
+            return '{}[{}]'.format(base, index)
         elif isinstance(expr, expressions.FunctionCall):
             args = ', '.join(map(self.gen_expr, expr.args))
-            return '{}({})'.format(expr.name, args)
+            return '{}({})'.format(self.gen_expr(expr.callee), args)
         elif isinstance(expr, expressions.Literal):
             return str(expr.value)
+        elif isinstance(expr, int):
+            return str(expr)
         elif isinstance(expr, expressions.Sizeof):
             if isinstance(expr.sizeof_typ, types.CType):
                 thing = self.render_type(expr.sizeof_typ)
@@ -157,8 +210,20 @@ class CPrinter:
         elif isinstance(expr, expressions.Cast):
             return '({})({})'.format(
                 self.render_type(expr.to_typ), self.gen_expr(expr.expr))
+        elif isinstance(expr, expressions.BuiltInOffsetOf):
+            return 'offsetof({}, {})'.format(
+                self.render_type(expr.query_typ), expr.member)
         else:  # pragma: no cover
-            raise NotImplementedError(str(expr))
+            raise NotImplementedError(str(type(expr)))
+
+    @contextmanager
+    def _indented(self, amount):
+        """ Context manager which increases and decreases the amount
+        of indentation.
+        """
+        self._indent += amount
+        yield
+        self._indent -= amount
 
     def _print(self, txt=''):
-        print(self.indent * '   ' + txt)
+        print(self._indent * '   ' + txt)

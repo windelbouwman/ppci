@@ -6,7 +6,7 @@ from .. import irutils
 from .base import IntermediateProgram
 
 from ..ir import Module as IrModule
-from ..irs.wasm import ir_to_wasm
+from ..wasm import ir_to_wasm
 from ..api import ir_to_object, get_arch, optimize
 
 from ..lang.python import ir_to_python

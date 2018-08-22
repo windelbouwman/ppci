@@ -98,7 +98,7 @@ class CleanPass(FunctionPass):
     def glue_blocks(self, block1, block2):
         """ Glue two blocks together into the first block """
         self.logger.debug(
-            'Inserting %s at the end of %s', block1.name, block2.name)
+            'Inserting %s at the end of %s', block2.name, block1.name)
 
         # Remove the last jump:
         last_jump = block1.last_instruction

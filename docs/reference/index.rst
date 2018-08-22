@@ -7,18 +7,17 @@ Reference
     api
     programs
     cli
-    c3
-    c
+    lang/index
     buildxml
     ir
-    langtools
+    irutils
+    optimization
+    codegen/index
     debug
-    architecture
     backends/index
-    hexfile
+    format/index
     objectformat
     wasm
-    python2ir
-    relooping
-    utils
+    utils/index
+    graph/index
     links

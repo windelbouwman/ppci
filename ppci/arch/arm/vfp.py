@@ -34,7 +34,7 @@ class Vadd(VfpInstruction):
     patterns = {'opc1': 0b0011, 'opc3': 0b00, 'opc': 2}
 
 
-class Vsub(VfpInstruction):
+class Vsubf64(VfpInstruction):
     d = Operand('d', VfpRegister, write=True)
     m = Operand('m', VfpRegister, read=True)
     n = Operand('n', VfpRegister, read=True)

@@ -13,7 +13,7 @@ from .. import api, irutils
 from ..binutils.outstream import TextOutputStream
 from ..lang.c import create_ast, CAstPrinter
 from ..lang.c.options import COptions, coptions_parser
-from ..irs.wasm import ir_to_wasm
+from ..wasm import ir_to_wasm
 
 
 parser = argparse.ArgumentParser(
@@ -52,7 +52,7 @@ def cc(args=None):
                 # Stop after ast generation:
                 filename = src.name if hasattr(src, 'name') else None
                 ast = create_ast(
-                    src, march, filename=filename, coptions=coptions)
+                    src, march.info, filename=filename, coptions=coptions)
                 printer = CAstPrinter(file=args.output)
                 printer.print(ast)
             else:

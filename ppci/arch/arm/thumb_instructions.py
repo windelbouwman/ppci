@@ -104,6 +104,52 @@ class Ldrb(LS_byte_imm5_base):
     opcode = 0b01111
 
 
+class Strh(ThumbInstruction):
+    """ Strh Rt, [Rn, imm5] """
+    rt = Operand('rt', LowArmRegister, read=True)
+    rn = Operand('rn', LowArmRegister, read=True)
+    imm5 = Operand('imm5', int)
+    syntax = Syntax([
+        'strh', ' ', rt, ',', ' ', '[', rn, ',', ' ', imm5, ']'])
+
+    def encode(self):
+        opcode = 0x10
+        assert self.rn.num < 8
+        assert self.rt.num < 8
+        rn = self.rn.num
+        rt = self.rt.num
+        imm5 = self.imm5 << 1
+        tokens = self.get_tokens()
+        tokens[0][0:3] = rt
+        tokens[0][3:6] = rn
+        tokens[0][6:11] = imm5
+        tokens[0][11:16] = opcode
+        return tokens[0].encode()
+
+
+class Ldrh(ThumbInstruction):
+    """ Ldrh Rt, [Rn, imm5] """
+    rt = Operand('rt', LowArmRegister, write=True)
+    rn = Operand('rn', LowArmRegister, read=True)
+    imm5 = Operand('imm5', int)
+    syntax = Syntax([
+        'ldrh', ' ', rt, ',', ' ', '[', rn, ',', ' ', imm5, ']'])
+
+    def encode(self):
+        opcode = 0x11
+        assert self.rn.num < 8
+        assert self.rt.num < 8
+        rn = self.rn.num
+        rt = self.rt.num
+        imm5 = self.imm5
+        tokens = self.get_tokens()
+        tokens[0][0:3] = rt
+        tokens[0][3:6] = rn
+        tokens[0][6:11] = imm5
+        tokens[0][11:16] = opcode
+        return tokens[0].encode()
+
+
 class ls_sp_base_imm8(ThumbInstruction):
     offset = Operand('offset', int)
 
@@ -333,6 +379,7 @@ Eor = make_regreg('eor', 0b0100000001)
 Cmp = make_regreg('cmp', 0b0100001010)
 Lsl = make_regreg('lsl', 0b0100000010)
 Lsr = make_regreg('lsr', 0b0100000011)
+Asr = make_regreg('lsr', 0b0100000100)
 Rsb = make_regreg('rsb', 0b0100001001)
 
 
@@ -473,10 +520,14 @@ def make_long_cond_branch(mnemonic, cond):
 
 Beqw = make_long_cond_branch('beqw', 0)
 Bnew = make_long_cond_branch('bnew', 1)
-Bltw = make_long_cond_branch('bltw', 0b1011)
-Blew = make_long_cond_branch('blew', 0b1101)
-Bgtw = make_long_cond_branch('bgtw', 0b1100)
-Bgew = make_long_cond_branch('bgew', 0b1010)
+Bhsw = make_long_cond_branch('bhsw', 0b0010)  # unsigned higher or same
+Blow = make_long_cond_branch('blow', 0b0011)  # unsigned lower
+Bhiw = make_long_cond_branch('bhiw', 0b1000)  # unsigned higher
+Blsw = make_long_cond_branch('blsw', 0b1001)  # unsigned lower or same
+Bltw = make_long_cond_branch('bltw', 0b1011)  # signed less than
+Blew = make_long_cond_branch('blew', 0b1101)  # signed less than or equal
+Bgtw = make_long_cond_branch('bgtw', 0b1100)  # signed greater than
+Bgew = make_long_cond_branch('bgew', 0b1010)  # signed greater than or equal
 
 
 def push_bit_pos(n):
@@ -598,8 +649,10 @@ def pattern_jmp(context, tree):
 
 @thumb_isa.pattern('reg', 'REGI32', size=0)
 @thumb_isa.pattern('reg', 'REGU32', size=0)
-@thumb_isa.pattern('reg', 'REGU8', size=0)
+@thumb_isa.pattern('reg', 'REGI16', size=0)
+@thumb_isa.pattern('reg', 'REGU16', size=0)
 @thumb_isa.pattern('reg', 'REGI8', size=0)
+@thumb_isa.pattern('reg', 'REGU8', size=0)
 def pattern_reg32(context, tree):
     return tree.value
 
@@ -607,12 +660,33 @@ def pattern_reg32(context, tree):
 @thumb_isa.pattern('reg', 'I32TOU32(reg)', size=0)
 @thumb_isa.pattern('reg', 'U32TOI32(reg)', size=0)
 @thumb_isa.pattern('reg', 'I32TOI32(reg)', size=0)
+@thumb_isa.pattern('reg', 'U32TOU32(reg)', size=0)
 def pattern_i32toi32(context, tree, c0):
+    return c0
+
+
+@thumb_isa.pattern('reg', 'I16TOI32(reg)', size=0)
+@thumb_isa.pattern('reg', 'U16TOI32(reg)', size=0)
+@thumb_isa.pattern('reg', 'I16TOU32(reg)', size=0)
+@thumb_isa.pattern('reg', 'U16TOU32(reg)', size=0)
+def pattern_i16_to_i32(context, tree, c0):
+    # TODO: do something?
+    return c0
+
+
+@thumb_isa.pattern('reg', 'I32TOI16(reg)', size=0)
+@thumb_isa.pattern('reg', 'I32TOU16(reg)', size=0)
+@thumb_isa.pattern('reg', 'U32TOI16(reg)', size=0)
+@thumb_isa.pattern('reg', 'U32TOU16(reg)', size=0)
+def pattern_i32toi16(context, tree, c0):
+    # TODO: do something?
     return c0
 
 
 @thumb_isa.pattern('reg', 'I8TOI32(reg)', size=0)
 @thumb_isa.pattern('reg', 'U8TOI32(reg)', size=0)
+@thumb_isa.pattern('reg', 'I8TOU32(reg)', size=0)
+@thumb_isa.pattern('reg', 'U8TOU32(reg)', size=0)
 def pattern_i8toi32(context, tree, c0):
     # TODO: do something?
     return c0
@@ -620,6 +694,8 @@ def pattern_i8toi32(context, tree, c0):
 
 @thumb_isa.pattern('reg', 'I32TOI8(reg)', size=0)
 @thumb_isa.pattern('reg', 'I32TOU8(reg)', size=0)
+@thumb_isa.pattern('reg', 'U32TOI8(reg)', size=0)
+@thumb_isa.pattern('reg', 'U32TOU8(reg)', size=0)
 def pattern_i32toi8(context, tree, c0):
     # TODO: do something?
     return c0
@@ -683,6 +759,8 @@ def pattern_fprel32(context, tree):
 
 @thumb_isa.pattern('reg', 'CONSTI32', size=6, cycles=4, energy=4)
 @thumb_isa.pattern('reg', 'CONSTU32', size=6, cycles=4, energy=4)
+@thumb_isa.pattern('reg', 'CONSTI16', size=6, cycles=4, energy=4)
+@thumb_isa.pattern('reg', 'CONSTU16', size=6, cycles=4, energy=4)
 def pattern_const32(context, tree):
     d = context.new_reg(LowArmRegister)
     ln = context.frame.add_constant(tree.value)
@@ -725,27 +803,45 @@ def pattern_const8_imm(context, tree):
     return d
 
 
-@thumb_isa.pattern('reg', 'MOVU32(reg)', size=2)
-@thumb_isa.pattern('reg', 'MOVI32(reg)', size=2)
+@thumb_isa.pattern('stm', 'MOVU32(reg)', size=2)
+@thumb_isa.pattern('stm', 'MOVI32(reg)', size=2)
 def pattern_mov32(context, tree, c0):
     reg = tree.value
     context.move(reg, c0)
-    return reg
 
 
-@thumb_isa.pattern('reg', 'MOVI8(reg)', size=2)
-@thumb_isa.pattern('reg', 'MOVU8(reg)', size=2)
+@thumb_isa.pattern('stm', 'MOVI16(reg)', size=2)
+@thumb_isa.pattern('stm', 'MOVU16(reg)', size=2)
+@thumb_isa.pattern('stm', 'MOVI8(reg)', size=2)
+@thumb_isa.pattern('stm', 'MOVU8(reg)', size=2)
 def pattern_mov8(context, tree, c0):
     reg = tree.value
     context.move(reg, c0)
-    return reg
 
 
 @thumb_isa.pattern('stm', 'CJMPI32(reg,reg)', size=6)
+@thumb_isa.pattern('stm', 'CJMPI16(reg,reg)', size=6)
 @thumb_isa.pattern('stm', 'CJMPI8(reg,reg)', size=6)
-def pattern_cjmp(context, tree, c0, c1):
+def pattern_cjmp_signed(context, tree, c0, c1):
     op, yes_label, no_label = tree.value
     opnames = {"<": Bltw, ">": Bgtw, "==": Beqw, "!=": Bnew, ">=": Bgew}
+    Bop = opnames[op]
+    jmp_ins = Bw(no_label.name, jumps=[no_label])
+    context.emit(Cmp(c0, c1))
+    context.emit(Bop(yes_label.name, jumps=[yes_label, jmp_ins]))
+    context.emit(jmp_ins)
+
+
+@thumb_isa.pattern('stm', 'CJMPU32(reg,reg)', size=6)
+@thumb_isa.pattern('stm', 'CJMPU16(reg,reg)', size=6)
+@thumb_isa.pattern('stm', 'CJMPU8(reg,reg)', size=6)
+def pattern_cjmp_unsigned(context, tree, c0, c1):
+    op, yes_label, no_label = tree.value
+    opnames = {
+        "<": Blow, ">": Bhiw,
+        "==": Beqw, "!=": Bnew,
+        "<=": Blsw, ">=": Bhsw
+    }
     Bop = opnames[op]
     jmp_ins = Bw(no_label.name, jumps=[no_label])
     context.emit(Cmp(c0, c1))
@@ -765,6 +861,13 @@ def pattern_str8(context, tree, c0, c1):
     context.emit(Strb(c1, rg, offset))
 
 
+@thumb_isa.pattern('stm', 'STRI16(mem,reg)', size=2)
+@thumb_isa.pattern('stm', 'STRU16(mem,reg)', size=2)
+def pattern_str16(context, tree, c0, c1):
+    rg, offset = c0
+    context.emit(Strh(c1, rg, offset))
+
+
 @thumb_isa.pattern('stm', 'STRI32(mem, reg)', size=2)
 @thumb_isa.pattern('stm', 'STRU32(mem, reg)', size=2)
 def pattern_str32(context, tree, c0, c1):
@@ -778,6 +881,15 @@ def pattern_ldr8(context, tree, c0):
     rg, offset = c0
     d = context.new_reg(LowArmRegister)
     context.emit(Ldrb(d, rg, offset))
+    return d
+
+
+@thumb_isa.pattern('reg', 'LDRI16(mem)', size=2)
+@thumb_isa.pattern('reg', 'LDRU16(mem)', size=2)
+def pattern_ldr16(context, tree, c0):
+    rg, offset = c0
+    d = context.new_reg(LowArmRegister)
+    context.emit(Ldrh(d, rg, offset))
     return d
 
 
@@ -816,9 +928,20 @@ def pattern_sub8(context, tree, c0, c1):
     return d
 
 
+@thumb_isa.pattern('reg', 'SHRI8(reg, reg)', size=4)
+@thumb_isa.pattern('reg', 'SHRI16(reg, reg)', size=4)
 @thumb_isa.pattern('reg', 'SHRI32(reg, reg)', size=4)
+def pattern_shr_i32(context, tree, c0, c1):
+    d = context.new_reg(LowArmRegister)
+    context.move(d, c0)
+    context.emit(Asr(d, c1))
+    return d
+
+
+@thumb_isa.pattern('reg', 'SHRU8(reg, reg)', size=4)
+@thumb_isa.pattern('reg', 'SHRU16(reg, reg)', size=4)
 @thumb_isa.pattern('reg', 'SHRU32(reg, reg)', size=4)
-def pattern_shr32(context, tree, c0, c1):
+def pattern_shr_u32(context, tree, c0, c1):
     d = context.new_reg(LowArmRegister)
     context.move(d, c0)
     context.emit(Lsr(d, c1))
@@ -827,6 +950,10 @@ def pattern_shr32(context, tree, c0, c1):
 
 @thumb_isa.pattern('reg', 'NEGI32(reg)', size=2)
 @thumb_isa.pattern('reg', 'NEGU32(reg)', size=2)
+@thumb_isa.pattern('reg', 'NEGI16(reg)', size=2)
+@thumb_isa.pattern('reg', 'NEGU16(reg)', size=2)
+@thumb_isa.pattern('reg', 'NEGI8(reg)', size=2)
+@thumb_isa.pattern('reg', 'NEGU8(reg)', size=2)
 def pattern_neg32(context, tree, c0):
     d = context.new_reg(LowArmRegister)
     context.emit(Rsb(d, c0))
@@ -835,6 +962,10 @@ def pattern_neg32(context, tree, c0):
 
 @thumb_isa.pattern('reg', 'ORI32(reg, reg)', size=4)
 @thumb_isa.pattern('reg', 'ORU32(reg, reg)', size=4)
+@thumb_isa.pattern('reg', 'ORI16(reg, reg)', size=4)
+@thumb_isa.pattern('reg', 'ORU16(reg, reg)', size=4)
+@thumb_isa.pattern('reg', 'ORI8(reg, reg)', size=4)
+@thumb_isa.pattern('reg', 'ORU8(reg, reg)', size=4)
 def pattern_or32(context, tree, c0, c1):
     d = context.new_reg(LowArmRegister)
     context.move(d, c0)
@@ -844,6 +975,10 @@ def pattern_or32(context, tree, c0, c1):
 
 @thumb_isa.pattern('reg', 'ANDI32(reg, reg)', size=4)
 @thumb_isa.pattern('reg', 'ANDU32(reg, reg)', size=4)
+@thumb_isa.pattern('reg', 'ANDI16(reg, reg)', size=4)
+@thumb_isa.pattern('reg', 'ANDU16(reg, reg)', size=4)
+@thumb_isa.pattern('reg', 'ANDI8(reg, reg)', size=4)
+@thumb_isa.pattern('reg', 'ANDU8(reg, reg)', size=4)
 def pattern_and32(context, tree, c0, c1):
     d = context.new_reg(LowArmRegister)
     context.move(d, c0)
@@ -853,6 +988,10 @@ def pattern_and32(context, tree, c0, c1):
 
 @thumb_isa.pattern('reg', 'SHLI32(reg, reg)', size=4)
 @thumb_isa.pattern('reg', 'SHLU32(reg, reg)', size=4)
+@thumb_isa.pattern('reg', 'SHLI16(reg, reg)', size=4)
+@thumb_isa.pattern('reg', 'SHLU16(reg, reg)', size=4)
+@thumb_isa.pattern('reg', 'SHLI8(reg, reg)', size=4)
+@thumb_isa.pattern('reg', 'SHLU8(reg, reg)', size=4)
 def pattern_shl32(context, tree, c0, c1):
     d = context.new_reg(LowArmRegister)
     context.move(d, c0)
@@ -891,6 +1030,11 @@ def pattern_rem32(context, tree, c0, c1):
 
 
 @thumb_isa.pattern('reg', 'XORI32(reg, reg)', size=4)
+@thumb_isa.pattern('reg', 'XORU32(reg, reg)', size=4)
+@thumb_isa.pattern('reg', 'XORI16(reg, reg)', size=4)
+@thumb_isa.pattern('reg', 'XORU16(reg, reg)', size=4)
+@thumb_isa.pattern('reg', 'XORI8(reg, reg)', size=4)
+@thumb_isa.pattern('reg', 'XORU8(reg, reg)', size=4)
 def pattern_xor32(context, tree, c0, c1):
     d = context.new_reg(LowArmRegister)
     context.move(d, c0)

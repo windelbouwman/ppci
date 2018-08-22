@@ -5,7 +5,7 @@ from ...binutils import debuginfo
 from .python2ir import python_to_ir
 
 
-def load_py(f, functions=None, reporter=None):
+def load_py(f, imports=None, reporter=None):
     """ Load a type annotated python file.
 
     Args:
@@ -14,22 +14,12 @@ def load_py(f, functions=None, reporter=None):
     from ... import api
     from ...utils.codepage import load_obj
 
-    mod = python_to_ir(f, functions=functions)
-    # txt = io.StringIO()
-    # writer = irutils.Writer(txt)
-    # writer.write(mod)
-    # print(txt.getvalue())
-    callbacks = []
-    if functions:
-        for name, fn, return_type, arg_types in functions:
-            return_type = ir_to_dbg(return_type)
-            arg_types = [ir_to_dbg(a) for a in arg_types]
-            callbacks.append((name, fn, return_type, arg_types))
+    mod = python_to_ir(f, imports=imports)
 
     arch = api.get_current_arch()
     obj = api.ir_to_object(
         [mod], arch, debug=True, reporter=reporter)
-    m2 = load_obj(obj, callbacks=callbacks)
+    m2 = load_obj(obj, imports=imports)
     return m2
 
 

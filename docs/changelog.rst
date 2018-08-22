@@ -7,11 +7,24 @@ Release 1.0 (Planned)
 
 * platform.python_compiler() returns 'ppci 1.0'
 
-Release 0.5.5 (Upcoming)
+Release 0.5.6 (Upcoming)
 ------------------------
+
+* Compilation is now reproducible: recompiling the same source yields exactly the same machine code
+* Added support for webassembly WAT file format (by Almar)
+* Improved compilation speed
+* Separation of the graph algorithms in ppci.graph.
+
+Release 0.5.5 (Jan 17, 2018)
+----------------------------
 
 * Addition of WASM support (by Almar)
 * Added compilation of subset of python
+* Changed commandline tools from scripts into setuptools entrypoints
+* Add support for function pointers in C
+* Add uboot legacy image utility
+* Start of exe support
+* Start of mips support
 
 Release 0.5.4 (Aug 26, 2017)
 ----------------------------

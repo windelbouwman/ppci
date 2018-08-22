@@ -17,14 +17,6 @@ For the front-end a recursive descent parser is created.
    40 -> 99
    }
 
-.. autoclass:: ppci.lang.c3.C3Builder
-
-.. autoclass:: ppci.lang.c3.Lexer
-
-.. autoclass:: ppci.lang.c3.Parser
-
-.. autoclass:: ppci.lang.c3.CodeGenerator
-
 """
 
 
@@ -33,9 +25,9 @@ from .lexer import Lexer
 from .codegenerator import CodeGenerator
 from .visitor import Visitor
 from .visitor import AstPrinter
-from .builder import C3Builder
+from .builder import C3Builder, c3_to_ir
 from .context import Context
 
 __all__ = [
     'AstPrinter', 'C3Builder', 'CodeGenerator', 'Context', 'Lexer', 'Parser',
-    'Visitor']
+    'Visitor', 'c3_to_ir']

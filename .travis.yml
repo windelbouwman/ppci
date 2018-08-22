@@ -1,13 +1,26 @@
-
+sudo: false
 language: python
 
 python:
   - "3.4"
+  - "3.5"
   - "3.6"
+  # - "3.7-dev"
+  - "pypy3"
 
-install:
-  - pip -q install tox codacy-coverage
+install: pip -q install tox codacy-coverage codecov
 
 script:
   - tox -e cover
+
+after_success:
   - python-codacy-coverage -r coverage.xml
+  - codecov
+
+notifications:
+  webhooks:
+    urls:
+      - https://webhooks.gitter.im/e/5e1bcd4a381ee027f33e
+    on_success: change
+    on_failure: always
+    on_start: never

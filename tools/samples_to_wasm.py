@@ -18,8 +18,9 @@ import glob
 import logging
 import time
 from ppci.lang.c import COptions
-from ppci.api import c_to_ir, get_arch, optimize, c3toir
-from ppci.irs.wasm import ir_to_wasm
+from ppci.api import c_to_ir, get_arch, optimize, c3_to_ir
+from ppci.wasm import ir_to_wasm
+from ppci.ir_link import ir_link
 
 logging.basicConfig(level=logging.DEBUG)
 this_dir = os.path.dirname(os.path.abspath(__file__))
@@ -53,7 +54,7 @@ def c_to_wasm(filename):
 
     x.display()
 
-    wasm_module = ir_to_wasm([ir_libc, x])
+    wasm_module = ir_to_wasm(ir_link([ir_libc, x]))
 
     print('Completed generating wasm module', wasm_module)
     wasm_module.show()
@@ -69,16 +70,16 @@ def c3_to_wasm(filename):
        module bsp;
        public function void putc(byte c);
        """)
-    ir_modules = c3toir([bsp, libio_filename, filename], [], arch)
+    ir_module = c3_to_ir([bsp, libio_filename, filename], [], arch)
 
     # ir_modules.insert(0, ir_modules.pop(-1))  # Shuffle bsp forwards
-    print(','.join(map(str, ir_modules)))
+    print(str(ir_module))
     # optimize(x, level='2')
     # print(x, x.stats())
 
     # x.display()
 
-    wasm_module = ir_to_wasm(ir_modules)
+    wasm_module = ir_to_wasm(ir_module)
 
     print('Completed generating wasm module', wasm_module)
     wasm_module.show()
@@ -161,6 +162,7 @@ with open(html_filename, 'w') as f:
           var module = new WebAssembly.Module(wasm_data);
           var inst = new WebAssembly.Instance(module, {{js: providedfuncs{0}}});
           inst.exports.main_main();
+          console.log('calling' + {0});
         }}
         </script>""".format(nr, wasm_text), file=f)
         fns.append('compile_wasm{}'.format(nr))

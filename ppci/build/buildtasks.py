@@ -52,7 +52,7 @@ class OutputtingTask(Task):
         """ Store the object in the specified file """
         output_filename = self.relpath(self.get_argument('output'))
         self.ensure_path(output_filename)
-        with open(output_filename, 'w') as output_file:
+        with open(output_filename, 'wt', encoding='utf8') as output_file:
             obj.save(output_file)
 
 
@@ -83,7 +83,7 @@ class AssembleTask(OutputtingTask):
 
 
 @register_task
-class CompileTask(OutputtingTask):
+class C3CompileTask(OutputtingTask):
     """ Task that compiles C3 source for some target into an object file """
     def run(self):
         arch = self.get_argument('arch')
@@ -95,7 +95,7 @@ class CompileTask(OutputtingTask):
 
         if 'report' in self.arguments:
             report_file = self.relpath(self.arguments['report'])
-            reporter = HtmlReportGenerator(open(report_file, 'w'))
+            reporter = HtmlReportGenerator(open(report_file, 'wt', encoding='utf8'))
         else:
             reporter = DummyReportGenerator()
 
@@ -123,7 +123,7 @@ class CCompileTask(OutputtingTask):
 
         if 'report' in self.arguments:
             report_file = self.relpath(self.arguments['report'])
-            reporter = HtmlReportGenerator(open(report_file, 'w'))
+            reporter = HtmlReportGenerator(open(report_file, 'wt', encoding='utf8'))
         else:
             reporter = DummyReportGenerator()
 
@@ -154,9 +154,18 @@ class WasmCompileTask(OutputtingTask):
         arch = self.get_argument('arch')
         source = self.open_file_set(self.arguments['source'])
         opt = int(self.get_argument('optimize', default='0'))
+
+        if 'report' in self.arguments:
+            report_file = self.relpath(self.arguments['report'])
+            reporter = HtmlReportGenerator(open(report_file, 'wt', encoding='utf8'))
+        else:
+            reporter = DummyReportGenerator()
+
         self.logger.debug('loading %s', source[0])
-        with open(source[0], 'rb') as f:
-            obj = api.wasmcompile(f, arch, opt_level=opt)
+        with reporter:
+            with open(source[0], 'rb') as f:
+                obj = api.wasmcompile(
+                    f, arch, opt_level=opt, reporter=reporter)
         self.store_object(obj)
 
 

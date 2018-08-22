@@ -6,7 +6,7 @@ also be stored into a register, to improve performance.
 
 from .transform import FunctionPass
 from .. import ir
-from ..domtree import CfgInfo
+from ..graph.domtree import CfgInfo
 
 
 def is_alloc_promotable(alloc_inst: ir.Alloc):
@@ -202,7 +202,7 @@ class Mem2RegPromotor(FunctionPass):
 
         # Remove all load instructions:
         for load in loads:
-            assert not load.is_used
+            assert not load.is_used, str(load.used_by) + str(load)
             load.remove_from_block()
 
         # Finally the addr instruction can be deleted:

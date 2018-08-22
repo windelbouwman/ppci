@@ -1,11 +1,6 @@
-
 """ This is the fortran frontend.
 
 Currently this front-end is a work in progress.
-
-.. autoclass:: ppci.lang.fortran.FortranBuilder
-
-.. autoclass:: ppci.lang.fortran.parser.FortranParser
 
 """
 
@@ -24,4 +19,11 @@ class FortranBuilder:
         return mods
 
 
-__all__ = ['FortranParser', 'Visitor', 'Printer']
+def fortran_to_ir(source):
+    """ Translate fortran source into IR-code """
+    builder = FortranBuilder()
+    ir_modules = builder.build(source)
+    return ir_modules
+
+
+__all__ = ['fortran_to_ir', 'FortranParser', 'Visitor', 'Printer']

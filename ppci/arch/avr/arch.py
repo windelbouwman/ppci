@@ -110,7 +110,7 @@ class AvrArch(Architecture):
 
     def determine_arg_locations(self, arg_types):
         """ Given a set of argument types, determine location for argument """
-        l = []
+        locations = []
         regs = [
             r25, r24, r23, r22, r21, r20, r19, r18, r17, r16, r15,
             r14, r13, r12, r11, r10, r9, r8]
@@ -128,15 +128,15 @@ class AvrArch(Architecture):
             # Determine register:
             if s == 1:
                 r = regs.pop(0)
-                l.append(r)
+                locations.append(r)
             elif s == 2:
                 regs.pop(0)
                 lo_reg = regs.pop(0)
                 r = get16reg(lo_reg.num)
-                l.append(r)
+                locations.append(r)
             else:  # pragma: no cover
                 raise NotImplementedError(str(s))
-        return l
+        return locations
 
     def determine_rv_location(self, ret_type):
         rv = W

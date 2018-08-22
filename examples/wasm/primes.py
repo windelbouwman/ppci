@@ -9,10 +9,10 @@ from io import StringIO
 from time import perf_counter
 
 from ppci import irutils
-from ppci.api import ir_to_object, get_arch
+from ppci.api import ir_to_object, get_current_arch
 from ppci.utils import codepage, reporting
 
-from ppci.irs.wasm import wasm_to_ir, export_wasm_example
+from ppci.wasm import wasm_to_ir, export_wasm_example
 from ppci.lang.python import python_to_wasm, ir_to_python
 
 logging.basicConfig(level=logging.DEBUG)
@@ -67,13 +67,13 @@ return i
 
 ## Run in memory 
 
-arch = get_arch('x86_64:wincc')  # todo: fix auto detecting arch on Windows
+arch = get_current_arch()
 
 # Convert Python to wasm
 wasm_module = python_to_wasm(py3)
 
 # Convert wasm to ppci
-ppci_module = wasm_to_ir(wasm_module)
+ppci_module = wasm_to_ir(wasm_module, arch.info.get_type_info('ptr'))
 
 # Optimizer fails, or makes it slower ;)
 # optimize(ppci_module, 2)
@@ -90,10 +90,14 @@ with open(html_report, 'w') as f, reporting.HtmlReportGenerator(f) as reporter:
     # Compile to native object
     ob = ir_to_object([ppci_module], arch, debug=True, reporter=reporter)
 
+
+# Hack: fix the return type
+ob.debug_info.functions[0].return_type = float
+
 # Run in memory
 native_module = codepage.load_obj(ob)
 t0 = perf_counter()
-result = native_module.unnamed2()
+result = native_module.main()
 etime = perf_counter() - t0
 print(f'native says {result} in {etime} s')
 
@@ -105,9 +109,9 @@ export_wasm_example(
 if True:
     f = StringIO()
     ir_to_python([ppci_module], f)
-    py_code = f.getvalue()
+    py_code = 'def main():\n' + '\n'.join(['    ' + line for line in py3.splitlines()])
     exec(py_code)
     t0 = perf_counter()
-    result = unnamed2()
+    result = main()
     etime = perf_counter() - t0
     print(f'python says {result} in {etime}')

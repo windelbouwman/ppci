@@ -72,6 +72,10 @@ coptions_parser.add_argument(
     default=[], metavar='macro',
     help="Define a macro")
 coptions_parser.add_argument(
+    '--include', action='append',
+    default=[], metavar='file',
+    help="Include a file before all other sources")
+coptions_parser.add_argument(
     '--trigraphs', action="store_true", default=False,
     help="Enable trigraph processing")
 coptions_parser.add_argument(

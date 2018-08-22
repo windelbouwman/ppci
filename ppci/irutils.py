@@ -4,8 +4,9 @@
 """
 import logging
 import re
+from collections import defaultdict
 from . import ir
-from .domtree import CfgInfo
+from .graph.domtree import CfgInfo
 from .common import IrFormError
 
 
@@ -356,6 +357,7 @@ class Builder:
         self.block = None
         self.module = None
         self.function = None
+        self.block_number = 0
         self.prepare()
 
     def prepare(self):
@@ -371,14 +373,12 @@ class Builder:
         assert self.module is not None
         f = ir.Function(name, return_ty)
         self.module.add_function(f)
-        self.block_number = 0
         return f
 
     def new_procedure(self, name):
         assert self.module is not None
         f = ir.Procedure(name)
         self.module.add_function(f)
-        self.block_number = 0
         return f
 
     def new_block(self, name=None):
@@ -394,11 +394,12 @@ class Builder:
     def set_function(self, f):
         self.function = f
         self.block = f.entry if f else None
+        self.block_number = 0
 
     def set_block(self, block):
         self.block = block
 
-    def emit(self, instruction):
+    def emit(self, instruction: ir.Instruction) -> ir.Instruction:
         """ Append an instruction to the current block """
         assert isinstance(instruction, ir.Instruction), str(instruction)
         assert self.block is not None
@@ -436,9 +437,10 @@ class Verifier:
                 assert isinstance(function, ir.Function)
                 if block.last_instruction.result.ty is not function.return_ty:
                     raise IrFormError(
-                        'Last instruction returns {}, while function '
+                        'Last instruction returns {}, while function {}'
                         'returns {}'.format(
                             block.last_instruction.result.ty,
+                            function,
                             function.return_ty))
             if isinstance(block.last_instruction, ir.Exit):
                 assert isinstance(function, ir.Procedure)
@@ -452,9 +454,15 @@ class Verifier:
         for block in function:
             assert block in reachable_blocks
 
+        # Determine predecessors from sucessors:
+        predecessor_map = defaultdict(set)
+        for block in function:
+            for block2 in block.successors:
+                predecessor_map[block2].add(block)
+
         # Verify predecessor and successor:
         for block in function:
-            preds = set(b for b in function if block in b.successors)
+            preds = predecessor_map[block]
             assert preds == set(block.predecessors)
 
         # Check that phi's have inputs for each predecessor:
@@ -467,14 +475,22 @@ class Verifier:
 
         # Now we can build a dominator tree
         self.cfg_info = CfgInfo(function)
+        if len(self.cfg_info.cfg) > 2000:
+            self.logger.error('Skipping verify of more than 2000 cfg nodes')
+            return
+
         for block in function:
             assert block.function is function
             self.verify_block(block)
 
     def verify_block_termination(self, block):
         """ Verify that the block is terminated correctly """
-        assert not block.is_empty
-        assert block.last_instruction.is_terminator
+        if block.is_empty:
+            raise ValueError('Block is empty: {}'.format(block))
+        if not block.last_instruction.is_terminator:
+            raise ValueError(
+                'The last instruction of {} is not a terminator instruction'
+                .format(block))
         assert all(not i.is_terminator for i in block.instructions[:-1])
         assert all(isinstance(p, ir.Block) for p in block.predecessors)
 
@@ -496,8 +512,8 @@ class Verifier:
             assert instruction.name not in self.name_map
             self.name_map[instruction.name] = instruction
 
-        # Check that binop operands are of same type:
         if isinstance(instruction, ir.Binop):
+            # Check that binop operands are of same type:
             if instruction.ty is not instruction.a.ty:
                 raise TypeError(
                     "Binary operand a's type ({}) is not {}".format(
@@ -523,6 +539,11 @@ class Verifier:
             if instruction.a.ty is not instruction.b.ty:
                 raise IrFormError('Type {} is not {} in {}'.format(
                     instruction.a.ty, instruction.b.ty, instruction))
+        elif isinstance(instruction, (ir.FunctionCall, ir.ProcedureCall)):
+            if isinstance(
+                    instruction.callee,
+                    (ir.SubRoutine, ir.ExternalSubRoutine)):
+                self.verify_subroutine_call(instruction)
 
         # Verify that all uses are defined before this instruction.
         for value in instruction.uses:
@@ -532,6 +553,44 @@ class Verifier:
             if isinstance(value, ir.Undefined):
                 raise IrFormError('{} is used'.format(value))
 
+    def verify_subroutine_call(self, instruction):
+        """ Check some properties of a function call """
+        # Check if we called function or procedure:
+        callee = instruction.callee
+        if isinstance(instruction, ir.FunctionCall):
+            if not isinstance(callee, (ir.Function, ir.ExternalFunction)):
+                raise IrFormError('{} expected a function, but got: {}'.format(
+                    instruction, callee))
+
+            # Check return type:
+            if callee.return_ty is not instruction.ty:
+                raise IrFormError('Function returns {}, expected {}'.format(
+                    callee.return_ty, instruction.ty))
+        else:
+            if not isinstance(callee, (ir.Procedure, ir.ExternalProcedure)):
+                raise IrFormError('{} expected a procedure, got: {}'.format(
+                    instruction, callee))
+
+        # Check arguments:
+        passed_types = [a.ty for a in instruction.arguments]
+        if isinstance(callee, ir.SubRoutine):
+            arg_types = [a.ty for a in callee.arguments]
+        else:
+            arg_types = callee.argument_types
+        name = instruction.callee.name
+
+        # Check amount of arguments:
+        if len(passed_types) != len(arg_types):
+            raise IrFormError(
+                '{} expects {} arguments, but called with {}'.format(
+                    name, len(arg_types), len(passed_types)))
+
+        for passed_type, arg_type in zip(passed_types, arg_types):
+            if passed_type is not arg_type:
+                raise IrFormError(
+                    '{} expects {}, but got {}'.format(
+                        name, arg_type, passed_type))
+
     def instruction_dominates(self, one, another):
         """ Checks if one instruction dominates another instruction """
         if isinstance(one, (ir.Parameter, ir.GlobalValue)):
@@ -540,7 +599,8 @@ class Verifier:
             return True
 
         # All other instructions must have a containing block:
-        assert one.block is not None, '{} has no block'.format(one)
+        if one.block is None:
+            raise ValueError('{} has no block'.format(one))
         assert one in one.block.instructions
 
         # Phis are special case:

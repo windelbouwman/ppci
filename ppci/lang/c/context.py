@@ -1,15 +1,15 @@
-""" A context where other parts share global state """
+""" A context where other parts share global state.
+
+
+"""
 
 import struct
 from ...common import CompilerError
+from ...utils.bitfun import value_to_bits, bits_to_bytes
 from ...arch.arch_info import Endianness
-from .types import BasicType
-from . import types, expressions, declarations
-
-
-def type_tuple(*args):
-    """ Return sorted tuple """
-    return tuple(sorted(args))
+from .nodes.types import BasicType
+from .nodes import types, expressions, declarations
+from .utils import required_padding
 
 
 class CContext:
@@ -18,40 +18,8 @@ class CContext:
         self.coptions = coptions
         self.arch_info = arch_info
 
-        self.atomic_types = {
-            type_tuple('void'): BasicType.VOID,
-            type_tuple('char',): BasicType.CHAR,
-            type_tuple('signed', 'char'): BasicType.CHAR,
-            type_tuple('unsigned', 'char'): BasicType.UCHAR,
-            type_tuple('short',): BasicType.SHORT,
-            type_tuple('signed', 'short',): BasicType.SHORT,
-            type_tuple('short', 'int'): BasicType.SHORT,
-            type_tuple('signed', 'short', 'int'): BasicType.SHORT,
-            type_tuple('unsigned', 'short'): BasicType.USHORT,
-            type_tuple('unsigned', 'short', 'int'): BasicType.USHORT,
-            type_tuple('int',): BasicType.INT,
-            type_tuple('signed', 'int',): BasicType.INT,
-            type_tuple('unsigned', 'int',): BasicType.UINT,
-            type_tuple('unsigned',): BasicType.UINT,
-            type_tuple('long',): BasicType.LONG,
-            type_tuple('signed', 'long',): BasicType.LONG,
-            type_tuple('long', 'int'): BasicType.LONG,
-            type_tuple('signed', 'long', 'int'): BasicType.LONG,
-            type_tuple('unsigned', 'long'): BasicType.ULONG,
-            type_tuple('unsigned', 'long', 'int'): BasicType.ULONG,
-            type_tuple('long', 'long',): BasicType.LONGLONG,
-            type_tuple('signed', 'long', 'long',): BasicType.LONGLONG,
-            type_tuple('long', 'long', 'int'): BasicType.LONGLONG,
-            type_tuple('signed', 'long', 'long', 'int'):
-                BasicType.LONGLONG,
-            type_tuple('unsigned', 'long', 'long'): BasicType.ULONGLONG,
-            type_tuple('unsigned', 'long', 'long', 'int'):
-                BasicType.ULONGLONG,
-            type_tuple('float',): BasicType.FLOAT,
-            type_tuple('double',): BasicType.DOUBLE,
-            type_tuple('long', 'double'): BasicType.LONGDOUBLE,
-        }
-
+        self._field_offsets = {}
+        self._enum_values = {}
         int_size = self.arch_info.get_size('int')
         int_alignment = self.arch_info.get_alignment('int')
         ptr_size = self.arch_info.get_size('ptr')
@@ -62,8 +30,8 @@ class CContext:
             BasicType.USHORT: (2, 2),
             BasicType.INT: (int_size, int_alignment),
             BasicType.UINT: (int_size, int_alignment),
-            BasicType.LONG: (8, 8),
-            BasicType.ULONG: (8, 8),
+            BasicType.LONG: (4, 4),
+            BasicType.ULONG: (4, 4),
             BasicType.LONGLONG: (8, 8),
             BasicType.ULONGLONG: (8, 8),
             BasicType.FLOAT: (4, 4),
@@ -88,6 +56,8 @@ class CContext:
             BasicType.INT: int_map[int_size].lower(),
             BasicType.UINT: int_map[int_size].upper(),
             'ptr': int_map[ptr_size].upper(),
+            BasicType.LONG: 'l',
+            BasicType.ULONG: 'L',
             BasicType.LONGLONG: 'q',
             BasicType.ULONGLONG: 'Q',
             BasicType.FLOAT: 'f',
@@ -95,59 +65,6 @@ class CContext:
         }
 
         self.ctypes_names = {t: byte_order + v for t, v in ctypes.items()}
-
-    def is_valid(self, type_specifiers):
-        """ Check if the type specifiers refer to a valid basic type """
-        assert isinstance(type_specifiers, (list, tuple))
-        key = type_tuple(*type_specifiers)
-        return key in self.atomic_types
-
-    def get_type(self, type_specifiers):
-        """ Create a new instance for the given type specifiers """
-        assert isinstance(type_specifiers, (list, tuple))
-        key = type_tuple(*type_specifiers)
-        a = self.atomic_types[key]
-        return BasicType(a)
-
-    def equal_types(self, typ1, typ2, unqualified=False):
-        """ Check for type equality """
-        # TODO: enhance!
-        if typ1 is typ2:
-            # A short circuit:
-            return True
-        # elif isinstance(typ1, nodes.QualifiedType):
-        #    # Handle qualified types:
-        #    if isinstance(typ2, nodes.QualifiedType):
-        #        return typ1.qualifiers == typ2.qualifiers and \
-        #            self.equal_types(typ1.typ, typ2.typ)
-        #    else:
-        #        return (not typ1.qualifiers) and \
-        #            self.equal_types(typ1.typ, typ2)
-        elif isinstance(typ1, BasicType):
-            if isinstance(typ2, BasicType):
-                return typ1.type_id == typ2.type_id
-        elif isinstance(typ1, types.FunctionType):
-            if isinstance(typ2, types.FunctionType):
-                return \
-                    len(typ1.argument_types) == len(typ2.argument_types) and \
-                    self.equal_types(typ1.return_type, typ2.return_type) and \
-                    all(self.equal_types(a1, a2) for a1, a2 in zip(
-                        typ1.argument_types, typ2.argument_types))
-        elif isinstance(typ1, types.IndexableType):
-            if isinstance(typ2, types.IndexableType):
-                return self.equal_types(typ1.element_type, typ2.element_type)
-        elif isinstance(typ1, types.UnionType):
-            if isinstance(typ2, types.UnionType):
-                return typ1 is typ2
-        elif isinstance(typ1, types.StructType):
-            if isinstance(typ2, types.StructType):
-                return typ1 is typ2
-        elif isinstance(typ1, types.EnumType):
-            if isinstance(typ2, types.EnumType):
-                return typ1 is typ2
-        else:
-            raise NotImplementedError(str(typ1))
-        return False
 
     def sizeof(self, typ: types.CType):
         """ Given a type, determine its size in whole bytes """
@@ -159,17 +76,17 @@ class CContext:
             if typ.size is None:
                 self.error(
                     'Size of array could not be determined!', typ.location)
-            assert isinstance(typ.size, int), str(type(typ.size))
-            array_size = typ.size
+            if isinstance(typ.size, int):
+                array_size = typ.size
+            else:
+                array_size = self.eval_expr(typ.size)
             return element_size * array_size
         elif isinstance(typ, types.BasicType):
             return self.type_size_map[typ.type_id][0]
         elif isinstance(typ, types.StructType):
             if not typ.complete:
                 self.error('Storage size unknown', typ.location)
-            # Take offset of last field plus its size:
-            last_field = typ.fields[-1]
-            return last_field.offset + self.sizeof(last_field.typ)
+            return self._get_field_offsets(typ)[0]
         elif isinstance(typ, types.UnionType):
             if not typ.complete:
                 self.error('Type is incomplete, size unknown', typ)
@@ -179,11 +96,7 @@ class CContext:
                 self.error('Storage size unknown', typ)
             # For enums take int as the type
             return self.arch_info.get_size('int')
-        elif isinstance(typ, types.PointerType):
-            return self.arch_info.get_size('ptr')
-        elif isinstance(typ, types.FunctionType):
-            # TODO: can we determine size of a function type? Should it not
-            # be pointer to a function?
+        elif isinstance(typ, (types.PointerType, types.FunctionType)):
             return self.arch_info.get_size('ptr')
         else:  # pragma: no cover
             raise NotImplementedError(str(typ))
@@ -208,18 +121,72 @@ class CContext:
                 self.error('Storage size unknown', typ)
             # For enums take int as the type
             return self.arch_info.get_alignment('int')
-        elif isinstance(typ, types.PointerType):
+        elif isinstance(typ, (types.PointerType, types.FunctionType)):
             return self.arch_info.get_alignment('ptr')
-        elif isinstance(typ, types.FunctionType):
-            # TODO: can we determine size of a function type? Should it not
-            # be pointer to a function?
-            return self.arch_info.get_alignment('ptr')
+        elif isinstance(typ, types.BitFieldType):
+            return 1
         else:  # pragma: no cover
             raise NotImplementedError(str(typ))
 
+    def layout_struct(self, kind, fields):
+        """ Layout the fields in the struct """
+        offsets = {}
+        offset = 0  # Offset in bits
+        for field in fields:
+            # Calculate bit size:
+            if field.bitsize:
+                bitsize = self.eval_expr(field.bitsize)
+                alignment = 1  # Bitfields are 1 bit aligned
+            else:
+                bitsize = self.sizeof(field.typ) * 8
+                alignment = self.alignment(field.typ) * 8
+
+            # alignment handling:
+            offset += required_padding(offset, alignment)
+
+            offsets[field] = offset
+            if kind == 'struct':
+                offset += bitsize
+
+        # TODO: should we take care here of maximum alignment as well?
+        # Finally align at 8 bits:
+        offset += required_padding(offset, 8)
+        assert offset % 8 == 0
+        offset //= 8
+        return offset, offsets
+
+    def _get_field_offsets(self, typ):
+        """ Get a dictionary with offset of fields """
+        if typ not in self._field_offsets:
+            kind = 'struct' if isinstance(typ, types.StructType) else 'union'
+            size, offsets = self.layout_struct(kind, typ.fields)
+            self._field_offsets[typ] = size, offsets
+        return self._field_offsets[typ]
+
+    def offsetof(self, typ, field):
+        """ Returns the offset of a field in a struct/union in bytes """
+        field_offset = self._get_field_offsets(typ)[1][field]
+        assert field_offset % 8 == 0
+        return field_offset // 8
+
+    def get_enum_value(self, enum_typ, enum_constant):
+        if enum_constant not in self._enum_values:
+            self._calculate_enum_values(enum_typ)
+        return self._enum_values[enum_constant]
+
+    def _calculate_enum_values(self, ctyp):
+        """ Determine enum values """
+        value = 0
+        for constant in ctyp.constants:
+            if constant.value:
+                value = self.eval_expr(constant.value)
+            self._enum_values[constant] = value
+
+            # Increase for next enum value:
+            value += 1
+
     def pack(self, typ, value):
         """ Pack a type into proper memory format """
-        # TODO: is the size of the integer correct? should it be 4 or 8 bytes?
         if isinstance(typ, types.PointerType):
             tid = 'ptr'
         else:
@@ -230,19 +197,31 @@ class CContext:
         assert self.sizeof(typ) == struct.calcsize(fmt)
         return struct.pack(fmt, value)
 
+    def _make_ival(self, ival):
+        """ Try to make ival a proper initializer """
+        if isinstance(ival, list):
+            elements = [self._make_ival(i) for i in ival]
+            ival = expressions.InitializerList(elements, None)
+        elif isinstance(ival, int):
+            int_type = types.BasicType(types.BasicType.INT)
+            ival = expressions.NumericLiteral(ival, int_type, None)
+        return ival
+
     def gen_global_ival(self, typ, ival):
         """ Create memory image for initial value of global variable """
+        # Handle arguments:
+        ival = self._make_ival(ival)
+
+        # Check initial value type:
+        if not isinstance(ival, expressions.Expression):
+            raise TypeError('ival must be an Expression')
+
         if isinstance(typ, types.ArrayType):
             mem = bytes()
             for iv in ival.elements:
                 mem = mem + self.gen_global_ival(typ.element_type, iv)
         elif isinstance(typ, types.StructType):
-            mem = bytes()
-            for field, iv in zip(typ.fields, ival.elements):
-                if len(mem) < field.offset:
-                    padding_count = field.offset - len(mem)
-                    mem = mem + bytes([0] * padding_count)
-                mem = mem + self.gen_global_ival(field.typ, iv)
+            mem = self._initialize_struct(typ, ival)
         elif isinstance(typ, types.UnionType):
             mem = bytes()
             # Initialize the first field!
@@ -259,26 +238,44 @@ class CContext:
             raise NotImplementedError(str(typ))
         return mem
 
+    def _initialize_struct(self, typ, ival):
+        """ Properly fill global struct variable with content """
+        mem = bytearray()
+        bits = []  # A working list of bytes
+
+        def flush_bits():
+            if bits:
+                mem.extend(bits_to_bytes(bits))
+                bits.clear()
+
+        field_offsets = self._get_field_offsets(typ)[1]
+        for field, iv in zip(typ.fields, ival.elements):
+            if field.is_bitfield:
+                # Special case for bitfields
+                cval = self.eval_expr(iv)
+                bitsize = self.eval_expr(field.bitsize)
+                new_bits = value_to_bits(cval, bitsize)
+                bits.extend(new_bits)
+            else:
+                flush_bits()
+                field_offset = field_offsets[field] // 8
+                # TODO: how to handle bit fields?
+                if len(mem) < field_offset:
+                    padding_count = field_offset - len(mem)
+                    mem.extend(bytes([0] * padding_count))
+                mem.extend(self.gen_global_ival(field.typ, iv))
+
+        # Purge last remaining bits:
+        flush_bits()
+        return bytes(mem)
+
     def error(self, message, location):
         """ Trigger an error at the given location """
         raise CompilerError(message, loc=location)
 
-    def is_const_expr(self, expr):
-        """ Test if an expression can be evaluated at compile time """
-        if isinstance(expr, expressions.Binop):
-            return self.is_const_expr(expr.a) and self.is_const_expr(expr.b)
-        elif isinstance(expr, expressions.NumericLiteral):
-            return True
-        elif isinstance(expr, expressions.CharLiteral):
-            return True
-        elif isinstance(expr, expressions.Sizeof):
-            return True
-        else:
-            return False
-
     def eval_expr(self, expr):
         """ Evaluate an expression right now! (=at compile time) """
-        if isinstance(expr, expressions.Binop):
+        if isinstance(expr, expressions.BinaryOperator):
             lhs = self.eval_expr(expr.a)
             rhs = self.eval_expr(expr.b)
             op = expr.op
@@ -298,7 +295,7 @@ class CContext:
                 op_map['/'] = lambda x, y: x / y
 
             value = op_map[op](lhs, rhs)
-        elif isinstance(expr, expressions.Unop):
+        elif isinstance(expr, expressions.UnaryOperator):
             if expr.op in ['-']:
                 a = self.eval_expr(expr.a)
                 op_map = {
@@ -308,8 +305,8 @@ class CContext:
             else:  # pragma: no cover
                 raise NotImplementedError(str(expr))
         elif isinstance(expr, expressions.VariableAccess):
-            if isinstance(expr.variable, declarations.ValueDeclaration):
-                value = expr.variable.value
+            if isinstance(expr.variable, declarations.EnumConstantDeclaration):
+                value = self.get_enum_value(expr.variable.typ, expr.variable)
             else:
                 raise NotImplementedError(str(expr.variable))
         elif isinstance(expr, expressions.NumericLiteral):

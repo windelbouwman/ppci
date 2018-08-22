@@ -4,6 +4,7 @@
 
 import logging
 import ast
+import inspect
 from ... import ir, irutils
 from ...common import SourceLocation, CompilerError
 from ...binutils import debuginfo
@@ -13,11 +14,12 @@ def get_fty(fn):
     pass
 
 
-def python_to_ir(f, functions=None):
+def python_to_ir(f, imports=None):
     """ Compile a piece of python code to an ir module.
 
     Args:
         f (file-like-object): a file like object containing the python code
+        imports: Dictionary with symbols that are present.
 
     Returns:
         A :class:`ppci.ir.Module` module
@@ -31,7 +33,7 @@ def python_to_ir(f, functions=None):
         <ppci.ir.Module object at ...>
 
     """
-    mod = PythonToIrCompiler().compile(f, functions=functions)
+    mod = PythonToIrCompiler().compile(f, imports=imports)
     return mod
 
 
@@ -52,7 +54,7 @@ class PythonToIrCompiler:
             'float': ir.f64,
         }
 
-    def compile(self, f, functions=None):
+    def compile(self, f, imports=None):
         """ Convert python into IR-code.
 
         Arguments:
@@ -69,14 +71,33 @@ class PythonToIrCompiler:
 
         self.function_map = {}
 
-        if functions:
-            # Fill imported functions:
-            for name, fnc, return_type, arg_types in functions:
-                self.function_map[name] = (return_type, arg_types)
-
         self.builder = irutils.Builder()
         self.builder.prepare()
         self.builder.set_module(ir.Module('foo', debug_db=self.debug_db))
+
+        if imports:
+            # Fill imported functions:
+            for name, signature in imports.items():
+                # Determine function type:
+                if isinstance(signature, tuple):
+                    return_type, arg_types = signature
+                else:
+                    # Assume that we have a function:
+                    signature = inspect.signature(signature)
+                    return_type = signature.return_annotation
+                    arg_types = [
+                        p.annotation for p in signature.parameters.values()]
+
+                # Create external function:
+                ir_arg_types = [self.get_ty(t) for t in arg_types]
+                if return_type:
+                    ir_function = ir.ExternalFunction(
+                        name, ir_arg_types, self.get_ty(ir.ptr))
+                else:
+                    ir_function = ir.ExternalProcedure(name, ir_arg_types)
+
+                self.function_map[name] = ir_function, return_type, arg_types
+
         for df in x.body:
             self.logger.debug('Processing %s', df)
             if isinstance(df, ast.FunctionDef):
@@ -92,17 +113,20 @@ class PythonToIrCompiler:
         self.builder.emit(instruction)
         return instruction
 
-    def get_ty(self, annotation):
+    def get_ty(self, annotation) -> ir.Typ:
         """ Get the type based on type annotation """
-        # TODO: assert isinstance(annotation, ast.Annotation)
-        if isinstance(annotation, ast.NameConstant) and \
-                annotation.value is None:
-            return
-        type_name = annotation.id
+        if isinstance(annotation, type):
+            type_name = annotation.__name__
+        else:
+            if isinstance(annotation, ast.NameConstant) and \
+                    annotation.value is None:
+                return
+            type_name = annotation.id
+
         if type_name in self.type_mapping:
             return self.type_mapping[type_name]
         else:
-            self.error(annotation, 'Need to return int')
+            self.error(annotation, 'Unhandled type: {}'.format(type_name))
 
     def get_variable(self, name):
         if name not in self.local_map:
@@ -140,7 +164,7 @@ class PythonToIrCompiler:
             ir_function.add_parameter(param)
 
         # Register function as known:
-        self.function_map[function_name] = (return_type, arg_types)
+        self.function_map[function_name] = ir_function, return_type, arg_types
 
         self.logger.debug('Created function %s', ir_function)
         self.builder.block_number = 0
@@ -356,7 +380,7 @@ class PythonToIrCompiler:
             name = expr.func.id
 
             # Lookup function and check types:
-            return_type, arg_types = self.function_map[name]
+            ir_function, return_type, arg_types = self.function_map[name]
             self.logger.warning('Function arguments not type checked!')
 
             # Evaluate arguments:
@@ -365,9 +389,9 @@ class PythonToIrCompiler:
             # Emit call:
             if return_type:
                 value = self.emit(ir.FunctionCall(
-                    name, args, 'res', return_type))
+                    ir_function, args, 'res', return_type))
             else:
-                self.emit(ir.ProcedureCall(name, args))
+                self.emit(ir.ProcedureCall(ir_function, args))
                 value = None
         else:  # pragma: no cover
             self.not_impl(expr)

@@ -7,6 +7,7 @@ import time
 import shutil
 import logging
 import string
+from functools import lru_cache, partial
 
 # Store testdir for safe switch back to directory:
 testdir = os.path.dirname(os.path.abspath(__file__))
@@ -201,6 +202,7 @@ def run_nodejs(js_filename):
     return outs
 
 
+@lru_cache(maxsize=None)
 def has_iverilog():
     """ Determines if iverilog is installed """
     return hasattr(shutil, 'which') and bool(shutil.which(iverilog_app))

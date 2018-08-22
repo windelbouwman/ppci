@@ -8,7 +8,7 @@
             source="../glue.asm"
             output="glue.oj" />
 
-        <compile
+        <c3compile
             arch="xtensa"
             sources="../../src/hello/hello.c3;../../../librt/io.c3;../bsp.c3"
             output="rest.oj"
@@ -25,6 +25,11 @@
             imagename="flash"
             format="bin"
             output="hello.bin" />
+        <objcopy
+            objectfile="hello.oj"
+            imagename="flash"
+            format="elf"
+            output="hello.elf" />
     </target>
 
 </project>

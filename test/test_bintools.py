@@ -8,8 +8,6 @@ from ppci.binutils.outstream import binary_and_logging_stream
 from ppci.common import CompilerError
 from ppci.api import link, get_arch
 from ppci.binutils import layout
-from ppci.utils.elffile import ElfFile
-from ppci.utils.exefile import ExeWriter
 from ppci.arch.example import Mov, R0, R1, ExampleArch
 
 
@@ -184,29 +182,6 @@ class ObjectFileTestCase(unittest.TestCase):
         obj.get_image('x').add_section(obj.get_section('s2'))
         with self.assertRaisesRegex(ValueError, 'overlap'):
             obj.get_image('x').data
-
-
-class ElfFileTestCase(unittest.TestCase):
-    def test_save_load(self):
-        arch = ExampleArch()
-        ef1 = ElfFile()
-        f = io.BytesIO()
-        ef1.save(f, ObjectFile(arch))
-        f2 = io.BytesIO(f.getvalue())
-        ElfFile.load(f2)
-
-
-class ExeFileTestCase(unittest.TestCase):
-    @unittest.skip('TODO')
-    def test_save(self):
-        """ Test the generation of a windows exe file """
-        arch = get_arch('x86_64')
-        obj = ObjectFile(arch)
-        obj.get_section('code', create=True)
-        obj.get_section('data', create=True)
-        f = io.BytesIO()
-        # TODO:
-        ExeWriter().write(obj, f)
 
 
 class LayoutFileTestCase(unittest.TestCase):

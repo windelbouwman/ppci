@@ -4,6 +4,13 @@ from .parser import LlvmIrParser
 from .codegenerator import CodeGenerator
 
 
+def llvm_to_ir(source):
+    """ Convert llvm assembly code into an IR-module """
+    llvm = LlvmIrFrontend()
+    ir_module = llvm.compile(source)
+    return ir_module
+
+
 class LlvmIrFrontend:
     def __init__(self):
         context = nodes.Context()

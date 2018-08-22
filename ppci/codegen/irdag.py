@@ -9,11 +9,9 @@ A DAG represents the logic (computation) of a single basic block.
 To do selection with tree matching, the DAG is then splitted into a
 series of tree patterns. This is often referred to as a forest of trees.
 
-.. autoclass:: ppci.codegen.irdag.SelectionGraphBuilder
-    :members: build
-
 """
 
+import itertools
 import logging
 from .. import ir
 from ..arch.generic_instructions import Label
@@ -58,8 +56,11 @@ def prepare_function_info(arch, function_info, ir_function):
         function_info.arg_vregs.append(vreg)
 
     if isinstance(ir_function, ir.Function):
-        function_info.rv_vreg = function_info.frame.new_reg(
-            arch.get_reg_class(ty=ir_function.return_ty), twain='retval')
+        if ir_function.return_ty in arch.info.value_classes:
+            function_info.rv_vreg = function_info.frame.new_reg(
+                arch.get_reg_class(ty=ir_function.return_ty), twain='retval')
+        else:
+            function_info.rv_vreg = None
 
 
 class FunctionInfo:
@@ -142,9 +143,8 @@ class SelectionGraphBuilder:
         self.current_block = None
 
         # Create maps for global variables:
-        global_objects = ir_function.module.variables + \
-            ir_function.module.functions
-        for variable in global_objects:
+        for variable in itertools.chain(
+                ir_function.module.variables, ir_function.module.functions, ir_function.module.externals):
             val = self.new_node('LABEL', ir.ptr)
             val.value = variable.name
             self.add_map(variable, val.new_output(variable.name))
@@ -248,8 +248,11 @@ class SelectionGraphBuilder:
         """ Move result into result register and jump to epilog """
         res = self.get_value(node.result)
         vreg = self.function_info.rv_vreg
-        mov_node = self.new_node('MOV', node.result.ty, res, value=vreg)
-        self.chain(mov_node)
+        if vreg:
+            mov_node = self.new_node('MOV', node.result.ty, res, value=vreg)
+            self.chain(mov_node)
+        else:  # pragma: no cover
+            raise NotImplementedError('Pass pointer as first arg instead')
 
         # Jump to epilog:
         sgnode = self.new_node('JMP', None)
@@ -300,6 +303,9 @@ class SelectionGraphBuilder:
             dbg_var.address = FpOffsetAddress(slot)
         # self.debug_db.map(node, sgnode)
 
+    def do_copy_blob(self, node):
+        pass
+
     def get_address(self, ir_address):
         """ Determine address for load or store. """
         if isinstance(ir_address, ir.GlobalValue):
@@ -328,7 +334,11 @@ class SelectionGraphBuilder:
         """ Create a DAG node for the store operation """
         address = self.get_address(node.address)
         value = self.get_value(node.value)
-        sgnode = self.new_node('STR', node.value.ty, address, value)
+        if node.value.ty.is_blob:
+            size = node.value.ty.size
+            sgnode = self.new_node('MOVB', None, address, value, value=size)
+        else:
+            sgnode = self.new_node('STR', node.value.ty, address, value)
         self.chain(sgnode)
         self.debug_db.map(node, sgnode)
 
@@ -389,7 +399,6 @@ class SelectionGraphBuilder:
         for argument in node.arguments:
             arg_val = self.get_value(argument)
             if argument.ty.is_blob:
-                print(arg_val.node)
                 args.append((argument.ty, arg_val.node.value))
             else:
                 loc = self.new_vreg(argument.ty)
@@ -404,9 +413,19 @@ class SelectionGraphBuilder:
         return args
 
     def _make_call(self, node, args, rv):
+        if isinstance(node.callee, (ir.SubRoutine, ir.ExternalSubRoutine)):
+            call_target = node.callee.name
+        else:
+            fptr = self.get_value(node.callee)
+
+            fptr_vreg = self.new_vreg(ir.ptr)
+            fptr_sgnode = self.new_node('MOV', ir.ptr, fptr, value=fptr_vreg)
+            self.chain(fptr_sgnode)
+            call_target = fptr_vreg
+
         # Perform the actual call:
         sgnode = self.new_node('CALL', None)
-        sgnode.value = (node.function_name, args, rv)
+        sgnode.value = (call_target, args, rv)
         self.debug_db.map(node, sgnode)
         # for i in inputs:
         #    sgnode.add_input(i)
@@ -428,43 +447,6 @@ class SelectionGraphBuilder:
 
         rv = (node.ty, ret_val)
         self._make_call(node, args, rv)
-
-        # When using the call as an expression, use the return value vreg:
-        sgnode = self.new_node('REG', node.ty, value=ret_val)
-        output = sgnode.new_output('res')
-        output.vreg = ret_val
-        self.add_map(node, output)
-
-    def _make_pointer_call(self, node, args, rv):
-        # Perform the actual call:
-        fptr = self.get_value(node.function_ptr)
-
-        fptr_vreg = self.new_vreg(ir.ptr)
-        fptr_sgnode = self.new_node('MOV', ir.ptr, fptr, value=fptr_vreg)
-        self.chain(fptr_sgnode)
-
-        sgnode = self.new_node('CALL', None)
-        sgnode.value = (fptr_vreg, args, rv)
-        self.debug_db.map(node, sgnode)
-        # for i in inputs:
-        #    sgnode.add_input(i)
-        self.chain(sgnode)
-
-    def do_procedure_pointer_call(self, node):
-        """ Transform a procedure pointer call """
-        args = self._prep_call_arguments(node)
-        self._make_pointer_call(node, args, None)
-
-    def do_function_pointer_call(self, node):
-        """ Transform a procedure pointer call """
-        args = self._prep_call_arguments(node)
-        # New register for copy of result:
-        ret_val = self.function_info.frame.new_reg(
-            self.arch.info.value_classes[node.ty],
-            '{}_result'.format(node.name))
-
-        rv = (node.ty, ret_val)
-        self._make_pointer_call(node, args, rv)
 
         # When using the call as an expression, use the return value vreg:
         sgnode = self.new_node('REG', node.ty, value=ret_val)

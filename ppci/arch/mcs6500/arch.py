@@ -49,13 +49,13 @@ class Mcs6500Arch(Architecture):
         """ """
         # TODO: what ABI to use?
 
-        l = []
+        locations = []
         live_in = set()
         for r in arg_types:
             print(r)
-            l.append(registers.A)
+            locations.append(registers.A)
 
-        return l, tuple(live_in)
+        return locations, tuple(live_in)
 
     def determine_rv_location(self, ret_type):
         live_out = set()

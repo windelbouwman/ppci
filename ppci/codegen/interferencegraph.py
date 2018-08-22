@@ -7,7 +7,8 @@
 
 import logging
 from collections import defaultdict
-from ..utils.graph import Graph, Node
+from ..graph.graph import Node
+from ..graph.maskable_graph import MaskableGraph
 from ..arch.registers import Register
 
 
@@ -29,7 +30,7 @@ class InterferenceGraphNode(Node):
             self.temps, self.reg, self.reg_class)
 
 
-class InterferenceGraph(Graph):
+class InterferenceGraph(MaskableGraph):
     """ Interference graph. """
     def __init__(self):
         """ Create a new interference graph from a flowgraph """

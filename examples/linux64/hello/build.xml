@@ -8,20 +8,21 @@
             source="../glue.asm"
             output="glue.oj" />
 
-        <compile
+        <c3compile
             arch="x86_64"
             sources="../../src/hello/hello.c3;../../../librt/io.c3;../bsp.c3"
             output="rest.oj"
+            debug="true"
             report="report.html"/>
 
         <link
-            output="hello.elf"
+            output="hello.oj"
             layout="../linux64.mmap"
             objects="glue.oj;rest.oj"
             debug="true" />
 
         <objcopy
-            objectfile="hello.elf"
+            objectfile="hello.oj"
             imagename="flash"
             format="elf"
             output="hello" />

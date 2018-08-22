@@ -1,5 +1,5 @@
 import xml.etree.ElementTree as ET
-from . import nodes
+from .nodes import nodes
 
 
 class CastXmlReader:

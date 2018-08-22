@@ -60,14 +60,16 @@ class TailCallOptimization(FunctionPass):
             if len(block) >= 2 and \
                     isinstance(block[-1], ir.Return) and \
                     isinstance(block[-2], ir.FunctionCall) and \
-                    block[-2] is block[-1].result:
-                # TODO: check function calls self in some way?
-                tail_calls.append(block[-1])
+                    block[-2] is block[-1].result and \
+                    block[-2].callee is function:
+                tail_calls.append((block[-1], block[-2]))
 
         if tail_calls:
             self.rewrite_tailcalls(function, tail_calls)
 
-    def rewrite_tailcalls(self, function, tail_calls):
+    def _replace_entry(self, function):
+        """ Replace tail calls by jumps to the old entry of this function.
+        """
         z = []
         z.append((function.entry, function.arguments))
         new_entry = ir.Block('new_entry')
@@ -81,17 +83,21 @@ class TailCallOptimization(FunctionPass):
         arg_phis = []
         for argument in function.arguments:
             arg_phi = ir.Phi(argument.name, argument.ty)
-            argument.replace_usage_by(arg_phi)
+            old_entry.insert_instruction(arg_phi)
+            argument.replace_by(arg_phi)
             arg_phis.append(arg_phi)
 
             # Add the trivial input branch for the phi node from entry:
-            arg_phi.add_input(new_entry, arg_value)
+            arg_phi.set_incoming(new_entry, argument)
+        return old_entry, arg_phis
 
-        # assert all(isinstance(tc, ir.FunctionCall) for tc in tail_calls), str(tail_calls)
+    def rewrite_tailcalls(self, function, tail_calls):
+        """ Change all recursive tail calls into jumps. """
+        old_entry, arg_phis = self._replace_entry(function)
 
         # Replace tail calls by call to new block
-        for tail in tail_calls:
-            tail_call = tail.result
+        for tail, tail_call in tail_calls:
+            assert isinstance(tail_call, ir.FunctionCall)
             block = tail.block
 
             # Replace tail call by jump:
@@ -101,4 +107,4 @@ class TailCallOptimization(FunctionPass):
 
             # Add input for all arguments to the argument phis:
             for arg_phi, arg_value in zip(arg_phis, tail_call.arguments):
-                arg_phi.add_input(block, arg_value)
+                arg_phi.set_incoming(block, arg_value)

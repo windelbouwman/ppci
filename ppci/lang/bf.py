@@ -5,21 +5,32 @@ import logging
 from .. import ir
 from ..common import CompilerError
 from ..irutils import Builder
+from ..arch import get_arch
+
+__all__ = ("bf_to_ir", "BrainFuckGenerator")
 
 
-class BrainFuckGenerator():
+def bf_to_ir(source, target):
+    """ Compile brainfuck source into ir code """
+    target = get_arch(target)
+    ircode = BrainFuckGenerator(target).generate(source)
+    return ircode
+
+
+class BrainFuckGenerator:
     """ Brainfuck is a language that is so simple, the entire front-end can
     be implemented in one pass.
     """
-    logger = logging.getLogger('bfgen')
+
+    logger = logging.getLogger("bfgen")
 
     def __init__(self, arch):
         self.arch = arch
         self.builder = Builder()
 
-    def generate(self, src, module_name='main', function_name='main'):
+    def generate(self, src, module_name="main", function_name="main"):
         """ Takes a brainfuck program and returns the IR-code module """
-        self.logger.info('Generating IR-code from brainfuck')
+        self.logger.info("Generating IR-code from brainfuck")
 
         # Assembler code will call sample_start
         self.builder.module = ir.Module(module_name)
@@ -32,13 +43,18 @@ class BrainFuckGenerator():
 
         # Allocate space on stack for ptr register:
         ptr_var = self.builder.emit(
-            ir.Alloc('ptr_alloc', self.arch.get_size(ir.i32), 4))
-        ptr_var = self.builder.emit(ir.AddressOf(ptr_var, 'ptr_addr'))
+            ir.Alloc("ptr_alloc", self.arch.get_size(ir.i32), 4)
+        )
+        ptr_var = self.builder.emit(ir.AddressOf(ptr_var, "ptr_addr"))
 
         bf_mem_size = 30000
         # Construct global array:
-        data = ir.Variable('data', bf_mem_size * self.arch.get_size(ir.i8), 4)
+        data = ir.Variable("data", bf_mem_size * self.arch.get_size(ir.i8), 4)
         self.builder.module.add_variable(data)
+
+        # bsp puts function:
+        bsp_putc = ir.ExternalProcedure("bsp_putc", [ir.u8])
+        self.builder.module.add_external(bsp_putc)
 
         # Locate '1' and '0' constants:
         one_i32_ins = self.builder.emit(ir.Const(1, "one", ir.i32))
@@ -48,7 +64,8 @@ class BrainFuckGenerator():
         zero_ptr = self.builder.emit(ir.Cast(zero_ins, "zero_ptr", ir.ptr))
         zero_byte = self.builder.emit(ir.Cast(zero_ins, "zero_ptr", ir.i8))
         array_size = self.builder.emit(
-            ir.Const(bf_mem_size, "array_max", ir.ptr))
+            ir.Const(bf_mem_size, "array_max", ir.ptr)
+        )
 
         # Store initial value of ptr:
         self.builder.emit(ir.Store(zero_ptr, ptr_var))
@@ -61,12 +78,14 @@ class BrainFuckGenerator():
         self.builder.set_block(block_init)
         ptr_val = self.builder.emit(ir.Load(ptr_var, "ptr_val", ir.ptr))
         cell_addr = self.builder.emit(
-            ir.add(data, ptr_val, "cell_addr", ir.ptr))
+            ir.add(data, ptr_val, "cell_addr", ir.ptr)
+        )
         self.builder.emit(ir.Store(zero_ins, cell_addr))
         add_ins = self.builder.emit(ir.add(ptr_val, prc_inc, "add", ir.ptr))
         self.builder.emit(ir.Store(add_ins, ptr_var))
         self.builder.emit(
-            ir.CJump(add_ins, '==', array_size, block3, block_init))
+            ir.CJump(add_ins, "==", array_size, block3, block_init)
+        )
 
         self.builder.set_block(block3)
 
@@ -81,39 +100,41 @@ class BrainFuckGenerator():
 
         # Implement all instructions:
         for char in src:
-            if char == '>':
+            if char == ">":
                 # ptr++;
                 ptr = self.builder.emit(ir.add(ptr, prc_inc, "ptr", ir.ptr))
-            elif char == '<':
+            elif char == "<":
                 # ptr--;
                 ptr = self.builder.emit(ir.sub(ptr, prc_inc, "ptr", ir.ptr))
-            elif char == '+':
+            elif char == "+":
                 # data[ptr]++;
                 val_ins = self.builder.emit(ir.Load(ptr, "ptr_val", ir.i8))
                 add_ins = self.builder.emit(
-                    ir.add(val_ins, one_ins, "add", ir.i8))
+                    ir.add(val_ins, one_ins, "add", ir.i8)
+                )
                 self.builder.emit(ir.Store(add_ins, ptr))
-            elif char == '-':
+            elif char == "-":
                 # data[ptr]--;
                 val_ins = self.builder.emit(ir.Load(ptr, "ptr_val", ir.i8))
                 sub_ins = self.builder.emit(
-                    ir.sub(val_ins, one_ins, "sub", ir.i8))
+                    ir.sub(val_ins, one_ins, "sub", ir.i8)
+                )
                 self.builder.emit(ir.Store(sub_ins, ptr))
-            elif char == '.':
+            elif char == ".":
                 # putc(data[ptr])
                 val_ins = self.builder.emit(ir.Load(ptr, "ptr_val", ir.i8))
-                self.builder.emit(ir.ProcedureCall('bsp_putc', [val_ins]))
-            elif char == ',':  # pragma: no cover
+                self.builder.emit(ir.ProcedureCall(bsp_putc, [val_ins]))
+            elif char == ",":  # pragma: no cover
                 # data[ptr] = getchar()
                 raise NotImplementedError('"," operator not implemented')
-            elif char == '[':
+            elif char == "[":
                 entry_block = self.builder.new_block()
                 body = self.builder.new_block()
                 exit_block = self.builder.new_block()
                 current_block = self.builder.block
 
                 # Register phi node into entry:
-                ptr_phi = ir.Phi('ptr_phi', ir.ptr)
+                ptr_phi = ir.Phi("ptr_phi", ir.ptr)
                 ptr_phi.set_incoming(current_block, ptr)
                 phi_map[entry_block] = ptr_phi
 
@@ -126,15 +147,15 @@ class BrainFuckGenerator():
                 ptr = ptr_phi
 
                 # Create test, jump to exit when *ptr == 0:
-                val_ins = self.builder.emit(
-                    ir.Load(ptr, "ptr_val", ir.i8))
+                val_ins = self.builder.emit(ir.Load(ptr, "ptr_val", ir.i8))
                 self.builder.emit(
-                    ir.CJump(val_ins, '==', zero_byte, exit_block, body))
+                    ir.CJump(val_ins, "==", zero_byte, exit_block, body)
+                )
 
                 # Set body as current block:
                 self.builder.set_block(body)
                 loops.append((entry_block, exit_block))
-            elif char == ']':
+            elif char == "]":
                 # Jump back to condition code:
                 entry_block, exit_block = loops.pop(-1)
 
@@ -150,7 +171,7 @@ class BrainFuckGenerator():
                 # Set ptr to phi value front entry:
                 ptr = ptr_phi
         if loops:
-            raise CompilerError('[ requires matching ]')
+            raise CompilerError("[ requires matching ]")
 
         # Close current block:
         self.builder.emit(ir.Exit())

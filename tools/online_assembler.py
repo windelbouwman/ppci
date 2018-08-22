@@ -38,6 +38,7 @@ app = flask.Flask(__name__)
 def main():
     return main_html
 
+
 @app.route('/compile', methods=['POST'])
 def compile():
     source = flask.request.form['source']
@@ -45,11 +46,26 @@ def compile():
     print(tmp)
     with open(tmp, 'w') as f:
         f.write(source)
+    # res2 = asm_x86(tmp)
+    res2 = asm_arm(tmp)
+    return str(source) + str(res2.stdout)
+
+
+def asm_x86(tmp):
     res = subprocess.run(['nasm', '-f', 'elf64', tmp])
     print(res)
     res2 = subprocess.run(['objdump', '-d', tmp + '.o'], stdout=subprocess.PIPE)
     print(res2)
-    return str(source) + str(res2.stdout)
+    return res2
+
+
+def asm_arm(tmp):
+    res = subprocess.run(['arm-none-eabi-as', tmp])
+    print(res)
+    res2 = subprocess.run(['arm-none-eabi-objdump', '-d'], stdout=subprocess.PIPE)
+    print(res2)
+    return res2
+
 
 if __name__ == '__main__':
     app.run()

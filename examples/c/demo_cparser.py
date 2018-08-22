@@ -28,7 +28,7 @@ if __name__ == '__main__':
     context = CContext(coptions, get_current_arch().info)
     preprocessor = CPreProcessor(coptions)
     semantics = CSemantics(context)
-    parser = CParser(context, semantics)
+    parser = CParser(coptions, semantics)
 
     try:
         with open(filename, 'r') as f:

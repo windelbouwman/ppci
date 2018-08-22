@@ -4,6 +4,7 @@
 
 from .isa import arm_isa, ArmToken, ArmImmToken, Isa
 from ..encoding import Instruction, Constructor, Syntax, Operand, Transform
+from ..generic_instructions import RegisterUseDef
 from ...utils.bitfun import encode_imm32
 from ...utils.tree import Tree
 from .registers import ArmRegister, Coreg, Coproc, RegisterSet, R11
@@ -274,8 +275,9 @@ class ShiftBase(ArmInstruction):
 
 class Lsr1(ShiftBase):
     opcode = 0b0011
-    syntax = Syntax(
-        ['lsr', ShiftBase.rd, ',', ShiftBase.rn, ',', ShiftBase.rm])
+    syntax = Syntax([
+        'lsr', ' ', ShiftBase.rd, ',', ' ',
+        ShiftBase.rn, ',', ' ', ShiftBase.rm])
 
 
 Lsr = Lsr1
@@ -284,10 +286,16 @@ Lsr = Lsr1
 class Lsl1(ShiftBase):
     opcode = 0b0001
     syntax = Syntax(
-        ['lsl', ShiftBase.rd, ',', ShiftBase.rn, ',', ShiftBase.rm])
+        ['lsl', ' ', ShiftBase.rd, ',', ShiftBase.rn, ',', ShiftBase.rm])
 
 
 Lsl = Lsl1
+
+
+class Asr(ShiftBase):
+    opcode = 0b0101
+    syntax = Syntax(
+        ['asr', ' ', ShiftBase.rd, ',', ShiftBase.rn, ',', ShiftBase.rm])
 
 
 class OpRegRegImm(ArmInstruction):
@@ -460,7 +468,7 @@ class Ldr1(LdrStrBase):
     bit20 = 1
     bit22 = 0
     syntax = Syntax([
-        'ldr', ' ', rt, ',', ' ', '[', LdrStrBase.rn, ',', ' ',
+        'ldr', ' ', rt, ',', ' ', '[', LdrStrBase.rn, ',', ' ', '#',
         LdrStrBase.offset, ']'])
 
 
@@ -469,7 +477,8 @@ class Strh(ArmInstruction):
     rd = Operand('rd', ArmRegister, write=True)
     rn = Operand('rn', ArmRegister, read=True)
     imm = Operand('imm', int)
-    syntax = Syntax(['strh', ' ', rd, ',', ' ', '[', rn, ',', ' ', imm, ']'])
+    syntax = Syntax(
+        ['strh', ' ', rd, ',', ' ', '[', rn, ',', ' ', '#', imm, ']'])
     patterns = {'rn': rn, 'rd': rd, 'cond': AL}
 
     def set_user_patterns(self, tokens):
@@ -497,7 +506,7 @@ class Strb(LdrStrBase):
     bit20 = 0
     bit22 = 1
     syntax = Syntax([
-        'strb', ' ', rt, ',', ' ', '[', LdrStrBase.rn, ',', ' ',
+        'strb', ' ', rt, ',', ' ', '[', LdrStrBase.rn, ',', ' ', '#',
         LdrStrBase.offset, ']'])
 
 
@@ -508,12 +517,133 @@ class Ldrb(LdrStrBase):
     bit20 = 1
     bit22 = 1
     syntax = Syntax([
-        'ldrb', ' ', rt, ',', ' ', '[', LdrStrBase.rn, ',', ' ',
+        'ldrb', ' ', rt, ',', ' ', '[', LdrStrBase.rn, ',', ' ', '#',
         LdrStrBase.offset, ']'])
 
 
-# TODO:
-Ldrsb = Ldrb
+class Ldrsb(ArmInstruction):
+    """ ldrsb rt, [rn, offset].
+
+    Load byte and sign extend.
+    """
+    rt = Operand('rt', ArmRegister, write=True)
+    rn = Operand('rn', ArmRegister, read=True)
+    offset = Operand('offset', int)
+    syntax = Syntax([
+        'ldrsb', ' ', rt, ',', ' ', '[', rn, ',', ' ', '#', offset, ']'])
+
+    def encode(self):
+        tokens = self.get_tokens()
+        tokens[0].cond = AL
+        tokens[0][25:28] = 0
+        tokens[0][24] = 1  # Index
+        tokens[0][22] = 1
+        tokens[0][21] = 0  # W?
+        tokens[0][20] = 1
+        tokens[0].rn = self.rn.num
+        tokens[0][12:16] = self.rt.num
+        tokens[0][4:8] = 0b1101
+        if self.offset >= 0:
+            tokens[0][23] = 1  # U == 1 'add'
+            offset = self.offset
+        else:
+            tokens[0][23] = 0
+            offset = -self.offset
+        tokens[0].imm4h_imm4l = offset
+        return tokens.encode()
+
+
+class Ldrh_imm(ArmInstruction):
+    """ ldrh rt, [rn, offset].
+
+    Load half word and zero extend.
+    """
+    rt = Operand('rt', ArmRegister, write=True)
+    rn = Operand('rn', ArmRegister, read=True)
+    offset = Operand('offset', int)
+    syntax = Syntax([
+        'ldrh', ' ', rt, ',', ' ', '[', rn, ',', ' ', '#', offset, ']'])
+
+    def encode(self):
+        tokens = self.get_tokens()
+        tokens[0].cond = AL
+        tokens[0][25:28] = 0
+        tokens[0][24] = 1  # Index
+        tokens[0][22] = 1
+        tokens[0][21] = 0  # W?
+        tokens[0][20] = 1
+        tokens[0].rn = self.rn.num
+        tokens[0][12:16] = self.rt.num
+        tokens[0][4:8] = 0b1011
+        if self.offset >= 0:
+            tokens[0][23] = 1  # U == 1 'add'
+            offset = self.offset
+        else:
+            tokens[0][23] = 0
+            offset = -self.offset
+        tokens[0].imm4h_imm4l = offset
+        return tokens.encode()
+
+
+class Ldrsh_imm(ArmInstruction):
+    """ ldrsh rt, [rn, offset].
+
+    Load signed half word and sign extend.
+    """
+    rt = Operand('rt', ArmRegister, write=True)
+    rn = Operand('rn', ArmRegister, read=True)
+    offset = Operand('offset', int)
+    syntax = Syntax([
+        'ldrsh', ' ', rt, ',', ' ', '[', rn, ',', ' ', '#', offset, ']'])
+
+    def encode(self):
+        tokens = self.get_tokens()
+        tokens[0].cond = AL
+        tokens[0][25:28] = 0
+        tokens[0][24] = 1  # Index
+        tokens[0][22] = 1
+        tokens[0][21] = 0  # W?
+        tokens[0][20] = 1
+        tokens[0].rn = self.rn.num
+        tokens[0][12:16] = self.rt.num
+        tokens[0][4:8] = 0b1111
+        if self.offset >= 0:
+            tokens[0][23] = 1  # U == 1 'add'
+            offset = self.offset
+        else:
+            tokens[0][23] = 0
+            offset = -self.offset
+        tokens[0].imm4h_imm4l = offset
+        return tokens.encode()
+
+
+class Ldrsh_reg(ArmInstruction):
+    """ ldrsh rt, [rn, rm].
+
+    Load signed half word and sign extend.
+    """
+    rt = Operand('rt', ArmRegister, write=True)
+    rn = Operand('rn', ArmRegister, read=True)
+    rm = Operand('rm', ArmRegister, read=True)
+    offset = Operand('offset', int)
+    syntax = Syntax([
+        'ldrsh', ' ', rt, ',', ' ', '[', rn, ',', ' ', rm, ']'])
+
+    def encode(self):
+        tokens = self.get_tokens()
+        tokens[0].cond = AL
+        tokens[0][25:28] = 0
+        tokens[0][24] = 1  # Index
+        tokens[0][23] = 1  # U == 1 'add'
+        tokens[0][22] = 0
+        tokens[0][21] = 0  # W?
+        tokens[0][20] = 1
+        tokens[0].rn = self.rn.num
+        tokens[0][12:16] = self.rt.num
+        tokens[0][8:12] = 0b0000
+        tokens[0][4:8] = 0b1111
+        tokens[0][0:4] = self.rm.num
+        return tokens.encode()
 
 
 class Adr(ArmInstruction):
@@ -639,6 +769,17 @@ def pattern_str8(context, tree, c0, c1):
     context.emit(Strb(c1, base_reg, offset))
 
 
+@arm_isa.pattern('stm', 'MOVB(reg, reg)', size=40)
+def pattern_movb(context, tree, c0, c1):
+    # Emit memcpy
+    dst = c0
+    src = c1
+    tmp = context.new_reg(ArmRegister)
+    size = tree.value
+    for instruction in context.arch.gen_arm_memcpy(dst, src, tmp, size):
+        context.emit(instruction)
+
+
 @arm_isa.pattern('stm', 'MOVI32(reg)', size=4)
 @arm_isa.pattern('stm', 'MOVU32(reg)', size=4)
 def pattern_mov32(context, tree, c0):
@@ -691,12 +832,16 @@ def pattern_i32toi32(self, tree, c0):
 
 @arm_isa.pattern('reg', 'I8TOI32(reg)', size=0)
 @arm_isa.pattern('reg', 'U8TOI32(reg)', size=0)
+@arm_isa.pattern('reg', 'I8TOU32(reg)', size=0)
+@arm_isa.pattern('reg', 'U8TOU32(reg)', size=0)
 def pattern_i8toi32(self, tree, c0):
     # TODO: do something?
     # Sign extend for example?
     return c0
 
 
+@arm_isa.pattern('reg', 'U32TOI8(reg)', size=0)
+@arm_isa.pattern('reg', 'U32TOU8(reg)', size=0)
 @arm_isa.pattern('reg', 'I32TOI8(reg)', size=0)
 @arm_isa.pattern('reg', 'I32TOU8(reg)', size=0)
 def pattern_i32toi8(context, tree, c0):
@@ -705,8 +850,35 @@ def pattern_i32toi8(context, tree, c0):
     return d2
 
 
+@arm_isa.pattern('reg', 'U32TOU16(reg)', size=4)
+@arm_isa.pattern('reg', 'U32TOI16(reg)', size=4)
+@arm_isa.pattern('reg', 'I32TOI16(reg)', size=4)
+@arm_isa.pattern('reg', 'I32TOU16(reg)', size=4)
+def pattern_i32toi16(context, tree, c0):
+    # d2 = context.new_reg(ArmRegister)
+    # context.emit(Sxth(d2, c0))
+    return c0
+
+
+@arm_isa.pattern('reg', 'I16TOI32(reg)', size=4)
+def pattern_i16toi32(context, tree, c0):
+    # d2 = context.new_reg(ArmRegister)
+    # TODO:
+    # context.emit(Sxth(d2, c0))
+    return c0
+
+
+@arm_isa.pattern('reg', 'I16TOU32(reg)', size=4)
+@arm_isa.pattern('reg', 'U16TOI32(reg)', size=4)
+@arm_isa.pattern('reg', 'U16TOU32(reg)', size=4)
+def pattern_i16tou32(context, tree, c0):
+    return c0
+
+
 @arm_isa.pattern('reg', 'CONSTI32', size=8)
 @arm_isa.pattern('reg', 'CONSTU32', size=8)
+@arm_isa.pattern('reg', 'CONSTI16', size=8)
+@arm_isa.pattern('reg', 'CONSTU16', size=8)
 def pattern_const32(context, tree):
     d = context.new_reg(ArmRegister)
     ln = context.frame.add_constant(tree.value)
@@ -727,8 +899,14 @@ def pattern_const32_1(context, tree):
     return d
 
 
-@arm_isa.pattern('reg', 'CONSTI8', size=4, condition=lambda t: t.value < 256)
-@arm_isa.pattern('reg', 'CONSTU8', size=4, condition=lambda t: t.value < 256)
+@arm_isa.pattern(
+    'reg', 'CONSTI16', size=4, condition=lambda t: t.value in range(256))
+@arm_isa.pattern(
+    'reg', 'CONSTU16', size=4, condition=lambda t: t.value in range(256))
+@arm_isa.pattern(
+    'reg', 'CONSTI8', size=4, condition=lambda t: t.value in range(256))
+@arm_isa.pattern(
+    'reg', 'CONSTU8', size=4, condition=lambda t: t.value in range(256))
 def pattern_const8_1(context, tree):
     d = context.new_reg(ArmRegister)
     c0 = tree.value
@@ -739,16 +917,37 @@ def pattern_const8_1(context, tree):
 
 
 @arm_isa.pattern('stm', 'CJMPI32(reg, reg)', size=2)
-@arm_isa.pattern('stm', 'CJMPU32(reg, reg)', size=2)
 @arm_isa.pattern('stm', 'CJMPI16(reg, reg)', size=2)
-@arm_isa.pattern('stm', 'CJMPU16(reg, reg)', size=2)
 @arm_isa.pattern('stm', 'CJMPI8(reg, reg)', size=2)
-@arm_isa.pattern('stm', 'CJMPU8(reg, reg)', size=2)
-def pattern_cjmp(context, tree, c0, c1):
+def pattern_cjmp_signed(context, tree, c0, c1):
     op, yes_label, no_label = tree.value
-    opnames = {"<": Blt, ">": Bgt, "==": Beq, "!=": Bne, ">=": Bge}
+    opnames = {
+        "<": Blt, ">": Bgt,
+        "==": Beq, "!=": Bne,
+        '<=': Ble, ">=": Bge
+    }
     Bop = opnames[op]
     context.emit(Cmp2(c0, c1, NoShift()))
+    jmp_ins = B(no_label.name, jumps=[no_label])
+    context.emit(Bop(yes_label.name, jumps=[yes_label, jmp_ins]))
+    context.emit(jmp_ins)
+
+
+@arm_isa.pattern('stm', 'CJMPU32(reg, reg)', size=2)
+@arm_isa.pattern('stm', 'CJMPU16(reg, reg)', size=2)
+@arm_isa.pattern('stm', 'CJMPU8(reg, reg)', size=2)
+def pattern_cjmp_unsigned(context, tree, c0, c1):
+    op, yes_label, no_label = tree.value
+    opnames = {
+        "<": (Blo, False), ">": (Blo, True),
+        "==": (Beq, False), "!=": (Bne, False),
+        '<=': (Bhs, True), ">=": (Bhs, False)
+    }
+    Bop, do_swap = opnames[op]
+    if do_swap:
+        context.emit(Cmp2(c1, c0, NoShift()))
+    else:
+        context.emit(Cmp2(c0, c1, NoShift()))
     jmp_ins = B(no_label.name, jumps=[no_label])
     context.emit(Bop(yes_label.name, jumps=[yes_label, jmp_ins]))
     context.emit(jmp_ins)
@@ -757,6 +956,14 @@ def pattern_cjmp(context, tree, c0, c1):
 @arm_isa.pattern('reg', 'ADDI32(reg, reg)', size=2)
 @arm_isa.pattern('reg', 'ADDU32(reg, reg)', size=2)
 def pattern_add32(context, tree, c0, c1):
+    d = context.new_reg(ArmRegister)
+    context.emit(Add(d, c0, c1, NoShift()))
+    return d
+
+
+@arm_isa.pattern('reg', 'ADDI16(reg, reg)', size=2)
+@arm_isa.pattern('reg', 'ADDU16(reg, reg)', size=2)
+def pattern_add16(context, tree, c0, c1):
     d = context.new_reg(ArmRegister)
     context.emit(Add(d, c0, c1, NoShift()))
     return d
@@ -795,6 +1002,14 @@ def pattern_add32_2(context, tree, c0):
 @arm_isa.pattern('reg', 'SUBI32(reg, reg)', size=4)
 @arm_isa.pattern('reg', 'SUBU32(reg, reg)', size=4)
 def pattern_sub32(context, tree, c0, c1):
+    d = context.new_reg(ArmRegister)
+    context.emit(Sub(d, c0, c1, NoShift()))
+    return d
+
+
+@arm_isa.pattern('reg', 'SUBI16(reg, reg)', size=4)
+@arm_isa.pattern('reg', 'SUBU16(reg, reg)', size=4)
+def pattern_sub16(context, tree, c0, c1):
     d = context.new_reg(ArmRegister)
     context.emit(Sub(d, c0, c1, NoShift()))
     return d
@@ -856,8 +1071,7 @@ def pattern_ldr_u8(context, tree, c0):
 def pattern_ldr_i16(context, tree, c0):
     d = context.new_reg(ArmRegister)
     base_reg, offset = c0
-    raise NotImplementedError('ldrsh')
-    # context.emit(Ldrsh(d, base_reg, offset))
+    context.emit(Ldrsh_imm(d, base_reg, offset))
     return d
 
 
@@ -865,8 +1079,7 @@ def pattern_ldr_i16(context, tree, c0):
 def pattern_ldr_u16(context, tree, c0):
     d = context.new_reg(ArmRegister)
     base_reg, offset = c0
-    raise NotImplementedError('ldrh')
-    # context.emit(Ldrh(d, base_reg, offset))
+    context.emit(Ldrh_imm(d, base_reg, offset))
     return d
 
 
@@ -891,6 +1104,10 @@ def pattern_and(context, tree, c0, c1):
     return d
 
 
+@arm_isa.pattern('reg', Tree('ORI8', Tree('reg'), Tree('reg')), size=4)
+@arm_isa.pattern('reg', Tree('ORU8', Tree('reg'), Tree('reg')), size=4)
+@arm_isa.pattern('reg', Tree('ORI16', Tree('reg'), Tree('reg')), size=4)
+@arm_isa.pattern('reg', Tree('ORU16', Tree('reg'), Tree('reg')), size=4)
 @arm_isa.pattern('reg', Tree('ORI32', Tree('reg'), Tree('reg')), size=4)
 @arm_isa.pattern('reg', Tree('ORU32', Tree('reg'), Tree('reg')), size=4)
 def pattern_or32(context, tree, c0, c1):
@@ -900,9 +1117,47 @@ def pattern_or32(context, tree, c0, c1):
 
 
 @arm_isa.pattern('reg', 'SHRI32(reg, reg)', size=4)
-@arm_isa.pattern('reg', 'SHRU32(reg, reg)', size=4)
-def pattern_shr32(context, tree, c0, c1):
+def pattern_shr_i32(context, tree, c0, c1):
     d = context.new_reg(ArmRegister)
+    context.emit(Asr(d, c0, c1))
+    return d
+
+
+@arm_isa.pattern('reg', 'SHRU32(reg, reg)', size=4)
+def pattern_shr_u32(context, tree, c0, c1):
+    d = context.new_reg(ArmRegister)
+    context.emit(Lsr1(d, c0, c1))
+    return d
+
+
+@arm_isa.pattern('reg', 'SHRI16(reg, reg)', size=4)
+def pattern_shr_i16(context, tree, c0, c1):
+    d = context.new_reg(ArmRegister)
+    # TODO: mask with 0xffff at some point?
+    context.emit(Asr(d, c0, c1))
+    return d
+
+
+@arm_isa.pattern('reg', 'SHRU16(reg, reg)', size=4)
+def pattern_shr_u16(context, tree, c0, c1):
+    d = context.new_reg(ArmRegister)
+    # TODO: mask with 0xffff at some point?
+    context.emit(Lsr1(d, c0, c1))
+    return d
+
+
+@arm_isa.pattern('reg', 'SHRI8(reg, reg)', size=4)
+def pattern_shr8(context, tree, c0, c1):
+    d = context.new_reg(ArmRegister)
+    # TODO: mask with 0xffff at some point?
+    context.emit(Asr(d, c0, c1))
+    return d
+
+
+@arm_isa.pattern('reg', 'SHRU8(reg, reg)', size=4)
+def pattern_shr_u8(context, tree, c0, c1):
+    d = context.new_reg(ArmRegister)
+    # TODO: mask with 0xffff at some point?
     context.emit(Lsr1(d, c0, c1))
     return d
 
@@ -911,6 +1166,24 @@ def pattern_shr32(context, tree, c0, c1):
 @arm_isa.pattern('reg', Tree('SHLU32', Tree('reg'), Tree('reg')), size=4)
 def pattern_shl32(context, tree, c0, c1):
     d = context.new_reg(ArmRegister)
+    context.emit(Lsl1(d, c0, c1))
+    return d
+
+
+@arm_isa.pattern('reg', Tree('SHLI16', Tree('reg'), Tree('reg')), size=4)
+@arm_isa.pattern('reg', Tree('SHLU16', Tree('reg'), Tree('reg')), size=4)
+def pattern_shl16(context, tree, c0, c1):
+    d = context.new_reg(ArmRegister)
+    # TODO: mask with 0xffff at some point?
+    context.emit(Lsl1(d, c0, c1))
+    return d
+
+
+@arm_isa.pattern('reg', Tree('SHLI8', Tree('reg'), Tree('reg')), size=4)
+@arm_isa.pattern('reg', Tree('SHLU8', Tree('reg'), Tree('reg')), size=4)
+def pattern_shl8(context, tree, c0, c1):
+    d = context.new_reg(ArmRegister)
+    # TODO: mask with 0xffff at some point?
     context.emit(Lsl1(d, c0, c1))
     return d
 
@@ -932,25 +1205,33 @@ def pattern_ldr32(context, tree, c0):
     return d
 
 
-@arm_isa.pattern('reg', 'DIVI32(reg, reg)')
-def pattern_div32(context, tree, c0, c1):
+def call_internal2(context, name, a, b):
+    """ Call internal helper with two parameters and one return value """
     d = context.new_reg(ArmRegister)
     # Generate call into runtime lib function!
-    context.move(R1, c0)
-    context.move(R2, c1)
-    context.emit(Bl('__sdiv'))
+    context.move(R1, a)
+    context.move(R2, b)
+    context.emit(RegisterUseDef(uses=(R1, R2)))
+    context.emit(Bl(name))
+    context.emit(RegisterUseDef(defs=(R0,)))
     context.move(d, R0)
     return d
+
+
+@arm_isa.pattern('reg', 'DIVI32(reg, reg)')
+def pattern_divi32(context, tree, c0, c1):
+    return call_internal2(context, '__sdiv', c0, c1)
+
+
+@arm_isa.pattern('reg', 'DIVU32(reg, reg)')
+def pattern_divu32(context, tree, c0, c1):
+    return call_internal2(context, '__udiv', c0, c1)
 
 
 @arm_isa.pattern('reg', 'REMI32(reg, reg)')
 def pattern_rem32(context, tree, c0, c1):
     # Implement remainder as a combo of div and mls (multiply substract)
-    d = context.new_reg(ArmRegister)
-    context.move(R1, c0)
-    context.move(R2, c1)
-    context.emit(Bl('__sdiv'))
-    context.move(d, R0)
+    d = call_internal2(context, '__sdiv', c0, c1)
     d2 = context.new_reg(ArmRegister)
     context.emit(Mls(d2, d, c1, c0))
     return d2
@@ -969,6 +1250,11 @@ def pattern_xor(context, tree, c0, c1):
 
 
 @arm_isa.pattern('reg', 'NEGI32(reg)', size=4)
+@arm_isa.pattern('reg', 'NEGU32(reg)', size=4)
+@arm_isa.pattern('reg', 'NEGI16(reg)', size=4)
+@arm_isa.pattern('reg', 'NEGU16(reg)', size=4)
+@arm_isa.pattern('reg', 'NEGI8(reg)', size=4)
+@arm_isa.pattern('reg', 'NEGU8(reg)', size=4)
 def pattern_neg32(context, tree, c0):
     d = context.new_reg(ArmRegister)
     # Implement as rsb with immediate value
@@ -977,6 +1263,7 @@ def pattern_neg32(context, tree, c0):
 
 
 @arm_isa.pattern('reg', 'INVI32(reg)', size=4)
+@arm_isa.pattern('reg', 'INVU32(reg)', size=4)
 def pattern_inv32(context, tree, c0):
     d = context.new_reg(ArmRegister)
     context.move(R1, c0)
@@ -985,7 +1272,6 @@ def pattern_inv32(context, tree, c0):
     return d
 
 
-# TODO: implement DIVI32 by library call.
 # TODO: Do that here, or in irdag?
 
 

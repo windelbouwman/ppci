@@ -1,10 +1,19 @@
+""" IR-code generation.
+
+Walks over the AST of the C sourcecode and generates IR-code.
+
+Most errors and warnings are already detected during the parsing / semantics
+phase.
+
+"""
 import logging
 from ... import ir, irutils
 from ...common import CompilerError
 from ...binutils import debuginfo
-from . import types, declarations, statements, expressions
+from .nodes import types, declarations, statements, expressions
 from .utils import required_padding
-from .types import BasicType
+from .nodes.types import BasicType
+from .scope import RootScope
 
 
 class CCodeGenerator:
@@ -13,7 +22,9 @@ class CCodeGenerator:
 
     def __init__(self, context):
         self.context = context
+        self._root_scope = RootScope()
         self.builder = None
+        self.debug_db = None
         self.ir_var_map = {}
         self.constant_values = {}
         self.evaluating_constants = set()
@@ -64,7 +75,7 @@ class CCodeGenerator:
 
     def gen_object(self, declaration):
         """ Generate code for a single object """
-        assert isinstance(declaration, declarations.Declaration)
+        assert isinstance(declaration, declarations.CDeclaration)
 
         # Generate code:
         if isinstance(declaration, declarations.Typedef):
@@ -74,10 +85,10 @@ class CCodeGenerator:
             self.gen_function(declaration)
         elif isinstance(declaration, declarations.VariableDeclaration):
             self.gen_global_variable(declaration)
-        elif isinstance(declaration, declarations.ValueDeclaration):
+        elif isinstance(declaration, declarations.EnumConstantDeclaration):
             pass
         else:  # pragma: no cover
-            raise NotImplementedError()
+            raise NotImplementedError(str(declaration))
 
     def emit(self, instruction, location=None):
         """ Helper function to emit a single instruction """
@@ -98,6 +109,7 @@ class CCodeGenerator:
         raise CompilerError(message, loc=location)
 
     def gen_global_variable(self, var_decl):
+        """ Generate code for a global variable """
         if var_decl.storage_class == 'extern':
             # create an external variable:
             ir_var = ir.ExternalVariable(var_decl.name)
@@ -112,7 +124,11 @@ class CCodeGenerator:
                 ivalue = None
             size = self.context.sizeof(var_decl.typ)
             alignment = self.context.alignment(var_decl.typ)
-            ir_var = ir.Variable(var_decl.name, size, alignment, value=ivalue)
+            if var_decl.storage_class == 'static':
+                name = '__static' + var_decl.name
+            else:
+                name = var_decl.name
+            ir_var = ir.Variable(name, size, alignment, value=ivalue)
             self.builder.module.add_variable(ir_var)
             self.ir_var_map[var_decl] = ir_var
 
@@ -122,7 +138,8 @@ class CCodeGenerator:
             self.gen_function_def(function)
         else:
             # TODO: when to put a function declaration as extern?
-            if function.storage_class == 'extern':
+            # For now just ignore extern keyword?
+            if True:  # function.storage_class == 'extern':
                 ftyp = function.typ
                 argument_types = [
                     self.get_ir_type(a.typ) for a in ftyp.arguments]
@@ -131,14 +148,15 @@ class CCodeGenerator:
                     argument_types.append(ir.ptr)
 
                 if ftyp.return_type.is_void:
-                    xf = ir.ExternalProcedure(
+                    external_function = ir.ExternalProcedure(
                         function.name, argument_types)
                 else:
                     return_type = self.get_ir_type(ftyp.return_type)
-                    xf = ir.ExternalFunction(
+                    external_function = ir.ExternalFunction(
                         function.name, argument_types, return_type)
 
-                self.builder.module.add_external(xf)
+                self.builder.module.add_external(external_function)
+                self.ir_var_map[function] = external_function
             else:
                 # Okay, a declaration, no body, what now?
                 pass
@@ -147,7 +165,7 @@ class CCodeGenerator:
         """ Generate code for a function definition """
         self.logger.debug('Generating IR-code for %s', function.name)
         assert not self.break_block_stack
-        assert len(self.continue_block_stack) == 0
+        assert not self.continue_block_stack
         self.labeled_blocks = {}
         assert not self.labeled_blocks
         self.unreachable = False
@@ -158,6 +176,13 @@ class CCodeGenerator:
         # Create ir function:
         if function.typ.return_type.is_void:
             ir_function = self.builder.new_procedure(function.name)
+        elif function.typ.return_type.is_struct:
+            # Pass implicit first argument to function when complex type
+            # is returned.
+            ir_function = self.builder.new_procedure(function.name)
+            self.return_value_address = ir.Parameter(
+                'return_value_address', ir.ptr)
+            ir_function.add_parameter(self.return_value_address)
         else:
             return_type = self.get_ir_type(function.typ.return_type)
             ir_function = self.builder.new_function(function.name, return_type)
@@ -218,34 +243,28 @@ class CCodeGenerator:
             if function.typ.return_type.is_void:
                 self.emit(ir.Exit())
             else:
-                if self.builder.block.is_empty:
-                    last_block = self.builder.block
-                    self.builder.set_block(None)
-                    ir_function.delete_unreachable()
-                    assert not last_block.is_used
-                    assert last_block not in ir_function
+                warn_when_no_return = True
+                if warn_when_no_return:
+                    self.warning('Function does not return a value')
+                    ir_typ = self.get_ir_type(function.typ.return_type)
+                    zero = self.emit(ir.Const(0, 'zero', ir_typ))
+                    self.emit(ir.Return(zero))
                 else:
-                    warn_when_no_return = True
-                    if warn_when_no_return:
-                        self.warning('Function does not return a value')
-                        ir_typ = self.get_ir_type(function.typ.return_type)
-                        zero = self.emit(ir.Const(0, 'zero', ir_typ))
-                        self.emit(ir.Return(zero))
-                    else:
-                        self.error(
-                            'Function does not return an {}'.format(
-                                function.typ.return_type),
-                            function)
+                    self.error(
+                        'Function does not return an {}'.format(
+                            function.typ.return_type),
+                        function)
 
         # TODO: maybe generate only code which is reachable?
         ir_function.delete_unreachable()
         self.builder.set_function(None)
         self.current_function = None
         self._varargz_ptr = None
-        assert len(self.break_block_stack) == 0
-        assert len(self.continue_block_stack) == 0
+        assert not self.break_block_stack
+        assert not self.continue_block_stack
 
     def gen_stmt(self, statement):
+        """ Generate code for the given statement """
         fn_map = {
             statements.If: self.gen_if,
             statements.While: self.gen_while,
@@ -282,7 +301,10 @@ class CCodeGenerator:
         """ Generate code for a declaration statement """
         declaration = statement.declaration
         if isinstance(declaration, declarations.VariableDeclaration):
-            self.gen_local_variable(declaration)
+            if declaration.storage_class == 'static':
+                self.gen_global_variable(declaration)
+            else:
+                self.gen_local_variable(declaration)
         else:
             raise NotImplementedError(str(declaration))
 
@@ -426,9 +448,10 @@ class CCodeGenerator:
         """ Generate code for case label inside a switch statement """
         block = self.builder.new_block()
         assert self.switch_options is not None
-        if stmt.value in self.switch_options:
+        value = self.context.eval_expr(stmt.value)
+        if value in self.switch_options:
             self.error('Case defined multiple times', stmt.location)
-        self.switch_options[stmt.value] = block
+        self.switch_options[value] = block
         self.emit(ir.Jump(block))  # fall through
         self.builder.set_block(block)
         self.gen_stmt(stmt.statement)
@@ -478,8 +501,17 @@ class CCodeGenerator:
     def gen_return(self, stmt: statements.Return) -> None:
         """ Generate return statement code """
         if stmt.value:
-            value = self.gen_expr(stmt.value, rvalue=True)
-            self.emit(ir.Return(value))
+            if stmt.value.typ.is_struct:
+                # Complex types are copied to pointer passed as
+                # first argument.
+                value = self.gen_expr(stmt.value, rvalue=True)
+                self.emit(ir.Store(value, self.return_value_address))
+                # self.emit(ir.CopyBlob(self.return_value_address))
+                self.emit(ir.Exit())
+            else:
+                # Simple types are returned via ir-value.
+                value = self.gen_expr(stmt.value, rvalue=True)
+                self.emit(ir.Return(value))
         else:
             self.emit(ir.Exit())
         new_block = self.builder.new_block()
@@ -487,7 +519,7 @@ class CCodeGenerator:
 
     def gen_condition(self, condition, yes_block, no_block):
         """ Generate switch based on condition. """
-        if isinstance(condition, expressions.Binop):
+        if isinstance(condition, expressions.BinaryOperator):
             if condition.op == '||':
                 middle_block = self.builder.new_block()
                 self.gen_condition(condition.a, yes_block, middle_block)
@@ -510,7 +542,7 @@ class CCodeGenerator:
                 self.emit(ir.CJump(lhs, op, rhs, yes_block, no_block))
             else:
                 self.check_non_zero(condition, yes_block, no_block)
-        elif isinstance(condition, expressions.Unop):
+        elif isinstance(condition, expressions.UnaryOperator):
             if condition.op == '!':
                 # Simply swap yes and no here!
                 self.gen_condition(condition.a, no_block, yes_block)
@@ -543,7 +575,7 @@ class CCodeGenerator:
         if isinstance(
                 typ, (BasicType, types.PointerType, types.EnumType)):
             value = self.gen_expr(expr, rvalue=True)
-            self.emit(ir.Store(value, ptr))
+            self._store_value(value, ptr)
             inc = self.context.sizeof(typ)
             size = self.emit(ir.Const(inc, 'size', ir.ptr))
             ptr = self.emit(ir.add(ptr, size, 'iptr', ir.ptr))
@@ -554,16 +586,7 @@ class CCodeGenerator:
                 ptr, inc2 = self.gen_local_init(ptr, typ.element_type, iv)
                 inc += inc2
         elif isinstance(typ, types.StructType):
-            offset = 0
-            for field, iv in zip(typ.fields, expr.elements):
-                if offset < field.offset:
-                    inc3 = field.offset - offset
-                    padding = self.emit(ir.Const(inc3, 'padding', ir.ptr))
-                    ptr = self.emit(ir.add(ptr, padding, 'iptr', ir.ptr))
-                    offset += inc3
-                ptr, inc2 = self.gen_local_init(ptr, field.typ, iv)
-                offset += inc2
-            inc = offset
+            ptr, inc = self._init_struct(ptr, typ, expr)
         elif isinstance(typ, types.UnionType):
             # Initialize the first field!
             field = typ.fields[0]
@@ -575,6 +598,50 @@ class CCodeGenerator:
             # ptr = self.emit(ir.add(ptr, size, 'iptr', ir.ptr))
         else:  # pragma: no cover
             raise NotImplementedError(str(typ))
+        return ptr, inc
+
+    def _init_struct(self, ptr, typ, expr):
+        """ Fill structure with initializer (at runtime) """
+        if isinstance(expr, expressions.InitializerList):
+            # Initializing with list
+            size, field_offsets = self.context._get_field_offsets(typ)
+            offset = 0
+            for field, iv in zip(typ.fields, expr.elements):
+                # Move further in struct by whole bytes:
+                field_offset = field_offsets[field] // 8
+                if offset < field_offset:
+                    pad_inc = field_offset - offset
+                    padding = self.emit(ir.Const(pad_inc, 'padding', ir.ptr))
+                    ptr = self.emit(ir.add(ptr, padding, 'iptr', ir.ptr))
+                    offset += pad_inc
+
+                # Fill position:
+                if field.is_bitfield:  # Bit field special case!
+                    value = self.gen_expr(iv, rvalue=True)
+                    bitsize = self.context.eval_expr(field.bitsize)
+                    bitshift = field_offsets[field] % 8
+                    signed = field.typ.is_signed
+                    access = BitFieldAccess(ptr, bitshift, bitsize, signed)
+                    self._store_bitfield(value, access)
+                    # TODO: how much to increase now?
+                    inc2 = 0
+                else:
+                    ptr, inc2 = self.gen_local_init(ptr, field.typ, iv)
+                offset += inc2
+
+            # Fill last padding space:
+            if offset < size:
+                pad_inc = size - offset
+                padding = self.emit(ir.Const(pad_inc, 'padding', ir.ptr))
+                ptr = self.emit(ir.add(ptr, padding, 'iptr', ir.ptr))
+                offset += pad_inc
+            inc = offset
+            assert inc == size
+        else:
+            # Store result of function!
+            value = self.gen_expr(expr, rvalue=True)
+            self.emit(ir.Store(value, ptr))
+            inc = value.ty.size
         return ptr, inc
 
     def get_const_value(self, constant):
@@ -621,13 +688,13 @@ class CCodeGenerator:
 
         rvalue: if True, then the result of the expression will be an rvalue.
         """
-        assert isinstance(expr, expressions.Expression)
+        assert isinstance(expr, expressions.CExpression)
 
-        if isinstance(expr, expressions.Unop):
+        if isinstance(expr, expressions.UnaryOperator):
             value = self.gen_unop(expr)
-        elif isinstance(expr, expressions.Binop):
+        elif isinstance(expr, expressions.BinaryOperator):
             value = self.gen_binop(expr)
-        elif isinstance(expr, expressions.Ternop):
+        elif isinstance(expr, expressions.TernaryOperator):
             value = self.gen_ternop(expr)
         elif isinstance(expr, expressions.VariableAccess):
             variable = expr.variable
@@ -637,9 +704,10 @@ class CCodeGenerator:
                      declarations.ParameterDeclaration,
                      declarations.ConstantDeclaration)):
                 value = self.ir_var_map[variable]
-            elif isinstance(variable, declarations.ValueDeclaration):
+            elif isinstance(variable, declarations.EnumConstantDeclaration):
                 # Enum value declaration!
-                constant_value = variable.value
+                constant_value = self.context.get_enum_value(
+                    variable.typ, variable)
                 ir_typ = self.get_ir_type(expr.typ)
                 value = self.emit(ir.Const(
                     constant_value, variable.name, ir_typ))
@@ -670,25 +738,32 @@ class CCodeGenerator:
             self.error('Illegal initializer list', expr.location)
         elif isinstance(expr, expressions.Cast):
             a = self.gen_expr(expr.expr, rvalue=True)
-            ir_typ = self.get_ir_type(expr.to_typ)
-            value = self.emit(
-                ir.Cast(a, 'typecast', ir_typ), location=expr.location)
-        elif isinstance(expr, expressions.Sizeof):
-            if isinstance(expr.sizeof_typ, types.CType):
-                # Get size of the given type:
-                type_size = self.context.sizeof(expr.sizeof_typ)
+            if expr.to_typ.is_void:
+                value = None
             else:
-                # And get its size:
-                type_size = self.context.sizeof(expr.sizeof_typ.typ)
-
-            ir_typ = self.get_ir_type(expr.typ)
-            value = self.emit(ir.Const(type_size, 'type_size', ir_typ))
+                ir_typ = self.get_ir_type(expr.to_typ)
+                value = self.emit(
+                    ir.Cast(a, 'typecast', ir_typ), location=expr.location)
+        elif isinstance(expr, expressions.Sizeof):
+            value = self.gen_sizeof(expr)
         elif isinstance(expr, expressions.FieldSelect):
             base = self.gen_expr(expr.base, rvalue=False)
-            offset = expr.field.offset
-            offset = self.emit(ir.Const(offset, 'offset', ir.ptr))
-            value = self.emit(
-                ir.Binop(base, '+', offset, 'offset', ir.ptr))
+            _, field_offsets = self.context._get_field_offsets(expr.base.typ)
+            offset = field_offsets[expr.field]
+            if expr.field.is_bitfield:
+                offset, bitshift = offset // 8, offset % 8
+                offset = self.emit(ir.Const(offset, 'offset', ir.ptr))
+                value = self.emit(
+                    ir.Binop(base, '+', offset, 'offset', ir.ptr))
+                bitsize = self.context.eval_expr(expr.field.bitsize)
+                signed = expr.field.typ.is_signed
+                value = BitFieldAccess(value, bitshift, bitsize, signed)
+            else:
+                assert offset % 8 == 0
+                offset //= 8
+                offset = self.emit(ir.Const(offset, 'offset', ir.ptr))
+                value = self.emit(
+                    ir.Binop(base, '+', offset, 'offset', ir.ptr))
         elif isinstance(expr, expressions.ArrayIndex):
             value = self.gen_array_index(expr)
         elif isinstance(expr, expressions.BuiltIn):
@@ -704,30 +779,156 @@ class CCodeGenerator:
         if rvalue and expr.lvalue:
             # Array handling is a special case!
             # when accessed, arrays turn into pointers to its first element.
-            if isinstance(expr.typ, types.ArrayType):
-                self.logger.debug('Array type accessed %s', expr)
-            else:
-                # self.logger.debug('Non-Array type is indexed %s', expr)
-                ir_typ = self.get_ir_type(expr.typ)
-                if isinstance(ir_typ, ir.BlobDataTyp):
-                    # If we have a blob pointer and want its content
-                    # We must get the source of the address of:
-                    assert isinstance(value, ir.AddressOf)
-                    value = value.src
-                else:
-                    value = self.emit(ir.Load(value, 'load', ir_typ))
+            value = self._load_value(value, expr.typ)
+
         elif not rvalue:
             assert expr.lvalue
         return value
 
-    def gen_unop(self, expr):
+    def _load_value(self, lvalue, ctyp):
+        """ Load a value from given l-value """
+        if isinstance(ctyp, types.ArrayType):
+            self.logger.debug('Array type accessed %s', ctyp)
+            value = lvalue
+        else:
+            # TODO: inject evil bitfield manipulation code here:
+            # self.logger.debug('Non-Array type is indexed %s', expr)
+            ir_typ = self.get_ir_type(ctyp)
+            if isinstance(ir_typ, ir.BlobDataTyp):
+                # If we have a blob pointer and want its content
+                # We must get the source of the address of:
+                assert isinstance(lvalue, ir.AddressOf)
+                value = lvalue.src
+            elif isinstance(lvalue, BitFieldAccess):
+                value = self._load_bitfield(lvalue, ir_typ)
+            else:
+                value = self.emit(ir.Load(lvalue, 'load', ir_typ))
+        return value
+
+    def _store_value(self, value, address):
+        """ Store a value at given lvalue location """
+        if isinstance(address, BitFieldAccess):
+            self._store_bitfield(value, address)
+        else:
+            self.emit(ir.Store(value, address))
+
+    def _load_bitfield(self, access, target_ir_typ):
+        """ Dark voo-doo code generated here """
+        assert target_ir_typ.is_integer
+
+        ir_typ = self._get_bitfield_ir_typ(access, True)
+        full_bitsize = ir_typ.bits
+        # TODO: if this is the case, we need more work to be done:
+        assert access.bitshift + access.bitsize <= full_bitsize
+
+        # Load some data from memory:
+        loaded = self.emit(ir.Load(access.address, 'loaded', ir_typ))
+
+        if access.signed:
+            # Shift left, then right, this to ensure sign extension
+            assert loaded.ty.is_signed
+            left_shift = full_bitsize - access.bitshift - access.bitsize
+            right_shift = access.bitshift + left_shift
+            shift_amount = self.emit(
+                ir.Const(left_shift, 'left_shift', ir_typ))
+            value = self.emit(
+                ir.Binop(loaded, '<<', shift_amount, 'value', ir_typ))
+            shift_amount = self.emit(
+                ir.Const(right_shift, 'right_shift', ir_typ))
+            value = self.emit(
+                ir.Binop(value, '>>', shift_amount, 'value', ir_typ))
+        else:
+            assert not loaded.ty.is_signed
+            mask = ((1 << access.bitsize) - 1) << access.bitshift
+            mask = self.emit(ir.Const(mask, 'mask', ir_typ))
+            value = self.emit(ir.Binop(loaded, '&', mask, 'value', ir_typ))
+
+            # Shift value:
+            if access.bitshift:
+                shift_amount = self.emit(
+                    ir.Const(access.bitshift, 'shift', ir_typ))
+                value = self.emit(
+                    ir.Binop(value, '>>', shift_amount, 'value', ir_typ))
+
+        # Finally convert to target type:
+        if value.ty is not target_ir_typ:
+            value = self.emit(ir.Cast(value, 'cast', target_ir_typ))
+
+        return value
+
+    def _store_bitfield(self, value, access):
+        """ inject evil bitfield manipulation code """
+        ir_typ = self._get_bitfield_ir_typ(access, False)
+        full_bitsize = ir_typ.bits
+        assert access.bitshift + access.bitsize <= full_bitsize
+        mask = ((1 << access.bitsize) - 1) << access.bitshift
+        full_mask = (1 << full_bitsize) - 1
+        inv_mask = full_mask ^ mask
+
+        assert value.ty.is_integer
+
+        # Optionally cast value:
+        if value.ty is not ir_typ:
+            value = self.emit(ir.Cast(value, 'cast', ir_typ))
+
+        # Load memory value:
+        # TODO: volatile used to enforce struct in memory.
+        # Should not be required?
+        loaded = self.emit(ir.Load(
+            access.address, 'loaded', ir_typ, volatile=True))
+
+        # Shift value:
+        if access.bitshift:
+            shift_amount = self.emit(
+                ir.Const(access.bitshift, 'shift', ir_typ))
+            value = self.emit(
+                ir.Binop(value, '<<', shift_amount, 'value', ir_typ))
+
+        # Clip value:
+        mask = self.emit(ir.Const(mask, 'mask', ir_typ))
+        value = self.emit(ir.Binop(value, '&', mask, 'value', ir_typ))
+
+        # Clear bits for bitfield:
+        inv_mask = self.emit(ir.Const(inv_mask, 'inv_mask', ir_typ))
+        loaded = self.emit(ir.Binop(
+            loaded, '&', inv_mask, 'loaded_masked', ir_typ))
+
+        # Or with value
+        value = self.emit(ir.Binop(loaded, '|', value, 'value', ir_typ))
+
+        # Store modified value back:
+        self.emit(ir.Store(value, access.address))
+
+    def _get_bitfield_ir_typ(self, access, signed):
+        required_bits = access.bitshift + access.bitsize
+        if signed and access.signed:
+            mp = {
+                8: ir.i8,
+                16: ir.i16,
+                32: ir.i32,
+                64: ir.i64,
+            }
+        else:
+            mp = {
+                8: ir.u8,
+                16: ir.u16,
+                32: ir.u32,
+                64: ir.u64,
+            }
+        for b, v in mp.items():
+            if required_bits <= b:
+                return v
+        raise NotImplementedError('Bitfields larger than 64 bits')
+
+    def gen_unop(self, expr: expressions.UnaryOperator):
+        """ Generate code for unary operator """
         if expr.op in ['x++', 'x--', '--x', '++x']:
             # Increment and decrement in pre and post form
             ir_a = self.gen_expr(expr.a, rvalue=False)
             assert expr.a.lvalue
 
             ir_typ = self.get_ir_type(expr.typ)
-            loaded = self.emit(ir.Load(ir_a, 'loaded', ir_typ))
+            loaded = self._load_value(ir_a, expr.typ)
             # for pointers, this is not one, but sizeof
             if isinstance(expr.typ, types.PointerType):
                 size = self.context.sizeof(expr.typ.element_type)
@@ -739,7 +940,7 @@ class CCodeGenerator:
             op = expr.op[1]
             changed = self.emit(ir.Binop(
                 loaded, op, one, 'inc', ir_typ))
-            self.emit(ir.Store(changed, ir_a))
+            self._store_value(changed, ir_a)
 
             # Determine pre or post form:
             pre = expr.op[0] == 'x'
@@ -763,7 +964,8 @@ class CCodeGenerator:
             raise NotImplementedError(str(expr.op))
         return value
 
-    def gen_binop(self, expr):
+    def gen_binop(self, expr: expressions.BinaryOperator):
+        """ Generate code for binary operation expression """
         if expr.op in ['-', '*', '/', '%', '^', '|', '&', '>>', '<<']:
             lhs = self.gen_expr(expr.a, rvalue=True)
             rhs = self.gen_expr(expr.b, rvalue=True)
@@ -775,7 +977,7 @@ class CCodeGenerator:
                 location=expr.location)
         elif expr.op == ',':
             # Handle the comma operator by returning the second result
-            lhs = self.gen_expr(expr.a, rvalue=True)
+            self.gen_expr(expr.a, rvalue=True)
             rhs = self.gen_expr(expr.b, rvalue=True)
             value = rhs
         elif expr.op in ['+']:
@@ -816,21 +1018,22 @@ class CCodeGenerator:
             lhs = self.gen_expr(expr.a, rvalue=False)
             rhs = self.gen_expr(expr.b, rvalue=True)
 
-            # Handle '+=' and friends:
-            if expr.op != '=':
+            if expr.op == '=':
+                value = rhs
+            else:
+                # Handle '+=' and friends:
                 op = expr.op[:-1]
                 ir_typ = self.get_ir_type(expr.typ)
-                loaded = self.emit(ir.Load(lhs, 'lhs', ir_typ))
+                loaded = self._load_value(lhs, expr.typ)
                 value = self.emit(ir.Binop(
                     loaded, op, rhs, 'assign', ir_typ))
-            else:
-                value = rhs
-            self.emit(ir.Store(value, lhs))
+            self._store_value(value, lhs)
         else:  # pragma: no cover
             raise NotImplementedError(str(expr.op))
         return value
 
-    def gen_ternop(self, expr):
+    def gen_ternop(self, expr: expressions.TernaryOperator):
+        """ Generate code for ternary operator a ? b : c """
         if expr.op in ['?']:
             # TODO: merge maybe with conditional logic?
             yes_block = self.builder.new_block()
@@ -861,7 +1064,7 @@ class CCodeGenerator:
             raise NotImplementedError(str(expr.op))
         return value
 
-    def gen_call(self, expr):
+    def gen_call(self, expr: expressions.FunctionCall):
         """ Generate code for a function call """
         if isinstance(expr.callee.typ, types.FunctionType):
             ftyp = expr.callee.typ
@@ -879,6 +1082,16 @@ class CCodeGenerator:
 
         # Evaluate arguments:
         ir_arguments = []
+
+        # If return value is complex, reserve room for it an pass pointer
+        if ftyp.return_type.is_struct:
+            size = self.context.sizeof(ftyp.return_type)
+            alignment = self.context.alignment(ftyp.return_type)
+            rval_alloc = self.emit(ir.Alloc('rval_alloc', size, alignment))
+            rval_ptr = self.emit(ir.AddressOf(rval_alloc, 'rval_ptr'))
+            ir_arguments.append(rval_ptr)
+
+        # Place other arguments:
         for argument in fixed_args:
             value = self.gen_expr(argument, rvalue=True)
             ir_arguments.append(value)
@@ -928,32 +1141,32 @@ class CCodeGenerator:
                     vararg_ptr = self.emit(
                         ir.add(vararg_ptr, s2, 'va2', ir.ptr))
 
+        # Get function pointer or label:
         if isinstance(expr.callee.typ, types.FunctionType):
-            # Normal call:
-            name = expr.callee.variable.name
-            if ftyp.return_type.is_void:
-                self.emit(ir.ProcedureCall(name, ir_arguments))
-                value = None
-            else:
-                ir_typ = self.get_ir_type(expr.typ)
-                value = self.emit(ir.FunctionCall(
-                    name, ir_arguments, 'result', ir_typ))
+            # Normal call, get global value:
+            ir_function = self.ir_var_map[expr.callee.variable]
         elif isinstance(expr.callee.typ, types.PointerType) and \
                 isinstance(expr.callee.typ.element_type, types.FunctionType):
-            ptr = self.gen_expr(expr.callee, rvalue=True)
-            if ftyp.return_type.is_void:
-                self.emit(ir.ProcedurePointerCall(ptr, ir_arguments))
-                value = None
-            else:
-                ir_typ = self.get_ir_type(expr.typ)
-                value = self.emit(ir.FunctionPointerCall(
-                    ptr, ir_arguments, 'result', ir_typ))
+            ir_function = self.gen_expr(expr.callee, rvalue=True)
         else:  # pragma: no cover
             raise NotImplementedError()
 
+        # Use function or procedure call depending on return type:
+        if ftyp.return_type.is_void:
+            self.emit(ir.ProcedureCall(ir_function, ir_arguments))
+            value = None
+        elif ftyp.return_type.is_struct:
+            self.emit(ir.ProcedureCall(ir_function, ir_arguments))
+            value = rval_alloc
+        else:
+            ir_typ = self.get_ir_type(expr.typ)
+            value = self.emit(ir.FunctionCall(
+                ir_function, ir_arguments, 'result', ir_typ))
+
         return value
 
-    def gen_array_index(self, expr):
+    def gen_array_index(self, expr: expressions.ArrayIndex):
+        """ Generate code for array indexing """
         # Load base as an rvalue, to make sure we load pointers values.
         base = self.gen_expr(expr.base, rvalue=True)
         index = self.gen_expr(expr.index, rvalue=True)
@@ -984,6 +1197,8 @@ class CCodeGenerator:
             value = self.gen_va_arg(expr)
         elif isinstance(expr, expressions.BuiltInVaStart):
             value = self.gen_va_start(expr)
+        elif isinstance(expr, expressions.BuiltInOffsetOf):
+            value = self.gen_offsetof(expr)
         else:  # pragma: no cover
             raise NotImplementedError(str(expr))
         return value
@@ -1010,23 +1225,43 @@ class CCodeGenerator:
         self.emit(ir.Store(va_ptr, valist_ptrptr))
         return value
 
+    def gen_offsetof(self, expr: expressions.BuiltInOffsetOf):
+        """ Generate code for offsetof """
+        assert isinstance(expr.query_typ, types.StructOrUnionType)
+        field = expr.query_typ.get_field(expr.member)
+        offset = self.context.offsetof(expr.query_typ, field)
+        ir_typ = self.get_ir_type(expr.typ)
+        value = self.emit(ir.Const(offset, 'offset', ir_typ))
+        return value
+
+    def gen_sizeof(self, expr: expressions.Sizeof):
+        """ Generate code for sizeof construction """
+        if isinstance(expr.sizeof_typ, types.CType):
+            # Get size of the given type:
+            type_size = self.context.sizeof(expr.sizeof_typ)
+        else:
+            # And get its size:
+            type_size = self.context.sizeof(expr.sizeof_typ.typ)
+
+        ir_typ = self.get_ir_type(expr.typ)
+        value = self.emit(ir.Const(type_size, 'type_size', ir_typ))
+        return value
+
     def get_ir_type(self, typ: types.CType):
         """ Given a C type, get the fitting ir type """
         assert isinstance(typ, types.CType)
 
         if isinstance(typ, types.BasicType):
             return self.ir_type_map[typ.type_id][0]
-        elif isinstance(typ, types.IndexableType):
+        elif isinstance(typ, (types.IndexableType, types.FunctionType)):
             # Pointers and arrays are seen as pointers:
             return ir.ptr
-        elif isinstance(typ, types.FunctionType):
-            return ir.ptr
         elif isinstance(typ, types.EnumType):
-            return self.get_ir_type(self.context.get_type(['int']))
+            return self.get_ir_type(self._root_scope.get_type(['int']))
         elif isinstance(typ, (types.UnionType, types.StructType)):
             size = self.context.sizeof(typ)
             alignment = self.context.alignment(typ)
-            return ir.BlobDataTyp.get(size, alignment=alignment)
+            return ir.BlobDataTyp(size, alignment=alignment)
         else:  # pragma: no cover
             raise NotImplementedError(str(typ))
 
@@ -1045,7 +1280,7 @@ class CCodeGenerator:
                     typ.type_id, self.context.sizeof(typ), 1)
             self.debug_db.enter(typ, dbg_typ)
         elif isinstance(typ, types.EnumType):
-            return self.get_debug_type(self.context.get_type(['int']))
+            return self.get_debug_type(self._root_scope.get_type(['int']))
         elif isinstance(typ, types.FunctionType):
             # This is in most cases a pointer to a function type.
             # Register for now as basetype with 0 size:
@@ -1062,12 +1297,23 @@ class CCodeGenerator:
             self.debug_db.enter(typ, dbg_typ)
 
             for field in typ.fields:
-                ft = self.get_debug_type(field.typ)
-                dbg_typ.add_field(field.name, ft, field.offset)
+                field_typ = self.get_debug_type(field.typ)
+                field_offset = self.context.offsetof(typ, field)
+                dbg_typ.add_field(field.name, field_typ, field_offset)
         elif isinstance(typ, types.ArrayType):
-            et = self.get_debug_type(typ.element_type)
-            dbg_typ = debuginfo.DebugArrayType(et, typ.size)
+            element_typ = self.get_debug_type(typ.element_type)
+            size = self.context.eval_expr(typ.size)
+            dbg_typ = debuginfo.DebugArrayType(element_typ, size)
             self.debug_db.enter(typ, dbg_typ)
         else:  # pragma: no cover
             raise NotImplementedError(str(typ))
         return dbg_typ
+
+
+class BitFieldAccess:
+    """ Container object which carries bitfield access details """
+    def __init__(self, address, bitshift, bitsize, signed):
+        self.address = address
+        self.bitshift = bitshift
+        self.bitsize = bitsize
+        self.signed = signed

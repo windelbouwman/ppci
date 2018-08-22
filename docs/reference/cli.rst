@@ -22,7 +22,7 @@ Or specify the buildfile a the command line:
 
     $ ppci-build -f examples/blinky/build.xml
 
-Instead of relying on a build system, the :doc:`c3<c3>` compiler can also be
+Instead of relying on a build system, the :doc:`c3<lang/c3>` compiler can also be
 activated stand alone.
 
 .. code:: bash
@@ -65,8 +65,17 @@ activated stand alone.
 .. autoprogram:: ppci.cli.pycompile:parser
     :prog: ppci-pycompile
 
+.. autoprogram:: ppci.cli.readelf:parser
+    :prog: ppci-readelf
+
 .. autoprogram:: ppci.cli.wasmcompile:parser
     :prog: ppci-wasmcompile
 
 .. autoprogram:: ppci.cli.yacc:parser
     :prog: ppci-yacc
+
+.. autoprogram:: ppci.cli.wasm2wat:parser
+    :prog: ppci-wasm2wat
+
+.. autoprogram:: ppci.cli.wat2wasm:parser
+    :prog: ppci-wat2wasm

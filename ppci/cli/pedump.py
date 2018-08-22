@@ -2,7 +2,7 @@
 
 import argparse
 from .base import base_parser
-from ..utils.exefile import read_exe
+from ..format.exefile import read_exe
 
 
 parser = argparse.ArgumentParser(

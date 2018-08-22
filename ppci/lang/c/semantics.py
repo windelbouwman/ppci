@@ -6,11 +6,13 @@ between parser and semantics is via a set of function calls.
 
 import logging
 from ...common import CompilerError
-from . import nodes, types, declarations, statements, expressions, utils
-from .scope import Scope
-from .utils import required_padding
+from .nodes import nodes, types, declarations, statements, expressions
+from . import utils
+from .scope import Scope, RootScope
 
 
+# TODO: should semantics be architecture independent?
+# Can we postpone sizeof(int) stuff until code generation time?
 class CSemantics:
     """ This class handles the C semantics """
     logger = logging.getLogger('semantics')
@@ -18,6 +20,7 @@ class CSemantics:
     def __init__(self, context):
         self.context = context
         self.scope = None
+        self._root_scope = RootScope()
 
         # Define the type for a string:
         self.int_type = self.get_type(['int'])
@@ -69,8 +72,11 @@ class CSemantics:
                 typ = self.on_type_qualifiers(type_qualifiers, typ)
             elif modifier[0] == 'ARRAY':
                 size = modifier[1]
-                if size:
-                    size = self.context.eval_expr(size)
+                if size and size != 'vla':
+                    if not self._root_scope.is_const_expr(size):
+                        self.error(
+                            'Array dimension must be constant', size.location)
+                    size = self.coerce(size, self.get_type(['int']))
                 typ = types.ArrayType(typ, size)
             elif modifier[0] == 'FUNCTION':
                 arguments = modifier[1]
@@ -166,8 +172,13 @@ class CSemantics:
 
                 il = []
                 n = 0
-                while ((typ.size is None) and not initializer.at_end()) \
-                        or ((typ.size is not None) and (n < typ.size)):
+                if typ.size:
+                    typ_size = self.context.eval_expr(typ.size)
+                else:
+                    typ_size = None
+
+                while ((typ_size is None) and not initializer.at_end()) \
+                        or ((typ_size is not None) and (n < typ_size)):
                     if initializer.at_end():
                         i = 0
                     elif initializer.at_list():
@@ -187,30 +198,31 @@ class CSemantics:
                     'Cannot initialize array with non init list',
                     initializer.initializer.location)
         elif isinstance(typ, types.StructType):
-            if not isinstance(initializer, InitEnv):
-                self.error(
-                    'Cannot initialize struct with non init list',
-                    initializer.initializer.location)
-
             if not typ.complete:
                 self.error(
                     'Struct not fully defined!',
                     initializer.initializer.location)
 
-            # Grab all fields from the initializer list:
-            il = []
-            for field in typ.fields:
-                if initializer.at_end():
-                    # Implicit initialization:
-                    i = 0
-                elif initializer.at_list():
-                    # Enter new '{' part
-                    i = self._sub_init(field.typ, initializer.take())
-                else:
-                    i = self._sub_init(field.typ, initializer)
-                il.append(i)
-            result = expressions.InitializerList(
-                il, initializer.initializer.location)
+            if isinstance(initializer, InitEnv):
+                # Struct is initialized like '= { 1, 2, .. }'
+                # Grab all fields from the initializer list:
+                il = []
+                for field in typ.fields:
+                    if initializer.at_end():
+                        # Implicit initialization:
+                        i = 0
+                    elif initializer.at_list():
+                        # Enter new '{' part
+                        i = self._sub_init(field.typ, initializer.take())
+                    else:
+                        i = self._sub_init(field.typ, initializer)
+                    il.append(i)
+                result = expressions.InitializerList(
+                    il, initializer.initializer.location)
+            else:
+                # Struct is initialized with expression '= f();'
+                result = self.coerce(initializer, typ)
+
         elif isinstance(typ, types.UnionType):
             if not isinstance(initializer, InitEnv):
                 self.error(
@@ -274,7 +286,7 @@ class CSemantics:
             # Get the already declared name and figure out what now!
             sym = self.scope.get(declaration.name)
             # The type should match in any case:
-            if not self.context.equal_types(sym.typ, declaration.typ):
+            if not self._root_scope.equal_types(sym.typ, declaration.typ):
                 self.logger.info('First defined here %s', sym.location)
                 self.error("Invalid redefinition", declaration.location)
 
@@ -311,8 +323,8 @@ class CSemantics:
     # Types!
     def on_basic_type(self, type_specifiers, location):
         """ Handle basic type """
-        if self.context.is_valid(type_specifiers):
-            ctyp = self.context.get_type(type_specifiers)
+        if self._root_scope.is_valid(type_specifiers):
+            ctyp = self._root_scope.get_type(type_specifiers)
         else:
             self.error('Invalid type specifiers', location)
         return ctyp
@@ -352,35 +364,25 @@ class CSemantics:
         if fields:
             if ctyp.complete:
                 self.error('Multiple definitions', location)
-            ctyp.fields = self._layout_struct(kind, fields)
+            ctyp.fields = fields
         return ctyp
 
-    def _layout_struct(self, kind, fields):
-        # Layout the fields in the struct:
-        offset = 0
-        cfields = []
-        for field in fields:
-            storage_class, ctyp, name, modifiers, bitsize, location = field
-            ctyp = self.apply_type_modifiers(modifiers, ctyp)
+    def on_field_def(
+            self, storage_class, ctyp, name, modifiers, bitsize, location):
+        """ Handle a struct/union field declaration """
+        ctyp = self.apply_type_modifiers(modifiers, ctyp)
+        if bitsize is None:
+            pass
+        else:
+            # Bit fields must be of integer type:
+            if not ctyp.is_integer:
+                self.error('Invalid type for bit-field', location)
 
-            field_size = self.context.sizeof(ctyp)
-            # Calculate bit size:
-            if bitsize:
-                bitsize = self.context.eval_expr(bitsize)
-            else:
-                bitsize = self.context.sizeof(ctyp) * 8
-
-            # alignment handling:
-            alignment = self.context.alignment(ctyp)
-            offset += required_padding(offset, alignment)
-
-            cfield = types.Field(ctyp, name, offset, bitsize)
-            cfields.append(cfield)
-            if kind == 'struct':
-                offset += field_size
-        return cfields
+        field = types.Field(ctyp, name, bitsize)
+        return field
 
     def on_enum(self, tag, location):
+        """ Handle enum declaration """
         if tag:
             if self.scope.has_tag(tag):
                 ctyp = self.scope.get_tag(tag)
@@ -396,33 +398,25 @@ class CSemantics:
     def enter_enum_values(self, ctyp, location):
         if ctyp.complete:
             self.error('Enum defined multiple times', location)
-        self.current_enum_value = 0
-        self.enum_values = []
 
     def on_enum_value(self, ctyp, name, value, location):
         """ Handle a single enum value definition """
         if value:
-            self.current_enum_value = self.context.eval_expr(value)
-        new_value = declarations.ValueDeclaration(
-            ctyp, name, self.current_enum_value, location)
+            if not self._root_scope.is_const_expr(value):
+                self.error('Enum value must be constant value', value.location)
+        new_value = declarations.EnumConstantDeclaration(
+            ctyp, name, value, location)
         self.add_declaration(new_value)
-        self.enum_values.append(new_value)
+        return new_value
 
-        # Increase for next enum value:
-        self.current_enum_value += 1
-
-    def exit_enum_values(self, ctyp, location):
-        if len(self.enum_values) == 0:
+    def exit_enum_values(self, ctyp, constants, location):
+        if len(constants) == 0:
             self.error('Empty enum is not allowed', location)
-        ctyp.values = self.enum_values
+        ctyp.constants = constants
         # TODO: determine min and max enum values
         # min(enum_values)
         # max(enum_values)
         # TODO: determine storage type!
-
-    def _calculate_enum_values(self, ctyp, enum_values):
-        for enum_value in enum_values:
-            name, value, location = enum_value
 
     @staticmethod
     def on_type_qualifiers(type_qualifiers, ctyp):
@@ -469,14 +463,15 @@ class CSemantics:
         return statements.Switch(expression, statement, location)
 
     def on_case(self, value, statement, location):
+        """ Handle a case statement """
         if not self.switch_stack:
             self.error('Case statement outside of a switch!', location)
 
         value = self.coerce(value, self.switch_stack[-1])
-        const_value = self.context.eval_expr(value)
-        return statements.Case(const_value, value.typ, statement, location)
+        return statements.Case(value, statement, location)
 
     def on_default(self, statement, location):
+        """ Handle a default label """
         if not self.switch_stack:
             self.error('Default statement outside of a switch!', location)
 
@@ -484,17 +479,21 @@ class CSemantics:
 
     @staticmethod
     def on_break(location):
+        """ Handle the break statement """
         return statements.Break(location)
 
     @staticmethod
     def on_continue(location):
+        """ Handle continue statement """
         return statements.Continue(location)
 
     @staticmethod
     def on_goto(label, location):
+        """ Handle the dreaded goto statement """
         return statements.Goto(label, location)
 
     def on_while(self, condition, body, location):
+        """ Handle the while statement """
         condition = self.coerce(condition, self.get_type(['int']))
         return statements.While(condition, body, location)
 
@@ -530,12 +529,9 @@ class CSemantics:
     def on_number(self, value, location):
         """ React on numeric literal """
         # Get value from string:
-        v, type_specifiers = utils.cnum(value)
-        # TODO: this does not have to be int!
-        assert isinstance(v, int)
-
+        value, type_specifiers = utils.cnum(value)
         typ = self.get_type(type_specifiers)
-        return expressions.NumericLiteral(v, typ, location)
+        return expressions.NumericLiteral(value, typ, location)
 
     def on_char(self, value, location):
         """ Process a character literal """
@@ -549,10 +545,10 @@ class CSemantics:
         lhs = self.coerce(lhs, self.int_type)
         # TODO: For now, we use the common type of b and c as the result
         # But is this correct?
-        common_type = self.get_common_type(mid.typ, rhs.typ)
+        common_type = self.get_common_type(mid.typ, rhs.typ, location)
         mid = self.coerce(mid, common_type)
         rhs = self.coerce(rhs, common_type)
-        return expressions.Ternop(
+        return expressions.TernaryOperator(
             lhs, op, mid, rhs, common_type, False, location)
 
     def on_binop(self, lhs, op, rhs, location):
@@ -581,22 +577,23 @@ class CSemantics:
                 lhs = self.coerce(lhs, self.int_type)
                 result_typ = rhs.typ
             else:
-                result_typ = self.get_common_type(lhs.typ, rhs.typ)
+                result_typ = self.get_common_type(lhs.typ, rhs.typ, location)
                 lhs = self.coerce(lhs, result_typ)
                 rhs = self.coerce(rhs, result_typ)
         elif op in ['<', '>', '==', '!=', '<=', '>=']:
             # Booleans are integer type:
             # TODO: assert types are of base arithmatic type
-            common_typ = self.get_common_type(lhs.typ, rhs.typ)
+            common_typ = self.get_common_type(lhs.typ, rhs.typ, location)
             lhs = self.coerce(lhs, common_typ)
             rhs = self.coerce(rhs, common_typ)
             result_typ = self.int_type
         else:
-            result_typ = self.get_common_type(lhs.typ, rhs.typ)
+            result_typ = self.get_common_type(lhs.typ, rhs.typ, location)
             lhs = self.coerce(lhs, result_typ)
             rhs = self.coerce(rhs, result_typ)
 
-        return expressions.Binop(lhs, op, rhs, result_typ, False, location)
+        return expressions.BinaryOperator(
+            lhs, op, rhs, result_typ, False, location)
 
     def on_unop(self, op, a, location):
         """ Check unary operator semantics """
@@ -604,16 +601,18 @@ class CSemantics:
             # Increment and decrement in pre and post form
             if not a.lvalue:
                 self.error('Expected lvalue', a.location)
-            expr = expressions.Unop(op, a, a.typ, False, location)
+            expr = expressions.UnaryOperator(op, a, a.typ, False, location)
         elif op in ['-', '~']:
-            expr = expressions.Unop(op, a, a.typ, False, location)
+            expr = expressions.UnaryOperator(op, a, a.typ, False, location)
+        elif op == '+':
+            expr = a
         elif op == '*':
             if not isinstance(a.typ, types.IndexableType):
                 self.error(
                     'Cannot pointer derefence type {}'.format(a.typ),
                     a.location)
             typ = a.typ.element_type
-            expr = expressions.Unop(op, a, typ, True, location)
+            expr = expressions.UnaryOperator(op, a, typ, True, location)
         elif op == '&':
             if isinstance(a, expressions.VariableAccess) and \
                     isinstance(a.variable, declarations.FunctionDeclaration):
@@ -624,26 +623,23 @@ class CSemantics:
                 if not a.lvalue:
                     self.error('Expected lvalue', a.location)
                 typ = types.PointerType(a.typ)
-                expr = expressions.Unop(op, a, typ, False, location)
+                expr = expressions.UnaryOperator(op, a, typ, False, location)
         elif op == '!':
             a = self.coerce(a, self.int_type)
-            expr = expressions.Unop(op, a, self.int_type, False, location)
+            expr = expressions.UnaryOperator(
+                op, a, self.int_type, False, location)
         else:  # pragma: no cover
             raise NotImplementedError(str(op))
         return expr
 
     def on_sizeof(self, typ, location):
-        expr = expressions.Sizeof(typ, location)
-        expr.typ = self.int_type
-        expr.lvalue = False
+        """ Handle sizeof contraption """
+        expr = expressions.Sizeof(typ, self.int_type, False, location)
         return expr
 
     def on_cast(self, to_typ, casted_expr, location):
         """ Check explicit casting """
-        expr = expressions.Cast(to_typ, casted_expr, location)
-        expr.typ = expr.to_typ
-        expr.lvalue = False  # or expr.expr.lvalue?
-        return expr
+        return expressions.Cast(casted_expr, to_typ, False, location)
 
     def on_array_index(self, base, index, location):
         """ Check array indexing """
@@ -677,7 +673,7 @@ class CSemantics:
 
     def on_builtin_va_start(self, arg_pointer, location):
         """ Check va_start builtin function """
-        if not self.context.equal_types(arg_pointer.typ, self.intptr_type):
+        if not self._root_scope.equal_types(arg_pointer.typ, self.intptr_type):
             self.error('Invalid type for va_start', arg_pointer.location)
         if not arg_pointer.lvalue:
             self.error('Expected lvalue', arg_pointer.location)
@@ -685,11 +681,32 @@ class CSemantics:
 
     def on_builtin_va_arg(self, arg_pointer, typ, location):
         """ Check va_arg builtin function """
-        if not self.context.equal_types(arg_pointer.typ, self.intptr_type):
+        if not self._root_scope.equal_types(arg_pointer.typ, self.intptr_type):
             self.error('Invalid type for va_arg', arg_pointer.location)
         if not arg_pointer.lvalue:
             self.error('Expected lvalue', arg_pointer.location)
         return expressions.BuiltInVaArg(arg_pointer, typ, location)
+
+    def on_builtin_offsetof(self, typ, member, location):
+        """ Check offsetof builtin function """
+        if not isinstance(typ, types.StructOrUnionType):
+            self.error(
+                'Can only apply offsetof on structs and unions', location)
+
+        # Test if member is a member of the given type now?
+        if not typ.has_field(member):
+            self.error(
+                'Cannot find member {}'.format(member), location)
+
+        # Test if field is a bitfield:
+        field = typ.get_field(member)
+        if field.is_bitfield:
+            self.error(
+                'Attempt to take address of bit-field "{}"'.format(member),
+                location)
+
+        return expressions.BuiltInOffsetOf(
+            typ, member, self.int_type, location)
 
     def on_call(self, callee, arguments, location):
         """ Check function call for validity """
@@ -741,7 +758,7 @@ class CSemantics:
         if isinstance(variable, declarations.VariableDeclaration):
             typ = variable.typ
             lvalue = True
-        elif isinstance(variable, declarations.ValueDeclaration):
+        elif isinstance(variable, declarations.EnumConstantDeclaration):
             typ = variable.typ
             lvalue = False
         elif isinstance(variable, declarations.ParameterDeclaration):
@@ -767,7 +784,7 @@ class CSemantics:
         from_type = expr.typ
         to_type = typ
 
-        if self.context.equal_types(from_type, to_type):
+        if self._root_scope.equal_types(from_type, to_type):
             pass
         elif isinstance(from_type, (types.PointerType, types.EnumType)) and \
                 isinstance(to_type, types.BasicType):
@@ -778,7 +795,7 @@ class CSemantics:
         elif isinstance(from_type, types.FunctionType) and \
                 isinstance(to_type, types.PointerType) and \
                 isinstance(to_type.element_type, types.FunctionType) and \
-                self.context.equal_types(from_type, to_type.element_type):
+                self._root_scope.equal_types(from_type, to_type.element_type):
             # Function used as value for pointer to function is fine!
             do_cast = False
         elif isinstance(from_type, types.BasicType) and \
@@ -787,7 +804,7 @@ class CSemantics:
         elif isinstance(from_type, types.IndexableType) and \
                 isinstance(to_type, types.IndexableType):
                 # and \
-                # self.context.equal_types(
+                # self._root_scope.equal_types(
                 #    from_type.element_type, to_type.element_type):
             do_cast = True
         elif isinstance(from_type, types.BasicType) and \
@@ -800,27 +817,53 @@ class CSemantics:
                 expr.location)
 
         if do_cast:
-            expr = expressions.ImplicitCast(typ, expr, expr.location)
-            expr.typ = typ
-            expr.lvalue = False
+            expr = expressions.ImplicitCast(expr, typ, False, expr.location)
         return expr
 
     def get_type(self, type_specifiers):
         """ Retrieve a type by type specifiers """
-        return self.context.get_type(type_specifiers)
+        return self._root_scope.get_type(type_specifiers)
 
-    def get_common_type(self, typ1, typ2):
+    def get_common_type(self, typ1, typ2, location):
         """ Given two types, determine the common type.
 
-        The common type is a type they can both be cast to. """
-        # TODO!
-        return typ1
+        The common type is a type they can both be cast to.
+        """
+        return max([typ1, typ2], key=lambda t: self._get_rank(t, location))
+
+    def _get_rank(self, typ, location):
+        basic_ranks = {
+            types.BasicType.LONGDOUBLE: 110,
+            types.BasicType.DOUBLE: 100,
+            types.BasicType.FLOAT: 90,
+            types.BasicType.ULONGLONG: 71,
+            types.BasicType.LONGLONG: 70,
+            types.BasicType.ULONG: 61,
+            types.BasicType.LONG: 60,
+            types.BasicType.UINT: 51,
+            types.BasicType.INT: 50,
+            types.BasicType.USHORT: 41,
+            types.BasicType.SHORT: 40,
+            types.BasicType.UCHAR: 31,
+            types.BasicType.CHAR: 30,
+        }
+        if isinstance(typ, types.BasicType):
+            if typ.type_id in basic_ranks:
+                return basic_ranks[typ.type_id]
+            else:
+                self.error(
+                    'Cannot determine type rank for {}'.format(typ), location)
+        elif isinstance(typ, types.EnumType):
+            return 80
+        else:
+            self.error(
+                'Cannot determine type rank for {}'.format(typ), location)
 
     def error(self, message, location):
         """ Trigger an error at the given location """
         raise CompilerError(message, loc=location)
 
-    def not_impl(self, message, location):
+    def not_impl(self, message, location):  # pragma: no cover
         self.error(message, location)
         raise NotImplementedError(message)
 

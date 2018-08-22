@@ -7,7 +7,7 @@
             source="../crt0.asm"
             arch="or1k"
             output="startup.oj" />
-        <compile
+        <c3compile
             arch="or1k"
             sources="../../src/snake/*.c3;../bsp.c3;../../../librt/io.c3"
             output="rest.oj"

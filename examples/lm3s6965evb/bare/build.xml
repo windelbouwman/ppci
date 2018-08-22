@@ -7,7 +7,7 @@
             source="startup_m3.asm"
             arch="arm:thumb"
             output="start.oj" />
-         <compile
+         <c3compile
             sources="hello.c3"
             arch="arm:thumb"
             output="m3bare.oj"

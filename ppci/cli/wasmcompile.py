@@ -9,7 +9,7 @@ from .base import base_parser, march_parser, out_parser, compile_parser
 from .base import LogSetup, get_arch_from_args
 from .. import api
 from ..binutils.outstream import TextOutputStream
-from ..irs.wasm import read_wasm, wasm_to_ir
+from ..wasm import read_wasm, wasm_to_ir
 
 
 parser = argparse.ArgumentParser(
@@ -26,8 +26,10 @@ def wasmcompile(args=None):
     with LogSetup(args) as log_setup:
         march = get_arch_from_args(args)
         wasm_module = read_wasm(args.wasm)
-        print(wasm_module.to_text())
-        ir_module = wasm_to_ir(wasm_module)
+        ir_module = wasm_to_ir(
+            wasm_module,
+            march.info.get_type_info('ptr'),
+            reporter=log_setup.reporter)
 
         # Optimize:
         api.optimize(ir_module, level=args.O, reporter=log_setup.reporter)

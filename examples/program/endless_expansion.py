@@ -17,7 +17,7 @@ c = a + b
 """
 
 prog = PythonProgram(py3)
-for i in range(10):
+for i in range(7):  # todo: With more cycles there is a recursionerror in dagsplit.py
     print(prog.get_report())
     prog = prog.to_wasm()
     print(prog.get_report())

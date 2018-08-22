@@ -93,6 +93,57 @@ these, use this:
 
     $ LONGTESTS=1 IVERILOG=1 python -m pytest test/
 
+Profiling
+~~~~~~~~~
+
+If some part is slow, it can be handy to run a profiler. To do this, run
+the slow script with the cProfile. The output can be viewed with
+pyprof2calltree.
+
+.. code:: bash
+
+    $ python -m cProfile -o profiled.out slow_script.py
+    $ pip install pyprof2calltree
+    $ pyprof2calltree -i profiled.out -k
+
+Debugging
+~~~~~~~~~
+
+Sometimes, the python interpreter might crash due to playing with dynamically
+injected code. To debug this, we can use gdb for example.
+
+.. code:: bash
+
+    $ gdb --args python script.py
+    (gdb) run
+
+Once the program crashes, one can disassemble and print info:
+
+.. code:: bash
+
+    (gdb) bt
+    (gdb) disassemble /r 0x7fff000, 0x7fff200
+    (gdb) info registers
+
+3rd party test suites
+~~~~~~~~~~~~~~~~~~~~~
+
+There exist many different compiler validation suites. Some of them are pure validation sets,
+others are part of a compiler toolchain. In order to use these test suites, a series of test
+suite adapter files exists.
+
+Available test adapters:
+
+* mcpp (set `MCPP_DIR`) `test/lang/c/test_mcpp_test_suite.py`
+* wasm spec (set `WASM_SPEC_DIR`) `test/wasm/test_suite_full.py`
+* fortran compiler validation system 2.1 (set `FCVS_DIR`) `test/lang/fortran/test_fortran_test_suite.py`
+
+To run for example wasm test spec tests:
+
+.. code:: bash
+
+    $ WASM_SPEC_DIR=~/GIT/spec python -m pytest test/wasm/test_suite_full -v
+
 Building the docs
 -----------------
 
@@ -111,6 +162,34 @@ Alternatively the `tox`_ docs environment can be used:
 .. code:: bash
 
     $ tox -e docs
+
+Directory structure
+-------------------
+
+- ppci : source code of the ppci library
+
+  - lang : human readable languages
+
+    - c : c frontend
+    - c3 : c3 frontend
+    - python : python compilation code
+    - tools : language tools
+
+  - arch : different machine support
+
+    - arm : arm support
+    - avr : avr support
+    - mips
+    - msp430 : msp430 support
+    - stm8
+    - xtensa : xtensa support
+
+  - cli : command line interface utilities
+  - util : utilities
+
+- docs : documentation
+- examples : directory with example projects
+- test : tests
 
 
 Release procedure

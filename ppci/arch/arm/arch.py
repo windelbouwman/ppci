@@ -1,7 +1,6 @@
 """ ARM architecture definition. """
 import io
 from ... import ir
-from ...ir import i8, i32, u8, u32, i16, u16, ptr
 from ...binutils.assembler import BaseAssembler
 from ..arch import Architecture
 from ..arch_info import ArchInfo, TypeInfo
@@ -40,7 +39,9 @@ class ArmArch(Architecture):
             # Registers usable by register allocator:
             register_classes = [
                 RegisterClass(
-                    'loreg', [i8, i32, ptr, u8, u32], LowArmRegister,
+                    'loreg',
+                    [ir.i8, ir.i32, ir.ptr, ir.u8, ir.u32, ir.i16, ir.u16],
+                    LowArmRegister,
                     [R0, R1, R2, R3, R4, R5, R6, R7])
                 ]
         else:
@@ -56,18 +57,20 @@ class ArmArch(Architecture):
                     [R0, R1, R2, R3, R4, R5, R6, R7]),
                 RegisterClass(
                     'reg',
-                    [i8, i32, u8, u32, i16, u16, ptr], ArmRegister,
+                    [ir.i8, ir.i32, ir.u8, ir.u32, ir.i16, ir.u16, ir.ptr],
+                    ArmRegister,
                     [R0, R1, R2, R3, R4, R5, R6, R7, R8, R9, R10, R11])
                 ]
         self.assembler.gen_asm_parser(self.isa)
         self.gdb_registers = all_registers
+        self.gdb_pc = PC
 
         self.info = ArchInfo(
             type_infos={
                 ir.i8: TypeInfo(1, 1), ir.u8: TypeInfo(1, 1),
                 ir.i16: TypeInfo(2, 2), ir.u16: TypeInfo(2, 2),
                 ir.i32: TypeInfo(4, 4), ir.u32: TypeInfo(4, 4),
-                'int': ir.i32, 'ptr': ir.u32,
+                'int': ir.i32, 'ptr': ir.u32, ir.ptr: ir.u32,
             },
             register_classes=register_classes)
 
@@ -232,7 +235,7 @@ class ArmArch(Architecture):
                         raise NotImplementedError()
                     else:
                         # Generate memcpy now:
-                        print(arg2, arg_loc)
+                        # print(arg2, arg_loc)
                         assert arg.size == arg_loc.size
                         # Now start a copy routine to copy some stack:
                         p1 = frame.new_reg(ArmRegister)
@@ -341,7 +344,7 @@ class ArmArch(Architecture):
         """
         # TODO: what ABI to use?
         # Perhaps follow the arm ABI spec?
-        l = []
+        locations = []
         regs = [R1, R2, R3, R4]
         offset = 8
         for arg_ty in arg_types:
@@ -349,9 +352,15 @@ class ArmArch(Architecture):
                 r = StackLocation(offset, arg_ty.size)
                 offset += arg_ty.size
             else:
-                r = regs.pop(0)
-            l.append(r)
-        return l
+                # Pass non-blob values in registers if possible:
+                if regs:
+                    r = regs.pop(0)
+                else:
+                    arg_size = self.info.get_size(arg_ty)
+                    r = StackLocation(offset, arg_size)
+                    offset += arg_size
+            locations.append(r)
+        return locations
 
     def determine_rv_location(self, ret_type):
         rv = R0
@@ -408,7 +417,7 @@ class ArmAssembler(BaseAssembler):
     def add_literal(self, v):
         """ For use in the pseudo instruction LDR r0, =SOMESYM """
         # Invent some label for the literal and store it.
-        assert type(v) is str
+        assert isinstance(v, str)
         self.lit_counter += 1
         label_name = "_lit_{}".format(self.lit_counter)
         self.lit_pool.append(Label(label_name))

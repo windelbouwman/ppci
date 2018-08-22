@@ -1,6 +1,6 @@
 from ... import ir
-from ...relooper import find_structure
-from . import types, declarations, expressions, statements
+from ...graph.relooper import find_structure
+from .nodes import types, declarations, expressions, statements
 
 
 class CSynthesizer:
@@ -36,14 +36,16 @@ class CSynthesizer:
                 None, ctyp, instruction.name, None, None)
             statement = statements.DeclarationStatement(declaration, None)
         elif isinstance(instruction, ir.Store):
-            pass
+            expression = expressions.BinaryOperator(
+                lhs, '=', value, typ, True, None)
+            statement = statements.ExpressionStatement(expression)
         elif isinstance(instruction, ir.Binop):
             lhs = instruction.name
             op = instruction.op
             a = instruction.a
             b = instruction.b
             typ = instruction.typ
-            rhs = expressions.Binop(a, op, b, typ, False, None)
+            rhs = expressions.BinaryOperator(a, op, b, typ, False, None)
             print(lhs, rhs)
             # expression = expressions.Binop('=', a, b, d)
             # statement = statements.ExpressionStatement(expression)
