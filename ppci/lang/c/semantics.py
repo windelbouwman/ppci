@@ -855,6 +855,8 @@ class CSemantics:
                     'Cannot determine type rank for {}'.format(typ), location)
         elif isinstance(typ, types.EnumType):
             return 80
+        elif isinstance(typ, types.PointerType):
+            return 80
         else:
             self.error(
                 'Cannot determine type rank for {}'.format(typ), location)

@@ -23,7 +23,6 @@ double
 fmod(double x, double y)
 {
 	double intpart;
-    double dummy;
 
 #if	defined(__IEEE_FP__)
 	if (_isNaN(x) || _isNaN(y) || (_isInfinity(x) && _isInfinity(y))) {
@@ -45,7 +44,6 @@ fmod(double x, double y)
 #endif	/* defined(__IEEE_FP__) */
 	}
 
-	//(void) modf(x / y, &intpart);
-    dummy = modf(x / y, &intpart);
+	(void) modf(x / y, &intpart);
 	return x - y * intpart;
 }

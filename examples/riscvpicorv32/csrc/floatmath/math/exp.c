@@ -20,9 +20,6 @@
 #include "mathlib.h"
 #if	defined(__IEEE_SP_FP__)
 
-#define	_poly(order, a, x)						\
-	 (a[0] + x * a[1])			
-
 /* Hart table EXPB 1063, p. 171; precision 10.03, order 1 1. */
 static	double	P1[] = {
 	0.72152891511493e+1,
@@ -56,7 +53,7 @@ double
 exp(double x)
 {
 	register int flag;
-	double r, intpart, xsq, a, b, dummy;
+	double r, intpart, xsq, a, b;
  
 #if	defined(__IEEE_FP__)
 	if (_isNaN(x)) {
@@ -90,10 +87,11 @@ exp(double x)
 	 * in 80-bit registers rather than rounded to 64-bit doubles.
 	 * On most machines, though, it makes no difference.
 	 */
-	dummy = modf(x * LOG2E, &intpart); /* find intpart */
+    
+	(void)modf(x * LOG2E, &intpart); /* find intpart */
 	x = x * LOG2E - intpart;	/* find fraction */
-#else    
-	x = modf(x * LOG2E, &intpart);    
+#else
+	x = modf(x * LOG2E, &intpart);
 #endif
 	if (x < 0.0) {
 		x += 1.0;		/* force fraction positive */

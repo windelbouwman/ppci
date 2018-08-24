@@ -28,8 +28,8 @@ ldexp(double x, int exp)
 	if (_isNaN(x)) {
 		errno = EDOM;		
 		return x;		/* NaN: domain error, return NaN */
-	} else if (_isInfinity(x)) {		
-	return x;}		/* [+-]Infinity: no error, return [+-]Infinity */
+	} else if (_isInfinity(x))
+		return x;		/* [+-]Infinity: no error, return [+-]Infinity */
 
 	/* Nothing to do if exp is zero or if x is zero. */
 	if (exp == 0 || x == 0.0)
@@ -41,7 +41,7 @@ ldexp(double x, int exp)
 
 	/* Watch out for exponent overflow or underflow. */
 	if (exp + olde > DBL_MAX_EXP - 1) {		/* overflow */
-		errno = ERANGE;		
+		errno = ERANGE;
 		return (x < 0) ? _mInfinity : _pInfinity;
 	} else if (exp + olde < DBL_MIN_EXP - 1) {	/* underflow */
 		errno = ERANGE;

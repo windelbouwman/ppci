@@ -7,6 +7,7 @@ import struct
 from ...common import CompilerError
 from ...utils.bitfun import value_to_bits, bits_to_bytes
 from ...arch.arch_info import Endianness
+from ... import ir
 from .nodes.types import BasicType
 from .nodes import types, expressions, declarations
 from .utils import required_padding
@@ -23,6 +24,8 @@ class CContext:
         int_size = self.arch_info.get_size('int')
         int_alignment = self.arch_info.get_alignment('int')
         ptr_size = self.arch_info.get_size('ptr')
+        double_size = self.arch_info.get_size(ir.f64)
+        double_alignment = self.arch_info.get_alignment(ir.f64)
         self.type_size_map = {
             BasicType.CHAR: (1, 1),
             BasicType.UCHAR: (1, 1),
@@ -35,7 +38,7 @@ class CContext:
             BasicType.LONGLONG: (8, 8),
             BasicType.ULONGLONG: (8, 8),
             BasicType.FLOAT: (4, 4),
-            BasicType.DOUBLE: (8, 8),
+            BasicType.DOUBLE: (double_size, double_alignment),
             BasicType.LONGDOUBLE: (10, 10),
         }
 
@@ -48,6 +51,11 @@ class CContext:
         else:
             byte_order = '>'
 
+        if double_size == 4:
+            ftype = 'f'
+        else:
+            ftype = 'd'
+            
         ctypes = {
             BasicType.CHAR: 'b',
             BasicType.UCHAR: 'B',
@@ -61,7 +69,7 @@ class CContext:
             BasicType.LONGLONG: 'q',
             BasicType.ULONGLONG: 'Q',
             BasicType.FLOAT: 'f',
-            BasicType.DOUBLE: 'd',
+            BasicType.DOUBLE: ftype,
         }
 
         self.ctypes_names = {t: byte_order + v for t, v in ctypes.items()}

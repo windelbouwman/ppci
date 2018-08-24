@@ -34,8 +34,6 @@ static double Q2[] = {
 	 0.805313349644432e+2,
 	 1.0
 };
-#define	_poly(order, a, x)	 (a[0] + x * (a[1] + x * a[2]))	
-	
 
 #else	/* !defined(__IEEE_SP_FP__) */
 

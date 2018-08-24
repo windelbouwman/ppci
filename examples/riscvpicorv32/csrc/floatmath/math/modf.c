@@ -76,7 +76,7 @@ modf(double value, double *iptr)
 	*iptr = u.d;				/* store integer part */
 	return value - *iptr;			/* return fractional part */
 #endif	/* defined(__IEEE_DP_FP__) */
- return(0.);
+
 }
 
 #else

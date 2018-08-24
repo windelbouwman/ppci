@@ -71,9 +71,9 @@
  * There is no guarantee that it works for other C implementations,
  * since the implementation-defined bitfield allocation order may vary.
  */
-#if	defined	(__MIPSEL__)
+
 #define	BF_LOW_TO_HIGH	1
-#endif	/* defined (__MIPSEL__) */
+
 
 /*
  * The DOUBLE union below defines the representation of an IEEE-format
