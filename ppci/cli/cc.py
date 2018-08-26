@@ -6,7 +6,7 @@ computer architectures.
 
 
 import argparse
-from .base import base_parser, march_parser, out_parser
+from .base import base_parser, march_parser
 from .compile_base import compile_parser, do_compile
 from .base import LogSetup, get_arch_from_args
 from .. import api
@@ -18,8 +18,7 @@ parser = argparse.ArgumentParser(
     description=__doc__,
     formatter_class=argparse.RawDescriptionHelpFormatter,
     parents=[
-        base_parser, march_parser, out_parser, compile_parser,
-        coptions_parser])
+        base_parser, march_parser, compile_parser, coptions_parser])
 parser.add_argument(
     '-E', action='store_true', default=False,
     help="Stop after preprocessing")

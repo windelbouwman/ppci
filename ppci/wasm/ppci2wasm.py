@@ -93,8 +93,9 @@ class IrToWasmCompiler:
             if isinstance(ir_external, ir.ExternalSubRoutine):
                 if self.has_function(ir_external.name):
                     pass
-                    #raise ValueError(
-                    #    'Function {} already defined'.format(ir_external.name))
+                    # raise ValueError(
+                    #    'Function {} already defined'.format(
+                    #       ir_external.name))
                 else:
                     arg_types = tuple(ir_external.argument_types)
                     if isinstance(ir_external, ir.ExternalFunction):
@@ -105,8 +106,10 @@ class IrToWasmCompiler:
                     import_id = '$' + ir_external.name  # i
                     func_ref = components.Ref('func', index=i, name=import_id)
                     self.function_refs[ir_external.name] = func_ref
-                    self.add_definition(
-                        components.Import('js', ir_external.name, 'func', func_ref, (type_ref, )))
+                    self.add_definition(components.Import(
+                        'js', ir_external.name, 'func',
+                        func_ref, (type_ref, )
+                    ))
             else:
                 raise NotImplementedError(str(ir_external))
 
@@ -143,7 +146,8 @@ class IrToWasmCompiler:
 
                 # Export all functions for now
                 # todo: only export subset?
-                func_ref = components.Ref('func', index=idx, name='$' + ir_function.name)
+                func_ref = components.Ref(
+                    'func', index=idx, name='$' + ir_function.name)
                 self.function_refs[ir_function.name] = func_ref
                 self.add_definition(
                     components.Export(
@@ -243,7 +247,8 @@ class IrToWasmCompiler:
         # Locals are located in local 0, 1, 2 etc..
         # The first x locals are the function arguments.
         for i, argument_vreg in enumerate(self.fi.arg_vregs):
-            self.local_var_map[argument_vreg] = components.Ref('local', index=i)
+            self.local_var_map[argument_vreg] = components.Ref(
+                'local', index=i)
 
         # Transform ir-code in shaped code:
         self._block_stack = []
@@ -308,13 +313,15 @@ class IrToWasmCompiler:
             # Break out of the current loop!
             assert shape.level == 0
             assert self.stack == 0, str(self.stack)
-            label_ref = components.Ref('label', index=(self._get_block_level() + 1))
+            label_ref = components.Ref(
+                'label', index=(self._get_block_level() + 1))
             self.emit(('br', label_ref))
         elif isinstance(shape, relooper.ContinueShape):
             # Continue the current loop!
             assert shape.level == 0
             assert self.stack == 0, str(self.stack)
-            label_ref = components.Ref('label', index=(self._get_block_level()))
+            label_ref = components.Ref(
+                'label', index=(self._get_block_level()))
             self.emit(('br', label_ref))
         elif isinstance(shape, relooper.LoopShape):
             assert self.stack == 0, str(self.stack)
@@ -340,32 +347,48 @@ class IrToWasmCompiler:
             # if tree.name == 'CALL' and
 
     binop_map = {
-        'ADDI32': 'i32.add',
-        'SUBI32': 'i32.sub',
-        'MULI32': 'i32.mul',
-        'DIVI32': 'i32.div_s',
-        'ANDI32': 'i32.and',
-        'ORI32': 'i32.or',
-        'XORI32': 'i32.xor',
-        'SHRI32': 'i32.shr_u',
-        'SHLI32': 'i32.shl',
-        'ADDU32': 'i32.add',
-        'SUBU32': 'i32.sub',
-        'MULU32': 'i32.mul',
-        'DIVU32': 'i32.div_u',
-        'REMI32': 'i32.rem_s',
-        'REMU32': 'i32.rem_u',
-        'ADDI64': 'i64.add',
-        'SUBI64': 'i64.sub',
-        'MULI64': 'i64.mul',
-        'MULF32': 'f32.mul',
-        'ADDF32': 'f32.add',
-        'SUBF32': 'f32.sub',
-        'DIVF32': 'f32.div',
-        'MULF64': 'f64.mul',
-        'ADDF64': 'f64.add',
-        'SUBF64': 'f64.sub',
-        'DIVF64': 'f64.div',
+        # i8
+        'ADDI8': 'i32.add', 'SUBI8': 'i32.sub',
+        'MULI8': 'i32.mul', 'DIVI8': 'i32.div_s', 'REMI8': 'i32.rem_s',
+        'ANDI8': 'i32.and', 'ORI8': 'i32.or', 'XORI8': 'i32.xor',
+        'SHRI8': 'i32.shr_s', 'SHLI8': 'i32.shl',
+        # u8
+        'ADDU8': 'i32.add', 'SUBU8': 'i32.sub',
+        'MULU8': 'i32.mul', 'DIVU8': 'i32.div_u', 'REMU8': 'i32.rem_u',
+        'ANDU8': 'i32.and', 'ORU8': 'i32.or', 'XORU8': 'i32.xor',
+        'SHRU8': 'i32.shr_u', 'SHLU8': 'i32.shl',
+        # i16
+        'ADDI16': 'i32.add', 'SUBI16': 'i32.sub',
+        'MULI16': 'i32.mul', 'DIVI16': 'i32.div_s', 'REMI16': 'i32.rem_s',
+        'ANDI16': 'i32.and', 'ORI16': 'i32.or', 'XORI16': 'i32.xor',
+        'SHRI16': 'i32.shr_s', 'SHLI16': 'i32.shl',
+        # u16
+        'ADDU16': 'i32.add', 'SUBU16': 'i32.sub',
+        'MULU16': 'i32.mul', 'DIVU16': 'i32.div_u', 'REMU16': 'i32.rem_u',
+        'ANDU16': 'i32.and', 'ORU16': 'i32.or', 'XORU16': 'i32.xor',
+        'SHRU16': 'i32.shr_u', 'SHLU16': 'i32.shl',
+        # i32
+        'ADDI32': 'i32.add', 'SUBI32': 'i32.sub',
+        'MULI32': 'i32.mul', 'DIVI32': 'i32.div_s', 'REMI32': 'i32.rem_s',
+        'ANDI32': 'i32.and', 'ORI32': 'i32.or', 'XORI32': 'i32.xor',
+        'SHRI32': 'i32.shr_s', 'SHLI32': 'i32.shl',
+        # u32
+        'ADDU32': 'i64.add', 'SUBU32': 'i64.sub',
+        'MULU32': 'i64.mul', 'DIVU32': 'i64.div_u', 'REMU32': 'i64.rem_u',
+        'ANDU32': 'i64.and', 'ORU32': 'i64.or', 'XORU32': 'i64.xor',
+        'SHRU32': 'i64.shr_u', 'SHLU32': 'i64.shl',
+        # i64
+        'ADDI64': 'i64.add', 'SUBI64': 'i64.sub',
+        'MULI64': 'i64.mul', 'DIVI64': 'i64.div_s', 'REMI64': 'i64.rem_s',
+        # u64
+        'ADDU64': 'i64.add', 'SUBU64': 'i64.sub',
+        'MULU64': 'i64.mul', 'DIVU64': 'i64.div_u', 'REMU64': 'i64.rem_u',
+        # f32
+        'ADDF32': 'f32.add', 'SUBF32': 'f32.sub',
+        'MULF32': 'f32.mul', 'DIVF32': 'f32.div',
+        # f64
+        'ADDF64': 'f64.add', 'SUBF64': 'f64.sub',
+        'MULF64': 'f64.mul', 'DIVF64': 'f64.div',
     }
 
     cmp_ops = {
@@ -407,6 +430,7 @@ class IrToWasmCompiler:
         'CONSTI16': 'i32.const',
         'CONSTU16': 'i32.const',
         'CONSTI32': 'i32.const',
+        'CONSTU32': 'i64.const',
         'CONSTI64': 'i64.const',
         'CONSTU64': 'i64.const',
         'CONSTF32': 'f32.const',
@@ -414,31 +438,53 @@ class IrToWasmCompiler:
     }
 
     cast_operators = {
-        'I32TOI32', 'I32TOU32', 'U32TOI32', 'U32TOU32',
-        'I32TOI8', 'I8TOI32', 'I32TOU8', 'U8TOI32',
-        'U32TOU8', 'U8TOU32',
+        # 32 --- 32
+        'I32TOI32', 'U32TOU32',
+        # 32 --- 8
+        'I32TOI8', 'I8TOI32',
+        'I32TOU8', 'U8TOI32',
+        # 32 --- 16
         'I32TOI16', 'I16TOI32',
+        'I32TOU16', 'U16TOI32',
     }
 
     cast_operators2 = {
+        # float to int:
         'F32TOI32': ['f32.nearest', 'i32.trunc_s/f32'],
-        'F32TOU32': ['f32.nearest', 'i32.trunc_u/f32'],
+        'F32TOU32': ['f32.nearest', 'i64.trunc_u/f32'],
         'F32TOI64': ['f32.nearest', 'i64.trunc_s/f32'],
         'F32TOU64': ['f32.nearest', 'i64.trunc_u/f32'],
         'F64TOI64': ['f64.nearest', 'i64.trunc_s/f64'],
         'F64TOU64': ['f64.nearest', 'i64.trunc_u/f64'],
         'F64TOI32': ['f64.nearest', 'i32.trunc_s/f64'],
-        'F64TOU32': ['f64.nearest', 'i32.trunc_u/f64'],
+        'F64TOU32': ['f64.nearest', 'i64.trunc_u/f64'],
+        # int to float:
         'U64TOF64': ['f64.convert_u/i64'],
         'I64TOF64': ['f64.convert_s/i64'],
-        'U32TOF64': ['f64.convert_u/i32'],
+        'U32TOF64': ['f64.convert_u/i64'],
         'I32TOF64': ['f64.convert_s/i32'],
         'I32TOF32': ['f32.convert_s/i32'],
         'U32TOF32': ['f32.convert_u/i32'],
         'I64TOF32': ['f32.convert_s/i64'],
         'U64TOF32': ['f32.convert_u/i64'],
+        # float to float:
         'F64TOF32': ['f32.demote/f64'],
         'F32TOF64': ['f64.promote/f32'],
+        # i64
+        # 'I64TOI32':
+        # Store u32 in i64 type:
+        'I32TOU32': ['i64.extend_s/i32'],
+        'U32TOI32': ['i32.wrap/i64'],
+        # 32 --- 8
+        'U32TOI8': ['i32.wrap/i64'],
+        'I8TOU32': ['i64.extend_s/i32'],
+        'U32TOU8': ['i32.wrap/i64'],
+        'U8TOU32': ['i64.extend_u/i32'],
+        # 32 --- 16
+        'U32TOI16': ['i32.wrap/i64'],
+        'I16TOU32': ['i64.extend_s/i32'],
+        'U32TOU16': ['i32.wrap/i64'],
+        'U16TOU32': ['i64.extend_u/i32'],
     }
 
     reg_operators = {
@@ -481,7 +527,7 @@ class IrToWasmCompiler:
         elif tree.name in self.reg_operators:
             self.emit(('get_local', self.get_value(tree.value)))
             self.stack += 1
-        elif tree.name == 'NEGI32':
+        elif tree.name in ['NEGI32', 'NEGI16', 'NEGI8']:
             self.emit(('i32.const', 0))
             self.do_tree(tree[0])
             self.emit(('i32.sub',))
@@ -599,7 +645,8 @@ class IrToWasmCompiler:
     def get_value(self, value):
         """ Create a local number for the given value """
         if value not in self.local_var_map:
-            self.local_var_map[value] = components.Ref('local', index=len(self.local_var_map))
+            self.local_var_map[value] = components.Ref(
+                'local', index=len(self.local_var_map))
             ty_map = {
                 I32Register: 'i32', I64Register: 'i64',
                 F32Register: 'f32', F64Register: 'f64',

@@ -2,7 +2,7 @@
 
 
 import argparse
-from .base import base_parser, march_parser, out_parser
+from .base import base_parser, march_parser
 from .compile_base import compile_parser, do_compile
 from .base import LogSetup, get_arch_from_args
 from .. import api
@@ -10,7 +10,7 @@ from .. import api
 
 parser = argparse.ArgumentParser(
     description=__doc__,
-    parents=[base_parser, march_parser, out_parser, compile_parser])
+    parents=[base_parser, march_parser, compile_parser])
 parser.add_argument(
     'sources', metavar='source', help='source file', nargs='+',
     type=argparse.FileType('r'))

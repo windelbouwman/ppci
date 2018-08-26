@@ -27,10 +27,10 @@ class F64Register(Register):
 register_classes = [
     RegisterClass(
         'i32',
-        [ir.i8, ir.u8, ir.i16, ir.u16, ir.i32, ir.u32, ir.ptr],
+        [ir.i8, ir.u8, ir.i16, ir.u16, ir.i32, ir.ptr],
         I32Register, None),
     RegisterClass(
-        'i64', [ir.i64],
+        'i64', [ir.u32, ir.i64],
         I64Register, None),
     RegisterClass(
         'f32', [ir.f32],
@@ -51,7 +51,9 @@ class WasmArchitecture(VirtualMachineArchitecture):
             type_infos={
                 ir.i8: TypeInfo(1, 1), ir.u8: TypeInfo(1, 1),
                 ir.i16: TypeInfo(2, 1), ir.u16: TypeInfo(2, 1),
-                ir.i32: TypeInfo(4, 1), ir.u32: TypeInfo(4, 1),
+                ir.i32: TypeInfo(4, 1),
+                # NOTE: u32 is stored in wasm i64 type:
+                ir.u32: TypeInfo(8, 1),
                 ir.i64: TypeInfo(8, 1), ir.u64: TypeInfo(8, 1),
                 ir.f32: TypeInfo(4, 1), ir.f64: TypeInfo(8, 1),
                 'int': ir.i32, 'ptr': ir.i32

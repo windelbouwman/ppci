@@ -6,10 +6,11 @@ import argparse
 import logging
 from .. import api, irutils
 from ..binutils.outstream import TextOutputStream
+from .base import out_parser
 from ..wasm import ir_to_wasm
 
 
-compile_parser = argparse.ArgumentParser(add_help=False)
+compile_parser = argparse.ArgumentParser(add_help=False, parents=[out_parser])
 compile_parser.add_argument(
     '-g', help='create debug information', action='store_true', default=False)
 compile_parser.add_argument(
@@ -20,6 +21,9 @@ compile_parser.add_argument(
     action='store_true', default=False)
 compile_parser.add_argument(
     '--wasm', help='Output WASM (WebAssembly)',
+    action='store_true', default=False)
+compile_parser.add_argument(
+    '--pycode', help='Output python code',
     action='store_true', default=False)
 compile_parser.add_argument(
     '-O', help='optimize code', default='0', choices=api.OPT_LEVELS)
@@ -52,6 +56,9 @@ def do_compile(ir_modules, march, reporter, args):
         wasm_module = ir_to_wasm(ir_module)
         with open(args.output, 'wb') as output:
             wasm_module.to_file(output)
+    elif args.pycode:  # Output python code
+        with open(args.output, 'w') as output:
+            api.ir_to_python(ir_modules, output, reporter=reporter)
     else:  # Full object output
         obj = api.ir_to_object(
             ir_modules, march, reporter=reporter, debug=args.g)

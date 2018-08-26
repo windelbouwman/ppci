@@ -856,16 +856,18 @@ class CSemantics:
         elif isinstance(typ, types.EnumType):
             return 80
         elif isinstance(typ, types.PointerType):
-            return 80
+            return 83
         else:
             self.error(
                 'Cannot determine type rank for {}'.format(typ), location)
 
-    def error(self, message, location):
+    @staticmethod
+    def error(message, location):
         """ Trigger an error at the given location """
         raise CompilerError(message, loc=location)
 
     def not_impl(self, message, location):  # pragma: no cover
+        """ Call this function to mark unimplemented code """
         self.error(message, location)
         raise NotImplementedError(message)
 

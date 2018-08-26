@@ -14,7 +14,7 @@ from ..utils.reporting import HtmlReportGenerator, DummyReportGenerator
 from ..utils.reporting import TextReportGenerator
 
 
-version_text = 'ppci {} compiler on {} {} on {}'.format(
+version_text = 'ppci {} on {} {} on {}'.format(
     __version__, platform.python_implementation(), platform.python_version(),
     platform.platform())
 
