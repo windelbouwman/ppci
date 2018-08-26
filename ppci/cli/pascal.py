@@ -6,7 +6,8 @@ Compile pascal programs.
 
 import argparse
 import platform
-from .base import base_parser, march_parser, out_parser, compile_parser
+from .base import base_parser, march_parser, out_parser
+from .compile_base import compile_parser, do_compile
 from .base import LogSetup, get_arch_from_args
 from .. import api
 from ..common import CompilerError
@@ -25,13 +26,13 @@ def pascal(args=None):
     with LogSetup(args) as log_setup:
         # Compile sources:
         march = get_arch_from_args(args)
-        obj = api.pascal(args.sources, march, reporter=log_setup.reporter)
 
         if args.output:
             # Write object file to disk:
-            obj.save(args.output)
-            args.output.close()
+            ir_modules = api.pascal_to_ir(args.sources, march)
+            do_compile(ir_modules, march, log_setup.reporter, log_setup.args)
         else:
+            obj = api.pascal(args.sources, march, reporter=log_setup.reporter)
             from .runtime import create_linux_exe
             my_system = platform.system()
             if my_system == 'Linux':

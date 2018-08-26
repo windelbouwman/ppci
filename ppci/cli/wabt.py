@@ -35,6 +35,12 @@ wasm2wat_parser.add_argument(
     default=sys.stdout,
     help='File to write the WAT file to, default is stdout')
 
+show_interface_parser = subparsers.add_parser(
+    'show_interface', help='Load a wasm file and show its interface.')
+show_interface_parser.add_argument(
+    'wasm', metavar='wasm file', type=argparse.FileType('rb'),
+    help='wasm file to read')
+
 
 def wabt(args=None):
     """ Compile wasm to native code """
@@ -48,6 +54,9 @@ def wabt(args=None):
             wasm_module = read_wasm(args.wasm)
             args.output.write(wasm_module.to_string())
             args.output.close()
+        elif args.command == 'show_interface':
+            wasm_module = read_wasm(args.wasm)
+            wasm_module.show_interface()
         else:  # pragma: no cover
             raise NotImplementedError(args.command)
 

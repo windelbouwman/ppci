@@ -14,7 +14,7 @@ from .lang.c3 import c3_to_ir
 from .lang.bf import bf_to_ir
 from .lang.fortran import fortran_to_ir
 from .lang.llvmir import llvm_to_ir
-from .lang.pascal import PascalBuilder
+from .lang.pascal import pascal_to_ir
 from .lang.ws import ws_to_ir
 from .lang.python import python_to_ir, ir_to_python
 from .wasm import wasm_to_ir, read_wasm
@@ -404,15 +404,11 @@ def pascal(sources, march, opt_level=0, reporter=None):
     Returns:
         An object file
     """
-    diag = DiagnosticsManager()
     march = get_arch(march)
     if not reporter:  # pragma: no cover
         reporter = DummyReportGenerator()
-    pascal_builder = PascalBuilder(diag, march.info)
-
     sources = [get_file(fn) for fn in sources]
-    ir_modules = pascal_builder.build(sources)
-
+    ir_modules = pascal_to_ir(sources, march)
     return ir_to_object(ir_modules, march, reporter=reporter)
 
 

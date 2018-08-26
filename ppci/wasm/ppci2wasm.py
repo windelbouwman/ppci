@@ -24,6 +24,7 @@ from ..binutils import debuginfo
 from .arch import WasmArchitecture
 from .arch import I32Register, I64Register, F32Register, F64Register
 
+
 def ir_to_wasm(ir_module: ir.Module, reporter=None) -> components.Module:
     """ Compiles ir-code to a wasm module.
 
@@ -58,7 +59,7 @@ class IrToWasmCompiler:
         self.global_memory = self.STACKSIZE  # fill up global memory on the go!
         self.function_refs = {}
         self.pointed_functions = []  # List of referenced funcs
-        
+
         # Global variables:
         # Keep track of virtual stack pointer:
         self.add_definition(
@@ -67,7 +68,7 @@ class IrToWasmCompiler:
             ]))
         self.global_labels['global0'] = 0  # todo: is this correct?
         self.sp_ref = components.Ref('global', index=0)
-    
+
     def add_definition(self, definition):
         # print(definition.to_string())
         self.logger.debug('Create %s', definition)
@@ -97,7 +98,7 @@ class IrToWasmCompiler:
                 else:
                     arg_types = tuple(ir_external.argument_types)
                     if isinstance(ir_external, ir.ExternalFunction):
-                        ret_types = (ir_external.return_type,)
+                        ret_types = (ir_external.return_ty,)
                     else:
                         ret_types = ()
                     type_ref = self.get_type_id(arg_types, ret_types)
@@ -338,10 +339,6 @@ class IrToWasmCompiler:
             self.do_tree(tree)
             # if tree.name == 'CALL' and
 
-    unops = {
-        'NEGI32',
-    }
-
     binop_map = {
         'ADDI32': 'i32.add',
         'SUBI32': 'i32.sub',
@@ -438,6 +435,8 @@ class IrToWasmCompiler:
         'I32TOF64': ['f64.convert_s/i32'],
         'I32TOF32': ['f32.convert_s/i32'],
         'U32TOF32': ['f32.convert_u/i32'],
+        'I64TOF32': ['f32.convert_s/i64'],
+        'U64TOF32': ['f32.convert_u/i64'],
         'F64TOF32': ['f32.demote/f64'],
         'F32TOF64': ['f64.promote/f32'],
     }
@@ -486,6 +485,16 @@ class IrToWasmCompiler:
             self.emit(('i32.const', 0))
             self.do_tree(tree[0])
             self.emit(('i32.sub',))
+        elif tree.name == 'NEGI64':
+            self.emit(('i64.const', 0))
+            self.do_tree(tree[0])
+            self.emit(('i64.sub',))
+        elif tree.name == 'NEGF32':
+            self.do_tree(tree[0])
+            self.emit(('f32.neg',))
+        elif tree.name == 'NEGF64':
+            self.do_tree(tree[0])
+            self.emit(('f64.neg',))
         elif tree.name in ['FPRELI32']:
             addr = tree.value.offset
             self.emit(('get_global', self.sp_ref))  # Fetch stack pointer
@@ -571,7 +580,7 @@ class IrToWasmCompiler:
             self.emit((opcode,))
             self.stack -= 1
             # Jump is handled by shapes!
-        else:
+        else:  # pragma: no cover
             raise NotImplementedError(str(tree))
 
     def get_ty(self, ir_ty):

@@ -5,10 +5,9 @@ This command line tool takes web assembly to native code.
 
 
 import argparse
-from .base import base_parser, march_parser, out_parser, compile_parser
+from .base import base_parser, march_parser, out_parser
 from .base import LogSetup, get_arch_from_args
-from .. import api
-from ..binutils.outstream import TextOutputStream
+from .compile_base import compile_parser, do_compile
 from ..wasm import read_wasm, wasm_to_ir
 
 
@@ -31,22 +30,7 @@ def wasmcompile(args=None):
             march.info.get_type_info('ptr'),
             reporter=log_setup.reporter)
 
-        # Optimize:
-        api.optimize(ir_module, level=args.O, reporter=log_setup.reporter)
-
-        if args.S:
-            stream = TextOutputStream(
-                printer=march.asm_printer, f=args.output)
-            api.ir_to_stream(
-                ir_module, march, stream, reporter=log_setup.reporter)
-        else:
-            obj = api.ir_to_object(
-                [ir_module], march,
-                reporter=log_setup.reporter)
-
-            # Write object file to disk:
-            obj.save(args.output)
-        args.output.close()
+        do_compile([ir_module], march, log_setup.reporter, log_setup.args)
 
 
 if __name__ == '__main__':

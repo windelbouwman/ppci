@@ -1,12 +1,13 @@
+""" Base parser definitions shared between most cli utilities. """
+
 import argparse
 import logging
 import os
 import cgitb
 import platform
 import sys
-from .. import __version__, api, irutils
+from .. import __version__
 from ..arch.target_list import target_names, create_arch
-from ..binutils.outstream import TextOutputStream
 from ..build.tasks import TaskError
 from ..common import logformat, CompilerError
 from ..utils.reporting import HtmlReportGenerator, DummyReportGenerator
@@ -16,20 +17,6 @@ from ..utils.reporting import TextReportGenerator
 version_text = 'ppci {} compiler on {} {} on {}'.format(
     __version__, platform.python_implementation(), platform.python_version(),
     platform.platform())
-
-
-def do_compile(module, march, reporter, args):
-    """ Handle the proper output action """
-    if args.ir:  # Stop after ir code generation
-        irutils.Writer(file=args.output).write(module)
-    elif args.S:  # Output assembly code
-        stream = TextOutputStream(
-            printer=march.asm_printer, f=args.output)
-        api.ir_to_stream(
-            module, march, stream, reporter=reporter)
-    else:  # Full object output
-        obj = api.ir_to_object([module], march, reporter=reporter)
-        obj.save(args.output)
 
 
 def log_level(s):
@@ -94,23 +81,7 @@ def get_arch_from_args(args):
 out_parser = argparse.ArgumentParser(add_help=False)
 out_parser.add_argument(
     '--output', '-o', help='output file', metavar='output-file',
-    default='f.out',
-    type=argparse.FileType('w'))
-
-compile_parser = argparse.ArgumentParser(add_help=False)
-compile_parser.add_argument(
-    '-g', help='create debug information', action='store_true', default=False)
-compile_parser.add_argument(
-    '-S', help='Do not assemble, but output assembly language',
-    action='store_true', default=False)
-compile_parser.add_argument(
-    '--ir', help='Output ppci ir-code, do not generate code',
-    action='store_true', default=False)
-compile_parser.add_argument(
-    '--wasm', help='Output WASM (WebAssembly)',
-    action='store_true', default=False)
-compile_parser.add_argument(
-    '-O', help='optimize code', default='0', choices=api.OPT_LEVELS)
+    default='f.out')
 
 
 class ColoredFormatter(logging.Formatter):
@@ -195,10 +166,9 @@ class LogSetup:
 
         if exc_value is not None:
             # Exception happened, close file and remove
-            if hasattr(self.args, 'output') and self.args.output:
-                self.args.output.close()
-                if hasattr(self.args.output, 'name'):
-                    filename = self.args.output.name
+            if hasattr(self.args, 'output'):
+                if os.path.exists(self.args.output):
+                    filename = self.args.output
                     os.remove(filename)
 
         self.logger.debug('Removing loggers')

@@ -27,8 +27,8 @@ def link(args=None):
     args = parser.parse_args(args)
     with LogSetup(args):
         obj = api.link(args.obj, layout=args.layout, debug=args.g)
-        obj.save(args.output)
-        args.output.close()
+        with open(args.output, 'w') as output:
+            obj.save(output)
 
 
 if __name__ == '__main__':

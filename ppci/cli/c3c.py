@@ -7,10 +7,10 @@ result in any code.
 
 
 import argparse
-from .base import base_parser, march_parser, out_parser, compile_parser
+from .base import base_parser, march_parser, out_parser
+from .compile_base import compile_parser, do_compile
 from .base import LogSetup, get_arch_from_args
 from .. import api
-from ..binutils.outstream import TextOutputStream
 
 
 parser = argparse.ArgumentParser(
@@ -30,21 +30,12 @@ def c3c(args=None):
     with LogSetup(args) as log_setup:
         # Compile sources:
         march = get_arch_from_args(args)
-        if args.S:
-            txtstream = TextOutputStream(
-                printer=march.asm_printer, f=args.output)
-            api.c3c(
-                args.sources, args.include, march,
-                reporter=log_setup.reporter,
-                debug=args.g, outstream=txtstream)
-        else:
-            obj = api.c3c(
-                args.sources, args.include, march,
-                reporter=log_setup.reporter, debug=args.g)
 
-            # Write object file to disk:
-            obj.save(args.output)
-        args.output.close()
+        ir_module = api.c3_to_ir(
+            args.sources, args.include, march,
+            reporter=log_setup.reporter)
+
+        do_compile([ir_module], march, log_setup.reporter, log_setup.args)
 
 
 if __name__ == '__main__':

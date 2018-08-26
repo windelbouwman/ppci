@@ -1,10 +1,18 @@
 
 import logging
 from ...irutils import Verifier
+from ...common import DiagnosticsManager
 from .context import Context
 from .lexer import Lexer
 from .parser import Parser
 from .codegenerator import CodeGenerator
+
+
+def pascal_to_ir(sources, march):
+    diag = DiagnosticsManager()
+    pascal_builder = PascalBuilder(diag, march.info)
+    ir_modules = pascal_builder.build(sources)
+    return ir_modules
 
 
 class PascalBuilder:

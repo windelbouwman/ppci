@@ -100,6 +100,7 @@ class X86_64Arch(Architecture):
                 ir.i16: TypeInfo(2, 2), ir.u16: TypeInfo(2, 2),
                 ir.i32: TypeInfo(4, 4), ir.u32: TypeInfo(4, 4),
                 ir.i64: TypeInfo(8, 8), ir.u64: TypeInfo(8, 8),
+                ir.f32: TypeInfo(4, 4), ir.f64: TypeInfo(8, 8),
                 'int': ir.i64, 'ptr': ir.u64, ir.ptr: ir.u64,
             }, register_classes=register_classes)
 

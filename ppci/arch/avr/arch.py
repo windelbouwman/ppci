@@ -88,6 +88,7 @@ class AvrArch(Architecture):
             type_infos={
                 ir.i8: TypeInfo(1, 1), ir.u8: TypeInfo(1, 1),
                 ir.i16: TypeInfo(2, 2), ir.u16: TypeInfo(2, 2),
+                ir.f32: TypeInfo(4, 4), ir.f64: TypeInfo(8, 8),
                 'int': ir.i16, 'ptr': ir.u16
             },
             register_classes=register_classes)

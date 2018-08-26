@@ -28,8 +28,8 @@ def asm(args=None):
         obj = api.asm(args.sourcefile, march, debug=args.debug)
 
         # Write object file to disk:
-        obj.save(args.output)
-        args.output.close()
+        with open(args.output, 'w') as output:
+            obj.save(output)
 
 
 if __name__ == '__main__':
