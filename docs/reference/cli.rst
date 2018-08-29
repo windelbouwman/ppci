@@ -79,3 +79,6 @@ activated stand alone.
 
 .. autoprogram:: ppci.cli.wat2wasm:parser
     :prog: ppci-wat2wasm
+
+.. autoprogram:: ppci.cli.wabt:parser
+    :prog: ppci-wabt

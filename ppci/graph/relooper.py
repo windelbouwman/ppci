@@ -16,10 +16,19 @@ References:
 A hint might be "Hammock graphs" which are single entry, single exit graphs.
 They might be the join point between dominator and post dominator nodes.
 
+The algorithm for finding a program structure is as following:
+
+- Create a control flow graph from the ir-function.
+- Find loops in the control flow graph
+- Now start with entry node, and check if this node is:
+   - a start of a loop
+   - an if statement with two outgoing control flow paths
+   - straight line code
 """
 
 import logging
 from .cfg import ir_function_to_graph, Loop
+# from ..utils.collections import OrderedSet, OrderedDict
 
 
 def find_structure(ir_function):
@@ -43,30 +52,30 @@ def find_structure(ir_function):
     return shape, rmap
 
 
-def print_shape(shape, indent=0):
+def print_shape(shape, indent=0, file=None):
     if isinstance(shape, BasicShape):
-        print('   ' * indent + 'code:', str(shape.content))
+        print('   ' * indent + 'code:', str(shape.content), file=file)
     elif isinstance(shape, (BreakShape, ContinueShape)):
-        print('   ' * indent + str(shape))
+        print('   ' * indent + str(shape), file=file)
     elif isinstance(shape, SequenceShape):
         for sub_shape in shape.shapes:
-            print_shape(sub_shape, indent=indent+1)
+            print_shape(sub_shape, indent=indent+1, file=file)
     elif isinstance(shape, IfShape):
-        print('   ' * indent + 'if-then', shape.content)
+        print('   ' * indent + 'if-then', shape.content, file=file)
         if shape.yes_shape is not None:
-            print_shape(shape.yes_shape, indent=indent+1)
+            print_shape(shape.yes_shape, indent=indent+1, file=file)
 
         if shape.no_shape is not None:
-            print('   ' * indent + 'else')
-            print_shape(shape.no_shape, indent=indent+1)
-        print('   ' * indent + 'end-if')
+            print('   ' * indent + 'else', file=file)
+            print_shape(shape.no_shape, indent=indent+1, file=file)
+        print('   ' * indent + 'end-if', file=file)
     elif isinstance(shape, LoopShape):
-        print('   ' * indent + 'loop')
-        print_shape(shape.body, indent=indent+1)
-        print('   ' * indent + 'end-loop')
+        print('   ' * indent + 'loop', file=file)
+        print_shape(shape.body, indent=indent+1, file=file)
+        print('   ' * indent + 'end-loop', file=file)
     elif shape is None:
         pass
-    else:
+    else:  # pragma: no cover
         raise NotImplementedError(str(shape))
 
 
@@ -104,7 +113,7 @@ class StructureDetector:
             # Loop found!
             loop = self.loop_headers[entry]
             follow_up = self.follows_loop(loop)
-            assert follow_up
+            # assert follow_up
             self.loop_stack.append((loop, follow_up))
             self.marked.add(entry)
             self.marked.add(follow_up)
@@ -117,9 +126,10 @@ class StructureDetector:
             self.loop_stack.pop(-1)
 
             # Create shape:
-            s2 = LoopShape(s1)
-            s3 = self.make_shape(follow_up)
-            shape = SequenceShape([s2, s3])
+            shape = LoopShape(s1)
+            if follow_up:
+                s3 = self.make_shape(follow_up)
+                shape = SequenceShape([shape, s3])
         elif len(entry.successors) == 1:
             # Simple straight ahead:
             self.logger.debug('--> code: %s', entry)
@@ -179,7 +189,8 @@ class StructureDetector:
         for node in all_loop_nodes:
             for s in node.successors:
                 if s not in all_loop_nodes:
-                    reachable_outside_loop.add(s)
+                    if not self.cfg.strictly_dominates(loop.header, s):
+                        reachable_outside_loop.add(s)
 
         if reachable_outside_loop:
             if len(reachable_outside_loop) != 1:

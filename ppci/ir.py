@@ -10,6 +10,7 @@ The only types available are basic integer types and a pointer type.
 # pylint: disable=R0903
 
 from binascii import hexlify
+from itertools import chain
 import logging
 from .utils.collections import OrderedSet
 
@@ -162,6 +163,16 @@ class Module:
 
     def __str__(self):
         return 'module {0}'.format(self.name)
+
+    def __getitem__(self, i):
+        if isinstance(i, str):
+            names = {
+                x.name: x
+                for x in chain(self.functions, self.variables, self.externals)
+            }
+            return names[i]
+        else:
+            raise IndexError('A Module can only be indexed by str')
 
     def add_external(self, external):
         """ Add an externally located thing """
