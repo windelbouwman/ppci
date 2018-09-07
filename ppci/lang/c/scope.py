@@ -24,6 +24,7 @@ class RootScope:
             type_tuple('unsigned', 'short'): BasicType.USHORT,
             type_tuple('unsigned', 'short', 'int'): BasicType.USHORT,
             type_tuple('int',): BasicType.INT,
+            type_tuple('signed',): BasicType.INT,
             type_tuple('signed', 'int',): BasicType.INT,
             type_tuple('unsigned', 'int',): BasicType.UINT,
             type_tuple('unsigned',): BasicType.UINT,
@@ -103,6 +104,8 @@ class RootScope:
         """ Test if an expression can be evaluated at compile time """
         if isinstance(expr, expressions.BinaryOperator):
             return self.is_const_expr(expr.a) and self.is_const_expr(expr.b)
+        elif isinstance(expr, expressions.UnaryOperator):
+            return self.is_const_expr(expr.a)
         elif isinstance(expr, expressions.NumericLiteral):
             return True
         elif isinstance(expr, expressions.CharLiteral):

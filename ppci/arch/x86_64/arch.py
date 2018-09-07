@@ -364,7 +364,9 @@ class X86_64Arch(Architecture):
                 elif isinstance(arg, StackLocation):
                     # Store memcpy action for later:
                     # cps.append((arg.offset, stack_offset, arg.size))
-                    raise NotImplementedError()
+                    # raise NotImplementedError(str(arg_loc))
+                    # Do not copy any incoming variable, it was copied during
+                    # call.
                     stack_offset += arg.size
                 else:  # pragma: no cover
                     raise NotImplementedError()

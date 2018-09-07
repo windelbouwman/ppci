@@ -10,7 +10,7 @@ The following parts can be distinguished:
 
 import logging
 from ..tools.recursivedescent import RecursiveDescentParser
-from .nodes import nodes
+from .nodes import nodes, statements, expressions, types
 
 
 class CParser(RecursiveDescentParser):
@@ -38,6 +38,7 @@ class CParser(RecursiveDescentParser):
 
     def __init__(self, coptions, semantics):
         super().__init__()
+        self.coptions = coptions
         self.semantics = semantics
         self.type_qualifiers = {'volatile', 'const'}
         self.storage_classes = {
@@ -132,12 +133,12 @@ class CParser(RecursiveDescentParser):
     # Declarations part:
     def parse_declarations(self):
         """ Parse normal declarations """
-        ds = self.parse_decl_specifiers()
+        decl_spec = self.parse_decl_specifiers()
         # TODO: perhaps not parse functions here?
         if self.has_consumed(';'):
             declarations = []
         else:
-            declarations = self.parse_decl_group(ds)
+            declarations = self.parse_decl_group(decl_spec)
         return declarations
 
     def parse_decl_specifiers(self, allow_storage_class=True):
@@ -217,8 +218,12 @@ class CParser(RecursiveDescentParser):
                 break
 
         # Now that we are here, the type must be determined
-        if not typ and type_specifiers:
-            typ = self.semantics.on_basic_type(type_specifiers, location)
+        if type_specifiers:
+            if typ:
+                self.error(
+                    'Type specifiers given in addition to type', location)
+            else:
+                typ = self.semantics.on_basic_type(type_specifiers, location)
 
         if not typ:
             location = self.current_location
@@ -227,8 +232,8 @@ class CParser(RecursiveDescentParser):
             # self.error('Expected at least one type specifier')
 
         typ = self.semantics.on_type_qualifiers(type_qualifiers, typ)
-        ds = nodes.DeclSpec(storage_class, typ)
-        return ds
+        decl_spec = nodes.DeclSpec(storage_class, typ)
+        return decl_spec
 
     def parse_struct_or_union(self):
         """ Parse a struct or union """
@@ -259,19 +264,21 @@ class CParser(RecursiveDescentParser):
         self.consume('{')
         fields = []
         while self.peek != '}':
-            ds = self.parse_decl_specifiers(allow_storage_class=False)
+            decl_spec = self.parse_decl_specifiers(allow_storage_class=False)
             while True:
                 type_modifiers, name = self.parse_type_modifiers(
                     abstract=False)
+
                 # Handle optional struct field size:
                 if self.peek == ':':
                     self.consume(':')
                     bitsize = self.parse_constant_expression()
-                    # TODO: move this somewhere else?
                 else:
                     bitsize = None
+
                 field = self.semantics.on_field_def(
-                    ds.storage_class, ds.typ, name.val, type_modifiers,
+                    decl_spec.storage_class, decl_spec.typ,
+                    name.val, type_modifiers,
                     bitsize, name.loc)
                 fields.append(field)
                 if self.has_consumed(','):
@@ -301,24 +308,28 @@ class CParser(RecursiveDescentParser):
 
         # If we have a body, either after tag or directly, parse it:
         if self.peek == '{':
-            self.consume('{')
-            self.semantics.enter_enum_values(ctyp, keyword.loc)
-            constants = []
-            while self.peek != '}':
-                name = self.consume('ID')
-                if self.has_consumed('='):
-                    value = self.parse_constant_expression()
-                else:
-                    value = None
-                constant = self.semantics.on_enum_value(
-                    ctyp, name.val, value, name.loc)
-                constants.append(constant)
-                if not self.has_consumed(','):
-                    break
-            self.consume('}')
-            self.semantics.exit_enum_values(ctyp, constants, keyword.loc)
+            self.parse_enum_fields(ctyp, keyword.loc)
 
         return ctyp
+
+    def parse_enum_fields(self, ctyp, location):
+        """ Parse enum declarations """
+        self.consume('{')
+        self.semantics.enter_enum_values(ctyp, location)
+        constants = []
+        while self.peek != '}':
+            name = self.consume('ID')
+            if self.has_consumed('='):
+                value = self.parse_constant_expression()
+            else:
+                value = None
+            constant = self.semantics.on_enum_value(
+                ctyp, name.val, value, name.loc)
+            constants.append(constant)
+            if not self.has_consumed(','):
+                break
+        self.consume('}')
+        self.semantics.exit_enum_values(ctyp, constants, location)
 
     def parse_attributes(self):
         """ Parse some attributes.
@@ -355,7 +366,7 @@ class CParser(RecursiveDescentParser):
         self.consume(')')
         return gnu_attribute
 
-    def parse_decl_group(self, ds):
+    def parse_decl_group(self, decl_spec):
         """ Parse the rest after the first declaration spec.
 
         For example we have parsed 'static int' and we will now parse the rest.
@@ -365,50 +376,53 @@ class CParser(RecursiveDescentParser):
         """
         declarations = []
         d = self.parse_declarator()
-        if ds.storage_class == 'typedef':
-            declarations.append(self.parse_typedef(ds, d))
+        if decl_spec.storage_class == 'typedef':
+            declarations.append(self.parse_typedef(decl_spec, d))
             while self.has_consumed(','):
                 d = self.parse_declarator()
-                declarations.append(self.parse_typedef(ds, d))
+                declarations.append(self.parse_typedef(decl_spec, d))
             self.consume(';')
         elif self.peek == '{':
             # if function, parse implementation.
             # func_def = None
-            declarations.append(self.parse_function_declaration(ds, d))
+            declarations.append(self.parse_function_declaration(decl_spec, d))
         else:
             # We have variables here
-            declarations.append(self.parse_variable_declaration(ds, d))
+            declarations.append(self.parse_variable_declaration(decl_spec, d))
             while self.has_consumed(','):
                 d = self.parse_declarator()
-                declarations.append(self.parse_variable_declaration(ds, d))
+                declarations.append(
+                    self.parse_variable_declaration(decl_spec, d))
             self.consume(';')
         return declarations
 
-    def parse_function_declaration(self, ds, d):
+    def parse_function_declaration(self, decl_spec, d):
         """ Parse a function declaration with implementation """
         function = self.semantics.on_function_declaration(
-            ds.storage_class, ds.typ, d.name, d.type_modifiers, d.location)
+            decl_spec.storage_class, decl_spec.typ, d.name,
+            d.type_modifiers, d.location)
         self.semantics.enter_function(function)
         body = self.parse_compound_statement()
         self.semantics.end_function(body)
         return function
 
-    def parse_variable_declaration(self, ds, d):
+    def parse_variable_declaration(self, decl_spec, d):
         # Create the variable:
         variable = self.semantics.on_variable_declaration(
-            ds.storage_class, ds.typ, d.name, d.type_modifiers, d.location)
+            decl_spec.storage_class, decl_spec.typ, d.name,
+            d.type_modifiers, d.location)
 
         # Handle the initial value:
         if self.has_consumed('='):
-            initializer = self.parse_variable_initializer()
+            initializer = self.parse_variable_initializer(variable.typ)
             self.semantics.on_variable_initialization(variable, initializer)
         return variable
 
-    def parse_typedef(self, ds, d):
+    def parse_typedef(self, decl_spec, d):
         """ Process typedefs """
         self.typedefs.add(d.name)
         return self.semantics.on_typedef(
-            ds.typ, d.name, d.type_modifiers, d.location)
+            decl_spec.typ, d.name, d.type_modifiers, d.location)
 
     def parse_declarator(self, abstract=False):
         """ Given a declaration specifier, parse the rest.
@@ -424,34 +438,256 @@ class CParser(RecursiveDescentParser):
             name = location = None
 
         # Handle typedefs:
-        # if ds.storage_class == 'typedef':
+        # if decl_spec.storage_class == 'typedef':
         #    assert name is not None
         #    self.typedefs.add(name)
         return nodes.Declarator(name, type_modifiers, location)
 
-    def parse_variable_initializer(self):
-        """ Parse the C-style array or struct initializer stuff """
-        if self.peek == '{':
+    # Initialization section:
+    def parse_variable_initializer(self, typ):
+        """ Parse the C-style array or struct initializer stuff.
+
+        Heavily copied from: https://github.com/rui314/8cc/blob/master/parse.c
+
+        Argument is the type to initialize.
+
+        An initialization can be one of:
+        = 1;
+        = {1, 2, 3};
+        = {[0] = 3};  // C99
+        = {.foobar = {23, 3}}; // C99
+        = {[2..5] = 2}; // C99
+        """
+        if self.peek == '{' or self.is_string(typ):
+            initializer = self.parse_initializer_list(typ)
+        else:
+            expr = self.parse_constant_expression()
+            initializer = self.semantics.coerce(expr, typ)
+        return initializer
+
+    def is_string(self, typ):
+        return isinstance(typ, types.ArrayType) and \
+                typ.element_type.is_scalar
+
+    def parse_initializer_list(self, typ):
+        """ Based on type, determine what we could expect.
+
+        This function is only called somewhere within { and }.
+        """
+        if typ.is_scalar or \
+                isinstance(typ, (types.PointerType, types.EnumType)):
+            expr = self.parse_constant_expression()
+            initializer = self.semantics.coerce(expr, typ)
+        elif isinstance(typ, types.ArrayType):
+            initializer = self.parse_array_initializer(typ)
+        elif isinstance(typ, types.StructType):
+            initializer = self.parse_struct_initializer(typ, None)
+        elif isinstance(typ, types.UnionType):
+            initializer = self.parse_union_initializer(typ, None)
+        else:  # pragma: no cover
+            raise NotImplementedError(str(typ))
+
+        return initializer
+
+    def parse_inner_variable_initializer(self):
+        """ Parse array or structure initializer within { and } """
+        if self.peek in ['[', '.'] and self.coptions['std'] == 'c99':
+            target = self.parse_designator()
+            initializer = self.parse_variable_initializer()
+            initializer = (target, initializer)
+        else:
+            initializer = self.parse_variable_initializer(None)
+        return initializer
+
+    def parse_struct_initializer(self, struct_typ, initializer):
+        """ Match an initializer onto a struct type """
+        assert isinstance(struct_typ, types.StructType)
+        if not struct_typ.complete:
+            self.error(
+                'Struct not fully defined!',
+                initializer.initializer.location)
+
+        # if self
+        has_brace = self.peek == '{'
+        if has_brace:
             location = self.consume('{').loc
-            values = []
-            values.append(self.parse_variable_initializer())
-            while self.has_consumed(','):
+        else:
+            location = self.current_location
+        # location = self.consume('{').loc
+
+        # Struct is initialized like '= { 1, 2, .. }'
+        # Grab all fields from the initializer list:
+
+        # Start with uninitialized data:
+        initializer = expressions.StructInitializer(struct_typ, location)
+        pos = 0
+        # for field in typ.fields:
+        while True:
+            # Determine current field, or whether we are done:
+            if self.peek == '}':
+                # We are done with this struct
+                break
+            elif self.peek == '.':
+                # Enter this designator!
+                self.consume('.')
+                field_name = self.consume('ID')
+                self.consume('=')
+                field_select_loc = field_name.loc
+                field_name = field_name.val
+                if not struct_typ.has_field(field_name):
+                    self.error(
+                        'No such field {}'.format(field_name),
+                        loc=field_select_loc
+                    )
+                else:
+                    field = struct_typ.get_field(field_name)
+                pos = struct_typ.fields.index(field)
+            elif pos >= len(struct_typ.fields) and not has_brace:
+                # If we passed all fields, we are done.
+                break
+            else:
+                field = struct_typ.fields[pos]
+                pos += 1
+
+            # Load selected field:
+            fi = self.parse_initializer_list(field.typ)
+            if field in initializer.field_values:
+                # We have a double initialize
+                old_init = initializer.field_values[field]
+                self.warning("Double initialization", old_init.location)
+            initializer.field_values[field] = fi
+
+            self.has_consumed(',')
+
+        # print(initializer)
+        if has_brace:
+            self.consume('}')
+
+        # Fill un initialized fields now:
+        # TODO
+
+        # Assert that we filled all fields:
+        # assert len(il) == len(typ.fields)
+        # else:
+        #    # Struct is initialized with expression '= f();'
+        #    result = self.coerce(initializer, typ)
+        return initializer
+
+    def parse_union_initializer(self, union_typ, initializer):
+        """ Match an initializer onto a union type """
+        assert isinstance(union_typ, types.UnionType)
+        if not union_typ.complete:
+            self.error(
+                'Union not fully defined!',
+                initializer.initializer.location)
+
+        has_brace = self.peek == '{'
+        if has_brace:
+            location = self.consume('{').loc
+        else:
+            location = self.current_location
+        initializer = expressions.UnionInitializer(union_typ, location)
+
+        # Initialize the first element:
+        if self.peek == '}':
+            # Implicit initialization:
+            i = 0
+            field = union_typ.fields[0]
+        else:
+            if self.peek == '.':
+                self.consume('.')
+                field_name = self.consume('ID')
+                field_select_loc = field_name.loc
+                field_name = field_name.val
+                self.consume('=')
+                if not union_typ.has_field(field_name):
+                    self.error(
+                        'Union does not have field {}'.format(field_name),
+                        field_select_loc
+                    )
+                else:
+                    field = union_typ.get_field(field_name)
+            else:
+                field = union_typ.fields[0]
+            i = self.parse_initializer_list(field.typ)
+
+            # Eat eventual comma:
+            self.has_consumed(',')
+        initializer.value = i
+        initializer.field = field
+
+        if has_brace:
+            self.consume('}')
+
+        return initializer
+
+    def parse_array_initializer(self, array_typ):
+        """ Process array initializers.
+
+        For example an array maybe initilized with a single value.
+        Or, one can use an designated initializer.
+        """
+        assert isinstance(array_typ, types.ArrayType)
+        has_brace = self.peek == '{'
+        if has_brace:
+            location = self.consume('{').loc
+        else:
+            location = self.current_location
+
+        if self.peek == 'STRING':
+            # isinstance(initializer, expressions.StringLiteral):
+            string = self.consume('STRING')
+            # Turn into sequence of characters:
+            il = []
+            location = string.loc
+            for c in string.val:
+                il.append(expressions.CharLiteral(
+                    ord(c), self.semantics.char_type, location))
+            il.append(expressions.CharLiteral(
+                0, self.semantics.char_type, location))
+            initializer = expressions.ArrayInitializer(array_typ, il, location)
+        else:
+            top_level = True  # TODO?
+            if array_typ.size is None and not top_level:
+                self.error(
+                    'Unknown array size',
+                    location)
+
+            initializer = expressions.ArrayInitializer(array_typ, [], location)
+
+            n = 0
+            if array_typ.size:
+                typ_size = self.semantics.context.eval_expr(array_typ.size)
+            else:
+                typ_size = None
+
+            while typ_size is None or n < typ_size:
                 if self.peek == '}':
                     break
-                values.append(self.parse_variable_initializer())
+                elif self.peek == '[':
+                    self.consume('[')
+                    idx = self.parse_constant_expression()
+                    self.consume(']')
+                    self.consume('=')
+                    print(idx)
+                else:
+                    pass
+
+                # Initialize current element:
+                el = self.parse_initializer_list(array_typ.element_type)
+                initializer.init_values.append(el)
+                n += 1
+
+                # Eat eventual comma:
+                self.has_consumed(',')
+
+        # Fill length of array if it was implicit:
+        if array_typ.size is None:
+            array_typ.size = len(initializer.init_values)
+
+        if has_brace:
             self.consume('}')
-            initializer = self.semantics.on_initializer_list(values, location)
-        else:
-            if self.peek == '[' and self.options['std'] == 'c99':
-                # Parse designators like: int a[10] = {[1]=5, [4]=3, 4}
-                self.consume('[')
-                index = self.parse_constant_expression()
-                self.consume(']')
-                self.consume('=')
-                initializer = self.parse_constant_expression()
-                initializer = (index, initializer)
-            else:
-                initializer = self.parse_constant_expression()
+
         return initializer
 
     def parse_function_arguments(self):
@@ -468,11 +704,11 @@ class CParser(RecursiveDescentParser):
                     arguments.append('...')
                     break
                 else:
-                    ds = self.parse_decl_specifiers()
+                    decl_spec = self.parse_decl_specifiers()
                     d = self.parse_declarator(
                         abstract=True)
                     arg = self.semantics.on_function_argument(
-                        ds.typ, d.name, d.type_modifiers, d.location)
+                        decl_spec.typ, d.name, d.type_modifiers, d.location)
                     arguments.append(arg)
                     if not self.has_consumed(','):
                         break
@@ -556,20 +792,20 @@ class CParser(RecursiveDescentParser):
 
     def parse_typename(self):
         """ Parse a type specifier used in sizeof(int) for example. """
-        ds = self.parse_decl_specifiers()
-        if ds.storage_class:
-            self.error('Storage class cannot be used here')
+        decl_spec = self.parse_decl_specifiers(allow_storage_class=False)
+        assert not decl_spec.storage_class
         type_modifiers, name = self.parse_type_modifiers(abstract=True)
         if name:
             self.error('Unexpected name for type declaration', name)
         location = self.current_location
-        return self.semantics.on_type(ds.typ, type_modifiers, location)
+        return self.semantics.on_type(decl_spec.typ, type_modifiers, location)
 
     # Statement part:
     def parse_statement_or_declaration(self):
         """ Parse either a statement or a declaration
 
-        Returns: a list of statements """
+        Returns: a list of statements
+        """
 
         if self.is_declaration_statement():
             # TODO: do not use current location member.
@@ -635,7 +871,7 @@ class CParser(RecursiveDescentParser):
     def parse_empty_statement(self):
         """ Parse a statement that does nothing! """
         location = self.consume(';').loc
-        return self.semantics.on_empty(location)
+        return statements.Empty(location)
 
     def parse_compound_statement(self):
         """ Parse a series of statements surrounded by '{' and '}' """
@@ -688,20 +924,20 @@ class CParser(RecursiveDescentParser):
         """ Parse a break """
         location = self.consume('break').loc
         self.consume(';')
-        return self.semantics.on_break(location)
+        return statements.Break(location)
 
     def parse_continue_statement(self):
         """ Parse a continue statement """
         location = self.consume('continue').loc
         self.consume(';')
-        return self.semantics.on_continue(location)
+        return statements.Continue(location)
 
     def parse_goto_statement(self):
         """ Parse a goto """
         location = self.consume('goto').loc
         label = self.consume('ID').val
         self.consume(';')
-        return self.semantics.on_goto(label, location)
+        return statements.Goto(label, location)
 
     def parse_while_statement(self):
         """ Parse a while statement """
@@ -727,9 +963,10 @@ class CParser(RecursiveDescentParser):
             initial = None
         else:
             if self.is_declaration_statement():
-                ds = self.parse_decl_specifiers()
+                decl_spec = self.parse_decl_specifiers()
                 d = self.parse_declarator()
-                variable_declaration = self.parse_variable_declaration(ds, d)
+                variable_declaration = self.parse_variable_declaration(
+                    decl_spec, d)
                 initial = variable_declaration
             else:
                 initial = self.parse_expression()

@@ -207,6 +207,9 @@ class CPrinter:
         elif isinstance(expr, expressions.InitializerList):
             thing = ', '.join(self.gen_expr(e) for e in expr.elements)
             return '{' + thing + '}'
+        elif isinstance(expr, expressions.ArrayInitializer):
+            thing = ', '.join(self.gen_expr(e) for e in expr.init_values)
+            return '{' + thing + '}'
         elif isinstance(expr, expressions.Cast):
             return '({})({})'.format(
                 self.render_type(expr.to_typ), self.gen_expr(expr.expr))

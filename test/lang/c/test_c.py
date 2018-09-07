@@ -1,8 +1,8 @@
 import unittest
 import io
 from ppci.common import CompilerError
-from ppci.lang.c import CBuilder, CPrinter, CContext
-from ppci.lang.c import CSynthesizer, parse_type
+from ppci.lang.c import CBuilder, render_ast, CContext
+from ppci.lang.c import CSynthesizer, parse_type, print_ast
 from ppci.lang.c.options import COptions
 from ppci.lang.c.utils import replace_escape_codes
 from ppci.arch.example import ExampleArch
@@ -34,6 +34,10 @@ class CFrontendTestCase(unittest.TestCase):
         self.builder = CBuilder(arch.info, COptions())
 
     def do(self, src):
+        # self._print_ast(src)
+        self._do_compile(src)
+
+    def _do_compile(self, src):
         f = io.StringIO(src)
         try:
             ir_module = self.builder.build(f, None)
@@ -44,12 +48,17 @@ class CFrontendTestCase(unittest.TestCase):
         assert isinstance(ir_module, ir.Module)
         Verifier().verify(ir_module)
 
+    def _print_ast(self, src):
         # Try to parse ast as well:
         f = io.StringIO(src)
         tree = self.builder._create_ast(src, None)
-        printer = CPrinter()
         print(tree)
-        printer.print(tree)
+        print('C-AST:')
+        print_ast(tree)
+
+        # Print rendered c:
+        print('re-rendered C:')
+        render_ast(tree)
 
     def expect_errors(self, src, errors):
         with self.assertRaises(CompilerError) as cm:
@@ -258,9 +267,9 @@ class CFrontendTestCase(unittest.TestCase):
         """ Test union usage """
         src = """
         union z { int foo; struct { int b, a, r; } bar;};
-        union z myZ[2] = {1, 2, 3};
+        union z myZ[2] = {1, 2};
         void main() {
-          union z localZ[2] = {1, 2, 3};
+          union z localZ[2] = {1, 2};
         }
         """
         self.do(src)
@@ -528,8 +537,13 @@ class CFrontendTestCase(unittest.TestCase):
     def test_initialization(self):
         """ Test calling of functions """
         src = """
+        struct rec {
+          int a, b;
+          char c[5];
+        };
         char x = '\2';
         int* ptr = (int*)0x1000;
+        struct rec d = {.b = 2, .c = {[2] = 3}};
 
         void main() {
           char x = '\2';

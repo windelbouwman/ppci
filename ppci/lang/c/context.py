@@ -205,11 +205,20 @@ class CContext:
         assert self.sizeof(typ) == struct.calcsize(fmt)
         return struct.pack(fmt, value)
 
-    def _make_ival(self, ival):
+    def _make_ival(self, typ, ival):
         """ Try to make ival a proper initializer """
         if isinstance(ival, list):
-            elements = [self._make_ival(i) for i in ival]
-            ival = expressions.InitializerList(elements, None)
+            if isinstance(typ, types.ArrayType):
+                elements = [self._make_ival(typ.element_type, i) for i in ival]
+                ival = expressions.ArrayInitializer(typ, elements, None)
+            elif isinstance(typ, types.StructType):
+                ival2 = expressions.StructInitializer(typ, None)
+                for field, value in zip(typ.fields, ival):
+                    value = self._make_ival(field.typ, value)
+                    ival2.field_values[field] = value
+                ival = ival2
+            else:
+                raise NotImplementedError(str(typ))
         elif isinstance(ival, int):
             int_type = types.BasicType(types.BasicType.INT)
             ival = expressions.NumericLiteral(ival, int_type, None)
@@ -218,27 +227,18 @@ class CContext:
     def gen_global_ival(self, typ, ival):
         """ Create memory image for initial value of global variable """
         # Handle arguments:
-        ival = self._make_ival(ival)
+        ival = self._make_ival(typ, ival)
 
         # Check initial value type:
         if not isinstance(ival, expressions.Expression):
             raise TypeError('ival must be an Expression')
 
         if isinstance(typ, types.ArrayType):
-            mem = bytes()
-            for iv in ival.elements:
-                mem = mem + self.gen_global_ival(typ.element_type, iv)
+            mem = self._initialize_array(typ, ival)
         elif isinstance(typ, types.StructType):
             mem = self._initialize_struct(typ, ival)
         elif isinstance(typ, types.UnionType):
-            mem = bytes()
-            # Initialize the first field!
-            mem = mem + self.gen_global_ival(
-                typ.fields[0].typ, ival.elements[0])
-            size = self.sizeof(typ)
-            filling = size - len(mem)
-            assert filling >= 0
-            mem = mem + bytes([0] * filling)
+            mem = self._initialize_union(typ, ival)
         elif isinstance(typ, (types.BasicType, types.PointerType)):
             cval = self.eval_expr(ival)
             mem = self.pack(typ, cval)
@@ -246,8 +246,43 @@ class CContext:
             raise NotImplementedError(str(typ))
         return mem
 
+    def _initialize_array(self, typ, ival):
+        """ Properly fill an array with initial values """
+        assert isinstance(ival, expressions.ArrayInitializer)
+        assert ival.typ is typ
+        mem = bytes()
+        for iv in ival.init_values:
+            # TODO: handle alignment
+            mem = mem + self.gen_global_ival(typ.element_type, iv)
+
+        array_size = self.eval_expr(typ.size)
+        element_size = self.sizeof(typ.element_type)
+        implicit_value = bytes([0] * element_size)
+
+        if len(ival.init_values) < array_size:
+            extra_implicit = array_size - len(ival.init_values)
+            mem = mem + implicit_value * extra_implicit
+        return mem
+
+    def _initialize_union(self, typ, ival):
+        """ Initialize a union type """
+        assert isinstance(ival, expressions.UnionInitializer)
+        assert ival.typ is typ
+        mem = bytes()
+        # Initialize the first field!
+        field = ival.field
+        mem = mem + self.gen_global_ival(
+            field.typ, ival.value)
+        size = self.sizeof(typ)
+        filling = size - len(mem)
+        assert filling >= 0
+        mem = mem + bytes([0] * filling)
+        return mem
+
     def _initialize_struct(self, typ, ival):
         """ Properly fill global struct variable with content """
+        assert isinstance(ival, expressions.StructInitializer)
+        assert ival.typ is typ
         mem = bytearray()
         bits = []  # A working list of bytes
 
@@ -257,21 +292,33 @@ class CContext:
                 bits.clear()
 
         field_offsets = self._get_field_offsets(typ)[1]
-        for field, iv in zip(typ.fields, ival.elements):
+        for field in typ.fields:
             if field.is_bitfield:
                 # Special case for bitfields
-                cval = self.eval_expr(iv)
+                if field in ival.field_values:
+                    iv = ival.field_values[field]
+                    cval = self.eval_expr(iv)
+                else:
+                    cval = 0
                 bitsize = self.eval_expr(field.bitsize)
                 new_bits = value_to_bits(cval, bitsize)
                 bits.extend(new_bits)
             else:
+                # Apply some padding:
                 flush_bits()
                 field_offset = field_offsets[field] // 8
                 # TODO: how to handle bit fields?
                 if len(mem) < field_offset:
                     padding_count = field_offset - len(mem)
                     mem.extend(bytes([0] * padding_count))
-                mem.extend(self.gen_global_ival(field.typ, iv))
+
+                # Add field data, if any:
+                if field in ival.field_values:
+                    iv = ival.field_values[field]
+                    mem.extend(self.gen_global_ival(field.typ, iv))
+                else:
+                    field_size = self.sizeof(field.typ)
+                    mem.extend(bytes([0] * field_size))
 
         # Purge last remaining bits:
         flush_bits()
@@ -315,6 +362,15 @@ class CContext:
         elif isinstance(expr, expressions.VariableAccess):
             if isinstance(expr.variable, declarations.EnumConstantDeclaration):
                 value = self.get_enum_value(expr.variable.typ, expr.variable)
+            elif isinstance(expr.variable, declarations.VariableDeclaration):
+                # TODO emit reference to global symbol
+                print('TODO: emit ref to', expr.variable.name)
+                # self.logge
+                value = 0
+            elif isinstance(expr.variable, declarations.FunctionDeclaration):
+                # TODO emit reference to global symbol
+                print('TODO: emit ref to', expr.variable.name)
+                value = 0
             else:
                 raise NotImplementedError(str(expr.variable))
         elif isinstance(expr, expressions.NumericLiteral):
@@ -329,6 +385,8 @@ class CContext:
                 value = self.sizeof(expr.sizeof_typ)
             else:
                 value = self.sizeof(expr.sizeof_typ.typ)
+        elif isinstance(expr, int):
+            value = expr
         else:  # pragma: no cover
             raise NotImplementedError(str(expr))
         return value

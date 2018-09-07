@@ -2,6 +2,19 @@
 
 This class is called whenever the parser has found something. So the interface
 between parser and semantics is via a set of function calls.
+
+What this module does:
+- Type checking expressions
+- Introduction of implicit casting
+- Checking initializers for variable declarations
+
+What this logic does not do:
+- Evaluating constant values
+- Evaluating enum values
+- Evaluating sizeof expressions
+
+The result of parser-semantic actions is a type-checked AST.
+
 """
 
 import logging
@@ -117,11 +130,17 @@ class CSemantics:
         return declaration
 
     # Variable initialization!
+    def on_array_designator(self, index):
+        pass
+
+    def on_field_designator(self, field_name):
+        pass
+
     def on_variable_initialization(self, variable, expression):
         """ Handle a variable initialized to some value """
         # This is a good point to determine array size and check
         # initial values
-        expression = self._sub_init(variable.typ, expression, top_level=True)
+        # expression = self._sub_init(variable.typ, expression, top_level=True)
         variable.initial_value = expression
 
         # Fill array size from elements!
@@ -133,130 +152,6 @@ class CSemantics:
             #     variable.typ.size = len(expression.value) + 1
             else:
                 pass
-
-    def _sub_init(self, typ, initializer, top_level=False):
-        """ Check if expression can be used to initialize the given type.
-
-        This function should try to fit the initializer list onto the
-        initialized type. In some way, it is a bad ass auto cast function.
-
-        This involves constructions such as:
-        - int a = 9;
-        - int b[2][2] = {{1,2}, {3,4}};
-        - int c[][2] = {1,2,3,4}; // equivalent to: {{1,2},{3,4}}
-        """
-        if isinstance(initializer, expressions.InitializerList):
-            initializer = InitEnv(initializer)
-
-        if typ.is_scalar or isinstance(typ, types.PointerType) or \
-                isinstance(typ, types.EnumType):
-            if isinstance(initializer, InitEnv):
-                result = self.coerce(initializer.take(), typ)
-            else:
-                result = self.coerce(initializer, typ)
-        elif isinstance(typ, types.ArrayType):
-            if isinstance(initializer, expressions.StringLiteral):
-                # Turn into sequence of characters:
-                il = []
-                location = initializer.location
-                for c in initializer.value:
-                    il.append(expressions.CharLiteral(
-                        ord(c), self.char_type, location))
-                il.append(expressions.CharLiteral(0, self.char_type, location))
-                result = expressions.InitializerList(il, location)
-            elif isinstance(initializer, InitEnv):
-                if typ.size is None and not top_level:
-                    self.error(
-                        'Unknown array size',
-                        initializer.initializer.location)
-
-                il = []
-                n = 0
-                if typ.size:
-                    typ_size = self.context.eval_expr(typ.size)
-                else:
-                    typ_size = None
-
-                while ((typ_size is None) and not initializer.at_end()) \
-                        or ((typ_size is not None) and (n < typ_size)):
-                    if initializer.at_end():
-                        i = 0
-                    elif initializer.at_list():
-                        i = self._sub_init(
-                            typ.element_type, initializer.take())
-                    else:
-                        i = self._sub_init(typ.element_type, initializer)
-                    il.append(i)
-                    n += 1
-                    # self._sub_init(typ.element_type, element))
-
-                result = expressions.InitializerList(
-                    il, initializer.initializer.location)
-                # result = self.init_array(typ, initializer)
-            else:
-                self.error(
-                    'Cannot initialize array with non init list',
-                    initializer.initializer.location)
-        elif isinstance(typ, types.StructType):
-            if not typ.complete:
-                self.error(
-                    'Struct not fully defined!',
-                    initializer.initializer.location)
-
-            if isinstance(initializer, InitEnv):
-                # Struct is initialized like '= { 1, 2, .. }'
-                # Grab all fields from the initializer list:
-                il = []
-                for field in typ.fields:
-                    if initializer.at_end():
-                        # Implicit initialization:
-                        i = 0
-                    elif initializer.at_list():
-                        # Enter new '{' part
-                        i = self._sub_init(field.typ, initializer.take())
-                    else:
-                        i = self._sub_init(field.typ, initializer)
-                    il.append(i)
-                result = expressions.InitializerList(
-                    il, initializer.initializer.location)
-            else:
-                # Struct is initialized with expression '= f();'
-                result = self.coerce(initializer, typ)
-
-        elif isinstance(typ, types.UnionType):
-            if not isinstance(initializer, InitEnv):
-                self.error(
-                    'Cannot initialize union with non init list',
-                    initializer.initializer.location)
-
-            if not typ.complete:
-                self.error(
-                    'Union not fully defined!',
-                    initializer.initializer.location)
-
-            il = []
-            # Initialize the first element:
-            field = typ.fields[0]
-            if initializer.at_end():
-                # Implicit initialization:
-                i = 0
-            elif initializer.at_list():
-                # Enter new '{' part
-                i = self._sub_init(field.typ, initializer.take())
-            else:
-                i = self._sub_init(field.typ, initializer)
-            il.append(i)
-
-            result = expressions.InitializerList(
-                il, initializer.initializer.location)
-        else:  # pragma: no cover
-            raise NotImplementedError(str(typ))
-
-        return result
-
-    def init_array(self, typ, init_env):
-        """ Process array initializers """
-        pass
 
     def on_typedef(self, typ, name, modifiers, location):
         """ Handle typedef declaration """
@@ -316,9 +211,6 @@ class CSemantics:
         else:
             # Insert into the current scope:
             self.scope.insert(declaration)
-
-    def on_initializer_list(self, values, location):
-        return expressions.InitializerList(values, location)
 
     # Types!
     def on_basic_type(self, type_specifiers, location):
@@ -438,10 +330,6 @@ class CSemantics:
     def on_label(name, statement, location):
         return statements.Label(name, statement, location)
 
-    @staticmethod
-    def on_empty(location):
-        return statements.Empty(location)
-
     def enter_compound_statement(self, location):
         self.scope = Scope(self.scope)
 
@@ -476,21 +364,6 @@ class CSemantics:
             self.error('Default statement outside of a switch!', location)
 
         return statements.Default(statement, location)
-
-    @staticmethod
-    def on_break(location):
-        """ Handle the break statement """
-        return statements.Break(location)
-
-    @staticmethod
-    def on_continue(location):
-        """ Handle continue statement """
-        return statements.Continue(location)
-
-    @staticmethod
-    def on_goto(label, location):
-        """ Handle the dreaded goto statement """
-        return statements.Goto(label, location)
 
     def on_while(self, condition, body, location):
         """ Handle the while statement """
@@ -751,7 +624,7 @@ class CSemantics:
     def on_variable_access(self, name, location):
         """ Handle variable access """
         if not self.scope.is_defined(name):
-            self.error('Who is this?', location)
+            self.error('Who is this "{}"?'.format(name), location)
         variable = self.scope.get(name)
 
         # Determine lvalue and type:
@@ -799,7 +672,7 @@ class CSemantics:
             # Function used as value for pointer to function is fine!
             do_cast = False
         elif isinstance(from_type, types.BasicType) and \
-                isinstance(to_type, types.PointerType):
+                isinstance(to_type, types.IndexableType):
             do_cast = True
         elif isinstance(from_type, types.IndexableType) and \
                 isinstance(to_type, types.IndexableType):
@@ -831,31 +704,34 @@ class CSemantics:
         """
         return max([typ1, typ2], key=lambda t: self._get_rank(t, location))
 
+    basic_ranks = {
+        types.BasicType.LONGDOUBLE: 110,
+        types.BasicType.DOUBLE: 100,
+        types.BasicType.FLOAT: 90,
+        types.BasicType.ULONGLONG: 71,
+        types.BasicType.LONGLONG: 70,
+        types.BasicType.ULONG: 61,
+        types.BasicType.LONG: 60,
+        types.BasicType.UINT: 51,
+        types.BasicType.INT: 50,
+        types.BasicType.USHORT: 41,
+        types.BasicType.SHORT: 40,
+        types.BasicType.UCHAR: 31,
+        types.BasicType.CHAR: 30,
+    }
+
     def _get_rank(self, typ, location):
-        basic_ranks = {
-            types.BasicType.LONGDOUBLE: 110,
-            types.BasicType.DOUBLE: 100,
-            types.BasicType.FLOAT: 90,
-            types.BasicType.ULONGLONG: 71,
-            types.BasicType.LONGLONG: 70,
-            types.BasicType.ULONG: 61,
-            types.BasicType.LONG: 60,
-            types.BasicType.UINT: 51,
-            types.BasicType.INT: 50,
-            types.BasicType.USHORT: 41,
-            types.BasicType.SHORT: 40,
-            types.BasicType.UCHAR: 31,
-            types.BasicType.CHAR: 30,
-        }
         if isinstance(typ, types.BasicType):
-            if typ.type_id in basic_ranks:
-                return basic_ranks[typ.type_id]
+            if typ.type_id in self.basic_ranks:
+                return self.basic_ranks[typ.type_id]
             else:
                 self.error(
                     'Cannot determine type rank for {}'.format(typ), location)
         elif isinstance(typ, types.EnumType):
             return 80
         elif isinstance(typ, types.PointerType):
+            return 83
+        elif isinstance(typ, types.ArrayType):
             return 83
         else:
             self.error(
@@ -870,23 +746,3 @@ class CSemantics:
         """ Call this function to mark unimplemented code """
         self.error(message, location)
         raise NotImplementedError(message)
-
-
-class InitEnv:
-    """ Helper data structure for array initialization """
-    def __init__(self, initializer, position=0):
-        self.initializer = initializer
-        self.position = position
-
-    def at_list(self):
-        return isinstance(
-            self.initializer.elements[self.position],
-            expressions.InitializerList)
-
-    def take(self):
-        e = self.initializer.elements[self.position]
-        self.position += 1
-        return e
-
-    def at_end(self):
-        return self.position == len(self.initializer.elements)

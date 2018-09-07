@@ -580,33 +580,47 @@ class CCodeGenerator:
             size = self.emit(ir.Const(inc, 'size', ir.ptr))
             ptr = self.emit(ir.add(ptr, size, 'iptr', ir.ptr))
         elif isinstance(typ, types.ArrayType):
-            inc = 0
-            for iv in expr.elements:
-                # TODO: do array elements need to be aligned?
-                ptr, inc2 = self.gen_local_init(ptr, typ.element_type, iv)
-                inc += inc2
+            ptr, inc = self._init_array(ptr, typ, expr)
         elif isinstance(typ, types.StructType):
             ptr, inc = self._init_struct(ptr, typ, expr)
         elif isinstance(typ, types.UnionType):
-            # Initialize the first field!
-            field = typ.fields[0]
-            iv = expr.elements[0]
-            ptr, inc = self.gen_local_init(ptr, field.typ, expr.elements[0])
-            # Update pointer with size of union:
-            # inc = self.context.sizeof(typ)
-            # size = self.emit(ir.Const(inc, 'size', ir.ptr))
-            # ptr = self.emit(ir.add(ptr, size, 'iptr', ir.ptr))
+            ptr, inc = self._init_union(ptr, typ, expr)
         else:  # pragma: no cover
             raise NotImplementedError(str(typ))
         return ptr, inc
 
+    def _init_union(self, ptr, typ, expr):
+        """ Initialize a union type """
+        assert isinstance(expr, expressions.UnionInitializer)
+        assert expr.typ is typ
+
+        # Initialize the first field!
+        field = expr.field
+        ivalue = expr.value
+        ptr, inc = self.gen_local_init(ptr, field.typ, ivalue)
+        # Update pointer with size of union:
+        # inc = self.context.sizeof(typ)
+        # size = self.emit(ir.Const(inc, 'size', ir.ptr))
+        # ptr = self.emit(ir.add(ptr, size, 'iptr', ir.ptr))
+        return ptr, inc
+
+    def _init_array(self, ptr, typ, expr: expressions.ArrayInitializer):
+        assert isinstance(expr, expressions.ArrayInitializer)
+        inc = 0
+        for iv in expr.init_values:
+            # TODO: do array elements need to be aligned?
+            ptr, inc2 = self.gen_local_init(ptr, typ.element_type, iv)
+            inc += inc2
+        return ptr, inc
+
     def _init_struct(self, ptr, typ, expr):
         """ Fill structure with initializer (at runtime) """
-        if isinstance(expr, expressions.InitializerList):
-            # Initializing with list
+        if isinstance(expr, expressions.StructInitializer):
+            # Initializing with initialization values
+            assert expr.typ is typ
             size, field_offsets = self.context._get_field_offsets(typ)
             offset = 0
-            for field, iv in zip(typ.fields, expr.elements):
+            for field in typ.fields:
                 # Move further in struct by whole bytes:
                 field_offset = field_offsets[field] // 8
                 if offset < field_offset:
@@ -615,6 +629,7 @@ class CCodeGenerator:
                     ptr = self.emit(ir.add(ptr, padding, 'iptr', ir.ptr))
                     offset += pad_inc
 
+                iv = expr.field_values[field]
                 # Fill position:
                 if field.is_bitfield:  # Bit field special case!
                     value = self.gen_expr(iv, rvalue=True)
@@ -797,7 +812,7 @@ class CCodeGenerator:
             if isinstance(ir_typ, ir.BlobDataTyp):
                 # If we have a blob pointer and want its content
                 # We must get the source of the address of:
-                assert isinstance(lvalue, ir.AddressOf)
+                assert isinstance(lvalue, ir.AddressOf), str(lvalue)
                 value = lvalue.src
             elif isinstance(lvalue, BitFieldAccess):
                 value = self._load_bitfield(lvalue, ir_typ)

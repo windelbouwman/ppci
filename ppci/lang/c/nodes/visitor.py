@@ -115,5 +115,17 @@ class Visitor:
         elif isinstance(node, expressions.BuiltInVaArg):
             self.visit(node.arg_pointer)
             self.visit(node.typ)
+        elif isinstance(node, expressions.BuiltInOffsetOf):
+            self.visit(node.query_typ)
+            # self.visit(node.member)
+            self.visit(node.typ)
+        elif isinstance(node, expressions.ArrayInitializer):
+            for i_val in node.init_values:
+                self.visit(i_val)
+        elif isinstance(node, expressions.StructInitializer):
+            # self.visit(node.field_values)
+            pass
+        elif isinstance(node, expressions.UnionInitializer):
+            pass
         else:  # pragma: no cover
             raise NotImplementedError(str(type(node)))

@@ -44,6 +44,53 @@ class TernaryOperator(CExpression):
         return 'TernOp {}'.format(self.op)
 
 
+class Designator(CExpression):
+    """ Designate an initial value path.
+    """
+    pass
+
+
+class FieldDesignator(Designator):
+    """ Designates a specific field in a astruct initializer """
+    pass
+
+
+class ArrayDesignator(Designator):
+    def __init__(self, op, a, typ, lvalue, location):
+        super().__init__(typ, lvalue, location)
+
+
+class Initializer(CExpression):
+    """ Initial value base class. """
+    pass
+
+
+class StructInitializer(Initializer):
+    """ Struct initializer """
+    def __init__(self, typ, location):
+        super().__init__(typ, False, location)
+        self.field_values = {}
+
+
+class UnionInitializer(Initializer):
+    """ Initial value for a union """
+    def __init__(self, typ, location):
+        super().__init__(typ, False, location)
+        self.field = None
+        self.value = None
+
+
+class ArrayInitializer(Initializer):
+    """ Initial value for array's """
+    def __init__(self, typ, init_values, location):
+        super().__init__(typ, False, location)
+        self.init_values = init_values
+
+
+class ImplicitInitialValue(Initializer):
+    pass
+
+
 class BinaryOperator(CExpression):
     """ Binary operator """
     def __init__(self, a, op, b, typ, lvalue, location):

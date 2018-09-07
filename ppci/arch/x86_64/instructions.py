@@ -8,7 +8,7 @@ from ..isa import Isa
 from ..encoding import Instruction, Operand, Syntax, Constructor, Relocation
 from ...utils.bitfun import wrap_negative
 from ..token import Token, u8, u16, u32, u64, bit_range, bit
-from .registers import rcx, al, cl, rax, rdx, rbp, eax, edx, ecx, cx
+from .registers import rcx, al, cl, rax, rdx, rbp, eax, edx, ecx, cx, dx
 from .registers import rsp, ax, Register32
 from .registers import Register64, Register16, Register8
 
@@ -1109,6 +1109,38 @@ class Idiv32(X86Instruction):
         return tokens.encode()
 
 
+class Div16(X86Instruction):
+    """ idiv r/m16 divide dx:ax by the operand, leaving the remainder in
+    dx and the quotient in ax.
+    """
+    reg1 = Operand('reg1', Register16, read=True)
+    syntax = Syntax(['div', ' ', reg1])
+    tokens = [PrefixToken, OpcodeToken, ModRmToken]
+    patterns = {'opcode': 0xf7, 'reg': 6, 'prefix': 0x66, 'mod': 3}
+
+    def encode(self):
+        tokens = self.get_tokens()
+        self.set_all_patterns(tokens)
+        tokens[2].rm = self.reg1.num
+        return tokens.encode()
+
+
+class Idiv16(X86Instruction):
+    """ idiv r/m16 divide dx:ax by the operand, leaving the remainder in
+    dx and the quotient in ax.
+    """
+    reg1 = Operand('reg1', Register16, read=True)
+    syntax = Syntax(['idiv', ' ', reg1])
+    tokens = [PrefixToken, OpcodeToken, ModRmToken]
+    patterns = {'opcode': 0xf7, 'reg': 7, 'prefix': 0x66, 'mod': 3}
+
+    def encode(self):
+        tokens = self.get_tokens()
+        self.set_all_patterns(tokens)
+        tokens[2].rm = self.reg1.num
+        return tokens.encode()
+
+
 class MovImm8(X86Instruction):
     """ Mov immediate into low 8-bit register """
     reg = Operand('reg', Register8, write=True)
@@ -1199,6 +1231,13 @@ class Cdqe(X86Instruction):
     syntax = Syntax(['cdqe'])
     tokens = [RexToken, OpcodeToken]
     patterns = {'w': 1, 'opcode': 0x98}
+
+
+class Cwd(X86Instruction):
+    """ Convert ax with sign extension to double size into dx:ax """
+    syntax = Syntax(['cwd'])
+    tokens = [PrefixToken, OpcodeToken]
+    patterns = {'prefix': 0x66, 'opcode': 0x99}
 
 
 class Cdq(X86Instruction):
@@ -1737,6 +1776,36 @@ def pattern_rem_u32(context, tree, c0, c1):
     return dst
 
 
+@isa.pattern('reg16', 'DIVI16(reg16, reg16)', size=14)
+def pattern_div_i16(context, tree, c0, c1):
+    context.move(ax, c0)
+    context.emit(Cwd())  # Sign extend ax into dx
+    context.emit(Idiv16(c1))
+    defu2 = RegisterUseDef()
+    defu2.add_use(ax)
+    defu2.add_use(dx)
+    defu2.add_def(ax)
+    context.emit(defu2)
+    dst = context.new_reg(Register16)
+    context.move(dst, ax)
+    return dst
+
+
+@isa.pattern('reg16', 'DIVU16(reg16, reg16)', size=14)
+def pattern_div_u16(context, tree, c0, c1):
+    context.move(ax, c0)
+    context.emit(MovImm16(dx, 0))
+    context.emit(Div16(c1))
+    defu2 = RegisterUseDef()
+    defu2.add_use(ax)
+    defu2.add_use(dx)
+    defu2.add_def(ax)
+    context.emit(defu2)
+    dst = context.new_reg(Register16)
+    context.move(dst, ax)
+    return dst
+
+
 @isa.pattern('reg64', 'ANDI64(reg64, rm64)', size=4)
 @isa.pattern('reg64', 'ANDU64(reg64, rm64)', size=4)
 def pattern_and64(context, tree, c0, c1):
@@ -1967,6 +2036,7 @@ def pattern_shl8(context, tree, c0, c1):
 
 
 @isa.pattern('reg64', 'NEGI64(reg64)', size=3)
+@isa.pattern('reg64', 'NEGU64(reg64)', size=3)
 def pattern_neg64(context, tree, c0):
     d = context.new_reg(Register64)
     context.move(d, c0)
@@ -1975,6 +2045,7 @@ def pattern_neg64(context, tree, c0):
 
 
 @isa.pattern('reg32', 'NEGI32(reg32)', size=3)
+@isa.pattern('reg32', 'NEGU32(reg32)', size=3)
 def pattern_neg_32(context, tree, c0):
     d = context.new_reg(Register32)
     context.move(d, c0)
@@ -1983,6 +2054,7 @@ def pattern_neg_32(context, tree, c0):
 
 
 @isa.pattern('reg16', 'NEGI16(reg16)', size=3)
+@isa.pattern('reg16', 'NEGU16(reg16)', size=3)
 def pattern_neg_16(context, tree, c0):
     """ 16 bits negation """
     d = context.new_reg(Register16)
@@ -1992,6 +2064,7 @@ def pattern_neg_16(context, tree, c0):
 
 
 @isa.pattern('reg64', 'INVI64(reg64)', size=3)
+@isa.pattern('reg64', 'INVU64(reg64)', size=3)
 def pattern_inv64(context, tree, c0):
     d = context.new_reg(Register64)
     context.move(d, c0)
@@ -2000,10 +2073,20 @@ def pattern_inv64(context, tree, c0):
 
 
 @isa.pattern('reg32', 'INVI32(reg32)', size=3)
+@isa.pattern('reg32', 'INVU32(reg32)', size=3)
 def pattern_inv_32(context, tree, c0):
     d = context.new_reg(Register32)
     context.move(d, c0)
     context.emit(bits32.NotRm(RmReg32(d)))
+    return d
+
+
+@isa.pattern('reg16', 'INVI16(reg16)', size=3)
+@isa.pattern('reg16', 'INVU16(reg16)', size=3)
+def pattern_inv_16(context, tree, c0):
+    d = context.new_reg(Register16)
+    context.move(d, c0)
+    context.emit(bits16.NotRm(RmReg16(d)))
     return d
 
 
@@ -2304,6 +2387,47 @@ def pattern_u8toi64(context, tree, c0):
 
     d = context.new_reg(Register64)
     context.move(d, rax)
+    return d
+
+
+@isa.pattern('reg8', 'I16TOI8(reg16)', size=4)
+@isa.pattern('reg8', 'I16TOU8(reg16)', size=4)
+@isa.pattern('reg8', 'U16TOU8(reg16)', size=4)
+@isa.pattern('reg8', 'U16TOI8(reg16)', size=4)
+def pattern_i16toi8(context, tree, c0):
+    context.move(ax, c0)
+    # raise Warning()
+    # TODO: solve this by register constraint!
+    defu = RegisterUseDef()
+    defu.add_use(ax)
+    defu.add_def(al)
+    context.emit(defu)
+
+    d = context.new_reg(Register8)
+    context.move(d, al)
+    return d
+
+
+@isa.pattern('reg16', 'U8TOI16(reg8)', size=4)
+@isa.pattern('reg16', 'U8TOU16(reg8)', size=4)
+@isa.pattern('reg16', 'I8TOU16(reg8)', size=4)
+def pattern_u8toi16(context, tree, c0):
+    defu1 = RegisterUseDef()
+    defu1.add_def(ax)
+    context.emit(defu1)
+
+    context.emit(bits16.XorRmReg(RmReg16(ax), ax))
+    context.move(al, c0)
+    # TODO: 
+    # raise Warning()
+
+    defu2 = RegisterUseDef()
+    defu2.add_use(al)
+    defu2.add_def(ax)
+    context.emit(defu2)
+
+    d = context.new_reg(Register16)
+    context.move(d, ax)
     return d
 
 
