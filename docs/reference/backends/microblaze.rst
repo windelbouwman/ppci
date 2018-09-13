@@ -1,4 +1,5 @@
 
+.. _microblaze:
 
 Microblaze
 ==========

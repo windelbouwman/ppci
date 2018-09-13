@@ -15,9 +15,14 @@ def link(
 
     Args:
         objects: a collection of objects to be linked together.
+        layout: optional memory layout.
         use_runtime (bool): also link compiler runtime functions
+        partial_link: Set this to true if you want to perform a partial link.
+            This means, undefined symbols are no error.
         debug (bool): when true, keep debug information. Otherwise remove
             this debug information from the result.
+        extra_symbols: a dict of extra symbols which can be used during
+            linking.
 
     Returns:
         The linked object file

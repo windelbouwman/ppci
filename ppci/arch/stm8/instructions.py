@@ -8,7 +8,7 @@ from .registers import Stm8Virt8Register, Stm8Virt16Register
 from ..isa import Isa
 from ..encoding import FixedPattern, Instruction, Operand, Syntax
 from ..encoding import VariablePattern, Constructor
-from ..token import bit_range, Token
+from ..token import bit_range, Token, Endianness
 
 
 class Stm8PrecodeToken(Token):
@@ -37,7 +37,7 @@ class Stm8ByteToken(Token):
 class Stm8WordToken(Token):
     class Info:
         size = 16
-        endianness = 'big'
+        endianness = Endianness.BIG
 
     word = bit_range(0, 16)
 
@@ -52,7 +52,7 @@ class Stm8Byte2Token(Token):
 class Stm8Word2Token(Token):
     class Info:
         size = 16
-        endianness = 'big'
+        endianness = Endianness.BIG
 
     word2 = bit_range(0, 16)
 

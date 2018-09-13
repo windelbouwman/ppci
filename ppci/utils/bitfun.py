@@ -21,6 +21,22 @@ def rotl(v, count, bits):
     return (((v << count) & mask) | (v >> (bits - count)))
 
 
+def reverse_bits(v, bits):
+    """ Do bit reversal operation.
+
+    Example input (8 bits case):
+        11100001
+        10000111
+    """
+    y = 0
+    pos = bits - 1
+    while pos > 0:
+        y += ((v & 1) << pos)
+        v >>= 1
+        pos -= 1
+    return y
+
+
 def rotr(v, count, bits):
     """ Rotate v right count bits """
     mask = (1 << bits) - 1

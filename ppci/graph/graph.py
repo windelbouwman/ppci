@@ -67,6 +67,16 @@ class BaseGraph(abc.ABC):
     def del_edge(self, n, m):  # pragma: no cover
         raise NotImplementedError()
 
+    @abc.abstractmethod
+    def has_edge(self, n, m):
+        """ Test if there exist and edge between n and m """
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def get_number_of_edges(self):
+        """ Get the number of edges in this graph """
+        raise NotImplementedError()
+
     def get_degree(self, node):
         """ Get the degree of a certain node """
         return len(self.adj_map[node])
@@ -112,6 +122,14 @@ class Graph(BaseGraph):
         assert n in self.nodes
         assert m in self.nodes
         return m in self.adj_map[n]
+
+    def get_number_of_edges(self):
+        """ Get the number of edges in this graph """
+        n_edges = sum(len(self.adj_map[n]) for n in self.nodes)
+        # Since this is an undirected graph, we will now have
+        # twice the amount of edges, since adj_map contains neighbour
+        # information for both directions. So divide this number by 2.
+        return n_edges // 2
 
     def combine(self, n, m):
         """ Merge nodes n and m into node n """

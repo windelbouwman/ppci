@@ -29,22 +29,50 @@ class MicroBlazeArch(Architecture):
         self.assembler = BaseAssembler()
         self.assembler.gen_asm_parser(self.isa)
 
+    def move(self, dst, src):
+        if isinstance(dst, registers.MicroBlazeRegister):
+            if isinstance(src, registers.MicroBlazeRegister):
+                # TODO: use the keep carry variant here?
+                return instructions.Add(dst, registers.R0, src)
+            else:
+                raise NotImplementedError()
+        else:
+            raise NotImplementedError()
+
     def gen_prologue(self, frame):
         """ Returns prologue instruction sequence.
 
         """
         # Label indication function:
         yield Label(frame.name)
-        # TODO
-        # Decrease stack pointer (R1)
 
-        raise NotImplementedError()
+        # Decrease stack pointer (R1)
+        stack_size = 4
+        if frame.stacksize > 0:
+            stack_size += frame.stacksize
+        yield instructions.Addik(registers.R1, registers.R1, -stack_size)
+        # Store return link:
+        yield instructions.Swi(registers.R15, registers.R1, 0)
+
+        # Setup frame pointer:
+        yield instructions.Addk(registers.R19, registers.R1, registers.R0)
 
     def gen_epilogue(self, frame):
         """ Return epilogue sequence for a frame.
 
         """
-        raise NotImplementedError()
+        # Retrieve return link:
+        yield instructions.Lwi(registers.R15, registers.R1, 0)
+
+        # Adjust stack pointer:
+        stack_size = 4  # Start with 4?
+        if frame.stacksize > 0:
+            stack_size += frame.stacksize
+        yield instructions.Addik(registers.R1, registers.R1, stack_size)
+
+        # Return:
+        yield instructions.Rtsd(registers.R15, 8)
+        yield nop()
 
     def gen_function_enter(self, args):
         arg_types = [a[0] for a in args]
@@ -73,7 +101,35 @@ class MicroBlazeArch(Architecture):
         yield RegisterUseDef(uses=live_out)
 
     def gen_call(self, frame, label, args, rv):
-        raise NotImplementedError()
+        """ Generate proper calling sequence """
+        # Copy arguments to proper locations:
+        arg_types = [a[0] for a in args]
+        arg_locs = self.determine_arg_locations(arg_types)
+        arg_regs = []
+        for arg_loc, arg2 in zip(arg_locs, args):
+            arg = arg2[1]
+            if isinstance(arg_loc, registers.MicroBlazeRegister):
+                arg_regs.append(arg_loc)
+                yield self.move(arg_loc, arg)
+            else:
+                raise NotImplementedError()
+        yield RegisterUseDef(uses=arg_regs)
+
+        # Emit call:
+        if isinstance(label, registers.MicroBlazeRegister):
+            yield instructions.Brald(label)
+            # Fill delay slot with nop:
+            yield nop()
+        else:
+            yield instructions.Brlid_label(registers.R15, label)
+            # Fill delay slot with nop:
+            yield nop()
+
+        # Copy return value:
+        if rv:
+            retval_loc = self.determine_rv_location(rv[0])
+            yield RegisterUseDef(defs=(retval_loc,))
+            yield self.move(rv[1], retval_loc)
 
     def determine_arg_locations(self, arg_types):
         """ Use registers R5-R10 to pass arguments """
@@ -100,3 +156,7 @@ class MicroBlazeArch(Architecture):
     def determine_rv_location(self, ret_type):
         """ Return values in R3-R4 """
         return registers.R3
+
+
+def nop():
+    return instructions.Or(registers.R0, registers.R0, registers.R0)

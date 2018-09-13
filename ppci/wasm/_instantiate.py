@@ -13,18 +13,17 @@ import shelve
 import io
 import struct
 import logging
-import ctypes
 from types import ModuleType
 
 from ..arch.arch_info import TypeInfo
 from ..utils.codepage import load_obj, MemoryPage
 from ..utils.reporting import DummyReportGenerator
 from ..irutils import verify_module
-from ..binutils.objectfile import ObjectFile
+from .. import ir
 from . import wasm_to_ir
 from .components import Export, Import
 from .wasm2ppci import create_memories
-from .util import sanitize_name, PAGE_SIZE
+from .util import PAGE_SIZE
 from .runtime import create_runtime
 
 __all__ = ('instantiate',)
@@ -33,7 +32,8 @@ __all__ = ('instantiate',)
 logger = logging.getLogger('instantiate')
 
 
-def instantiate(module, imports, target='native', reporter=None, cache_file=None):
+def instantiate(module, imports, target='native', reporter=None,
+                cache_file=None):
     """ Instantiate a wasm module.
 
     Args:
@@ -66,7 +66,7 @@ def instantiate(module, imports, target='native', reporter=None, cache_file=None
     # Inject wasm runtime functions:
     if 'wasm_rt' in imports:
         raise ValueError('wasm_rt is a special import section')
-    imports = imports.copy() # otherwise we'd render the imports unsuable
+    imports = imports.copy()  # otherwise we'd render the imports unsuable
     imports['wasm_rt'] = create_runtime()
 
     imports = flatten_imports(imports)

@@ -1,4 +1,5 @@
 import struct
+from .arch_info import Endianness
 
 
 def u16(h):
@@ -98,7 +99,7 @@ class Token(metaclass=TokenMeta):
     class Info:
         precode = False  # Set precode to True to indicate a precode
         size = None  # The size in bits of the token type: int
-        endianness = 'little'
+        endianness = Endianness.LITTLE
 
     ignore_values = ()  # TODO: for optional tokens?
 
@@ -173,7 +174,7 @@ class Token(metaclass=TokenMeta):
         """ Pack integer value into bytes """
         assert cls.Info.size is not None
         size = cls.Info.size // 8
-        if cls.Info.endianness == 'little':
+        if cls.Info.endianness == Endianness.LITTLE:
             byte_numbers = range(size)
         else:
             byte_numbers = reversed(range(size))
@@ -186,7 +187,7 @@ class Token(metaclass=TokenMeta):
         if len(data) != byte_size:
             raise TypeError('Incorrect amount of data provided')
         value = 0
-        if cls.Info.endianness == 'little':
+        if cls.Info.endianness == Endianness.LITTLE:
             data = reversed(data)
         for byte in data:
             value <<= 8

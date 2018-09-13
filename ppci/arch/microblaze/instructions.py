@@ -1,39 +1,65 @@
 """ Microblaze instructions """
 
-from ..encoding import Instruction, Syntax, Operand
+from ..encoding import Instruction, Syntax, Operand, Relocation
 
 from ..isa import Isa
-from ..token import Token, bit_range
-from .registers import MicroBlazeRegister
+from ..token import Token, bit_range, Endianness
+from ..generic_instructions import ArtificialInstruction
+from .registers import MicroBlazeRegister, R0
+from ...utils.bitfun import reverse_bits
 
 
 isa = Isa()
 
 
+class MicroBlazeToken32(Token):
+    class Info:
+        size = 32
+        # Reference manual labels msb as bit 0, so we can
+        # use LITTLE endianness here:
+        endianness = Endianness.BIG
+
+    def old__encode(self):
+        # data = super().encode()
+        value = self.bit_value
+        data = reverse_bits(value, 32)
+        data = self.pack(value)
+        # Do some bit reversal:
+        # data = [b for b in reversed(data)]
+        # data = [reverse_bits(v, 8) for v in data]
+        # data = bytes(data)
+        return data
+
+
+# In order to deal with reversed bit ordering, the bit ranges are reversed
+# from 0..31 to 31..0.
 # The microblaze has two instruction formats named A and B:
-class TypeAToken(Token):
-    class Info:
-        size = 32
-
-    opcode = bit_range(0, 6)
-    rd = bit_range(6, 11)
-    ra = bit_range(11, 16)
-    rb = bit_range(16, 21)
-    opcode2 = bit_range(21, 32)
+class TypeAToken(MicroBlazeToken32):
+    opcode = bit_range(26, 32)  # bit_range(0, 6)
+    rd = bit_range(21, 26)  # bit_range(6, 11)
+    ra = bit_range(16, 21)  # bit_range(11, 16)
+    rb = bit_range(11, 16)  # bit_range(16, 21)
+    opcode2 = bit_range(0, 11)  # bit_range(21, 32)
 
 
-class TypeBToken(Token):
-    class Info:
-        size = 32
-
-    opcode = bit_range(0, 6)
-    rd = bit_range(6, 11)
-    ra = bit_range(11, 16)
-    imm = bit_range(16, 32)
+class TypeBToken(MicroBlazeToken32):
+    opcode = bit_range(26, 32)  # bit_range(0, 6)
+    rd = bit_range(21, 26)  # bit_range(6, 11)
+    ra = bit_range(16, 21)  # bit_range(11, 16)
+    imm = bit_range(0, 16)  # bit_range(16, 32)
 
 
 class MicroBlazeInstruction(Instruction):
     isa = isa
+
+
+def syntax_from_operands(mnemonic, operands):
+    syntax = [mnemonic]
+    if operands:
+        for operand in operands[:-1]:
+            syntax.extend([' ', operand, ','])
+        syntax.extend([' ', operands[-1]])
+    return Syntax(syntax)
 
 
 def type_a(mnemonic: str, opcode1, opcode2, rd=None, ra=None, rb=None):
@@ -49,13 +75,7 @@ def type_a(mnemonic: str, opcode1, opcode2, rd=None, ra=None, rb=None):
         rb = Operand('rb', MicroBlazeRegister, read=True)
         operands.append(rb)
 
-    syntax = [mnemonic]
-    if operands:
-        for operand in operands[:-1]:
-            syntax.extend([' ', operand, ','])
-        syntax.extend([' ', operands[-1]])
-    syntax = Syntax(syntax)
-
+    syntax = syntax_from_operands(mnemonic, operands)
     patterns = {
         'opcode': opcode1, 'opcode2': opcode2,
         'rd': rd, 'ra': ra, 'rb': rb,
@@ -73,14 +93,20 @@ def type_a(mnemonic: str, opcode1, opcode2, rd=None, ra=None, rb=None):
 
 def type_b(mnemonic, opcode, rd=None, ra=None, imm=None):
     """ Create an instruction class for a type B instruction """
-    rd = Operand('rd', MicroBlazeRegister, write=True)
-    ra = Operand('ra', MicroBlazeRegister, read=True)
-    syntax = [mnemonic, ' ', rd, ',', ' ', ra]
+    operands = []
+    if rd is None:
+        rd = Operand('rd', MicroBlazeRegister, write=True)
+        operands.append(rd)
+
+    if ra is None:
+        ra = Operand('ra', MicroBlazeRegister, read=True)
+        operands.append(ra)
+
     if imm is None:
         imm = Operand('imm', int)
-        syntax.extend([',', ' ', imm])
-    syntax = Syntax(syntax)
+        operands.append(imm)
 
+    syntax = syntax_from_operands(mnemonic, operands)
     patterns = {'opcode': opcode, 'rd': rd, 'ra': ra, 'imm': imm}
     members = {
         'tokens': [TypeBToken],
@@ -105,7 +131,7 @@ Addkc = type_a('addkc', 6, 0)
 Rsubkc = type_a('rsubkc', 7, 0)
 
 Cmp = type_a('cmp', 5, 1)
-Cmp = type_a('cmp', 5, 3)
+Cmpu = type_a('cmpu', 5, 3)
 
 Addi = type_b('addi', 8)
 Rsubi = type_b('rsubi', 9)
@@ -196,8 +222,8 @@ Bged = type_a('bged', 0x27, 0, rd=0x15)
 Ori = type_b('ori', 0x28)
 Andi = type_b('andi', 0x29)
 Xori = type_b('xori', 0x2a)
-Andni = type_b('xori', 0x2b)
-Imm = type_b('xori', 0x2c, rd=0, ra=0)
+Andni = type_b('andni', 0x2b)
+Imm = type_b('imm', 0x2c, rd=0, ra=0)
 
 Rtsd = type_b('rtsd', 0x2d, rd=0x10)
 Rtid = type_b('rtsd', 0x2d, rd=0x11)
@@ -233,9 +259,243 @@ Sb = type_a('sb', 0x34, 0)
 Sh = type_a('sh', 0x35, 0)
 Sw = type_a('sw', 0x36, 0)
 
+Lbui = type_b('lbui', 0x38)
+Lhui = type_b('lhui', 0x39)
+Lwi = type_b('lwi', 0x3a)
+Sbi = type_b('sbi', 0x3c)
+Shi = type_b('shi', 0x3d)
+Swi = type_b('swi', 0x3e)
+
+
+def label_imm():
+    pass
+
+
+@isa.register_relocation
+class PcRelRelocation64(Relocation):
+    name = 'R_MICROBLAZE_64_PCREL'
+    number = 1  # TODO: lookup in elf spec
+    token = TypeBToken
+    field = 'imm'
+
+    def calc(self, sym_value, reloc_value):
+        return sym_value - reloc_value
+
+
+@isa.register_relocation
+class AbsRelocation64(Relocation):
+    name = 'R_MICROBLAZE_64'
+    number = 1  # TODO: lookup in elf spec
+    token = TypeBToken
+    field = 'imm', 'imm2'
+
+    def calc(self, sym_value, reloc_value):
+        return sym_value
+
+
+class Bri_label(ArtificialInstruction):
+    isa = isa
+    target = Operand('target', str)
+    syntax = Syntax(['bri', ' ', target])
+
+    def render(self):
+        yield Imm(0)
+        yield Bri(0)
+
+
+class Brlid_label(ArtificialInstruction):
+    isa = isa
+    rd = Operand('rd', MicroBlazeRegister, write=True)
+    target = Operand('target', str)
+    syntax = Syntax(['brlid', ' ', rd, ',', ' ', target])
+
+    def relocations(self):
+        return [
+            PcRelRelocation64(self.target),
+        ]
+
+    def render(self):
+        yield Imm(0)
+        yield Brlid(self.rd, 0)
+
+
+# Branch equal operators
+class Beqi_label(ArtificialInstruction):
+    isa = isa
+    ra = Operand('ra', MicroBlazeRegister, read=True)
+    target = Operand('target', str)
+    syntax = Syntax(['beqi', ' ', ra, ',', ' ', target])
+
+    def relocations(self):
+        return [
+            PcRelRelocation64(self.target),
+        ]
+
+    def render(self):
+        yield Imm(0)
+        yield Beqi(self.ra, 0)
+
+
+class Bnei_label(ArtificialInstruction):
+    isa = isa
+    ra = Operand('ra', MicroBlazeRegister, read=True)
+    target = Operand('target', str)
+    syntax = Syntax(['bnei', ' ', ra, ',', ' ', target])
+
+    def relocations(self):
+        return [
+            PcRelRelocation64(self.target),
+        ]
+
+    def render(self):
+        yield Imm(0)
+        yield Bnei(self.ra, 0)
+
+
+class Blti_label(ArtificialInstruction):
+    isa = isa
+    ra = Operand('ra', MicroBlazeRegister, read=True)
+    target = Operand('target', str)
+    syntax = Syntax(['blti', ' ', ra, ',', ' ', target])
+
+    def relocations(self):
+        return [
+            PcRelRelocation64(self.target),
+        ]
+
+    def render(self):
+        yield Imm(0)
+        yield Blti(self.ra, 0)
+
+
+class Blei_label(ArtificialInstruction):
+    isa = isa
+    ra = Operand('ra', MicroBlazeRegister, read=True)
+    target = Operand('target', str)
+    syntax = Syntax(['blei', ' ', ra, ',', ' ', target])
+
+    def relocations(self):
+        return [
+            PcRelRelocation64(self.target),
+        ]
+
+    def render(self):
+        yield Imm(0)
+        yield Blei(self.ra, 0)
+
+
+class Bgti_label(ArtificialInstruction):
+    isa = isa
+    ra = Operand('ra', MicroBlazeRegister, read=True)
+    target = Operand('target', str)
+    syntax = Syntax(['bgti', ' ', ra, ',', ' ', target])
+
+    def relocations(self):
+        return [
+            PcRelRelocation64(self.target),
+        ]
+
+    def render(self):
+        yield Imm(0)
+        yield Bgti(self.ra, 0)
+
+
+class Bgei_label(ArtificialInstruction):
+    isa = isa
+    ra = Operand('ra', MicroBlazeRegister, read=True)
+    target = Operand('target', str)
+    syntax = Syntax(['bgei', ' ', ra, ',', ' ', target])
+
+    def relocations(self):
+        return [
+            PcRelRelocation64(self.target),
+        ]
+
+    def render(self):
+        yield Imm(0)
+        yield Bgei(self.ra, 0)
+
 
 # Instruction selection:
+# Generic:
+@isa.pattern('reg', 'REGI8', size=0, cycles=0, energy=0)
+@isa.pattern('reg', 'REGU8', size=0, cycles=0, energy=0)
+@isa.pattern('reg', 'REGI16', size=0, cycles=0, energy=0)
+@isa.pattern('reg', 'REGU16', size=0, cycles=0, energy=0)
+@isa.pattern('reg', 'REGI32', size=0, cycles=0, energy=0)
+@isa.pattern('reg', 'REGU32', size=0, cycles=0, energy=0)
+def pattern_reg(context, tree):
+    return tree.value
 
+
+@isa.pattern('mem', 'reg', size=0, cycles=0, energy=0)
+def pattern_reg_as_mem(context, tree, reg):
+    return (reg, R0)
+
+
+@isa.pattern('stm', 'MOVI8(reg)', size=4)
+@isa.pattern('stm', 'MOVU8(reg)', size=4)
+@isa.pattern('stm', 'MOVI16(reg)', size=4)
+@isa.pattern('stm', 'MOVU16(reg)', size=4)
+@isa.pattern('stm', 'MOVI32(reg)', size=4)
+@isa.pattern('stm', 'MOVU32(reg)', size=4)
+def pattern_mov(context, tree, reg):
+    context.move(tree.value, reg)
+
+
+@isa.pattern('reg', 'CONSTI8', size=4)
+@isa.pattern('reg', 'CONSTU8', size=4)
+@isa.pattern('reg', 'CONSTI16', size=4)
+def pattern_const16(context, tree):
+    dst = context.new_reg(MicroBlazeRegister)
+    context.emit(Addik(dst, R0, tree.value))
+    return dst
+
+
+@isa.pattern('reg', 'CONSTU16', size=4)
+@isa.pattern('reg', 'CONSTI32', size=4)
+@isa.pattern('reg', 'CONSTU32', size=4)
+def pattern_const32(context, tree):
+    dst = context.new_reg(MicroBlazeRegister)
+    context.emit(Imm(tree.value >> 16))
+    context.emit(Addik(dst, R0, tree.value & 0xffff))
+    return dst
+
+
+@isa.pattern('reg', 'LABEL', size=8)
+def pattern_label(context, tree):
+    """ Determine the label address and yield its result """
+    dst = context.new_reg(MicroBlazeRegister)
+    context.emit(Imm(0))
+    return dst
+
+
+# Data conversion patterns:
+@isa.pattern('reg', 'U32TOI32(reg)', size=0, cycles=0, energy=0)
+@isa.pattern('reg', 'I32TOI32(reg)', size=0, cycles=0, energy=0)
+@isa.pattern('reg', 'U32TOU32(reg)', size=0, cycles=0, energy=0)
+@isa.pattern('reg', 'I32TOU32(reg)', size=0, cycles=0, energy=0)
+def pattern_i32toi32(context, tree, reg):
+    return reg
+
+
+@isa.pattern('reg', 'U32TOI8(reg)', size=0, cycles=0, energy=0)
+@isa.pattern('reg', 'I32TOI8(reg)', size=0, cycles=0, energy=0)
+@isa.pattern('reg', 'U32TOU8(reg)', size=0, cycles=0, energy=0)
+@isa.pattern('reg', 'I32TOU8(reg)', size=0, cycles=0, energy=0)
+def pattern_i32toi8(context, tree, reg):
+    return reg
+
+
+@isa.pattern('reg', 'U8TOI32(reg)', size=0, cycles=0, energy=0)
+@isa.pattern('reg', 'I8TOI32(reg)', size=0, cycles=0, energy=0)
+@isa.pattern('reg', 'U8TOU32(reg)', size=0, cycles=0, energy=0)
+@isa.pattern('reg', 'I8TOU32(reg)', size=0, cycles=0, energy=0)
+def pattern_i8toi32(context, tree, reg):
+    return reg
+
+
+# Arithmatics:
 @isa.pattern('reg', 'ADDI8(reg, reg)', size=4)
 @isa.pattern('reg', 'ADDU8(reg, reg)', size=4)
 @isa.pattern('reg', 'ADDI16(reg, reg)', size=4)
@@ -243,9 +503,9 @@ Sw = type_a('sw', 0x36, 0)
 @isa.pattern('reg', 'ADDI32(reg, reg)', size=4)
 @isa.pattern('reg', 'ADDU32(reg, reg)', size=4)
 def pattern_add(context, tree, c0, c1):
-    d = context.new_reg(MicroBlazeRegister)
-    context.emit(Add(d, c0, c1))
-    return d
+    dst = context.new_reg(MicroBlazeRegister)
+    context.emit(Add(dst, c0, c1))
+    return dst
 
 
 @isa.pattern('reg', 'SUBI8(reg, reg)', size=4)
@@ -255,9 +515,9 @@ def pattern_add(context, tree, c0, c1):
 @isa.pattern('reg', 'SUBI32(reg, reg)', size=4)
 @isa.pattern('reg', 'SUBU32(reg, reg)', size=4)
 def pattern_sub(context, tree, c0, c1):
-    d = context.new_reg(MicroBlazeRegister)
-    context.emit(Rsub(d, c1, c0))
-    return d
+    dst = context.new_reg(MicroBlazeRegister)
+    context.emit(Rsub(dst, c1, c0))
+    return dst
 
 
 # Bitwise instruction matching:
@@ -268,9 +528,9 @@ def pattern_sub(context, tree, c0, c1):
 @isa.pattern('reg', 'ANDI32(reg, reg)', size=4)
 @isa.pattern('reg', 'ANDU32(reg, reg)', size=4)
 def pattern_and(context, tree, c0, c1):
-    d = context.new_reg(MicroBlazeRegister)
-    context.emit(And(d, c0, c1))
-    return d
+    dst = context.new_reg(MicroBlazeRegister)
+    context.emit(And(dst, c0, c1))
+    return dst
 
 
 @isa.pattern('reg', 'ORI8(reg, reg)', size=4)
@@ -280,9 +540,9 @@ def pattern_and(context, tree, c0, c1):
 @isa.pattern('reg', 'ORI32(reg, reg)', size=4)
 @isa.pattern('reg', 'ORU32(reg, reg)', size=4)
 def pattern_or(context, tree, c0, c1):
-    d = context.new_reg(MicroBlazeRegister)
-    context.emit(Or(d, c0, c1))
-    return d
+    dst = context.new_reg(MicroBlazeRegister)
+    context.emit(Or(dst, c0, c1))
+    return dst
 
 
 @isa.pattern('reg', 'XORI8(reg, reg)', size=4)
@@ -292,6 +552,131 @@ def pattern_or(context, tree, c0, c1):
 @isa.pattern('reg', 'XORI32(reg, reg)', size=4)
 @isa.pattern('reg', 'XORU32(reg, reg)', size=4)
 def pattern_xor(context, tree, c0, c1):
-    d = context.new_reg(MicroBlazeRegister)
-    context.emit(Xor(d, c0, c1))
-    return d
+    dst = context.new_reg(MicroBlazeRegister)
+    context.emit(Xor(dst, c0, c1))
+    return dst
+
+
+@isa.pattern('reg', 'SHLI8(reg, reg)', size=4)
+@isa.pattern('reg', 'SHLU8(reg, reg)', size=4)
+@isa.pattern('reg', 'SHLI16(reg, reg)', size=4)
+@isa.pattern('reg', 'SHLU16(reg, reg)', size=4)
+@isa.pattern('reg', 'SHLI32(reg, reg)', size=4)
+@isa.pattern('reg', 'SHLU32(reg, reg)', size=4)
+def pattern_shl(context, tree, c0, c1):
+    dst = context.new_reg(MicroBlazeRegister)
+    context.emit(Bsll(dst, c0, c1))
+    return dst
+
+
+@isa.pattern('reg', 'SHRI8(reg, reg)', size=4)
+@isa.pattern('reg', 'SHRU8(reg, reg)', size=4)
+@isa.pattern('reg', 'SHRI16(reg, reg)', size=4)
+@isa.pattern('reg', 'SHRU16(reg, reg)', size=4)
+@isa.pattern('reg', 'SHRI32(reg, reg)', size=4)
+@isa.pattern('reg', 'SHRU32(reg, reg)', size=4)
+def pattern_shr(context, tree, c0, c1):
+    dst = context.new_reg(MicroBlazeRegister)
+    context.emit(Bsra(dst, c0, c1))
+    return dst
+
+
+# Load / store:
+@isa.pattern('reg', 'LDRI8(mem)', size=4)
+def pattern_ldr_i8(context, tree, mem):
+    dst = context.new_reg(MicroBlazeRegister)
+    base, offset = mem
+    context.emit(Lbu(dst, base, offset))
+    context.emit(Sext8(dst, dst))
+    return dst
+
+
+@isa.pattern('reg', 'LDRU8(mem)', size=4)
+def pattern_ldr_u8(context, tree, mem):
+    dst = context.new_reg(MicroBlazeRegister)
+    base, offset = mem
+    context.emit(Lbu(dst, base, offset))
+    return dst
+
+
+@isa.pattern('reg', 'LDRI16(mem)', size=4)
+def pattern_ldr_i16(context, tree, mem):
+    dst = context.new_reg(MicroBlazeRegister)
+    base, offset = mem
+    context.emit(Lhu(dst, base, offset))
+    context.emit(Sext16(dst, dst))
+    return dst
+
+
+@isa.pattern('reg', 'LDRU16(mem)', size=4)
+def pattern_ldr_u16(context, tree, mem):
+    dst = context.new_reg(MicroBlazeRegister)
+    base, offset = mem
+    context.emit(Lhu(dst, base, offset))
+    return dst
+
+
+@isa.pattern('reg', 'LDRI32(mem)', size=4)
+@isa.pattern('reg', 'LDRU32(mem)', size=4)
+def pattern_ldr32(context, tree, mem):
+    dst = context.new_reg(MicroBlazeRegister)
+    base, offset = mem
+    context.emit(Lw(dst, base, offset))
+    return dst
+
+
+@isa.pattern('stm', 'STRI8(mem, reg)', size=4)
+@isa.pattern('stm', 'STRU8(mem, reg)', size=4)
+def pattern_str8(context, tree, mem, value):
+    base, offset = mem
+    context.emit(Sb(value, base, offset))
+
+
+@isa.pattern('stm', 'STRI16(mem, reg)', size=4)
+@isa.pattern('stm', 'STRU16(mem, reg)', size=4)
+def pattern_str16(context, tree, mem, value):
+    base, offset = mem
+    context.emit(Sh(value, base, offset))
+
+
+@isa.pattern('stm', 'STRI32(mem, reg)', size=4)
+@isa.pattern('stm', 'STRU32(mem, reg)', size=4)
+def pattern_str32(context, tree, mem, value):
+    base, offset = mem
+    context.emit(Sw(value, base, offset))
+
+
+# Jumping and branching:
+@isa.pattern('stm', 'JMP', size=4)
+def pattern_jmp(context, tree):
+    tgt = tree.value
+    context.emit(Bri_label(tgt.name, jumps=[tgt]))
+
+
+@isa.pattern('stm', 'CJMPI8(reg, reg)', size=4)
+@isa.pattern('stm', 'CJMPU8(reg, reg)', size=4)
+@isa.pattern('stm', 'CJMPI16(reg, reg)', size=4)
+@isa.pattern('stm', 'CJMPU16(reg, reg)', size=4)
+@isa.pattern('stm', 'CJMPI32(reg, reg)', size=4)
+@isa.pattern('stm', 'CJMPU32(reg, reg)', size=4)
+def pattern_cjmp8(context, tree, c0, c1):
+    op, yes_label, no_label = tree.value
+    opnames = {
+        "==": (Beqi_label, False),
+        "!=": (Bnei_label, False),
+        '<': (Blti_label, False),
+        '>': (Bgti_label, False),
+        '>=': (Bgei_label, False),
+        '<=': (Blei_label, False),
+    }
+    Bop, swap = opnames[op]
+
+    tst = context.new_reg(MicroBlazeRegister)
+    if swap:
+        context.emit(Cmp(tst, c1, c0))
+    else:
+        context.emit(Cmp(tst, c0, c1))
+
+    jmp_ins_no = Bri_label(no_label.name, jumps=[no_label])
+    context.emit(Bop(tst, yes_label.name, jumps=[yes_label, jmp_ins_no]))
+    context.emit(jmp_ins_no)

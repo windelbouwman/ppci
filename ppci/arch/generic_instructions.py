@@ -38,6 +38,19 @@ class PseudoInstruction(Instruction):
         return bytes()
 
 
+class RelocationHolder(Instruction):
+    """ This instruction encodes no data, but encodes a relocation """
+    def __init__(self, reloc):
+        super().__init__()
+        self._reloc = reloc
+
+    def relocations(self):
+        return [self._reloc]
+
+    def encode(self):
+        return bytes()
+
+
 class Nop(Instruction):
     """ Instruction that does nothing and has zero size """
 

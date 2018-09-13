@@ -44,22 +44,6 @@ class TernaryOperator(CExpression):
         return 'TernOp {}'.format(self.op)
 
 
-class Designator(CExpression):
-    """ Designate an initial value path.
-    """
-    pass
-
-
-class FieldDesignator(Designator):
-    """ Designates a specific field in a astruct initializer """
-    pass
-
-
-class ArrayDesignator(Designator):
-    def __init__(self, op, a, typ, lvalue, location):
-        super().__init__(typ, lvalue, location)
-
-
 class Initializer(CExpression):
     """ Initial value base class. """
     pass

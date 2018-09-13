@@ -18,14 +18,16 @@ C = E - N + 2
 
 """
 
+
 def cyclomatic_complexity(cfg):
+    """ Determine the cyclomatic complexity of a CFG (control-flow-graph) """
     N = len(cfg.nodes)
-    E = len(cfg.adj_map)
+    E = cfg.get_number_of_edges()
     P = 1  # For subroutines P = 1
     C = E - N + 2 * P
     return C
 
 
 def connected_components(cfg):
+    # TODO: implement this graph logic when required.
     pass
-

@@ -8,7 +8,7 @@ void do3(int x, foo_t y, int z)
   printf("Enter do\n");
   int g;
   g = x + y.a + (int)y.b + y.c + z;
-  myprint("v:", g);
+  printf("v:%d\n", g);
   printf("Exit do\n");
 }
 

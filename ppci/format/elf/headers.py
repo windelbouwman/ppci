@@ -67,10 +67,15 @@ class ElfMachine(enum.IntEnum):
     X86 = 0x3
     _68K = 4
     _88K = 5
+    IAMCU = 6
+    _860 = 7
     MIPS = 0x8
     S370 = 0x9
-    POWERPC = 0x14
-    S390 = 0x16
+    MIPS_RS3_LE = 10
+    POWERPC = 0x14  # 20
+    PPC64 = 21
+    S390 = 0x16  # 22
+    SPU = 23
     ARM = 0x28
     SUPERH = 0x2A
     H8S = 48
@@ -90,6 +95,13 @@ class ElfMachine(enum.IntEnum):
     VIDEOCORE = 0x5f  # 95
     TMM_GPP = 96
     AARCH64 = 0xb7  # 183
+    STM8 = 186
+    TILE64 = 187
+    TILEPRO = 188
+    MICROBLAZE = 189
+    CUDA = 190
+    TILEGX = 191
+    CLOUDSHIELD = 192
     RISCV = 0xF3  # 243
 
 

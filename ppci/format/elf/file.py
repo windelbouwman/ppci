@@ -56,6 +56,7 @@ def write_elf(obj, f):
     """ Save object as an ELF file """
     mapping = {
         'arm': (32, Endianness.LITTLE),
+        'microblaze': (32, Endianness.BIG),
         'x86_64': (64, Endianness.LITTLE),
         'xtensa': (32, Endianness.LITTLE),
         'riscv': (32, Endianness.LITTLE),
@@ -163,6 +164,7 @@ class ElfFile:
         }
         machine_map = {
             'arm': ElfMachine.ARM,
+            'microblaze': ElfMachine.MICROBLAZE,
             'x86_64': ElfMachine.X86_64,
             'xtensa': ElfMachine.XTENSA,
             'riscv': ElfMachine.RISCV,

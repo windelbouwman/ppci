@@ -11,6 +11,7 @@ from ..arch.asm_printer import AsmPrinter
 from ..arch.generic_instructions import Alignment, DebugData, Label
 from ..arch.generic_instructions import SectionInstruction
 from ..arch.generic_instructions import ArtificialInstruction
+from ..arch.generic_instructions import RelocationHolder
 
 
 class OutputStream(metaclass=abc.ABCMeta):
@@ -21,6 +22,8 @@ class OutputStream(metaclass=abc.ABCMeta):
     def emit(self, item):  # pragma: no cover
         """ Encode instruction and add symbol and relocation information """
         if isinstance(item, ArtificialInstruction):
+            for relocation in item.relocations():
+                self.emit(RelocationHolder(relocation))
             for expanded_instruction in item.render():
                 self.emit(expanded_instruction)
         else:
