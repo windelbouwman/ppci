@@ -60,22 +60,22 @@ if __name__ == '__main__':
     debugger.load_symbols(obj, validate=False) 
     table = parse_vcd('./verilator/picorv32.vcd', \
     ['TOP.CLK', \
-    'TOP.V.PICORV32_CORE.REG_PC[31:0]', \
-    'TOP.V.PICORV32_CORE.DBG_REG_X10[31:0]', \
-    'TOP.V.PICORV32_CORE.DBG_REG_X12[31:0]', \
-    'TOP.V.PICORV32_CORE.DBG_REG_X13[31:0]', \
-    'TOP.V.PICORV32_CORE.DBG_REG_X14[31:0]', \
-    'TOP.V.PICORV32_CORE.DBG_REG_X15[31:0]', \
-    'TOP.V.PICORV32_CORE.DBG_REG_X16[31:0]', \
-    'TOP.V.PICORV32_CORE.DBG_REG_X17[31:0]', \
-    'TOP.V.PICORV32_CORE.MEM_ADDR[31:0]', \
-    'TOP.V.PICORV32_CORE.MEM_RDATA[31:0]', \
-    'TOP.V.PICORV32_CORE.MEM_WDATA[31:0]', \
-    'TOP.V.PICORV32_CORE.MEM_WSTRB[3:0]', \
-    'TOP.V.PICORV32_CORE.MEM_VALID',
-    'TOP.V.PICORV32_CORE.MEM_READY'],'us')    
+    'TOP.SYSTEM.PICORV32_CORE.REG_PC[31:0]', \
+    'TOP.SYSTEM.PICORV32_CORE.DBG_REG_X10[31:0]', \
+    'TOP.SYSTEM.PICORV32_CORE.DBG_REG_X12[31:0]', \
+    'TOP.SYSTEM.PICORV32_CORE.DBG_REG_X13[31:0]', \
+    'TOP.SYSTEM.PICORV32_CORE.DBG_REG_X14[31:0]', \
+    'TOP.SYSTEM.PICORV32_CORE.DBG_REG_X15[31:0]', \
+    'TOP.SYSTEM.PICORV32_CORE.DBG_REG_X16[31:0]', \
+    'TOP.SYSTEM.PICORV32_CORE.DBG_REG_X17[31:0]', \
+    'TOP.SYSTEM.PICORV32_CORE.MEM_ADDR[31:0]', \
+    'TOP.SYSTEM.PICORV32_CORE.MEM_RDATA[31:0]', \
+    'TOP.SYSTEM.PICORV32_CORE.MEM_WDATA[31:0]', \
+    'TOP.SYSTEM.PICORV32_CORE.MEM_WSTRB[3:0]', \
+    'TOP.SYSTEM.PICORV32_CORE.MEM_VALID',
+    'TOP.SYSTEM.PICORV32_CORE.MEM_READY'],'us')    
     codes = list(table.keys())
-    globals = ['x']
+    globals = []
     global signals
     signals = {}
     pctimevals = []
@@ -104,7 +104,7 @@ if __name__ == '__main__':
     callstack.append('startup')
     oldfunc = None
     newfunc = None
-    globals = ['a']
+    globals = []
     watchadr = {} 
     for var in globals:
         watchadr[obj.get_symbol_value(var)] = var 
