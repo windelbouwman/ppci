@@ -160,6 +160,7 @@ class X86_64Arch(Architecture):
         yield instructions.Rep()
         yield RegisterUseDef(uses=(rcx,))
         yield instructions.Movsb()
+        yield RegisterUseDef(uses=(rdi, rsi,))
 
         # for x in
         # Memcopy action!
@@ -366,7 +367,7 @@ class X86_64Arch(Architecture):
                     # cps.append((arg.offset, stack_offset, arg.size))
                     # raise NotImplementedError(str(arg_loc))
                     # Do not copy any incoming variable, it was copied during
-                    # call.
+                    # call. Use memory as is!
                     stack_offset += arg.size
                 else:  # pragma: no cover
                     raise NotImplementedError()
@@ -387,15 +388,61 @@ class X86_64Arch(Architecture):
         yield RegisterUseDef(uses=live_out)
 
     def gen_call(self, frame, label, args, rv):
-        # def gen_fill_arguments(self, arg_types, args):
         """ This function moves arguments in the proper locations. """
-        arg_types = [a[0] for a in args]
-        arg_locs = self.determine_arg_locations(arg_types)
-        push_regs = []
 
         # Setup parameters:
+        arg_types = [a[0] for a in args]
+        arg_locs = self.determine_arg_locations(arg_types)
+        mem_args = []
+        reg_args = []
         for arg_loc, arg2 in zip(arg_locs, args):
             arg = arg2[1]
+            if isinstance(arg_loc, Register):
+                reg_args.append((arg_loc, arg))
+            elif isinstance(arg_loc, StackLocation):
+                if isinstance(arg, Register):
+                    mem_args.append((arg, 8))
+                elif isinstance(arg, StackLocation):
+                    mem_args.append((arg, arg.size))
+                    # raise NotImplementedError(str(arg))
+                    # memcpy(a, b, 100)
+                else:  # pragma: no cover
+                    raise NotImplementedError(str(arg))
+            else:  # pragma: no cover
+                raise NotImplementedError('Parameters in memory not impl')
+
+        # First fill values on stack:
+        # Pre align stack to 16 bytes:
+        stack_size = sum(p[1] for p in mem_args)
+        if stack_size % 16 != 0:
+            extra_padding = stack_size % 16
+            yield SubImm(rsp, extra_padding)
+            stack_size += extra_padding
+
+        # Push arguments in reverse order:
+        for pr in reversed(mem_args):
+            push_reg = pr[0]
+            if isinstance(push_reg, registers.Register64):
+                yield Push(push_reg)
+            elif isinstance(push_reg, registers.Register32):
+                yield self.move(registers.eax, push_reg)
+                yield RegisterUseDef(
+                    uses=(registers.eax,), defs=(registers.rax,))
+                yield Push(rax)
+            elif isinstance(push_reg, StackLocation):
+                # Invoke massive memcpy action!
+                # TODO: how about alignment?
+                yield SubImm(rsp, push_reg.size)
+                dst = instructions.RmMemDisp(rsp, 0)
+                src = instructions.RmMemDisp(rbp, push_reg.offset)
+                for memcpy_ins in self.gen_memcpy(dst, src, push_reg.size):
+                    yield memcpy_ins
+            else:  # pragma: no cover
+                raise NotImplementedError(str(push_reg))
+
+        # Next up, fill registers:
+        # Move register args to proper location:
+        for arg_loc, arg in reg_args:
             if isinstance(arg_loc, registers.Register64):
                 if isinstance(arg, registers.Register64):
                     yield self.move(arg_loc, arg)
@@ -423,35 +470,8 @@ class X86_64Arch(Architecture):
             elif isinstance(arg_loc, registers.XmmRegisterSingle):
                 assert isinstance(arg, registers.XmmRegisterSingle)
                 yield self.move(arg_loc, arg)
-            elif isinstance(arg_loc, StackLocation):
-                if isinstance(arg, Register):
-                    push_regs.append(arg)
-                elif isinstance(arg, StackLocation):
-                    raise NotImplementedError(str(arg))
-                    # memcpy(a, b, 100)
-                else:  # pragma: no cover
-                    raise NotImplementedError(str(arg))
             else:  # pragma: no cover
-                raise NotImplementedError('Parameters in memory not impl')
-
-        # Pre align stack to 16 bytes:
-        stack_size = len(push_regs) * 8
-        if stack_size % 16 != 0:
-            extra_padding = stack_size % 16
-            yield SubImm(rsp, extra_padding)
-            stack_size += extra_padding
-
-        # Push arguments in reverse order:
-        for push_reg in reversed(push_regs):
-            if isinstance(push_reg, registers.Register64):
-                yield Push(push_reg)
-            elif isinstance(push_reg, registers.Register32):
-                yield self.move(registers.eax, push_reg)
-                yield RegisterUseDef(
-                    uses=(registers.eax,), defs=(registers.rax,))
-                yield Push(rax)
-            else:  # pragma: no cover
-                raise NotImplementedError(str(push_reg))
+                raise NotImplementedError(str(arg_loc))
 
         wincc = self.has_option('wincc')
 
