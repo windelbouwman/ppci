@@ -23,6 +23,7 @@ setup(
             'ppci-cc = ppci.cli.cc:cc',
             'ppci-dbg = ppci.cli.dbg:dbg',
             'ppci-disasm = ppci.cli.disasm:disasm',
+            'ppci-hexdump = ppci.cli.hexdump:hexdump',
             'ppci-hexutil = ppci.cli.hexutil:hexutil',
             'ppci-ld = ppci.cli.link:link',
             'ppci-llc = ppci.cli.llc:llc',

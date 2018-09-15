@@ -82,3 +82,10 @@ activated stand alone.
 
 .. autoprogram:: ppci.cli.wabt:parser
     :prog: ppci-wabt
+
+.. autoprogram:: ppci.cli.hexutil:parser
+    :prog: ppci-hexutil
+
+.. autoprogram:: ppci.cli.hexdump:parser
+    :prog: ppci-hexdump
+
