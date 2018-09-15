@@ -8,6 +8,7 @@ from ..data_instructions import DByte, DZero
 from .asm_printer import RiscvAsmPrinter
 from .instructions import isa, Align, Section
 from .rvc_instructions import rvcisa
+from .rvf_instructions import rvfisa
 from .registers import RiscvRegister, gdb_registers, Register
 from .registers import R0, LR, SP, FP
 from .registers import R10, R11, R12
@@ -17,6 +18,7 @@ from .registers import R9, R18, R19
 from .registers import R20, R21, R22, R23, R24, R25, R26, R27
 from ... import ir
 from ..registers import RegisterClass
+from .registers import register_classes
 from ..stack import StackLocation
 from ..stack import FramePointerLocation 
 from ..data_instructions import data_isa
@@ -60,7 +62,7 @@ class RiscvAssembler(BaseAssembler):
 
 class RiscvArch(Architecture):
     name = 'riscv'
-    option_names = ('rvc',)
+    option_names = ('rvc','rvf')
 
     def __init__(self, options=None):
         super().__init__(options=options)
@@ -68,6 +70,10 @@ class RiscvArch(Architecture):
             self.isa = isa + rvcisa + data_isa
             self.store = CSwsp
             self.load = CLwsp
+        elif self.has_option('rvf'):
+            self.isa = isa + rvfisa + data_isa
+            self.store = Sw
+            self.load = Lw
         else:
             self.isa = isa + data_isa
             self.store = Sw
@@ -82,17 +88,7 @@ class RiscvArch(Architecture):
         self.assembler = RiscvAssembler()
         self.assembler.gen_asm_parser(self.isa)
 
-        # Allocatable registers:
-        register_classes = [
-            RegisterClass(
-                'reg', [ir.i8, ir.i16, ir.i32, ir.ptr, ir.u8, ir.u16, ir.u32, ir.f32, ir.f64],
-                RiscvRegister,
-                [
-                    R9, R10, R11, R12, R13, R14, R15, R16, R17, R18, R19, R20,
-                    R21, R22, R23, R24, R25, R26, R27
-                ])
-        ]
-
+        
         self.info = ArchInfo(
             type_infos={
                 ir.i8: TypeInfo(1, 1), ir.u8: TypeInfo(1, 1),
@@ -152,13 +148,51 @@ class RiscvArch(Architecture):
 
         __exit:
         jalr x0,ra,0
+        """     
+        float_src = """
+        __float32_addhw:
+        fmv.s.x f1, x12
+        fmv.s.x f2, x13
+        fadd.s f0, f1, f2
+        fmv.x.s x10, f0
+        jalr x0, ra, 0
+        
+        __float32_subhw:
+        fmv.s.x f1, x12
+        fmv.s.x f2, x13
+        fsub.s f0, f1, f2
+        fmv.x.s x10, f0
+        jalr x0, ra, 0
+        
+        __float32_mulhw:
+        fmv.s.x f1, x12
+        fmv.s.x f2, x13
+        fmul.s f0, f1, f2
+        fmv.x.s x10, f0
+        jalr x0, ra, 0
+        
+        __float32_divhw:
+        fmv.s.x f1, x12
+        fmv.s.x f2, x13
+        fdiv.s f0, f1, f2
+        fmv.x.s x10, f0
+        jalr x0, ra, 0
+        
+        __float32_neghw:
+        fmv.s.x f1, x12        
+        fsgnjn.s f0, f1, f1
+        fmv.x.s x10, f0
+        jalr x0, ra, 0
         """
-        return asm(io.StringIO(asm_src), self)
+        if self.has_option('rvf'):
+            return asm(io.StringIO(asm_src + float_src), self)
+        else:
+            return asm(io.StringIO(asm_src), self)
 
     def move(self, dst, src):
         """ Generate a move from src to dst """
         if self.has_option('rvc'):
-            return CMovr(dst, src, ismove=True)
+            return CMovr(dst, src, ismove=True)        
         else:
             return Movr(dst, src, ismove=True)
 

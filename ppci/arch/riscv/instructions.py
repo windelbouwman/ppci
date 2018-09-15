@@ -9,7 +9,7 @@ from ...utils.bitfun import inrange
 from ..generic_instructions import ArtificialInstruction, Alignment
 from ..generic_instructions import SectionInstruction
 from ..generic_instructions import RegisterUseDef 
-from .registers import RiscvRegister, FP, LR, R0, R10, R12, R13
+from .registers import RiscvRegister, RiscvFRegister,FP, LR, R0, R10, R12, R13
 from .relocations import AbsAddr32Relocation
 from .relocations import BImm12Relocation, BImm20Relocation
 from .relocations import Abs32Imm20Relocation
@@ -87,6 +87,8 @@ class Movr(RiscvInstruction):
         'opcode': 0b0010011, 'rd': rd, 'funct3': 0, 'rs1': rm,
         'rs2': 0, 'funct7': 0}
 
+
+        
 
 def make_regregreg(mnemonic, opcode, func):
     rd = Operand('rd', RiscvRegister, write=True)
@@ -575,7 +577,7 @@ def pattern_movb(context, tree, c0, c1):
     size = tree.value
     for instruction in context.arch.gen_riscv_memcpy(dst, src, tmp, size):
         context.emit(instruction) 
-	
+    
 
 @isa.pattern('reg', 'REGI32', size=0)
 @isa.pattern('reg', 'REGI16', size=0)
@@ -1007,7 +1009,21 @@ def pattern_shr_u32(context, tree, c0, c1):
 
 
 @isa.pattern('reg', 'SHRI8(reg, reg)', size=2)
+def pattern_shr_i32(context, tree, c0, c1):
+    d = context.new_reg(RiscvRegister)    
+    context.emit(Slli(c0, c0, 24))
+    context.emit(Srai(c0, c0, 24))
+    context.emit(Sra(d, c0, c1))
+    return d
+    
 @isa.pattern('reg', 'SHRI16(reg, reg)', size=2)
+def pattern_shr_i32(context, tree, c0, c1):
+    d = context.new_reg(RiscvRegister)
+    context.emit(Slli(c0, c0, 16))
+    context.emit(Srai(c0, c0, 16))
+    context.emit(Sra(d, c0, c1))
+    return d
+    
 @isa.pattern('reg', 'SHRI32(reg, reg)', size=2)
 def pattern_shr_i32(context, tree, c0, c1):
     d = context.new_reg(RiscvRegister)
