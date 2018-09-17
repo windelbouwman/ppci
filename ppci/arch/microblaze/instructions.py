@@ -6,7 +6,6 @@ from ..isa import Isa
 from ..token import Token, bit_range, Endianness
 from ..generic_instructions import ArtificialInstruction
 from .registers import MicroBlazeRegister, R0
-from ...utils.bitfun import reverse_bits
 
 
 isa = Isa()
@@ -15,20 +14,7 @@ isa = Isa()
 class MicroBlazeToken32(Token):
     class Info:
         size = 32
-        # Reference manual labels msb as bit 0, so we can
-        # use LITTLE endianness here:
         endianness = Endianness.BIG
-
-    def old__encode(self):
-        # data = super().encode()
-        value = self.bit_value
-        data = reverse_bits(value, 32)
-        data = self.pack(value)
-        # Do some bit reversal:
-        # data = [b for b in reversed(data)]
-        # data = [reverse_bits(v, 8) for v in data]
-        # data = bytes(data)
-        return data
 
 
 # In order to deal with reversed bit ordering, the bit ranges are reversed
@@ -47,6 +33,15 @@ class TypeBToken(MicroBlazeToken32):
     rd = bit_range(21, 26)  # bit_range(6, 11)
     ra = bit_range(16, 21)  # bit_range(11, 16)
     imm = bit_range(0, 16)  # bit_range(16, 32)
+
+
+class PcRel64Token(Token):
+    """ A double immediate field token """
+    class Info:
+        size = 64
+        endianness = Endianness.BIG
+
+    imm = bit_range(32, 48) + bit_range(0, 16)
 
 
 class MicroBlazeInstruction(Instruction):
@@ -275,19 +270,19 @@ def label_imm():
 class PcRelRelocation64(Relocation):
     name = 'R_MICROBLAZE_64_PCREL'
     number = 1  # TODO: lookup in elf spec
-    token = TypeBToken
+    token = PcRel64Token
     field = 'imm'
 
     def calc(self, sym_value, reloc_value):
-        return sym_value - reloc_value
+        return sym_value - (reloc_value + 4)
 
 
 @isa.register_relocation
 class AbsRelocation64(Relocation):
-    name = 'R_MICROBLAZE_64'
-    number = 1  # TODO: lookup in elf spec
-    token = TypeBToken
-    field = 'imm', 'imm2'
+    name = 'R_MICROBLAZE_64_ABS'
+    number = 2  # TODO: lookup in elf spec
+    token = PcRel64Token
+    field = 'imm'
 
     def calc(self, sym_value, reloc_value):
         return sym_value
@@ -297,6 +292,11 @@ class Bri_label(ArtificialInstruction):
     isa = isa
     target = Operand('target', str)
     syntax = Syntax(['bri', ' ', target])
+
+    def relocations(self):
+        return [
+            PcRelRelocation64(self.target),
+        ]
 
     def render(self):
         yield Imm(0)

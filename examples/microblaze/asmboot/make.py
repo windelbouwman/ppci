@@ -1,3 +1,7 @@
+""" Create a simple microblaze program which spits out an 'A' character
+to the UART.
+
+"""
 
 import io
 from ppci.api import asm, get_arch, objcopy, link
@@ -17,7 +21,7 @@ arch = get_arch('microblaze')
 src = """
 section code
 reset_vector:
-; bri _bare_start
+bri _bare_start
 
 
 _bare_start:
@@ -34,7 +38,8 @@ addik r6, r0, 4
 ; Write word (mem[r6+r0] = r5
 sw r5, r6, r0
 
-bri -4  ; Endless loop!
+end_label:
+bri end_label  ; Endless loop!
 
 section data
 """
@@ -56,5 +61,3 @@ ts = add.get_tokens()
 print(ts, ts[0].bit_value)
 add.set_all_patterns(ts)
 print(ts, hex(ts[0].bit_value))
-
-
