@@ -8,17 +8,18 @@ from ..data_instructions import DByte, DZero
 from .asm_printer import RiscvAsmPrinter
 from .instructions import isa, Align, Section
 from .rvc_instructions import rvcisa
-from .rvf_instructions import rvfisa
-from .registers import RiscvRegister, gdb_registers, Register
+from .rvf_instructions import rvfisa, movf
+from .registers import RiscvRegister, RiscvFRegister, gdb_registers, Register
 from .registers import R0, LR, SP, FP
 from .registers import R10, R11, R12
 from .registers import R13, R14, R15, R16, R17
 from .registers import PC
 from .registers import R9, R18, R19
 from .registers import R20, R21, R22, R23, R24, R25, R26, R27
+from .registers import F10, F12, F13, F14, F15, F16, F17
 from ... import ir
 from ..registers import RegisterClass
-from .registers import register_classes
+from .registers import register_classes_hwfp, register_classes_swfp
 from ..stack import StackLocation
 from ..stack import FramePointerLocation 
 from ..data_instructions import data_isa
@@ -26,6 +27,7 @@ from ...binutils.assembler import BaseAssembler
 from .instructions import dcd, Addi, Movr, Bl, Sw, Lw, Blr, Lb, Sb
 from .rvc_instructions import CSwsp, CLwsp, CBl, CJr, CBlr, CMovr
 from .rvc_instructions import CLwsp, CSwsp, CAddi16sp, CAddi4spn
+ 
 
 def isinsrange(bits, val):
         msb = 1<<(bits-1)
@@ -69,15 +71,18 @@ class RiscvArch(Architecture):
         if self.has_option('rvc'):
             self.isa = isa + rvcisa + data_isa
             self.store = CSwsp
-            self.load = CLwsp
+            self.load = CLwsp 
+            self.regclass = register_classes_swfp
         elif self.has_option('rvf'):
             self.isa = isa + rvfisa + data_isa
             self.store = Sw
             self.load = Lw
+            self.regclass = register_classes_hwfp
         else:
             self.isa = isa + data_isa
             self.store = Sw
             self.load = Lw
+            self.regclass = register_classes_swfp
         self.fp_location = FramePointerLocation.BOTTOM 
         self.isa.sectinst = Section
         self.isa.dbinst = DByte
@@ -96,7 +101,7 @@ class RiscvArch(Architecture):
                 ir.i32: TypeInfo(4, 4), ir.u32: TypeInfo(4, 4),
                 ir.f32: TypeInfo(4, 4), ir.f64: TypeInfo(4, 4),
                 'int': ir.i32, 'ptr': ir.u32, ir.ptr: ir.u32,
-            }, register_classes=register_classes)
+            }, register_classes=self.regclass)
 
         self.fp = FP
         self.callee_save = (
@@ -148,53 +153,18 @@ class RiscvArch(Architecture):
 
         __exit:
         jalr x0,ra,0
-        """     
-        float_src = """
-        __float32_addhw:
-        fmv.s.x f1, x12
-        fmv.s.x f2, x13
-        fadd.s f0, f1, f2
-        fmv.x.s x10, f0
-        jalr x0, ra, 0
-        
-        __float32_subhw:
-        fmv.s.x f1, x12
-        fmv.s.x f2, x13
-        fsub.s f0, f1, f2
-        fmv.x.s x10, f0
-        jalr x0, ra, 0
-        
-        __float32_mulhw:
-        fmv.s.x f1, x12
-        fmv.s.x f2, x13
-        fmul.s f0, f1, f2
-        fmv.x.s x10, f0
-        jalr x0, ra, 0
-        
-        __float32_divhw:
-        fmv.s.x f1, x12
-        fmv.s.x f2, x13
-        fdiv.s f0, f1, f2
-        fmv.x.s x10, f0
-        jalr x0, ra, 0
-        
-        __float32_neghw:
-        fmv.s.x f1, x12        
-        fsgnjn.s f0, f1, f1
-        fmv.x.s x10, f0
-        jalr x0, ra, 0
-        """
-        if self.has_option('rvf'):
-            return asm(io.StringIO(asm_src + float_src), self)
-        else:
-            return asm(io.StringIO(asm_src), self)
+        """          
+        return asm(io.StringIO(asm_src), self)
 
     def move(self, dst, src):
         """ Generate a move from src to dst """
         if self.has_option('rvc'):
             return CMovr(dst, src, ismove=True)        
         else:
-            return Movr(dst, src, ismove=True)
+            if isinstance(dst, RiscvFRegister) and self.has_option('rvf'):
+                return movf(dst, src)
+            else:
+                return Movr(dst, src, ismove=True)
 
     def gen_riscv_memcpy(self, dst, src, tmp, size):
         # Called before register allocation
@@ -211,7 +181,7 @@ class RiscvArch(Architecture):
         # Setup parameters:
         for arg_loc, arg2 in zip(arg_locs, args):
             arg = arg2[1]
-            if isinstance(arg_loc, RiscvRegister):
+            if isinstance(arg_loc, (RiscvRegister,RiscvFRegister)):
                 yield self.move(arg_loc, arg)
             else:  # pragma: no cover
                 raise NotImplementedError('Parameters in memory not impl')
@@ -259,23 +229,35 @@ class RiscvArch(Architecture):
         """
         locations = []
         regs = [R12, R13, R14, R15, R16, R17]
+        fregs = [F12, F13, F14, F15, F16, F17]
         offset = 0
         for a in arg_types:
             if a.is_blob:
                 r = StackLocation(offset, a.size)
                 offset += a.size
             else:
-                if regs:
-                    r = regs.pop(0)
+                if a in [ir.f32, ir.f64] and self.has_option('rvf'):
+                    if fregs:
+                        r = fregs.pop(0)
+                    else:
+                        arg_size = self.info.get_size(a)
+                        r = StackLocation(offset, arg_size)
+                        offset += arg_size
                 else:
-                    arg_size = self.info.get_size(a)
-                    r = StackLocation(offset, arg_size)
-                    offset += arg_size
+                    if regs:
+                        r = regs.pop(0)
+                    else:
+                        arg_size = self.info.get_size(a)
+                        r = StackLocation(offset, arg_size)
+                        offset += arg_size                                 
             locations.append(r)
         return locations
 
     def determine_rv_location(self, ret_type):
-        rv = R10
+        if ret_type in [ir.f32, ir.f64] and self.has_option('rvf'):
+            rv = F10
+        else:
+            rv = R10
         return rv
 
     def gen_prologue(self, frame):
