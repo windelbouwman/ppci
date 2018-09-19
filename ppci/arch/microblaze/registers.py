@@ -8,6 +8,12 @@ class MicroBlazeRegister(Register):
     """ A microblaze register """
     bitsize = 32
 
+    def __repr__(self):
+        if self.is_colored:
+            return 'R{}'.format(self.color)
+        else:
+            return self.name
+
 
 R0 = MicroBlazeRegister('R0', num=0)
 R1 = MicroBlazeRegister('R1', num=1)
@@ -53,7 +59,7 @@ caller_saved = [
     R3, R4, R5, R6, R7, R8, R9, R10, R11, R12
 ]
 callee_saved = [
-    R19, R20, R21, R22, R23,
+    R20, R21, R22, R23,
     R24, R25, R26, R27, R28, R29, R30, R31
 ]
 
@@ -64,7 +70,7 @@ register_classes = [
         'reg',
         [ir.i8, ir.i16, ir.i32, ir.ptr, ir.u8, ir.u16, ir.u32],
         MicroBlazeRegister,
-        all_registers)
+        general_purpose)
     ]
 
 

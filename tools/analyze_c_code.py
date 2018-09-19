@@ -50,6 +50,7 @@ def analyze_sources(source_dir, defines):
     coptions.add_define('FPM_DEFAULT')
     coptions.add_include_path(source_dir)
     coptions.add_include_path(LIBC_INCLUDES)
+    coptions.add_include_path('/usr/include')
     asts = []
     for source_filename in glob.iglob(os.path.join(source_dir, '*.c')):
         logger.info('Processing %s', source_filename)

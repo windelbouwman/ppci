@@ -57,11 +57,15 @@ def syntax_from_operands(mnemonic, operands):
     return Syntax(syntax)
 
 
-def type_a(mnemonic: str, opcode1, opcode2, rd=None, ra=None, rb=None):
+def type_a(mnemonic: str, opcode1, opcode2, rd=None, ra=None, rb=None,
+           rd_write=True):
     """ Create a type a instruction """
     operands = []
     if rd is None:
-        rd = Operand('rd', MicroBlazeRegister, write=True)
+        if rd_write:
+            rd = Operand('rd', MicroBlazeRegister, write=True)
+        else:
+            rd = Operand('rd', MicroBlazeRegister, read=True)
         operands.append(rd)
     if ra is None:
         ra = Operand('ra', MicroBlazeRegister, read=True)
@@ -86,11 +90,15 @@ def type_a(mnemonic: str, opcode1, opcode2, rd=None, ra=None, rb=None):
     return type(name, (MicroBlazeInstruction,), members)
 
 
-def type_b(mnemonic, opcode, rd=None, ra=None, imm=None):
+def type_b(mnemonic, opcode, rd=None, ra=None, imm=None,
+           rd_write=True):
     """ Create an instruction class for a type B instruction """
     operands = []
     if rd is None:
-        rd = Operand('rd', MicroBlazeRegister, write=True)
+        if rd_write:
+            rd = Operand('rd', MicroBlazeRegister, write=True)
+        else:
+            rd = Operand('rd', MicroBlazeRegister, read=True)
         operands.append(rd)
 
     if ra is None:
@@ -250,16 +258,16 @@ Bgeid = type_b('bgeid', 0x2f, rd=0x15)
 Lbu = type_a('lbu', 0x30, 0)
 Lhu = type_a('lhu', 0x31, 0)
 Lw = type_a('lw', 0x32, 0)
-Sb = type_a('sb', 0x34, 0)
-Sh = type_a('sh', 0x35, 0)
-Sw = type_a('sw', 0x36, 0)
+Sb = type_a('sb', 0x34, 0, rd_write=False)
+Sh = type_a('sh', 0x35, 0, rd_write=False)
+Sw = type_a('sw', 0x36, 0, rd_write=False)
 
 Lbui = type_b('lbui', 0x38)
 Lhui = type_b('lhui', 0x39)
 Lwi = type_b('lwi', 0x3a)
-Sbi = type_b('sbi', 0x3c)
-Shi = type_b('shi', 0x3d)
-Swi = type_b('swi', 0x3e)
+Sbi = type_b('sbi', 0x3c, rd_write=False)
+Shi = type_b('shi', 0x3d, rd_write=False)
+Swi = type_b('swi', 0x3e, rd_write=False)
 
 
 def label_imm():
@@ -317,6 +325,23 @@ class Brlid_label(ArtificialInstruction):
     def render(self):
         yield Imm(0)
         yield Brlid(self.rd, 0)
+
+
+class Addik_label(ArtificialInstruction):
+    isa = isa
+    rd = Operand('rd', MicroBlazeRegister, write=True)
+    ra = Operand('ra', MicroBlazeRegister, read=True)
+    target = Operand('target', str)
+    syntax = Syntax(['addik', ' ', rd, ',', ' ', ra, ',', ' ', target])
+
+    def relocations(self):
+        return [
+            AbsRelocation64(self.target),
+        ]
+
+    def render(self):
+        yield Imm(0)
+        yield Addik(self.rd, self.ra, 0)
 
 
 # Branch equal operators
@@ -466,7 +491,7 @@ def pattern_const32(context, tree):
 def pattern_label(context, tree):
     """ Determine the label address and yield its result """
     dst = context.new_reg(MicroBlazeRegister)
-    context.emit(Imm(0))
+    context.emit(Addik_label(dst, R0, tree.value))
     return dst
 
 
@@ -669,13 +694,10 @@ def pattern_cjmp8(context, tree, c0, c1):
         '>=': (Bgei_label, False),
         '<=': (Blei_label, False),
     }
-    Bop, swap = opnames[op]
+    Bop, _ = opnames[op]
 
     tst = context.new_reg(MicroBlazeRegister)
-    if swap:
-        context.emit(Cmp(tst, c1, c0))
-    else:
-        context.emit(Cmp(tst, c0, c1))
+    context.emit(Cmp(tst, c1, c0))
 
     jmp_ins_no = Bri_label(no_label.name, jumps=[no_label])
     context.emit(Bop(tst, yes_label.name, jumps=[yes_label, jmp_ins_no]))

@@ -2,8 +2,9 @@
 
 from ... import ir
 from ..arch import Architecture
-from ..arch_info import ArchInfo, TypeInfo
-from ..generic_instructions import Label, RegisterUseDef
+from ..arch_info import ArchInfo, TypeInfo, Endianness
+from ..generic_instructions import Label, RegisterUseDef, Alignment
+from ..data_instructions import Db
 from ..stack import StackLocation
 from ...binutils.assembler import BaseAssembler
 from . import instructions
@@ -24,6 +25,7 @@ class MicroBlazeArch(Architecture):
                 ir.f32: TypeInfo(4, 4), ir.f64: TypeInfo(8, 8),
                 'int': ir.i32, 'ptr': ir.u32, ir.ptr: ir.u32,
             },
+            endianness=Endianness.BIG,
             register_classes=registers.register_classes)
         self.isa = instructions.isa
         self.assembler = BaseAssembler()
@@ -46,33 +48,82 @@ class MicroBlazeArch(Architecture):
         # Label indication function:
         yield Label(frame.name)
 
-        # Decrease stack pointer (R1)
+        # Determine stack size:
         stack_size = 4
         if frame.stacksize > 0:
-            stack_size += frame.stacksize
+            stack_size += round_up(frame.stacksize)
+
+        # Determine callee save registers:
+        saved_registers = []
+        for register in registers.callee_saved:
+            if register in frame.used_regs:
+                saved_registers.append((stack_size, register))
+                stack_size += 4
+
+        # Decrease stack pointer (R1)
         yield instructions.Addik(registers.R1, registers.R1, -stack_size)
+
         # Store return link:
         yield instructions.Swi(registers.R15, registers.R1, 0)
 
-        # Setup frame pointer:
+        # Save callee save registers:
+        for offset, register in saved_registers:
+            yield instructions.Swi(register, registers.R1, offset)
+
+        # Setup frame pointer (R19):
         yield instructions.Addk(registers.R19, registers.R1, registers.R0)
 
     def gen_epilogue(self, frame):
         """ Return epilogue sequence for a frame.
 
         """
+        # Determine stack size:
+        stack_size = 4  # Start with 4?
+        if frame.stacksize > 0:
+            stack_size += round_up(frame.stacksize)
+
+        # Determine callee save registers:
+        saved_registers = []
+        for register in registers.callee_saved:
+            if register in frame.used_regs:
+                saved_registers.append((stack_size, register))
+                stack_size += 4
+
         # Retrieve return link:
         yield instructions.Lwi(registers.R15, registers.R1, 0)
 
-        # Adjust stack pointer:
-        stack_size = 4  # Start with 4?
-        if frame.stacksize > 0:
-            stack_size += frame.stacksize
+        # Restore callee saved registers:
+        for offset, register in saved_registers:
+            yield instructions.Lwi(register, registers.R1, offset)
+
+        # Re-adjust stack pointer:
         yield instructions.Addik(registers.R1, registers.R1, stack_size)
 
         # Return:
         yield instructions.Rtsd(registers.R15, 8)
-        yield nop()
+        yield nop()  # Fill delay slot.
+
+        # Add final literal pool:
+        for instruction in self.gen_litpool(frame):
+            yield instruction
+        yield Alignment(4)   # Align at 4 bytes
+
+    def gen_litpool(self, frame):
+        """ Generate instructions for literals """
+        if frame.constants:
+            # Align at 4 bytes
+            yield Alignment(4)
+
+            # Add constant literals:
+            for label, value in frame.constants:
+                yield Label(label)
+                if isinstance(value, bytes):
+                    for byte in value:
+                        yield Db(byte)
+                    yield Alignment(4)   # Align at 4 bytes
+                else:  # pragma: no cover
+                    raise NotImplementedError(
+                        'Constant of type {}'.format(value))
 
     def gen_function_enter(self, args):
         arg_types = [a[0] for a in args]
@@ -117,13 +168,12 @@ class MicroBlazeArch(Architecture):
 
         # Emit call:
         if isinstance(label, registers.MicroBlazeRegister):
-            yield instructions.Brald(label)
-            # Fill delay slot with nop:
-            yield nop()
+            yield instructions.Brald(
+                label, clobbers=registers.caller_saved)
         else:
-            yield instructions.Brlid_label(registers.R15, label)
-            # Fill delay slot with nop:
-            yield nop()
+            yield instructions.Brlid_label(
+                registers.R15, label, clobbers=registers.caller_saved)
+        yield nop()  # Fill delay slot with nop:
 
         # Copy return value:
         if rv:
@@ -160,3 +210,7 @@ class MicroBlazeArch(Architecture):
 
 def nop():
     return instructions.Or(registers.R0, registers.R0, registers.R0)
+
+
+def round_up(s):
+    return s + (4 - s % 4)
