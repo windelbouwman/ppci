@@ -19,19 +19,19 @@ addik  r1, r0, __data_start
 ; mts    rshr, r1
 
 ;; Output 'A':
-imm 0x8400
-addik r6, r0, 4
-addik r5, r0, 0x41
-sw r5, r6, r0
+;imm 0x8400
+;addik r6, r0, 4
+;addik r5, r0, 0x41
+;sw r5, r6, r0
 
-; Output 'E':
-addik r5, r0, 0x45
-brlid r15, bsp_putc
-or r0,r0,r0  ; fill delay slot
+;; Output 'E':
+;addik r5, r0, 0x45
+;brlid r15, bsp_putc
+;or r0,r0,r0  ; fill delay slot
 
-; Output 'Z':
-brlid r15, emitZ
-or r0,r0,r0  ; fill delay slot
+;; Output 'Z':
+;brlid r15, emitZ
+;or r0,r0,r0  ; fill delay slot
 
 ; Copy .data from ROM to RAM:
 addik r5, r0, __data_start
@@ -49,10 +49,10 @@ brlid r15, bsp_exit
 or r0,r0,r0  ;  fill delay slot
 
 ;; Output 'B':
-imm 0x8400
-addik r6, r0, 4
-addik r5, r0, 0x42
-sw r5, r6, r0
+;imm 0x8400
+;addik r6, r0, 4
+;addik r5, r0, 0x42
+;sw r5, r6, r0
 
 end_label:
 bri end_label  ; Endless loop!

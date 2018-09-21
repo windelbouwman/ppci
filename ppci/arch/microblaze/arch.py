@@ -5,7 +5,7 @@ from ..arch import Architecture
 from ..arch_info import ArchInfo, TypeInfo, Endianness
 from ..generic_instructions import Label, RegisterUseDef, Alignment
 from ..data_instructions import Db
-from ..stack import StackLocation
+from ..stack import StackLocation, FramePointerLocation
 from ...binutils.assembler import BaseAssembler
 from . import instructions
 from . import registers
@@ -27,6 +27,7 @@ class MicroBlazeArch(Architecture):
             },
             endianness=Endianness.BIG,
             register_classes=registers.register_classes)
+        self.fp_location = FramePointerLocation.BOTTOM
         self.isa = instructions.isa
         self.assembler = BaseAssembler()
         self.assembler.gen_asm_parser(self.isa)
@@ -34,8 +35,7 @@ class MicroBlazeArch(Architecture):
     def move(self, dst, src):
         if isinstance(dst, registers.MicroBlazeRegister):
             if isinstance(src, registers.MicroBlazeRegister):
-                # TODO: use the keep carry variant here?
-                return instructions.Add(dst, registers.R0, src)
+                return instructions.mov(dst, src)
             else:
                 raise NotImplementedError()
         else:
@@ -101,7 +101,7 @@ class MicroBlazeArch(Architecture):
 
         # Return:
         yield instructions.Rtsd(registers.R15, 8)
-        yield nop()  # Fill delay slot.
+        yield instructions.nop()  # Fill delay slot.
 
         # Add final literal pool:
         for instruction in self.gen_litpool(frame):
@@ -169,11 +169,11 @@ class MicroBlazeArch(Architecture):
         # Emit call:
         if isinstance(label, registers.MicroBlazeRegister):
             yield instructions.Brald(
-                label, clobbers=registers.caller_saved)
+                registers.R15, label, clobbers=registers.caller_saved)
         else:
             yield instructions.Brlid_label(
                 registers.R15, label, clobbers=registers.caller_saved)
-        yield nop()  # Fill delay slot with nop:
+        yield instructions.nop()  # Fill delay slot with nop:
 
         # Copy return value:
         if rv:
@@ -207,9 +207,20 @@ class MicroBlazeArch(Architecture):
         """ Return values in R3-R4 """
         return registers.R3
 
+    def get_runtime(self):
+        """ Compiles the runtime support for microblaze.
 
-def nop():
-    return instructions.Or(registers.R0, registers.R0, registers.R0)
+        It takes some c3 code.
+        """
+        # Circular import, but this is possible!
+        from ...api import c3c
+        from ..runtime import get_runtime_files
+        c3_sources = get_runtime_files([
+            'divsi3',
+            'mulsi3',
+        ])
+        obj = c3c(c3_sources, [], self)
+        return obj
 
 
 def round_up(s):

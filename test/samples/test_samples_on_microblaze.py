@@ -20,11 +20,10 @@ class MicroblazeSamplesTestCase(unittest.TestCase):
         build(
             base_filename, src, bsp_c3, crt0, self.march, self.opt_level,
             mmap, lang=lang, bin_format='bin', code_image='flash')
-        binfile = base_filename + '.bin'
+        bin_filename = base_filename + '.bin'
 
         if has_qemu():
             output = qemu([
                 'qemu-system-microblaze', '-nographic',
-                '-M', 'or1k-sim', '-m', '16',
-                '-kernel', img_filename])
+                '-kernel', bin_filename])
             self.assertEqual(expected_output, output)

@@ -5,7 +5,9 @@ from ..encoding import Instruction, Syntax, Operand, Relocation
 from ..isa import Isa
 from ..token import Token, bit_range, Endianness
 from ..generic_instructions import ArtificialInstruction
+from ..generic_instructions import RegisterUseDef
 from .registers import MicroBlazeRegister, R0
+from . import registers
 
 
 isa = Isa()
@@ -441,6 +443,16 @@ class Bgei_label(ArtificialInstruction):
         yield Bgei(self.ra, 0)
 
 
+def mov(dst, src):
+    """ Move instruction """
+    # TODO: use the keep carry variant here?
+    return Add(dst, registers.R0, src, ismove=True)
+
+
+def nop():
+    return Or(registers.R0, registers.R0, registers.R0)
+
+
 # Instruction selection:
 # Generic:
 @isa.pattern('reg', 'REGI8', size=0, cycles=0, energy=0)
@@ -455,7 +467,15 @@ def pattern_reg(context, tree):
 
 @isa.pattern('mem', 'reg', size=0, cycles=0, energy=0)
 def pattern_reg_as_mem(context, tree, reg):
-    return (reg, R0)
+    return (reg, 0)
+
+
+@isa.pattern('reg', 'mem', size=4, cycles=1, energy=1)
+def pattern_mem_as_reg(context, tree, mem):
+    base, offset = mem
+    dst = context.new_reg(MicroBlazeRegister)
+    context.emit(Addik(dst, base, offset))
+    return dst
 
 
 @isa.pattern('stm', 'MOVI8(reg)', size=4)
@@ -495,12 +515,40 @@ def pattern_label(context, tree):
     return dst
 
 
+@isa.pattern('mem', 'FPRELU32', size=0)
+def pattern_fprel(context, tree):
+    offset = tree.value.offset
+    return (registers.R1, offset + 4)  # return address is stored at R1 + 0.
+
+
 # Data conversion patterns:
 @isa.pattern('reg', 'U32TOI32(reg)', size=0, cycles=0, energy=0)
 @isa.pattern('reg', 'I32TOI32(reg)', size=0, cycles=0, energy=0)
 @isa.pattern('reg', 'U32TOU32(reg)', size=0, cycles=0, energy=0)
 @isa.pattern('reg', 'I32TOU32(reg)', size=0, cycles=0, energy=0)
 def pattern_i32toi32(context, tree, reg):
+    return reg
+
+
+@isa.pattern('reg', 'U32TOI16(reg)', size=0, cycles=0, energy=0)
+@isa.pattern('reg', 'I32TOI16(reg)', size=0, cycles=0, energy=0)
+@isa.pattern('reg', 'U32TOU16(reg)', size=0, cycles=0, energy=0)
+@isa.pattern('reg', 'I32TOU16(reg)', size=0, cycles=0, energy=0)
+def pattern_i32toi16(context, tree, reg):
+    return reg
+
+
+@isa.pattern('reg', 'I16TOI32(reg)', size=0, cycles=0, energy=0)
+def pattern_i16toi32(context, tree, reg):
+    dst = context.new_reg(MicroBlazeRegister)
+    context.emit(Sext16(dst, reg))
+    return dst
+
+
+@isa.pattern('reg', 'U16TOI32(reg)', size=0, cycles=0, energy=0)
+@isa.pattern('reg', 'U16TOU32(reg)', size=0, cycles=0, energy=0)
+@isa.pattern('reg', 'I16TOU32(reg)', size=0, cycles=0, energy=0)
+def pattern_16to32(context, tree, reg):
     return reg
 
 
@@ -512,11 +560,17 @@ def pattern_i32toi8(context, tree, reg):
     return reg
 
 
-@isa.pattern('reg', 'U8TOI32(reg)', size=0, cycles=0, energy=0)
 @isa.pattern('reg', 'I8TOI32(reg)', size=0, cycles=0, energy=0)
+def pattern_i8toi32(context, tree, reg):
+    dst = context.new_reg(MicroBlazeRegister)
+    context.emit(Sext8(dst, reg))
+    return dst
+
+
+@isa.pattern('reg', 'U8TOI32(reg)', size=0, cycles=0, energy=0)
 @isa.pattern('reg', 'U8TOU32(reg)', size=0, cycles=0, energy=0)
 @isa.pattern('reg', 'I8TOU32(reg)', size=0, cycles=0, energy=0)
-def pattern_i8toi32(context, tree, reg):
+def pattern_8to32(context, tree, reg):
     return reg
 
 
@@ -542,6 +596,69 @@ def pattern_add(context, tree, c0, c1):
 def pattern_sub(context, tree, c0, c1):
     dst = context.new_reg(MicroBlazeRegister)
     context.emit(Rsub(dst, c1, c0))
+    return dst
+
+
+@isa.pattern('reg', 'MULI8(reg, reg)', size=4)
+@isa.pattern('reg', 'MULU8(reg, reg)', size=4)
+@isa.pattern('reg', 'MULI16(reg, reg)', size=4)
+@isa.pattern('reg', 'MULU16(reg, reg)', size=4)
+@isa.pattern('reg', 'MULI32(reg, reg)', size=4)
+@isa.pattern('reg', 'MULU32(reg, reg)', size=4)
+def pattern_mul(context, tree, c0, c1):
+    dst = context.new_reg(MicroBlazeRegister)
+    context.emit(Mul(dst, c0, c1))
+    return dst
+
+
+def call_intrinsic(context, label, args, result):
+    """ Generate a call to an intrinsic function """
+    c0, c1 = args
+    context.move(registers.R5, c0)
+    context.move(registers.R6, c1)
+    context.emit(RegisterUseDef(uses=(registers.R5, registers.R6)))
+    context.emit(Brlid_label(
+        registers.R15, label,
+        clobbers=registers.caller_saved
+    ))
+    context.emit(nop())  # Fill the delay slot!
+    context.emit(RegisterUseDef(defs=(registers.R3,)))
+    context.move(result, registers.R3)
+
+
+@isa.pattern('reg', 'DIVI8(reg, reg)', size=4)
+@isa.pattern('reg', 'DIVU8(reg, reg)', size=4)
+@isa.pattern('reg', 'DIVI16(reg, reg)', size=4)
+@isa.pattern('reg', 'DIVU16(reg, reg)', size=4)
+@isa.pattern('reg', 'DIVI32(reg, reg)', size=4)
+@isa.pattern('reg', 'DIVU32(reg, reg)', size=4)
+def pattern_div(context, tree, c0, c1):
+    dst = context.new_reg(MicroBlazeRegister)
+    call_intrinsic(context, 'runtime_divsi3', [c0, c1], dst)
+    return dst
+
+
+@isa.pattern('reg', 'REMI8(reg, reg)', size=4)
+@isa.pattern('reg', 'REMU8(reg, reg)', size=4)
+@isa.pattern('reg', 'REMI16(reg, reg)', size=4)
+@isa.pattern('reg', 'REMU16(reg, reg)', size=4)
+@isa.pattern('reg', 'REMI32(reg, reg)', size=4)
+@isa.pattern('reg', 'REMU32(reg, reg)', size=4)
+def pattern_rem(context, tree, c0, c1):
+    dst = context.new_reg(MicroBlazeRegister)
+    call_intrinsic(context, 'runtime_modsi3', [c0, c1], dst)
+    return dst
+
+
+@isa.pattern('reg', 'NEGI8(reg)', size=4)
+@isa.pattern('reg', 'NEGU8(reg)', size=4)
+@isa.pattern('reg', 'NEGI16(reg)', size=4)
+@isa.pattern('reg', 'NEGU16(reg)', size=4)
+@isa.pattern('reg', 'NEGI32(reg)', size=4)
+@isa.pattern('reg', 'NEGU32(reg)', size=4)
+def pattern_neg(context, tree, c0):
+    dst = context.new_reg(MicroBlazeRegister)
+    context.emit(Rsubi(dst, c0, 0))
     return dst
 
 
@@ -606,12 +723,25 @@ def pattern_shr(context, tree, c0, c1):
     return dst
 
 
+@isa.pattern('reg', 'INVI8(reg)', size=4)
+@isa.pattern('reg', 'INVU8(reg)', size=4)
+@isa.pattern('reg', 'INVI16(reg)', size=4)
+@isa.pattern('reg', 'INVU16(reg)', size=4)
+@isa.pattern('reg', 'INVI32(reg)', size=4)
+@isa.pattern('reg', 'INVU32(reg)', size=4)
+def pattern_inv(context, tree, c0):
+    dst = context.new_reg(MicroBlazeRegister)
+    context.emit(Imm(0xffff))
+    context.emit(Xori(dst, c0, 0xffff))
+    return dst
+
+
 # Load / store:
 @isa.pattern('reg', 'LDRI8(mem)', size=4)
 def pattern_ldr_i8(context, tree, mem):
     dst = context.new_reg(MicroBlazeRegister)
     base, offset = mem
-    context.emit(Lbu(dst, base, offset))
+    context.emit(Lbui(dst, base, offset))
     context.emit(Sext8(dst, dst))
     return dst
 
@@ -620,7 +750,7 @@ def pattern_ldr_i8(context, tree, mem):
 def pattern_ldr_u8(context, tree, mem):
     dst = context.new_reg(MicroBlazeRegister)
     base, offset = mem
-    context.emit(Lbu(dst, base, offset))
+    context.emit(Lbui(dst, base, offset))
     return dst
 
 
@@ -628,7 +758,7 @@ def pattern_ldr_u8(context, tree, mem):
 def pattern_ldr_i16(context, tree, mem):
     dst = context.new_reg(MicroBlazeRegister)
     base, offset = mem
-    context.emit(Lhu(dst, base, offset))
+    context.emit(Lhui(dst, base, offset))
     context.emit(Sext16(dst, dst))
     return dst
 
@@ -637,7 +767,7 @@ def pattern_ldr_i16(context, tree, mem):
 def pattern_ldr_u16(context, tree, mem):
     dst = context.new_reg(MicroBlazeRegister)
     base, offset = mem
-    context.emit(Lhu(dst, base, offset))
+    context.emit(Lhui(dst, base, offset))
     return dst
 
 
@@ -646,7 +776,7 @@ def pattern_ldr_u16(context, tree, mem):
 def pattern_ldr32(context, tree, mem):
     dst = context.new_reg(MicroBlazeRegister)
     base, offset = mem
-    context.emit(Lw(dst, base, offset))
+    context.emit(Lwi(dst, base, offset))
     return dst
 
 
@@ -654,21 +784,21 @@ def pattern_ldr32(context, tree, mem):
 @isa.pattern('stm', 'STRU8(mem, reg)', size=4)
 def pattern_str8(context, tree, mem, value):
     base, offset = mem
-    context.emit(Sb(value, base, offset))
+    context.emit(Sbi(value, base, offset))
 
 
 @isa.pattern('stm', 'STRI16(mem, reg)', size=4)
 @isa.pattern('stm', 'STRU16(mem, reg)', size=4)
 def pattern_str16(context, tree, mem, value):
     base, offset = mem
-    context.emit(Sh(value, base, offset))
+    context.emit(Shi(value, base, offset))
 
 
 @isa.pattern('stm', 'STRI32(mem, reg)', size=4)
 @isa.pattern('stm', 'STRU32(mem, reg)', size=4)
 def pattern_str32(context, tree, mem, value):
     base, offset = mem
-    context.emit(Sw(value, base, offset))
+    context.emit(Swi(value, base, offset))
 
 
 # Jumping and branching:
@@ -679,12 +809,20 @@ def pattern_jmp(context, tree):
 
 
 @isa.pattern('stm', 'CJMPI8(reg, reg)', size=4)
-@isa.pattern('stm', 'CJMPU8(reg, reg)', size=4)
 @isa.pattern('stm', 'CJMPI16(reg, reg)', size=4)
-@isa.pattern('stm', 'CJMPU16(reg, reg)', size=4)
 @isa.pattern('stm', 'CJMPI32(reg, reg)', size=4)
+def pattern_cjmp_i8(context, tree, c0, c1):
+    cjmp_impl(context, tree, c0, c1, signed=True)
+
+
+@isa.pattern('stm', 'CJMPU8(reg, reg)', size=4)
+@isa.pattern('stm', 'CJMPU16(reg, reg)', size=4)
 @isa.pattern('stm', 'CJMPU32(reg, reg)', size=4)
-def pattern_cjmp8(context, tree, c0, c1):
+def pattern_cjmp_u8(context, tree, c0, c1):
+    cjmp_impl(context, tree, c0, c1, signed=False)
+
+
+def cjmp_impl(context, tree, c0, c1, signed=False):
     op, yes_label, no_label = tree.value
     opnames = {
         "==": (Beqi_label, False),
@@ -697,7 +835,10 @@ def pattern_cjmp8(context, tree, c0, c1):
     Bop, _ = opnames[op]
 
     tst = context.new_reg(MicroBlazeRegister)
-    context.emit(Cmp(tst, c1, c0))
+    if signed:
+        context.emit(Cmp(tst, c1, c0))
+    else:
+        context.emit(Cmpu(tst, c1, c0))
 
     jmp_ins_no = Bri_label(no_label.name, jumps=[no_label])
     context.emit(Bop(tst, yes_label.name, jumps=[yes_label, jmp_ins_no]))
