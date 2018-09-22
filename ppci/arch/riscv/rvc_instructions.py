@@ -413,7 +413,10 @@ class Andv(PseudoRiscvInstruction):
         if self.rd.num in range(8, 16) and self.rn.num in range(8, 16) and \
                         self.rm.num in range(8, 16) and \
                 (self.rd.num == self.rn.num or self.rd.num == self.rm.num):
-            yield CAnd(self.rd, self.rm)
+            if self.rd.num == self.rn.num:
+                yield CAnd(self.rd, self.rm)
+            else:
+                yield CAnd(self.rd, self.rn)
         else:
             yield Andr(self.rd, self.rn, self.rm)
 
@@ -428,7 +431,10 @@ class Orv(PseudoRiscvInstruction):
         if self.rd.num in range(8, 16) and self.rn.num in range(8, 16) and \
                         self.rm.num in range(8, 16) and \
                 (self.rd.num == self.rn.num or self.rd.num == self.rm.num):
-            yield COr(self.rd, self.rm)
+                if self.rd.num == self.rn.num:
+                    yield COr(self.rd, self.rm)
+                else:
+                    yield COr(self.rd, self.rn)
         else:
             yield Orr(self.rd, self.rn, self.rm)
 
@@ -443,7 +449,10 @@ class Xorv(PseudoRiscvInstruction):
         if self.rd.num in range(8, 16) and self.rn.num in range(8, 16) and \
                         self.rm.num in range(8, 16) and \
                 (self.rd.num == self.rn.num or self.rd.num == self.rm.num):
-            yield CXor(self.rd, self.rm)
+            if self.rd.num == self.rn.num:
+                yield CXor(self.rd, self.rm)
+            else:
+                yield CXor(self.rd, self.rn)
         else:
             yield Xorr(self.rd, self.rn, self.rm)
 
