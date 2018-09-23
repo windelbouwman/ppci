@@ -11,3 +11,4 @@ File formats
     dwarf
     hexfile
     uboot
+    srecord

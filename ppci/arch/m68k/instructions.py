@@ -12,6 +12,7 @@ from . import registers
 m68k_isa = Isa()
 
 
+# Tokens:
 class M68kToken(Token):
     class Info:
         size = 16
@@ -26,6 +27,7 @@ class M68kToken(Token):
     opcode = bit_range(12, 16)
     opcode2 = bit_range(8, 16)
     w = bit_range(0, 16)
+    imm8 = bit_range(0, 8)
 
 
 class Imm16Token(Token):
@@ -44,6 +46,15 @@ class Imm16Token2(Token):
     imm16_2 = bit_range(0, 16)
 
 
+class Imm32Token(Token):
+    class Info:
+        size = 32
+        endianness = Endianness.BIG
+
+    imm32 = bit_range(0, 32)
+
+
+# Helpers:
 class DataRegEa(Constructor):
     """ Data register access """
     reg = Operand('reg', DataRegister, read=True)
@@ -172,6 +183,39 @@ def make_ea(mnemonic, opcode, size):
     return type(class_name, (M68kInstruction,), members)
 
 
+@m68k_isa.register_relocation
+class BranchRel32Relocation(Relocation):
+    name = 'branch_rel32'
+    token = Imm32Token
+    field = 'imm32'
+
+    def calc(self, sym_value, reloc_value):
+        return sym_value - reloc_value
+
+
+class BranchBase(M68kInstruction):
+    tokens = [M68kToken, Imm32Token]
+    target = Operand('target', str)
+
+    def relocations(self):
+        return [BranchRel32Relocation(self.target, offset=2)]
+
+
+def make_jmp(mnemonic, opcode):
+    # TODO: there is a difference between 68000 and 68030 machines..
+    patterns = {
+        'opcode2': opcode,
+        'imm8': 0xff,
+    }
+    syntax = Syntax([mnemonic, ' ', BranchBase.target])
+    members = {
+        'syntax': syntax,
+        'patterns': patterns,
+    }
+    class_name = mnemonic.title()
+    return type(class_name, (BranchBase,), members)
+
+
 # Instruction classes:
 Addb = make_ea_dn('addb', 0b1101, opmode=0b000)
 Addw = make_ea_dn('addw', 0b1101, opmode=0b001)
@@ -179,6 +223,15 @@ Addl = make_ea_dn('addl', 0b1101, opmode=0b010)
 Andb = make_ea_dn('andb', 0b1100, opmode=0b000)
 Andw = make_ea_dn('andw', 0b1100, opmode=0b001)
 Andl = make_ea_dn('andl', 0b1100, opmode=0b010)
+
+Bne = make_jmp('bne', 0x66)
+Beq = make_jmp('beq', 0x67)
+Bge = make_jmp('bge', 0x6c)
+Blt = make_jmp('blt', 0x6d)
+Bgt = make_jmp('bgt', 0x6e)
+Ble = make_jmp('ble', 0x6f)
+Bra = make_jmp('bra', 0x60)  # Unconditional branch
+Bsr = make_jmp('bsr', 0x61)  # Branch subroutine
 Cmpb = make_ea_dn('cmpb', 0b1011, opmode=0b000)
 Cmpw = make_ea_dn('cmpw', 0b1011, opmode=0b001)
 Cmpl = make_ea_dn('cmpl', 0b1011, opmode=0b010)
@@ -535,5 +588,71 @@ def pattern_inv8(context, tree, regd):
 @m68k_isa.pattern('stm', 'JMP', size=2)
 def pattern_jmp(context, tree):
     tgt = tree.value
-    # context.emit(NearJump(tgt.name, jumps=[tgt]))
-    print('TODO: JMP')
+    context.emit(Bra(tgt.name, jumps=[tgt]))
+
+
+@m68k_isa.pattern('stm', 'CJMPI32(regd, ea32)', size=4)
+def pattern_cjmp_i32(context, tree, regd, ea):
+    op, yes_label, no_label = tree.value
+    context.emit(Cmpl(ea, regd))
+    cjmp_impl(context, op, yes_label, no_label)
+
+
+@m68k_isa.pattern('stm', 'CJMPU32(regd, ea32)', size=4)
+def pattern_cjmp_u32(context, tree, regd, ea):
+    op, yes_label, no_label = tree.value
+    context.emit(Cmpl(ea, regd))
+    cjmp_impl_unsigned(context, op, yes_label, no_label)
+
+
+@m68k_isa.pattern('stm', 'CJMPI16(regd, ea16)', size=4)
+def pattern_cjmp_i16(context, tree, regd, ea):
+    op, yes_label, no_label = tree.value
+    context.emit(Cmpw(ea, regd))
+    cjmp_impl(context, op, yes_label, no_label)
+
+
+@m68k_isa.pattern('stm', 'CJMPU16(regd, ea16)', size=4)
+def pattern_cjmp_u16(context, tree, regd, ea):
+    op, yes_label, no_label = tree.value
+    context.emit(Cmpw(ea, regd))
+    cjmp_impl_unsigned(context, op, yes_label, no_label)
+
+
+@m68k_isa.pattern('stm', 'CJMPI8(regd, ea8)', size=4)
+def pattern_cjmp_i8(context, tree, regd, ea):
+    op, yes_label, no_label = tree.value
+    context.emit(Cmpb(ea, regd))
+    cjmp_impl(context, op, yes_label, no_label)
+
+
+@m68k_isa.pattern('stm', 'CJMPU8(regd, ea8)', size=4)
+def pattern_cjmp_u8(context, tree, regd, ea):
+    op, yes_label, no_label = tree.value
+    context.emit(Cmpb(ea, regd))
+    cjmp_impl_unsigned(context, op, yes_label, no_label)
+
+
+def cjmp_impl(context, op, yes_label, no_label):
+    opnames = {
+        "<": Blt, ">": Bgt,
+        "==": Beq, "!=": Bne,
+        '<=': Ble, ">=": Bge
+    }
+    Bop = opnames[op]
+    jmp_ins = Bra(no_label.name, jumps=[no_label])
+    context.emit(Bop(yes_label.name, jumps=[yes_label, jmp_ins]))
+    context.emit(jmp_ins)
+
+
+def cjmp_impl_unsigned(context, op, yes_label, no_label):
+    opnames = {
+        "<": Blt, ">": Bgt,
+        "==": Beq, "!=": Bne,
+        '<=': Ble, ">=": Bge
+    }
+    Bop = opnames[op]
+    jmp_ins = Bra(no_label.name, jumps=[no_label])
+    context.emit(Bop(yes_label.name, jumps=[yes_label, jmp_ins]))
+    context.emit(jmp_ins)
+

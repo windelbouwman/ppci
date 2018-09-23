@@ -89,6 +89,12 @@ def popcnt(v: int, bits: int) -> int:
     return count
 
 
+def value_to_bytes_big_endian(value: int, size: int):
+    """ Pack integer value into bytes """
+    byte_numbers = reversed(range(size))
+    return bytes((value >> (x * 8)) & 0xff for x in byte_numbers)
+
+
 def value_to_bits(v, bits):
     """ Convert a value to a list of booleans """
     b = []

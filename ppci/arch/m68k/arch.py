@@ -97,7 +97,7 @@ class M68kArch(Architecture):
             yield instructions.Jalr(label, clobbers=registers.caller_save)
         else:
             assert isinstance(label, str)
-            yield instructions.Jal(label, clobbers=registers.caller_save)
+            yield instructions.Bsr(label, clobbers=registers.caller_save)
 
         if rv:
             retval_loc = self.determine_rv_location(rv[0])
