@@ -16,7 +16,7 @@ import os
 import logging
 import time
 import traceback
-from ppci.api import cc
+from ppci.api import cc, link
 from ppci.lang.c import COptions
 from ppci.common import CompilerError, logformat
 
@@ -56,13 +56,15 @@ def main():
         'layer3.c',
         'huffman.c',
     ]
+    objs = []
     for filename in sources:
         filename = os.path.join(libmad_folder, filename)
         print('      ======================')
         print('    ========================')
         print('  ==> Compiling', filename)
         try:
-            do_compile(filename)
+            obj = do_compile(filename)
+            objs.append(obj)
         except CompilerError as ex:
             print('Error:', ex.msg, ex.loc)
             ex.print()
@@ -79,6 +81,8 @@ def main():
     t2 = time.time()
     elapsed = t2 - t1
     print('Passed:', passed, 'failed:', failed, 'in', elapsed, 'seconds')
+    obj = link(objs)
+    print(obj)
 
 
 if __name__ == '__main__':

@@ -42,6 +42,7 @@ Backend details
     architecture
     arm
     avr
+    m68k
     microblaze
     mcs6500
     msp430

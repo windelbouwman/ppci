@@ -6,6 +6,7 @@ from .avr import AvrArch
 from .example import ExampleArch
 from .msp430 import Msp430Arch
 from .x86_64 import X86_64Arch
+from .m68k import M68kArch
 from .mcs6500 import Mcs6500Arch
 from .mips import MipsArch
 from .microblaze import MicroBlazeArch
@@ -19,6 +20,7 @@ target_classes = [
     ArmArch,
     AvrArch,
     ExampleArch,
+    M68kArch,
     Mcs6500Arch,
     MicroBlazeArch,
     MipsArch,

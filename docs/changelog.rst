@@ -10,6 +10,9 @@ Release 1.0 (Planned)
 Release 0.5.7 (Upcoming)
 ------------------------
 
+* Added support for the m68k processor.
+* Added support for the microblaze processor.
+
 Release 0.5.6 (Aug 22, 2018)
 ----------------------------
 
