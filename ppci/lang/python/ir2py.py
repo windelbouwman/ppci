@@ -197,8 +197,12 @@ class IrToPythonCompiler:
         for var in ir_mod.variables:
             self.emit('{} = heap_top()'.format(var.name))
             if var.value:
-                for byte in var.value:
-                    self.emit('heap.append({})'.format(byte))
+                for part in var.value:
+                    if isinstance(part, bytes):
+                        for byte in part:
+                            self.emit('heap.append({})'.format(byte))
+                    else:  # pragma: no cover
+                        raise NotImplementedError()
             else:
                 self.emit('heap.extend(bytes({}))'.format(var.amount))
 

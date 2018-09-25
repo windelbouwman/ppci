@@ -988,11 +988,16 @@ class Variable(GlobalValue):
         super().__init__(name)
         assert isinstance(amount, int)
         self.amount = amount
-        assert isinstance(alignment, int)
+        if not isinstance(alignment, int):
+            raise TypeError(
+                'alignment must be int, not {}'.format(type(alignment)))
         self.alignment = alignment
-        assert value is None or isinstance(value, bytes)
-        if isinstance(value, bytes):
-            assert len(value) == amount
+        if not (value is None or isinstance(value, tuple)):
+            raise TypeError(
+                'value must be None or a tuple, not {}'.format(
+                    value))
+        # if isinstance(value, bytes):
+        #     assert len(value) == amount
         self.value = value
 
     def __str__(self):

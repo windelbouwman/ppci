@@ -14,6 +14,8 @@ The compilation strategy is hence as follows:
 
 import logging
 from collections import defaultdict
+from functools import reduce
+import operator
 from .. import ir
 from ..graph import relooper
 from . import components
@@ -35,6 +37,11 @@ def ir_to_wasm(ir_module: ir.Module, reporter=None) -> components.Module:
     Returns:
         A wasm module.
     """
+
+    if reporter:
+        reporter.message('{} exporting ir to wasm:'.format(ir_module))
+        reporter.dump_ir(ir_module)
+
     ir_to_wasm_compiler = IrToWasmCompiler(reporter=reporter)
     ir_to_wasm_compiler.prepare_compilation()
     ir_to_wasm_compiler.compile(ir_module)
@@ -89,21 +96,20 @@ class IrToWasmCompiler:
         self.logger.debug('Generating wasm for %s', ir_module)
 
         # Check external thingies:
-        for i, ir_external in enumerate(ir_module.externals):
+        for ir_external in ir_module.externals:
+            print(ir_external.name, self.function_refs)
             if isinstance(ir_external, ir.ExternalSubRoutine):
-                if self.has_function(ir_external.name):
-                    pass
-                    # raise ValueError(
-                    #    'Function {} already defined'.format(
-                    #       ir_external.name))
-                else:
+                assert not self.has_function(ir_external.name)
+                if ir_external.is_used:
                     arg_types = tuple(ir_external.argument_types)
                     if isinstance(ir_external, ir.ExternalFunction):
                         ret_types = (ir_external.return_ty,)
                     else:
                         ret_types = ()
+                    print(ir_external.name, ir_external.is_used)
                     type_ref = self.get_type_id(arg_types, ret_types)
                     import_id = '$' + ir_external.name  # i
+                    i = len(self.function_refs)
                     func_ref = components.Ref('func', index=i, name=import_id)
                     self.function_refs[ir_external.name] = func_ref
                     self.add_definition(components.Import(
@@ -118,8 +124,9 @@ class IrToWasmCompiler:
             addr = self.global_memory
             self.global_labels[ir_variable.name] = addr
             if ir_variable.value:
+                data = reduce(operator.add, ir_variable.value)
                 self.initial_memory.append(
-                    (0, addr, ir_variable.value))
+                    (0, addr, data))
             self.global_memory += ir_variable.amount
 
         functions_to_do = []

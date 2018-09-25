@@ -105,6 +105,7 @@ class CodeGenerator:
             assert not var.isLocal
             if var.ival:
                 cval = self.gen_global_ival(var.ival, var.typ)
+                cval = (cval,)
             else:
                 cval = None
 

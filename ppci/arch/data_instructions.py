@@ -10,6 +10,7 @@ dd 2 -> 02000000
 
 from .isa import Isa
 from .encoding import Instruction, Operand, Syntax, Relocation
+from .arch_info import Endianness
 from .token import Token, bit_range, u32
 
 data_isa = Isa()
@@ -34,6 +35,13 @@ class DwordToken(Token):
         size = 32
 
     value = bit_range(0, 32)
+
+
+class QwordToken(Token):
+    class Info:
+        size = 64
+
+    value = bit_range(0, 64)
 
 
 class DataInstruction(Instruction):
@@ -120,6 +128,38 @@ class Dcd2(DataInstruction):
 
     def relocations(self):
         return [U32DataRelocation(self.v)]
+
+
+class Dq(DataInstruction):
+    v = Operand('v', int)
+    tokens = [QwordToken]
+    syntax = Syntax(['dq', ' ', v])
+    patterns = {'value': v}
+
+    def relocations(self):
+        return [U64DataRelocation(self.v)]
+
+
+@data_isa.register_relocation
+class U64DataRelocation(Relocation):
+    name = 'absaddr64'
+    token = QwordToken
+    field = 'value'
+
+    def calc(self, sym_value, reloc_value):
+        assert sym_value % 4 == 0
+        assert reloc_value % 4 == 0
+        return sym_value
+
+
+class Dq2(DataInstruction):
+    v = Operand('v', str)
+    tokens = [QwordToken]
+    syntax = Syntax(['dq', ' ', '=', v])
+    patterns = {'value': 0}
+
+    def relocations(self):
+        return [U64DataRelocation(self.v)]
 
 
 class Ds(DataInstruction):

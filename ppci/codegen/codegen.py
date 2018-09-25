@@ -12,6 +12,8 @@ from ..arch.generic_instructions import RegisterUseDef, VirtualInstruction
 from ..arch.generic_instructions import ArtificialInstruction, Alignment
 from ..arch.encoding import Instruction
 from ..arch.data_instructions import DZero, DByte
+from ..arch import data_instructions
+from ..arch.arch_info import Endianness
 from ..binutils.debuginfo import DebugType, DebugLocation, DebugDb
 from ..binutils.outstream import MasterOutputStream, FunctionOutputStream
 from .irdag import SelectionGraphBuilder
@@ -61,25 +63,7 @@ class CodeGenerator:
         # Generate code for global variables:
         output_stream.select_section('data')
         for var in ircode.variables:
-            alignment = Alignment(var.alignment)
-            output_stream.emit(alignment)
-            label = Label(var.name)
-            output_stream.emit(label)
-            if var.amount == 0 and var.value is None and not var.used_by:
-                pass  # E.g. empty WASM func_table
-            elif var.amount > 0:
-                if var.value:
-                    for byte in var.value:
-                        output_stream.emit(DByte(byte))
-                else:
-                    output_stream.emit(DZero(var.amount))
-            else:  # pragma: no cover
-                raise NotImplementedError()
-            self.debug_db.map(var, label)
-            if self.debug_db.contains(label) and debug:
-                dv = self.debug_db.get(label)
-                dv.address = label.name
-                output_stream.emit(DebugData(dv))
+            self.generate_global(var, output_stream, debug)
 
         # Generate code for functions:
         # Munch program into a bunch of frames. One frame per function.
@@ -95,6 +79,48 @@ class CodeGenerator:
                 if isinstance(di, DebugType):
                     # TODO: prevent this from being emitted twice in some way?
                     output_stream.emit(DebugData(di))
+
+    def generate_global(self, var, output_stream, debug):
+        """ Generate code for a global variable """
+        alignment = Alignment(var.alignment)
+        output_stream.emit(alignment)
+        label = Label(var.name)
+        output_stream.emit(label)
+        if var.amount == 0 and var.value is None and not var.used_by:
+            pass  # E.g. empty WASM func_table
+        elif var.amount > 0:
+            if var.value:
+                assert isinstance(var.value, tuple)
+                for part in var.value:
+                    if isinstance(part, bytes):
+                        # Emit plain byte data:
+                        for byte in part:
+                            output_stream.emit(DByte(byte))
+                    elif isinstance(part, tuple) and part[0] is ir.ptr:
+                        # Emit reference to a label:
+                        assert isinstance(part[1], str)
+                        labels_refs = {
+                            (2, Endianness.LITTLE): data_instructions.Dw2,
+                            (4, Endianness.LITTLE): data_instructions.Dcd2,
+                            (8, Endianness.LITTLE): data_instructions.Dq2,
+                        }
+                        key = (
+                            self.arch.info.get_size(part[0]),
+                            self.arch.info.endianness
+                        )
+                        op_cls = labels_refs[key]
+                        output_stream.emit(op_cls(part[1]))
+                    else:
+                        raise NotImplementedError(str(part))
+            else:
+                output_stream.emit(DZero(var.amount))
+        else:  # pragma: no cover
+            raise NotImplementedError()
+        self.debug_db.map(var, label)
+        if self.debug_db.contains(label) and debug:
+            dv = self.debug_db.get(label)
+            dv.address = label.name
+            output_stream.emit(DebugData(dv))
 
     def generate_function(
             self, ir_function, output_stream, reporter, debug=False):
