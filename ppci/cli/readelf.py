@@ -112,8 +112,8 @@ def print_program_headers(program_headers):
 def print_section_headers(elf_file):
     """ Print the section headers in a nice overview """
     print('Section headers:')
-    print('  [Nr] Name   Type    Address   Offset')
-    print('       Size   Entsize    Flags   Link Info Align')
+    print('  [Nr] Name              Type             Address           Offset')
+    print('       Size              Entsize          Flags   Link Info  Align')
     for index, section in enumerate(elf_file.sections):
         sh_type = section.header['sh_type']
         if sh_type < SectionHeaderType.LOOS:

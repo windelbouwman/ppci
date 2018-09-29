@@ -992,10 +992,13 @@ class Variable(GlobalValue):
             raise TypeError(
                 'alignment must be int, not {}'.format(type(alignment)))
         self.alignment = alignment
-        if not (value is None or isinstance(value, tuple)):
-            raise TypeError(
-                'value must be None or a tuple, not {}'.format(
-                    value))
+        if value is not None:
+            if isinstance(value, bytes):
+                value = (value,)
+            elif not isinstance(value, tuple):
+                raise TypeError(
+                    'value must be None, bytes or a tuple, not {}'.format(
+                        value))
         # if isinstance(value, bytes):
         #     assert len(value) == amount
         self.value = value

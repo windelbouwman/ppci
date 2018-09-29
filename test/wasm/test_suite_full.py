@@ -28,6 +28,7 @@ import io
 import sys
 from functools import reduce
 from operator import add
+import warnings
 
 from ppci.wasm import read_wat, Module, instantiate
 from ppci.common import CompilerError, logformat
@@ -64,7 +65,7 @@ black_list = [
     'float_literals',  # TODO: what is the issue here?
     'skip-stack-guard-page',  # This is some stack overflow stuff?
     'func',  # TODO: this function is malformed!
-    'i64', # Grrr, so many expressions to blacklist!
+    # 'i64', # Grrr, so many expressions to blacklist!
 ]
 
 # Black list of specific expressions, per file
@@ -400,6 +401,12 @@ def get_wast_files():
                 continue
 
             yield filename
+    else:
+        warnings.warn(
+            'Please specify WASM_SPEC_DIR if you wish to run the wasm spec'
+            'test directory. '
+            'For example: export WASM_SPEC_DIR=~/GIT/spec'
+        )
 
 
 @wasm_spec_populate
