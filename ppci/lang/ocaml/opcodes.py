@@ -165,12 +165,24 @@ def process_opcode_table():
         assert isinstance(code, int)
         assert isinstance(name, str)
         assert code not in mp
-        mp[code] = name
         if len(opcode) > 2:
             args = opcode[2]
         else:
             args = tuple()
         assert isinstance(args, tuple)
+        mp[code] = name, args
+    return mp
 
 
-process_opcode_table()
+Instrs = process_opcode_table()
+
+
+class Instruction:
+    def __init__(self, opcode):
+        if opcode not in Instrs:
+            raise ValueError('Invalid opcode {}'.format(opcode))
+        self.opcode = opcode
+
+    def __str__(self):
+        name = Instrs[self.opcode][0]
+        return '{}'.format(name)

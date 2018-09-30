@@ -30,6 +30,7 @@ setup(
             'ppci-mkuimage = ppci.cli.mkuimage:mkuimage',
             'ppci-objcopy = ppci.cli.objcopy:objcopy',
             'ppci-objdump = ppci.cli.objdump:objdump',
+            'ppci-ocaml = ppci.cli.ocaml:ocaml',
             'ppci-opt = ppci.cli.opt:opt',
             'ppci-pascal = ppci.cli.pascal:pascal',
             'ppci-pedump = ppci.cli.pedump:pedump',
