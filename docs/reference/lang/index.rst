@@ -13,6 +13,7 @@ languages.
     c
     fortran
     llvm
+    ocaml
     pascal
     python
     sexpr

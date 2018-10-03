@@ -151,11 +151,13 @@ opcodes = (
     (143, 'STOP'),
     (144, 'EVENT'),
     (145, 'BREAK'),
+    (146, 'RERAISE'),
+    (147, 'RAISE_NOTRACE'),
 )
 
 
 def process_opcode_table():
-    assert len(opcodes) == 146
+    assert len(opcodes) == 148
 
     mp = {}
     for opcode in opcodes:
