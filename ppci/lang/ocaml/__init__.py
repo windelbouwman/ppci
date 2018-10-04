@@ -1,8 +1,9 @@
 
 from .cmo import read_file
+from .gen_ir import ocaml_to_ir
 
 
-__all__ = ['read_file']
+__all__ = ['read_file', 'ocaml_to_ir']
 
 
 if __name__ == '__main__':

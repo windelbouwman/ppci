@@ -160,6 +160,8 @@ def process_opcode_table():
     assert len(opcodes) == 148
 
     mp = {}
+    attrs = {}
+
     for opcode in opcodes:
         # print(opcode)
         code = opcode[0]
@@ -173,18 +175,22 @@ def process_opcode_table():
             args = tuple()
         assert isinstance(args, tuple)
         mp[code] = name, args
-    return mp
+        attrs[name] = code
+    opcode = type('Opcode', (object,), attrs)()
+    return mp, opcode
 
 
-Instrs = process_opcode_table()
+Instrs, Opcode = process_opcode_table()
 
 
 class Instruction:
-    def __init__(self, opcode):
-        if opcode not in Instrs:
-            raise ValueError('Invalid opcode {}'.format(opcode))
+    def __init__(self, opcode, name, args):
+        # if opcode not in Instrs:
+        #    raise ValueError('Invalid opcode {}'.format(opcode))
+
         self.opcode = opcode
+        self.name = name
+        self.args = args
 
     def __str__(self):
-        name = Instrs[self.opcode][0]
-        return '{}'.format(name)
+        return '{} {}'.format(self.name, self.args)

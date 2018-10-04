@@ -83,7 +83,7 @@ class CmoReader:
         # Load code:
         self.reader.f.seek(cu_pos)
         code_data = self.reader.read_bytes(cu_codesize)
-        load_code(code_data)
+        return load_code(code_data)
 
     def read_magic(self):
         """ Read magic header """

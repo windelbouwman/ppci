@@ -25,20 +25,23 @@ class ByteCodeReader:
 
         all_sections_size = sum(s[1] for s in sections)
         self.reader.f.seek(section_header_pos - all_sections_size, 2)
-        self.read_sections(sections)
+        return self.read_sections(sections)
 
     def read_sections(self, sections):
         fn_map = {
             'CODE': self.read_code_section,
             'DATA': self.process_data_section,
         }
+        result = {}
         for name, length in sections:
             data = self.reader.read_bytes(length)
             if name in fn_map:
                 logger.info('Processing: %s', name)
-                fn_map[name](data)
+                value = fn_map[name](data)
+                result[name] = value
             else:
                 logger.error('TODO: %s', name)
+        return result
 
     def read_trailer(self):
         """ Read magic header """
@@ -63,7 +66,7 @@ class ByteCodeReader:
     def read_code_section(self, data):
         if len(data) % 4 != 0:
             raise ValueError('Code must be a multiple of 4 bytes')
-        load_code(data)
+        return load_code(data)
 
     def process_data_section(self, data):
         read_value(data)

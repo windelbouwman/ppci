@@ -58,7 +58,8 @@ def wabt(args=None):
             wasm_module = read_wasm(args.wasm)
             wasm_module.show_interface()
         else:  # pragma: no cover
-            raise NotImplementedError(args.command)
+            parser.print_usage()
+            sys.exit(1)
 
 
 if __name__ == '__main__':

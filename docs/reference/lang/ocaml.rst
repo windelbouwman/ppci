@@ -11,6 +11,8 @@ Produce bytecode for example by:
 .. code:: bash
 
     $ ocamlc -o test.byte test.ml
+    $ python -m ppci.cli.ocaml disassemble test.byte
+    $ FUTURE: python -m ppci.cli.ocaml opt test.byte -m m68k
 
 
 Module
