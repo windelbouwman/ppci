@@ -27,6 +27,7 @@ class Gen:
         self._accumulator = None
         self._stack = []
         self._pc = 0
+        self._callstack = []
         self._blocks = {}
 
     def gen(self, instructions):
@@ -34,13 +35,13 @@ class Gen:
         self.instructions = instructions
         self.indirect = {i.label: i for i in instructions}
 
-        self.make_blocks(instructions)
+        self.make_blocks()
 
         self.ir_module = ir.Module('fubar')
 
-        for instruction in instructions:
-            logger.debug('%s: %s', instruction.label, instruction)
-            self.gen_ins(instruction)
+        self.walk_program()
+        #for instruction in instructions:
+        #    self.gen_ins(instruction)
 
         return self.ir_module
 
@@ -57,7 +58,7 @@ class Gen:
             self._blocks[label] = block
         return block
 
-    def make_blocks(self, instructions):
+    def make_blocks(self):
         """ Determine basic blocks of instruction sequence """
         logger.debug('Splitting bytecode into blocks')
 
@@ -79,7 +80,7 @@ class Gen:
 
         # First instruction is header of a new block:
         new_block = True
-        for instruction in instructions:
+        for instruction in self.instructions:
             # print(instruction.label, instruction)
             # Get label and opcode:
             label = instruction.label
@@ -105,12 +106,32 @@ class Gen:
 
         # print(self._blocks)
 
-    def visit_blocks(self, pc):
+    def fetch(self):
+        ins = self.indirect[self._pc]
+        self._pc += 1
+        return ins
+
+    def walk_program(self):
+        """ Recursively visit the whole bytecode program. """
+        logger.debug('Taking a stroll through the bytecode')
+        self.visited = set()
+        while True:
+            ins = self.fetch()
+            if ins in self.visited:
+                pass
+            else:
+                self.visited.add(ins)
+                self.gen_ins(ins)
+
+    def visit_blocks(self):
         """ Visit all instructions to determine stack size at entry.
         """
         self.visited.add(i)
 
     def gen_ins(self, instruction):
+        """ Generate instruction code """
+        logger.debug('%s: %s', instruction.label, instruction)
+        # label = instruction.label
         opcode = instruction.opcode
         if opcode == Opcode.ACC0:
             self.do_acc(0)

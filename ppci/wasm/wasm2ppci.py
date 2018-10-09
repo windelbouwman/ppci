@@ -157,7 +157,9 @@ class WasmToIrCompiler:
                     # f = x.name, f[1]
                     name = sanitize_name(definition.name)
                     if definition.ref.name is not None:
-                        assert definition.ref.name not in export_names
+                        # We can export a function multiple times with the
+                        # same name!
+                        # assert definition.ref.name not in export_names
                         export_names[definition.ref.name] = name
 
                     if definition.ref.index is not None:
