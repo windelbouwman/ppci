@@ -131,6 +131,16 @@ class Scope:
         self.tags = {}
         self.labels = {}
 
+    def get_defined_names(self):
+        """ Get all defined symbols in this scope, and scopes above. """
+        defined_names = []
+        scope = self
+        while scope is not None:
+            for name in scope.var_map:
+                defined_names.append(name)
+            scope = scope.parent
+        return defined_names
+
     def is_defined(self, name, all_scopes=True):
         """ Check if the name is defined """
         if name in self.var_map:

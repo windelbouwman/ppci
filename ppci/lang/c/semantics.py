@@ -17,11 +17,13 @@ The result of parser-semantic actions is a type-checked AST.
 
 """
 
+import difflib
 import logging
 from ...common import CompilerError
 from .nodes import nodes, types, declarations, statements, expressions
 from . import utils
 from .scope import Scope, RootScope
+from .printer import expr_to_str
 
 
 # TODO: should semantics be architecture independent?
@@ -182,8 +184,11 @@ class CSemantics:
             sym = self.scope.get(declaration.name)
             # The type should match in any case:
             if not self._root_scope.equal_types(sym.typ, declaration.typ):
-                self.logger.info('First defined here %s', sym.location)
-                self.error("Invalid redefinition", declaration.location)
+                hint = 'First defined here %s' % sym.location
+                self.logger.info(hint)
+                self.error(
+                    "Invalid redefinition", declaration.location, hints=[hint]
+                )
 
             # The symbol might be a forward declared function:
             if isinstance(declaration, declarations.FunctionDeclaration):
@@ -530,12 +535,21 @@ class CSemantics:
 
     def on_field_select(self, base, field, location):
         """ Check field select expression """
+        if not isinstance(base.typ, types.StructOrUnionType):
+            # Maybe we have a pointer to a struct?
+            # If so, give a hint about this.
+            hints = []
+            if isinstance(base.typ, types.PointerType) and \
+                    isinstance(base.typ.element_type, types.StructOrUnionType):
+                lhs = expr_to_str(base)
+                hints.append(
+                    'Did you mean "{0}->{1}" instead of "{0}.{1}"?'.format(
+                        lhs, field))
+            self.error('Selecting a field of non-struct type', location, hints=hints)
+
         if not base.lvalue:
             self.error('Expected lvalue', location)
         # TODO: handle qualifiers?
-
-        if not isinstance(base.typ, types.StructOrUnionType):
-            self.error('Selecting a field of non-struct type', location)
 
         if not base.typ.has_field(field):
             self.error('Field {} not part of struct'.format(field), location)
@@ -624,7 +638,15 @@ class CSemantics:
     def on_variable_access(self, name, location):
         """ Handle variable access """
         if not self.scope.is_defined(name):
-            self.error('Who is this "{}"?'.format(name), location)
+            defined_names = self.scope.get_defined_names()
+            suggestions = difflib.get_close_matches(name, defined_names)
+            hints = []
+            for suggestion in suggestions:
+                hints.append(
+                    '"{}" was not defined, did you mean "{}"?'.format(
+                        name, suggestion)
+                )
+            self.error('Who is this "{}"?'.format(name), location, hints=hints)
         variable = self.scope.get(name)
 
         # Determine lvalue and type:
@@ -738,9 +760,9 @@ class CSemantics:
                 'Cannot determine type rank for {}'.format(typ), location)
 
     @staticmethod
-    def error(message, location):
+    def error(message, location, hints=None):
         """ Trigger an error at the given location """
-        raise CompilerError(message, loc=location)
+        raise CompilerError(message, loc=location, hints=hints)
 
     def not_impl(self, message, location):  # pragma: no cover
         """ Call this function to mark unimplemented code """

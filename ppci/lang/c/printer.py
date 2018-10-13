@@ -2,6 +2,7 @@
 
 """
 
+import io
 from contextlib import contextmanager
 from .nodes import types, declarations, expressions, statements
 
@@ -23,12 +24,22 @@ def render_ast(ast):
     CPrinter().print(ast)
 
 
+def expr_to_str(expr):
+    """ Render an expression as text.
+    """
+    print('foo', expr)
+    f = io.StringIO()
+    printer = CPrinter(f)
+    return printer.gen_expr(expr)
+
+
 class CPrinter:
     """ Render a C program as text
 
     """
-    def __init__(self):
+    def __init__(self, f=None):
         self._indent = 0
+        self.f = f
 
     def print(self, compile_unit):
         """ Render compilation unit as C """
@@ -229,4 +240,4 @@ class CPrinter:
         self._indent -= amount
 
     def _print(self, txt=''):
-        print(self._indent * '   ' + txt)
+        print(self._indent * '   ' + txt, file=self.f)

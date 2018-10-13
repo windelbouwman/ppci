@@ -40,7 +40,7 @@ def get_file(f, mode='r'):
 
 
 class CompilerError(Exception):
-    def __init__(self, msg, loc=None):
+    def __init__(self, msg, loc=None, hints=None):
         # super().__init__()
         self.msg = msg
         self.loc = loc
@@ -48,12 +48,18 @@ class CompilerError(Exception):
             assert isinstance(loc, SourceLocation), \
                    '{0} must be SourceLocation'.format(type(loc))
 
+        if hints is None:
+            hints = []
+        self.hints = hints
+
     def __repr__(self):
         return '"{}"'.format(self.msg)
 
     def render(self, lines):
         """ Render this error in some lines of context """
         self.loc.print_message('Error: {0}'.format(self.msg), lines=lines)
+        for hint in self.hints:
+            print(hint)
 
     def print(self, file=None):
         """ Print the error inside some nice context """
@@ -61,6 +67,9 @@ class CompilerError(Exception):
             self.loc.print_message(self.msg, file=file)
         else:
             print(self.msg, file=file)
+
+        for hint in self.hints:
+            print(hint)
 
 
 class IrFormError(CompilerError):
