@@ -168,7 +168,7 @@ class CParser(RecursiveDescentParser):
         attributes = []
 
         while True:
-            if self.peek == 'TYPE-ID':
+            if self.at_type_id():
                 # We got a typedef type!
                 type_name = self.consume()
                 if typ:
@@ -267,7 +267,11 @@ class CParser(RecursiveDescentParser):
             decl_spec = self.parse_decl_specifiers(allow_storage_class=False)
             while True:
                 type_modifiers, name = self.parse_type_modifiers(
-                    abstract=False)
+                    abstract=True)
+                if name:
+                    name, loc = name.val, name.loc
+                else:
+                    name = loc = None
 
                 # Handle optional struct field size:
                 if self.peek == ':':
@@ -278,8 +282,8 @@ class CParser(RecursiveDescentParser):
 
                 field = self.semantics.on_field_def(
                     decl_spec.storage_class, decl_spec.typ,
-                    name.val, type_modifiers,
-                    bitsize, name.loc)
+                    name, type_modifiers,
+                    bitsize, loc)
                 fields.append(field)
                 if self.has_consumed(','):
                     continue
@@ -827,7 +831,9 @@ class CParser(RecursiveDescentParser):
             return True
         elif self.peek in self.type_specifiers:
             return True
-        elif self.peek in ('struct', 'union', 'enum', 'TYPE-ID'):
+        elif self.peek in ('struct', 'union', 'enum'):
+            return True
+        elif self.at_type_id():
             return True
         else:
             return False
@@ -1177,18 +1183,19 @@ class CParser(RecursiveDescentParser):
     def next_token(self):
         """ Advance to the next token """
         tok = super().next_token()
-
-        # Implement lexer hack here:
-        if tok and tok.typ == 'ID' and tok.val in self.typedefs:
-            tok.typ = 'TYPE-ID'
-
         return tok
 
     @property
     def peek(self):
         """ Look at the next token to parse without popping it """
         if self.token:
+            return self.token.typ
+
+    def at_type_id(self):
+        """ Check if the upcoming token is a typedef identifier """
+        # Implement lexer hack here:
+        if self.token:
             # Also implement lexer hack here:
             if self.token.typ == 'ID' and self.token.val in self.typedefs:
-                return 'TYPE-ID'
-            return self.token.typ
+                return True
+        return False

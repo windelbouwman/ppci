@@ -10,4 +10,6 @@ void free(void* ptr);
 
 void abort(void);
 
+#define NULL 0
+
 #endif

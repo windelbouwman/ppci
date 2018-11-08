@@ -1,4 +1,5 @@
 """ M68k instruction descriptions.
+
 """
 
 from ..isa import Isa
@@ -64,6 +65,15 @@ class DataRegEa(Constructor):
     }
 
 
+class AddressRegEa(Constructor):
+    """ Address register access """
+    reg = Operand('reg', AddressRegister, read=True)
+    syntax = Syntax([reg])
+    patterns = {
+        'ea_mode': 1, 'ea_register': reg,
+    }
+
+
 class AddressEa(Constructor):
     """ Access location pointed to by address register """
     reg = Operand('reg', AddressRegister, read=True)
@@ -84,7 +94,17 @@ class AddressOffsetEa(Constructor):
     tokens = [Imm16Token]
 
 
-ea_modes = (DataRegEa, AddressEa, AddressOffsetEa)
+class ImmediateEa(Constructor):
+    """ Access an immediate value """
+    imm = Operand('imm', int)
+    syntax = Syntax(['#', imm])
+    patterns = {
+        'ea_mode': 0b111, 'ea_register': 0b100, 'imm16': imm,
+    }
+    tokens = [Imm16Token]
+
+
+ea_modes = (DataRegEa, AddressRegEa, AddressEa, AddressOffsetEa, ImmediateEa)
 
 
 # Sub constructs used as destination operands:
@@ -240,6 +260,24 @@ Eorw = make_dn_ea('eorw', 0b1011, opmode=0b101)
 Eorl = make_dn_ea('eorl', 0b1011, opmode=0b110)
 
 
+class Moveaw(M68kInstruction):
+    """ 16 bit movea """
+    dst = Operand('dst', AddressRegister, write=True)
+    ea = Operand('ea', ea_modes)
+    syntax = Syntax(['moveaw', ' ', ea, ',', ' ', dst])
+    patterns = {'opcode': 0x3, 'opmode': 1, 'register': dst}
+    tokens = [M68kToken]
+
+
+class Moveal(M68kInstruction):
+    """ 32 bit movea """
+    dst = Operand('dst', AddressRegister, write=True)
+    ea = Operand('ea', ea_modes)
+    syntax = Syntax(['moveal', ' ', ea, ',', ' ', dst])
+    patterns = {'opcode': 0x2, 'opmode': 1, 'register': dst}
+    tokens = [M68kToken]
+
+
 class Moveb(M68kInstruction):
     dst_ea = Operand('dst_ea', dst_ea_modes)
     ea = Operand('ea', ea_modes)
@@ -249,6 +287,7 @@ class Moveb(M68kInstruction):
 
 
 class Movew(M68kInstruction):
+    """ 16 bit move """
     dst_ea = Operand('dst_ea', dst_ea_modes)
     ea = Operand('ea', ea_modes)
     syntax = Syntax(['movew', ' ', ea, ',', ' ', dst_ea])
@@ -257,6 +296,7 @@ class Movew(M68kInstruction):
 
 
 class Movel(M68kInstruction):
+    """ 32 bit move """
     dst_ea = Operand('dst_ea', dst_ea_modes)
     ea = Operand('ea', ea_modes)
     syntax = Syntax(['movel', ' ', ea, ',', ' ', dst_ea])
@@ -270,6 +310,8 @@ Orl = make_ea_dn('orl', 0b1000, opmode=0b010)
 Subb = make_ea_dn('subb', 0b1101, opmode=0b000)
 Subw = make_ea_dn('subw', 0b1101, opmode=0b001)
 Subl = make_ea_dn('subl', 0b1101, opmode=0b010)
+
+Jsr = make_ea('jsr', 0x4e, 2)
 
 Negb = make_ea('negb', 0x44, 0)
 Negw = make_ea('negw', 0x44, 1)

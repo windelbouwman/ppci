@@ -1,7 +1,8 @@
 
 import io
-from ppci.api import cc, link
+from ppci.api import cc, link, asm
 from ppci.format.srecord import write_srecord
+from ppci.format.hunk import write_hunk
 
 
 source = """
@@ -30,4 +31,12 @@ and paste:
 # TODO:
 with open('demo.srec', 'w') as f:
     write_srecord(obj, f)
+
+
+o = asm('amiga_hello_world.asm', 'm68k')
+print(o)
+
+print(o.get_section('code').data.hex())
+
+write_hunk('demo', o.get_section('code').data)
 
