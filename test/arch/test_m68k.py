@@ -21,12 +21,27 @@ class ArmAssemblerTestCase(AsmTestCaseBase):
         self.feed('eorb d6, (a3)')
         self.check('bb02 bd13')
 
+    def test_lea(self):
+        self.feed('lea dosname, a1')
+        self.feed('dosname: db 4')
+        self.check('43fa 0002 04')
+
     def test_move(self):
         self.feed('moveb (a1), (a2)')
         self.feed('movel (a1), (a2)')
         self.feed('movew (34,a1), (a2)')
         self.feed('movew (34,a1), (22,a2)')
         self.check('1491 2491 34a90022 356900220016')
+
+    def test_movea(self):
+        """ Test move to address register """
+        self.feed('moveal (4).W, a6')
+        self.check('2c78 0004')
+
+    def test_moveq(self):
+        """ Test move quick """
+        self.feed('moveq #36, d0')
+        self.check('7024')
 
     def test_neg(self):
         self.feed('negb d5')

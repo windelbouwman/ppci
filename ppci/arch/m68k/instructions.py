@@ -27,6 +27,7 @@ class M68kToken(Token):
     register = bit_range(9, 12)
     opcode = bit_range(12, 16)
     opcode2 = bit_range(8, 16)
+    bit8 = bit_range(8, 9)
     w = bit_range(0, 16)
     imm8 = bit_range(0, 8)
 
@@ -53,6 +54,17 @@ class Imm32Token(Token):
         endianness = Endianness.BIG
 
     imm32 = bit_range(0, 32)
+
+
+# Relocations:
+@m68k_isa.register_relocation
+class Rel16Relocation(Relocation):
+    name = 'rel16'
+    token = Imm16Token
+    field = 'imm16'
+
+    def calc(self, sym_value, reloc_value):
+        return sym_value - reloc_value
 
 
 # Helpers:
@@ -104,7 +116,34 @@ class ImmediateEa(Constructor):
     tokens = [Imm16Token]
 
 
-ea_modes = (DataRegEa, AddressRegEa, AddressEa, AddressOffsetEa, ImmediateEa)
+class PcRelEa(Constructor):
+    """ PC relative location """
+    label = Operand('label', str)
+    # Use priority here to solve ambiguity with register:
+    syntax = Syntax([label], priority=2)
+    patterns = {
+        'ea_mode': 0b111, 'ea_register': 0b010,
+    }
+    tokens = [Imm16Token]
+
+    def gen_relocations(self):
+        yield Rel16Relocation(self.label, offset=0)
+
+
+class AbsNearEa(Constructor):
+    """ Access an absolute near address """
+    imm = Operand('imm', int)
+    syntax = Syntax(['(', imm, ')', '.', 'w'])
+    patterns = {
+        'ea_mode': 0b111, 'ea_register': 0b000, 'imm16': imm,
+    }
+    tokens = [Imm16Token]
+
+
+ea_modes = (
+    DataRegEa, AddressRegEa, AddressEa, AddressOffsetEa, ImmediateEa, PcRelEa,
+    AbsNearEa,
+)
 
 
 # Sub constructs used as destination operands:
@@ -260,6 +299,15 @@ Eorw = make_dn_ea('eorw', 0b1011, opmode=0b101)
 Eorl = make_dn_ea('eorl', 0b1011, opmode=0b110)
 
 
+class Lea(M68kInstruction):
+    """ Load effective address """
+    dst = Operand('dst', AddressRegister, write=True)
+    ea = Operand('ea', ea_modes)
+    syntax = Syntax(['lea', ' ', ea, ',', ' ', dst])
+    patterns = {'opcode': 0x4, 'opmode': 0b111, 'register': dst}
+    tokens = [M68kToken]
+
+
 class Moveaw(M68kInstruction):
     """ 16 bit movea """
     dst = Operand('dst', AddressRegister, write=True)
@@ -301,6 +349,15 @@ class Movel(M68kInstruction):
     ea = Operand('ea', ea_modes)
     syntax = Syntax(['movel', ' ', ea, ',', ' ', dst_ea])
     patterns = {'opcode': 0x2}
+    tokens = [M68kToken]
+
+
+class Moveq(M68kInstruction):
+    """ 32 bit move quick. Sign extend an 8 bit operand into a 32 bit reg. """
+    dst = Operand('dst', DataRegister, write=True)
+    imm = Operand('imm', int)
+    syntax = Syntax(['moveq', ' ', '#', imm, ',', ' ', dst])
+    patterns = {'opcode': 0b0111, 'register': dst, 'bit8': 0, 'imm8': imm}
     tokens = [M68kToken]
 
 

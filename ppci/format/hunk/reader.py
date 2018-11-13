@@ -40,6 +40,10 @@ class Reader:
                 self.read_code()
             elif hunk_id == enums.HUNK_DATA:
                 self.read_data()
+            elif hunk_id == enums.HUNK_DREL32:
+                self.read_drel32()
+            elif hunk_id == enums.HUNK_SYMBOL:
+                self.read_symbol()
             elif hunk_id == enums.HUNK_END:
                 break
             else:
@@ -82,6 +86,33 @@ class Reader:
         data = self.f.read(num_longs * 4)
         return data
 
+    def read_drel32(self):
+        """ Read some form of relocation data """
+        num_offsets = self.read_u16()
+        hunk_number = self.read_u16()
+        logger.debug(
+            'Reading %s offsets for hunk %s', num_offsets, hunk_number)
+        offsets = []
+        for _ in range(num_offsets):
+            offset = self.read_u16()
+            offsets.append(offset)
+        if num_offsets & 1:
+            logger.debug('Reading an additional word to align at long word')
+            self.read_u16()
+        return hunk_number, offsets
+
+    def read_symbol(self):
+        """ Read symbol information """
+        symbols = []
+        while True:
+            name = self.read_string()
+            if not name:
+                break
+            offset = self.read_u32()
+            logger.debug('Read symbol %s at offset %s', name, offset)
+            symbols.append((name, offset))
+        return symbols
+
     def read_string(self):
         """ Read a string. """
         num_longs = self.read_u32()
@@ -96,6 +127,9 @@ class Reader:
 
     def read_u32(self):
         return self.read_fmt('>I')[0]
+
+    def read_u16(self):
+        return self.read_fmt('>H')[0]
 
     def read_fmt(self, fmt):
         size = struct.calcsize(fmt)

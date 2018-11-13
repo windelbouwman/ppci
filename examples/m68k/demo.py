@@ -33,10 +33,11 @@ with open('demo.srec', 'w') as f:
     write_srecord(obj, f)
 
 
-o = asm('amiga_hello_world.asm', 'm68k')
-print(o)
+obj = asm('amiga_hello_world.asm', 'm68k')
+obj = link([obj])
+print(obj)
 
-print(o.get_section('code').data.hex())
+print(obj.get_section('code').data.hex())
 
-write_hunk('demo', o.get_section('code').data)
+write_hunk('demo', obj.get_section('code').data)
 
