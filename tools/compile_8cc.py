@@ -24,11 +24,13 @@ home = os.environ['HOME']
 _8cc_folder = os.path.join(home, 'GIT', '8cc')
 this_dir = os.path.abspath(os.path.dirname(__file__))
 libc_includes = os.path.join(this_dir, '..', 'librt', 'libc')
+linux_include_dir = '/usr/include'
 arch = 'x86_64'
 coptions = COptions()
 include_paths = [
     libc_includes,
     _8cc_folder,
+    linux_include_dir,
     ]
 coptions.add_include_paths(include_paths)
 

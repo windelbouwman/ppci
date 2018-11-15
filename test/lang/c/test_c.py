@@ -342,6 +342,16 @@ class CFrontendTestCase(unittest.TestCase):
         """
         self.do(src)
 
+    def test_compound_literal(self):
+        """ Test compund literal """
+        src = """
+        typedef struct { int x; } X_t;
+        X_t main() {
+         return (X_t){2};
+        }
+        """
+        self.do(src)
+
     def test_assignment_operators(self):
         """ Test assignment operators """
         src = """

@@ -40,6 +40,8 @@ class Reader:
                 self.read_code()
             elif hunk_id == enums.HUNK_DATA:
                 self.read_data()
+            elif hunk_id == enums.HUNK_BSS:
+                self.read_u32()
             elif hunk_id == enums.HUNK_DREL32:
                 self.read_drel32()
             elif hunk_id == enums.HUNK_SYMBOL:

@@ -331,14 +331,20 @@ class CPreProcessorTestCase(unittest.TestCase):
     def test_builtin_macros(self):
         src = r"""
         __FILE__;__LINE__
-        __LINE__;__FILE__"""
+        __LINE__;__FILE__
+        __COUNTER__
+        __COUNTER__
+        __COUNTER__"""
         expected = '''# 1 "dummy.t"
 
         "dummy.t";2
-        3;"dummy.t"'''
+        3;"dummy.t"
+        0
+        1
+        2'''
         self.preprocess(src, expected)
 
-    @mock.patch('time.strftime', lambda fmt: 'mastah')
+    @mock.patch('time.strftime', lambda fmt: '"mastah"')
     def test_builtin_time_macros(self):
         src = r"""
         __DATE__;__TIME__;"""
@@ -393,15 +399,15 @@ class CPreProcessorTestCase(unittest.TestCase):
         "B" 55 - 3"""
         self.preprocess(src, expected)
 
-    @unittest.skip('TODO!')
-    def test_variable_arguments(self):
-        """ Check the behavior of variable arguments """
+    def test_variadic_macro(self):
+        """ Check the behavior of variadic macros """
         src = r"""#define A(...) a __VA_ARGS__ b
-        A(B)"""
+        A(B)
+        A(2, 4,5)"""
         expected = """# 1 "dummy.t"
 
-
-        "B" 55 - 3"""
+        a B b
+        a 2, 4,5 b"""
         self.preprocess(src, expected)
 
     def test_argument_prescan(self):

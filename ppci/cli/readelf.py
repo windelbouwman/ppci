@@ -4,9 +4,12 @@
 import argparse
 from .base import base_parser, LogSetup
 from ..utils.hexdump import hexdump
-from ..format.elf.file import read_elf, SectionHeaderType
-from ..format.elf.headers import SymbolTableBinding, SymbolTableType
-from ..format.elf.headers import ProgramHeaderType
+from ..format.elf import read_elf
+from ..format.elf.file import SectionHeaderType
+from ..format.elf.headers import get_symbol_table_type_name
+from ..format.elf.headers import get_symbol_table_binding_name
+from ..format.elf.headers import ProgramHeaderType, get_machine_name
+from ..format.elf.headers import get_os_name
 
 
 parser = argparse.ArgumentParser(
@@ -59,7 +62,7 @@ def readelf(args=None):
 
         # Dump information:
         if args.file_header or args.all or args.headers:
-            print_elf_header(elf.elf_header)
+            print_elf_header(elf)
 
         if args.program_headers or args.all or args.headers:
             print_program_headers(elf.program_headers)
@@ -78,9 +81,41 @@ def readelf(args=None):
             print_debug_info(elf, args.debug_dump)
 
 
-def print_elf_header(elf_header):
+def print_elf_header(elf):
     """ Print the ELF header fields """
-    elf_header.print()
+    print('ELF Header:')
+    magic = ' '.join('{:02x}'.format(v) for v in elf.e_ident)
+    print('  Magic:', magic)
+    print('  Class:', elf.ei_class)
+    print('  Data:', elf.e_ident[5])  # EI_DATA = 5
+    print('  Version:', elf.e_ident[6])  # EI_VERSION = 6
+    os_abi = get_os_name(elf.e_ident[7])  # EI_OSABI = 7
+    print('  OS/ABI:', os_abi)
+    print('  ABI Version:', elf.e_ident[8])  # EI_ABIVERSION = 8
+    print('  Type:', elf.elf_header['e_type'])
+    machine = get_machine_name(elf.elf_header['e_machine'])
+    print('  Machine:', machine)
+    print('  Version:', elf.elf_header['e_version'])
+    print('  Entry point address:', hex(elf.elf_header['e_entry']))
+    print(
+        '  Start of program headers:', elf.elf_header['e_phoff'],
+        '(bytes into file)')
+    print(
+        '  Start of section headers:', elf.elf_header['e_shoff'],
+        '(bytes into file)')
+    print('  Flags:', elf.elf_header['e_flags'])
+    print(
+        '  Size of this header:', elf.elf_header['e_ehsize'],
+        '(bytes)')
+    print(
+        '  Size of program headers:', elf.elf_header['e_phentsize'],
+        '(bytes)')
+    print('  Number of program headers:', elf.elf_header['e_phnum'])
+    print(
+        '  Size of section headers:', elf.elf_header['e_shentsize'],
+        '(bytes)')
+    print('  Number of section headers:', elf.elf_header['e_shnum'])
+    print('  Section header string table index:', elf.elf_header['e_shstrndx'])
     print()
 
 
@@ -151,8 +186,8 @@ def print_symbols(elf_file, sym_section, name_section):
     table = elf_file.read_symbol_table(sym_section)
     for idx, row in enumerate(table):
         name = name_section.get_str(row['st_name'])
-        bind = SymbolTableBinding(row['st_info'] >> 4).name
-        typ = SymbolTableType(row['st_info'] & 0xf).name
+        bind = get_symbol_table_binding_name(row['st_info'] >> 4)
+        typ = get_symbol_table_type_name(row['st_info'] & 0xf)
         vis = 0  # TODO: what is this?
         print('  {:3d}: {:016x}  {:4} {:7} {:7} {:4d} {:5d} {}'.format(
             idx,

@@ -748,8 +748,10 @@ class CCodeGenerator:
             value = self.emit(
                 ir.Const(expr.value, 'constant', ir_typ),
                 location=expr.location)
+        elif isinstance(expr, expressions.CompoundLiteral):
+            ir_typ = self.get_ir_type(expr.typ)
+            value = self.gen_compound_literal(expr)
         elif isinstance(expr, expressions.InitializerList):
-            expr.lvalue = True
             self.error('Illegal initializer list', expr.location)
         elif isinstance(expr, expressions.Cast):
             a = self.gen_expr(expr.expr, rvalue=True)
@@ -1179,6 +1181,18 @@ class CCodeGenerator:
                 ir_function, ir_arguments, 'result', ir_typ))
 
         return value
+
+    def gen_compound_literal(self, expr):
+        """ Generate code for a compound literal data """
+        # Alloc some room:
+        size = self.context.sizeof(expr.typ)
+        alignment = self.context.alignment(expr.typ)
+        name = 'compound_literal_alloc'
+        ir_alloc = self.emit(ir.Alloc(name, size, alignment))
+        ir_addr = self.emit(ir.AddressOf(ir_alloc, name + '_addr'))
+        # ... and fill compound literal:
+        self.gen_local_init(ir_addr, expr.typ, expr.init)
+        return ir_addr
 
     def gen_array_index(self, expr: expressions.ArrayIndex):
         """ Generate code for array indexing """

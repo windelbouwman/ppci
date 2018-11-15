@@ -47,11 +47,6 @@ class StringTable:
         return self.names[name]
 
 
-def read_elf(f):
-    """ Read an ELF file """
-    return ElfFile.load(f)
-
-
 def write_elf(obj, f):
     """ Save object as an ELF file """
     mapping = {
@@ -83,10 +78,8 @@ class ElfFile:
         logger.debug('Loading ELF file')
         # Read header
         e_ident = f.read(16)
-        assert e_ident[0] == 0x7F
-        assert e_ident[1] == ord('E')
-        assert e_ident[2] == ord('L')
-        assert e_ident[3] == ord('F')
+        if e_ident[0:4] != b'\x7FELF':
+            raise ValueError('Not a valid ELF file')
 
         bits_map = {
             1: 32,
@@ -99,6 +92,7 @@ class ElfFile:
         }
         endianity = endianity_map[e_ident[5]]
         elf_file = ElfFile(bits=bits, endianness=endianity)
+        elf_file.e_ident = e_ident
         elf_file.ei_class = e_ident[4]
 
         # Read elf header:

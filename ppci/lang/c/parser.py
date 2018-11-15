@@ -52,7 +52,7 @@ class CParser(RecursiveDescentParser):
             'else', 'if', 'while', 'do', 'for', 'return', 'goto',
             'switch', 'case', 'default', 'break', 'continue',
             'sizeof', 'struct', 'union', 'enum',
-            '__builtin_va_arg', '__builtin_va_start',
+            '__builtin_va_arg', '__builtin_va_start', '__builtin_va_copy',
             '__builtin_offsetof'}
 
         # gcc extensions:
@@ -1103,6 +1103,14 @@ class CParser(RecursiveDescentParser):
             typ = self.parse_typename()
             self.consume(')')
             expr = self.semantics.on_builtin_va_arg(ap, typ, location)
+        elif self.peek == '__builtin_va_copy':
+            location = self.consume('__builtin_va_copy').loc
+            self.consume('(')
+            dest = self.parse_assignment_expression()
+            self.consume(',')
+            src = self.parse_assignment_expression()
+            self.consume(')')
+            expr = self.semantics.on_builtin_va_copy(dest, src, location)
         elif self.peek == '__builtin_offsetof':
             location = self.consume('__builtin_offsetof').loc
             self.consume('(')
@@ -1128,11 +1136,17 @@ class CParser(RecursiveDescentParser):
             loc = self.consume('(').loc
             # Is this a type cast?
             if self.is_declaration_statement():
-                # Cast!
+                # Cast or compound literal!
                 to_typ = self.parse_typename()
                 self.consume(')')
-                casted_expr = self.parse_primary_expression()
-                expr = self.semantics.on_cast(to_typ, casted_expr, loc)
+                if self.peek == '{':
+                    self.consume('{')
+                    init = self.parse_initializer_list(to_typ)
+                    self.consume('}')
+                    expr = expressions.CompoundLiteral(to_typ, init, loc)
+                else:
+                    casted_expr = self.parse_primary_expression()
+                    expr = self.semantics.on_cast(to_typ, casted_expr, loc)
             else:
                 # Parenthized expression (reset precedence)
                 expr = self.parse_expression()

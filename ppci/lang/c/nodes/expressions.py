@@ -188,6 +188,16 @@ class StringLiteral(Literal):
         return 'String literal {}'.format(self.value)
 
 
+class CompoundLiteral(CExpression):
+    """ Compound literal available since C99.
+    For example:
+    (char[]){'a', 'b'}
+    """
+    def __init__(self, typ, init, location):
+        super().__init__(typ, True, location)
+        self.init = init
+
+
 class InitializerList(Expression):
     """ A c style initializer list """
     def __init__(self, elements, loc):
@@ -218,6 +228,14 @@ class BuiltInVaArg(BuiltIn):
     def __init__(self, arg_pointer, typ, location):
         super().__init__(typ, False, location)
         self.arg_pointer = arg_pointer
+
+
+class BuiltInVaCopy(BuiltIn):
+    """ Built-in function va_copy """
+    def __init__(self, dest, src, location):
+        super().__init__(dest.typ, False, location)
+        self.dest = dest
+        self.src = src
 
 
 class BuiltInOffsetOf(BuiltIn):

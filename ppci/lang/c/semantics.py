@@ -545,7 +545,8 @@ class CSemantics:
                 hints.append(
                     'Did you mean "{0}->{1}" instead of "{0}.{1}"?'.format(
                         lhs, field))
-            self.error('Selecting a field of non-struct type', location, hints=hints)
+            self.error(
+                'Selecting a field of non-struct type', location, hints=hints)
 
         if not base.lvalue:
             self.error('Expected lvalue', location)
@@ -573,6 +574,16 @@ class CSemantics:
         if not arg_pointer.lvalue:
             self.error('Expected lvalue', arg_pointer.location)
         return expressions.BuiltInVaArg(arg_pointer, typ, location)
+
+    def on_builtin_va_copy(self, dest, src, location):
+        """ Check va_copy builtin function """
+        if not self._root_scope.equal_types(dest.typ, self.intptr_type):
+            self.error('Invalid type for va_copy', dest.location)
+        if not dest.lvalue:
+            self.error('Expected lvalue', dest.location)
+        if not self._root_scope.equal_types(src.typ, self.intptr_type):
+            self.error('Invalid type for va_copy', src.location)
+        return expressions.BuiltInVaCopy(dest, src, location)
 
     def on_builtin_offsetof(self, typ, member, location):
         """ Check offsetof builtin function """

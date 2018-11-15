@@ -24,6 +24,19 @@ class OsAbi(enum.IntEnum):
     FENIX_OS = 0x10
     CLOUDABI = 0x11
 
+    @classmethod
+    def has_value(cls, value):
+        return any(value == i.value for i in cls)
+
+
+def get_os_name(value):
+    """ Given an integer value, try to get some name for an OS. """
+    if OsAbi.has_value(value):
+        name = OsAbi(value).name
+    else:
+        name = 'Unknown: {}'.format(value)
+    return name
+
 
 class SectionHeaderType(enum.IntEnum):
     NULL = 0x0
@@ -104,6 +117,19 @@ class ElfMachine(enum.IntEnum):
     CLOUDSHIELD = 192
     RISCV = 0xF3  # 243
 
+    @classmethod
+    def has_value(cls, value):
+        return any(value == i.value for i in cls)
+
+
+def get_machine_name(value):
+    """ Given an integer value, try to get some name for a machine. """
+    if ElfMachine.has_value(value):
+        name = ElfMachine(value).name
+    else:
+        name = 'Unknown: {}'.format(value)
+    return name
+
 
 class ProgramHeaderType(enum.IntEnum):
     NULL = 0
@@ -113,6 +139,7 @@ class ProgramHeaderType(enum.IntEnum):
     NOTE = 4
     SHLIB = 5
     PHDR = 6
+    TLS = 7
     LOOS = 0x60000000
     LOPROC = 0x70000000
     HIPROC = 0x7fffffff
@@ -122,8 +149,21 @@ class SymbolTableBinding(enum.IntEnum):
     LOCAL = 0
     GLOBAL = 1
     WEAK = 2
+    LOOS = 10
+    HIOS = 12
     LOPROC = 13
     HIPROC = 15
+
+
+def get_symbol_table_binding_name(value):
+    if value in range(SymbolTableBinding.LOOS, SymbolTableBinding.HIOS + 1):
+        name = 'OS: {}'.format(value)
+    elif value in range(
+            SymbolTableBinding.LOPROC, SymbolTableBinding.HIPROC + 1):
+        name = 'PROC: {}'.format(value)
+    else:
+        name = SymbolTableBinding(value).name
+    return name
 
 
 class SymbolTableType(enum.IntEnum):
@@ -132,8 +172,22 @@ class SymbolTableType(enum.IntEnum):
     FUNC = 2
     SECTION = 3
     FILE = 4
+    COMMON = 5
+    TLS = 6
+    LOOS = 10
+    HIOS = 12
     LOPROC = 13
     HIPROC = 15
+
+
+def get_symbol_table_type_name(value):
+    if value in range(SymbolTableType.LOOS, SymbolTableType.HIOS + 1):
+        name = 'OS: {}'.format(value)
+    elif value in range(SymbolTableType.LOPROC, SymbolTableType.HIPROC + 1):
+        name = 'PROC: {}'.format(value)
+    else:
+        name = SymbolTableType(value).name
+    return name
 
 
 class HeaderTypes:

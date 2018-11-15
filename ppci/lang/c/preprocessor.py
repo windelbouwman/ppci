@@ -31,7 +31,8 @@ class CPreProcessor:
         self.coptions = coptions
         self.verbose = coptions['verbose']
         self.defines = {}
-        self.filename = None
+        self.filenames = []
+        self.counter = 0  # For the __COUNTER__ macro
 
         # A black list of defines currently being expanded:
         self.blue_list = set()
@@ -65,10 +66,15 @@ class CPreProcessor:
                     protected=True))
 
         # Special macros:
-        self.define(FunctionMacro('__LINE__', self.special_macro_line))
-        self.define(FunctionMacro('__FILE__', self.special_macro_file))
-        self.define(FunctionMacro('__DATE__', self.special_macro_date))
-        self.define(FunctionMacro('__TIME__', self.special_macro_time))
+        self.define_special_macro('__LINE__', self.special_macro_line)
+        self.define_special_macro('__FILE__', self.special_macro_file)
+        self.define_special_macro('__DATE__', self.special_macro_date)
+        self.define_special_macro('__TIME__', self.special_macro_time)
+
+        # Extra macros:
+        self.define_special_macro('__COUNTER__', self.special_macro_counter)
+        self.define_special_macro(
+            '__INCLUDE_LEVEL__', self.special_macro_include_level)
 
         # Misc macros:
         self.define(
@@ -92,39 +98,46 @@ class CPreProcessor:
 
     def special_macro_line(self, macro_token):
         """ Invoked when the __LINE__ macro is expanded """
-        return [CToken(
-            'NUMBER', str(macro_token.loc.row),
-            macro_token.space, macro_token.first,
-            macro_token.loc)]
+        value = str(macro_token.loc.row)
+        return [self.make_token(macro_token, 'NUMBER', value)]
 
     def special_macro_file(self, macro_token):
         """ Invoked when the __FILE__ macro is expanded """
-        value = str(macro_token.loc.filename)
-        return [CToken(
-            'STRING', '"{}"'.format(value),
-            macro_token.space, macro_token.first,
-            macro_token.loc)]
+        value = '"{}"'.format(macro_token.loc.filename)
+        return [self.make_token(macro_token, 'STRING', value)]
 
     def special_macro_date(self, macro_token):
         """ Invoked when the __DATE__ macro is expanded """
-        value = time.strftime('%b %d %Y')
-        return [CToken(
-            'STRING', '"{}"'.format(value),
-            macro_token.space, macro_token.first,
-            macro_token.loc)]
+        value = time.strftime('"%b %d %Y"')
+        return [self.make_token(macro_token, 'STRING', value)]
 
     def special_macro_time(self, macro_token):
-        value = time.strftime('%H:%M:%S')
-        return [CToken(
-            'STRING', '"{}"'.format(value),
-            macro_token.space, macro_token.first,
-            macro_token.loc)]
+        """ Implement __TIME__ macro """
+        value = time.strftime('"%H:%M:%S"')
+        return [self.make_token(macro_token, 'STRING', value)]
+
+    def special_macro_counter(self, macro_token):
+        """ Implement __COUNTER__ macro """
+        value = str(self.counter)
+        self.counter += 1
+        return [self.make_token(macro_token, 'NUMBER', value)]
+
+    def special_macro_include_level(self, macro_token):
+        """ Implement __INCLUDE_LEVEL__ macro """
+        value = str(len(self.filenames))
+        return [self.make_token(macro_token, 'NUMBER', value)]
+
+    @staticmethod
+    def make_token(from_token, typ, value):
+        """ Create a new token from another token. """
+        return CToken(
+            typ, value,
+            from_token.space, from_token.first, from_token.loc)
 
     def process(self, f, filename=None):
         """ Process the given open file into expanded lines of tokens """
         self.logger.debug('Processing %s', filename)
-        previous_filename = self.filename
-        self.filename = filename
+        self.filenames.append(filename)
         clexer = CLexer(self.coptions)
         tokens = clexer.lex(f, filename)
         macro_expander = Expander(self)
@@ -132,7 +145,11 @@ class CPreProcessor:
         for token in macro_expander.process(tokens):
             yield token
         self.logger.debug('Finished %s', filename)
-        self.filename = previous_filename
+        self.filenames.pop()
+
+    def define_special_macro(self, name, handler):
+        """ Define a spcial macro which has a callback function. """
+        self.define(FunctionMacro(name, handler))
 
     def define(self, macro):
         """ Register a define """
@@ -160,7 +177,7 @@ class CPreProcessor:
         search_directories = []
         if use_current_dir:
             # In the case of: #include "foo.h"
-            current_dir = os.path.dirname(self.filename)
+            current_dir = os.path.dirname(self.filenames[-1])
             search_directories.append(current_dir)
         search_directories.extend(self.coptions.include_directories)
         # self.logger.debug((search_directories)
@@ -464,18 +481,7 @@ class Expander:
                     self.logger.debug('Not expanding function macro %s', name)
                     self.undo(token)
                     return False
-                args = self.gatherargs()
-                if macro.variadic:
-                    if len(args) < len(macro.args):
-                        self.error(
-                            'Got {} arguments ({})'
-                            ', but required at least {}'.format(
-                                len(args), args, len(macro.args)))
-                else:
-                    if len(args) != len(macro.args):
-                        self.error(
-                            'Got {} arguments ({}), but expected {}'.format(
-                                len(args), args, len(macro.args)))
+                args = self.gatherargs(macro)
 
                 expansion = self.substitute_arguments(macro, args)
 
@@ -496,13 +502,13 @@ class Expander:
             self.push_context(ctx)
             return True
 
-    def gatherargs(self):
+    def gatherargs(self, macro):
         """ Collect expanded arguments for macro """
         args = []
-        parens = 0
+        parens = 1
         arg = []
 
-        while parens >= 0:
+        while parens > 0:
             token = self.consume(expand=False)
             if token.typ == '(':
                 parens += 1
@@ -510,14 +516,32 @@ class Expander:
             if token.typ == ')':
                 parens -= 1
 
-            if (token.typ == ',' and parens == 0) or (parens < 0):
-                # We have a complete argument, add it to the list:
-                if arg:
-                    # TODO: implement a better check?
-                    args.append(arg)
-                arg = []
+            if (token.typ == ',' and parens == 1) or (parens == 0):
+                if token.typ == ',' and macro.variadic and \
+                        len(args) == len(macro.args):
+                    arg.append(token)
+                else:
+                    # We have a complete argument, add it to the list:
+                    if arg:
+                        # TODO: implement a better check?
+                        # This condition occurs when we have ',,'
+                        args.append(arg)
+                    arg = []
             else:
                 arg.append(token)
+
+        # Check amount of arguments:
+        if macro.variadic:
+            if len(args) != len(macro.args) + 1:
+                self.error(
+                    'Got {} arguments ({})'
+                    ', but required at least {}'.format(
+                        len(args), args, len(macro.args) + 1))
+        else:
+            if len(args) != len(macro.args):
+                self.error(
+                    'Got {} arguments ({}), but expected {}'.format(
+                        len(args), args, len(macro.args)))
 
         return args
 
@@ -538,7 +562,14 @@ class Expander:
         # Create two variants: expanded and not expanded:
         repl_map = {
             fp: (self.expand_token_sequence(a), a)
-            for fp, a in zip(macro.args, args)}
+            for fp, a in zip(macro.args, args)
+        }
+
+        # Spiffy variadic macro!
+        if macro.variadic:
+            va_args = self.expand_token_sequence(args[-1])
+            repl_map['__VA_ARGS__'] = (va_args, None)
+
         # print(repl_map)
         if self.verbose:
             self.logger.debug('replacement map: %s', repl_map)
@@ -1022,7 +1053,8 @@ class BaseMacro:
 
 class Macro(BaseMacro):
     """ Macro define """
-    def __init__(self, name, value, args=None, protected=False, variadic=False):
+    def __init__(
+            self, name, value, args=None, protected=False, variadic=False):
         super().__init__(name, protected=protected)
         self.value = value
         self.args = args
