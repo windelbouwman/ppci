@@ -8,13 +8,25 @@ from .token import CToken
 from ..tools.handlexer import HandLexerBase, Char
 
 
-def create_characters(f, filename):
+class SourceFile:
+    """ Presents the current file. """
+    def __init__(self, name):
+        self.filename = name
+        self.row = 1
+
+    def __repr__(self):
+        return '<SourceFile at {}:{}>'.format(self.filename, self.row)
+
+
+def create_characters(f, source_file):
     """ Create a sequence of characters """
     for row, line in enumerate(f, 1):
         line = line.expandtabs()
         for col, char in enumerate(line, 1):
-            loc = SourceLocation(filename, row, col, 1)
+            loc = SourceLocation(
+                source_file.filename, source_file.row, col, 1)
             yield Char(char, loc)
+        source_file.row += 1
 
 
 def trigraph_filter(characters):
@@ -85,11 +97,11 @@ class CLexer(HandLexerBase):
         super().__init__()
         self.coptions = coptions
 
-    def lex(self, src, filename):
+    def lex(self, src, source_file):
         """ Read a source and generate a series of tokens """
-        self.logger.debug('Lexing %s', filename)
+        self.logger.debug('Lexing %s', source_file.filename)
 
-        characters = create_characters(src, filename)
+        characters = create_characters(src, source_file)
         if self.coptions['trigraphs']:
             characters = trigraph_filter(characters)
         characters = continued_lines_filter(characters)
@@ -104,7 +116,8 @@ class CLexer(HandLexerBase):
         """ Create tokens from the given text """
         f = io.StringIO(txt)
         filename = None
-        characters = characters = create_characters(f, filename)
+        source_file = SourceFile(filename)
+        characters = characters = create_characters(f, source_file)
         return self.tokenize(characters)
 
     def tokenize(self, characters):

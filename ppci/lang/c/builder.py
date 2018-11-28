@@ -64,7 +64,7 @@ def create_ast(src, arch_info, filename='<snippet>', coptions=None):
 
 def _parse(src, filename, context):
     preprocessor = CPreProcessor(context.coptions)
-    tokens = preprocessor.process(src, filename)
+    tokens = preprocessor.process_file(src, filename)
     semantics = CSemantics(context)
     parser = CParser(context.coptions, semantics)
     tokens = prepare_for_parsing(tokens, parser.keywords)
@@ -77,7 +77,7 @@ def parse_type(text, context, filename='foo.c'):
     # TODO: fix + ; hack below:
     src = io.StringIO(text + ';')
     preprocessor = CPreProcessor(context.coptions)
-    tokens = preprocessor.process(src, filename)
+    tokens = preprocessor.process_file(src, filename)
     semantics = CSemantics(context)
     parser = CParser(context.coptions, semantics)
     tokens = prepare_for_parsing(tokens, parser.keywords)

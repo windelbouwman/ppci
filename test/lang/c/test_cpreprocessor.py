@@ -2,24 +2,26 @@ import unittest
 import io
 from unittest import mock
 from ppci.common import CompilerError
-from ppci.lang.c import CBuilder, CPreProcessor, CLexer, lexer, CParser, nodes
-from ppci.lang.c import CContext, COptions
-from ppci.lang.c.preprocessor import CTokenPrinter, prepare_for_parsing
+from ppci.lang.c import CPreProcessor
+from ppci.lang.c import COptions
+from ppci.lang.c import CTokenPrinter
 
 
 class CPreProcessorTestCase(unittest.TestCase):
     """ Test the preprocessor functioning """
     def setUp(self):
-        self.preprocessor = CPreProcessor(COptions())
+        coptions = COptions()
+        coptions.enable('verbose')
+        self.preprocessor = CPreProcessor(coptions)
 
     def preprocess(self, src, expected=None):
         f = io.StringIO(src)
-        lines = self.preprocessor.process(f, 'dummy.t')
-        lines = list(lines)
-        print(lines)
+        tokens = self.preprocessor.process_file(f, 'dummy.t')
+        tokens = list(tokens)
+        print(tokens)
 
         f2 = io.StringIO()
-        CTokenPrinter().dump(lines, file=f2)
+        CTokenPrinter().dump(tokens, file=f2)
         actual_output = f2.getvalue()
         if expected:
             self.assertEqual(expected, actual_output)
@@ -77,16 +79,20 @@ class CPreProcessorTestCase(unittest.TestCase):
     def test_line_directive(self):
         src = r"""
         #line 1234 "cpp"
+        fubar
         __LINE__; __FILE__;
         #line 567
-        __LINE__; __FILE__;
-        """
+        fubar
+        __LINE__; __FILE__;"""
         expected = r"""# 1 "dummy.t"
 
-        1234; "cpp";
-        567; "cpp";"""
-        # TODO: check expected output
-        self.preprocess(src)
+
+        fubar
+        1235; "cpp";
+
+        fubar
+        568; "cpp";"""
+        self.preprocess(src, expected)
 
     def test_error_directive(self):
         src = r"""
@@ -190,7 +196,10 @@ class CPreProcessorTestCase(unittest.TestCase):
         self.preprocess(src, expected)
 
     def test_cpplib_example(self):
-        """ Test a nested function like macro on multiple lines """
+        """ Test a nested function like macro on multiple lines.
+
+        https://gcc.gnu.org/onlinedocs/cppinternals.pdf
+        """
         src = r"""#define foo(x) bar x
         foo(foo
         ) (2)"""
@@ -221,6 +230,7 @@ class CPreProcessorTestCase(unittest.TestCase):
         ||
 """
         self.preprocess(src, expected)
+
     def test_if(self):
         """ Test elif with else """
         src = r"""/* test with comments */

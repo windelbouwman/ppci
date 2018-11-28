@@ -703,7 +703,7 @@ class CCodeGenerator:
 
         rvalue: if True, then the result of the expression will be an rvalue.
         """
-        assert isinstance(expr, expressions.CExpression)
+        assert isinstance(expr, expressions.CExpression), str(expr)
 
         if isinstance(expr, expressions.UnaryOperator):
             value = self.gen_unop(expr)

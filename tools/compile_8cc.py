@@ -38,6 +38,7 @@ coptions.add_include_paths(include_paths)
 def do_compile(filename):
     with open(filename, 'r') as f:
         obj = cc(f, arch, coptions=coptions)
+    print(filename, 'compiled into', obj)
     return obj
 
 

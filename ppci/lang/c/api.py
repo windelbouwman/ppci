@@ -1,6 +1,7 @@
 import io
 from .builder import CBuilder
-from .preprocessor import CTokenPrinter, CPreProcessor
+from .preprocessor import CPreProcessor
+from .token import CTokenPrinter
 from .options import COptions
 from ...utils.reporting import DummyReportGenerator
 
@@ -11,7 +12,7 @@ def preprocess(f, output_file, coptions=None):
         coptions = COptions()
     preprocessor = CPreProcessor(coptions)
     filename = f.name if hasattr(f, 'name') else None
-    tokens = preprocessor.process(f, filename=filename)
+    tokens = preprocessor.process_file(f, filename=filename)
     CTokenPrinter().dump(tokens, file=output_file)
 
 

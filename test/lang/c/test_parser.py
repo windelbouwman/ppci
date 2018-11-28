@@ -8,7 +8,7 @@ except:
 
 
 from ppci.lang.c import CLexer, lexer, CParser, CSemantics
-from ppci.lang.c.preprocessor import prepare_for_parsing
+from ppci.lang.c.preprocessor import prepare_for_parsing, SourceFile
 from ppci.lang.c.options import COptions
 
 
@@ -43,7 +43,8 @@ class CParserTestCase(unittest.TestCase):
         """ Lex a given source and prepare the parser """
         clexer = CLexer(COptions())
         f = io.StringIO(source)
-        tokens = clexer.lex(f, '<snippet>')
+        source_file = SourceFile('<snippet>')
+        tokens = clexer.lex(f, source_file)
         tokens = prepare_for_parsing(tokens, self.parser.keywords)
         self.parser.init_lexer(tokens)
 

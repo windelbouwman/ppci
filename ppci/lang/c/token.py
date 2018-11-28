@@ -1,5 +1,6 @@
 import enum
 from ..common import Token
+from .utils import LineInfo
 
 
 class CToken(Token):
@@ -8,6 +9,7 @@ class CToken(Token):
         super().__init__(typ, val, loc)
         self.space = space
         self.first = first
+        # self.hideset = set()
 
     def __repr__(self):
         return 'CToken({}, {}, {}, "{}", {})'.format(
@@ -31,3 +33,24 @@ class TokenType(enum.Enum):
     DOT = '.'
     COMMA = ','
     ARROW = '->'
+
+
+class CTokenPrinter:
+    """ Printer that can turn a stream of token-lines into text """
+    def dump(self, tokens, file=None):
+        first_line = True
+        for token in tokens:
+            # print(token.typ, token.val, token.first)
+            if isinstance(token, LineInfo):
+                # print(token, str(token))
+                print(str(token), file=file)
+                first_line = True
+            else:
+                if token.first:
+                    # Insert newline!
+                    if first_line:
+                        first_line = False
+                    else:
+                        print(file=file)
+                text = str(token)
+                print(text, end='', file=file)

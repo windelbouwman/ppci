@@ -37,6 +37,31 @@ class CAstPrinter(Visitor):
         self.indent -= 1
 
 
+class LineInfo:
+    """ Line information indicating where the following content comes from.
+
+    Flags can be given.
+    1: start of new file
+    2: returning to a file after an include
+    3: the following comes from a system header file
+    4: The following should be wrapped inside extern "C" implicitly
+    """
+    FLAG_START_OF_NEW_FILE = 1
+    FLAG_RETURN_FROM_INCLUDE = 2
+
+    def __init__(self, line, filename, flags=()):
+        self.line = line
+        self.filename = filename
+        self.flags = flags
+
+    def __str__(self):
+        if self.flags:
+            flags = ' ' + ' '.join(map(str, self.flags))
+        else:
+            flags = ''
+        return '# {} "{}"{}'.format(self.line, self.filename, flags)
+
+
 def cnum(txt: str):
     """ Convert C number to integer """
     assert isinstance(txt, str)
