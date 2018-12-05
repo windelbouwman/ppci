@@ -73,7 +73,21 @@ def _parse(src, filename, context):
 
 
 def parse_type(text, context, filename='foo.c'):
-    """ Parse given C-type AST """
+    """ Parse given C-type AST.
+
+    For example:
+
+    >>> from ppci.api import get_arch
+    >>> from ppci.lang.c import parse_type, CContext, COptions
+    >>> msp430_arch = get_arch('msp430')
+    >>> coptions = COptions()
+    >>> context = CContext(coptions, msp430_arch.info)
+    >>> ast = parse_type('int[2]', context)
+    >>> context.eval_expr(ast.size)
+    2
+    >>> context.sizeof(ast)
+    4
+    """
     # TODO: fix + ; hack below:
     src = io.StringIO(text + ';')
     preprocessor = CPreProcessor(context.coptions)

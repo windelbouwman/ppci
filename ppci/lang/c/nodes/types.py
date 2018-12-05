@@ -166,6 +166,21 @@ class StructOrUnionType(CType):
 
     fields = property(_get_fields, _set_fields)
 
+    def get_named_fields(self):
+        """ Create a list of fields, including those in anonymous members. """
+        fields = []
+        for field in self.fields:
+            if field.name is None:
+                if isinstance(field.typ, StructOrUnionType):
+                    fields.extend(field.typ.get_named_fields())
+            else:
+                fields.append(field)
+        return fields
+
+    def get_field_names(self):
+        """ Get a list of valid field names. """
+        return [f.name for f in self.get_named_fields()]
+
     def has_field(self, name: str):
         """ Check if this type has the given field """
         return name in self._field_map

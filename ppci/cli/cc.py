@@ -23,6 +23,9 @@ parser.add_argument(
     '-E', action='store_true', default=False,
     help="Stop after preprocessing")
 parser.add_argument(
+    '-M', action='store_true', default=False,
+    help="Instead of preprocessing, emit a makefile rule with dependencies")
+parser.add_argument(
     '--ast', action='store_true', default=False,
     help="Stop parsing and output the C abstract syntax tree (ast)")
 parser.add_argument(
@@ -46,6 +49,10 @@ def cc(args=None):
             with open(args.output, 'w') as output:
                 for src in args.sources:
                     api.preprocess(src, output, coptions)
+        elif args.M:  # Emit a makefile dep line.
+            dependencies = []
+            for filename in dependencies:
+                print(filename)
         elif args.ast:
             with open(args.output, 'w') as output:
                 printer = CAstPrinter(file=output)

@@ -1,9 +1,11 @@
 import argparse
 import logging
-import sys
 from .cmo import read_file
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('cmo_file', help='cmo or bytecode file to read')
+    args = parser.parse_args()
     logging.basicConfig(level=logging.DEBUG)
-    read_file(sys.argv[1])
+    read_file(args.cmo_file)

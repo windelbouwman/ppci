@@ -58,6 +58,7 @@ class CPreProcessorTestCase(unittest.TestCase):
         expected = r"""# 1 "dummy.t"
 
 
+
         end"""
         self.preprocess(src, expected)
 
@@ -69,6 +70,7 @@ class CPreProcessorTestCase(unittest.TestCase):
         printf("%i\n", 100);
         #endif"""
         expected = r"""# 1 "dummy.t"
+
 
 
 
@@ -140,6 +142,7 @@ class CPreProcessorTestCase(unittest.TestCase):
 
 
         int X=0;
+
 
 
 
@@ -227,6 +230,7 @@ class CPreProcessorTestCase(unittest.TestCase):
         if (1 > 2
 
 
+
         ||
 """
         self.preprocess(src, expected)
@@ -249,6 +253,8 @@ class CPreProcessorTestCase(unittest.TestCase):
         int32
 
 
+
+
 """
         self.preprocess(src, expected)
 
@@ -268,7 +274,9 @@ class CPreProcessorTestCase(unittest.TestCase):
 
 
 
+
         int64
+
 
 """
         self.preprocess(src, expected)
@@ -439,7 +447,7 @@ class CPreProcessorTestCase(unittest.TestCase):
 
     @unittest.skip('TODO!')
     def test_argument_prescan2(self):
-        """ Example from gnu argument prescan website:
+        """ Example from gnu argument prescan website.
 
         https://gcc.gnu.org/onlinedocs/cpp/Argument-Prescan.html """
         src = r"""#define foo a,b

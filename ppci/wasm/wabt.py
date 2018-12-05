@@ -6,7 +6,6 @@ It's converted to (ASM) js, so we can run it cross-platform using node.
 """
 
 import os
-import sys
 import subprocess
 from urllib.request import urlopen
 
@@ -67,15 +66,15 @@ def wat2wasm(wat):
     """
     if not isinstance(wat, str):
         raise TypeError('wat2wasm() expects a str or tuple.')
-    
+
     # Prepare
     libfile = _get_wabt_lib()
     libdir = os.path.dirname(libfile)
     node = get_node_exe()
-    
+
     # Compose JS
     js = js_wat2wasm.replace('libwabt.js', os.path.basename(libfile))
-    
+
     # Run
     p = subprocess.Popen([node, '-e', js], cwd=libdir,
         stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -93,19 +92,19 @@ def wasm2wat(wasm, resolve_names=False):
     """
     if not isinstance(wasm, bytes):
         raise TypeError('wasm2wat() expects bytes.')
-    
+
     # Prepare
     libfile = _get_wabt_lib()
     libdir = os.path.dirname(libfile)
     node = get_node_exe()
-    
+
     # Compose JS
     js = js_wasm2wat.replace('libwabt.js', os.path.basename(libfile))
     if resolve_names:
         js = js.replace('READ_DEBUG_NAMES', 'true').replace('GENERATE_NAMES', 'true')
     else:
         js = js.replace('READ_DEBUG_NAMES', 'false').replace('GENERATE_NAMES', 'false')
-    
+
     # Run
     p = subprocess.Popen([node, '-e', js], cwd=libdir,
         stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)

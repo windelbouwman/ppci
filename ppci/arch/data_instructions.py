@@ -10,7 +10,6 @@ dd 2 -> 02000000
 
 from .isa import Isa
 from .encoding import Instruction, Operand, Syntax, Relocation
-from .arch_info import Endianness
 from .token import Token, bit_range, u32
 
 data_isa = Isa()

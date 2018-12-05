@@ -7,7 +7,6 @@ $ copy the file dist/core/index.untouched.wasm
 import sys
 import logging
 import os
-import time
 import argparse
 
 import numpy as np
@@ -15,8 +14,6 @@ import pygame
 from pygame.locals import QUIT
 
 from ppci.wasm import Module, instantiate
-from ppci.wasm import wasm_to_ir
-from ppci.api import get_arch, ir_to_object
 from ppci.utils import reporting
 
 parser = argparse.ArgumentParser()
@@ -27,8 +24,10 @@ logging.basicConfig(level=logging.INFO)
 with open('wasmboy.wasm', 'rb') as f:
     wasm_module = Module(f)
 
+
 def log(a: int, b: int, c: int, d: int, e: int, f: int, g: int) -> None:
     print('Log:', a, b, c, d, e, f, g)
+
 
 this_dir = os.path.dirname(os.path.abspath(__file__))
 html_report = os.path.join(this_dir, 'wasmboy_report.html')
@@ -40,7 +39,7 @@ with open(html_report, 'w') as f, reporting.HtmlReportGenerator(f) as reporter:
         reporter=reporter
     )
 
-# Following this explanation: 
+# Following this explanation:
 # https://github.com/torch2424/wasmBoy/wiki/%5BWIP%5D-Core-API
 
 rom_filename = args.rom
@@ -77,18 +76,22 @@ while True:
     num_samples = wasm_boy.exports.getNumberOfSamplesInAudioBuffer()
     if num_samples > 4096:
         audio_buffer_location = wasm_boy.exports.AUDIO_BUFFER_LOCATION.read()
-        audio_data = wasm_boy.exports.memory[audio_buffer_location:audio_buffer_location+num_samples*2]
+        audio_data = wasm_boy.exports.memory[
+            audio_buffer_location:audio_buffer_location+num_samples*2]
         wasm_boy.exports.clearAudioBuffer()
 
         # Do some random conversions on the audio:
-        audio = np.array([(s - 127)*250 for s in audio_data], dtype=np.int16).reshape((-1, 2))
+        audio = np.array(
+            [(s - 127)*250 for s in audio_data],
+            dtype=np.int16
+        ).reshape((-1, 2))
         sound = pygame.sndarray.make_sound(audio)
         # print(num_samples, time.time())
 
         # Let last sample move out of queue:
         while channel.get_queue():
             pygame.time.delay(5)
-            
+
         if channel.get_busy():
             channel.queue(sound)
         else:
@@ -122,4 +125,3 @@ while True:
 
     # Use deliberate higher framerate here, we will use audio to sync time
     clock.tick(65)
-

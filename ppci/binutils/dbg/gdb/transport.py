@@ -23,7 +23,7 @@ class Transport(metaclass=abc.ABCMeta):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def send(self):  # pragma: no cover
+    def send(self, data):  # pragma: no cover
         """ Send data """
         raise NotImplementedError()
 

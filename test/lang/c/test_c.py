@@ -276,6 +276,18 @@ class CFrontendTestCase(unittest.TestCase):
         """
         self.do(src)
 
+    @unittest.skip('TODO')
+    def test_anonymous_union_member(self):
+        """ Test anonymous union member access. """
+        src = """
+        union z { int foo; struct { int b; }; };
+        void main() {
+          union z my_z;
+          my_z.b = 34;
+        }
+        """
+        self.do(src)
+
     def test_array(self):
         """ Test array types """
         src = """
@@ -596,7 +608,7 @@ class CFrontendTestCase(unittest.TestCase):
 
 
 class CSynthesizerTestCase(unittest.TestCase):
-    @unittest.skip('todo')
+    # @unittest.skip('todo')
     def test_hello(self):
         """ Convert C to Ir, and then this IR to C """
         src = r"""
@@ -605,14 +617,10 @@ class CSynthesizerTestCase(unittest.TestCase):
           printf("Hello" "world\n");
         }
         """
-        builder = CBuilder(ExampleArch(), COptions())
+        arch = ExampleArch()
+        builder = CBuilder(arch.info, COptions())
         f = io.StringIO(src)
-        try:
-            ir_module = builder.build(f, None)
-        except CompilerError as compiler_error:
-            lines = src.split('\n')
-            compiler_error.render(lines)
-            raise
+        ir_module = builder.build(f, None)
         assert isinstance(ir_module, ir.Module)
         Verifier().verify(ir_module)
         synthesizer = CSynthesizer()

@@ -155,7 +155,7 @@ class CPreProcessor:
         self.files.append(ex)
         clexer = CLexer(self.coptions)
         tokens = clexer.lex(f, source_file)
-        yield LineInfo(1, filename)
+        yield LineInfo(1, source_file.filename)
         for token in self.process_tokens(tokens):
             yield token
 
@@ -163,7 +163,7 @@ class CPreProcessor:
         if self.files[-1].if_stack:
             self.error('#if not properly closed')
 
-        self.logger.debug('Finished %s', filename)
+        self.logger.debug('Finished %s', source_file.filename)
         self.files.pop()
 
     def locate_include(self, filename, loc, use_current_dir: bool):
@@ -203,6 +203,8 @@ class CPreProcessor:
         """
         full_path = self.locate_include(filename, loc, use_current_dir)
         self.logger.debug('Including %s', full_path)
+        source_file = SourceFile(full_path)
+        self.files[-1].dependencies.append(source_file)
         with open(full_path, 'r') as f:
             for token in self.process_file(f, full_path):
                 yield token
@@ -260,7 +262,8 @@ class CPreProcessor:
             else:
                 if token.typ != typ:
                     self.error(
-                        'Expected {} but got {}'.format(typ, token.typ), token)
+                        'Expected {} but got {}'.format(typ, token.typ),
+                        token)
         return token
 
     def has_consumed(self, typ, expand=True):
@@ -280,6 +283,7 @@ class CPreProcessor:
             line.append(self.consume(expand=False))
         return line
 
+    # Output generation:
     def error(self, msg, token=None):
         if not token:
             token = self.token
@@ -312,7 +316,7 @@ class CPreProcessor:
                 # Ensure end of line!
                 if not self.at_line_start:
                     self.error('Expected end of line')
-            elif self.files[-1].enabled:
+            else:
                 # This is not a directive, but normal text:
                 yield token
             token = self.next_token()
@@ -322,6 +326,7 @@ class CPreProcessor:
             token = self.next_token()
         return token
 
+    # Macro expansion functions:
     def expand(self, macro_token):
         """ Expand a single token into possibly more tokens.
 
@@ -527,12 +532,10 @@ class CPreProcessor:
         """ Handle a single preprocessing directive """
         self.files[-1].in_directive = True
         directive_token = self.consume('ID')
-        new_line_token = CToken('WS', '', '', True, directive_token.loc)
         directive = directive_token.val
         if self.verbose:
             self.logger.debug('Handing #%s directive', directive)
 
-        # First handle if/elif/else/endif directives to determine ifstack:
         if directive == 'ifdef':
             yield from self.handle_ifdef_directive(directive_token)
         elif directive == 'ifndef':
@@ -545,71 +548,90 @@ class CPreProcessor:
             yield from self.handle_else_directive(directive_token)
         elif directive == 'endif':
             yield from self.handle_endif_directive(directive_token)
-        elif self.files[-1].enabled:
-            # Only handle these directives when not
-            # in #else -- #endif blocks.
-            if directive == 'include':
-                yield from self.handle_include_directive(directive_token)
-            elif directive == 'define':
-                yield from self.handle_define_directive(directive_token)
-            elif directive == 'undef':
-                yield from self.handle_undef_directive(directive_token)
-            elif directive == 'line':
-                yield from self.handle_line_directive(directive_token)
-            elif directive == 'error':
-                yield from self.handle_error_directive(directive_token)
-            elif directive == 'warning':
-                yield from self.handle_warning_directive(directive_token)
-            elif directive == 'pragma':
-                yield from self.handle_warning_directive(directive_token)
-            else:  # pragma: no cover
-                self.logger.error('todo: %s', directive)
-                self.error('not implemented', directive_token)
-        else:
-            # Eat rest of line:
-            self.eat_line()
-            yield new_line_token
+        elif directive == 'include':
+            yield from self.handle_include_directive(directive_token)
+        elif directive == 'define':
+            yield from self.handle_define_directive(directive_token)
+        elif directive == 'undef':
+            yield from self.handle_undef_directive(directive_token)
+        elif directive == 'line':
+            yield from self.handle_line_directive(directive_token)
+        elif directive == 'error':
+            yield from self.handle_error_directive(directive_token)
+        elif directive == 'warning':
+            yield from self.handle_warning_directive(directive_token)
+        elif directive == 'pragma':
+            yield from self.handle_warning_directive(directive_token)
+        else:  # pragma: no cover
+            self.logger.error('todo: %s', directive)
+            self.error('not implemented', directive_token)
         self.files[-1].in_directive = False
+
+    def skip_excluded_block(self):
+        """ Skip the block excluded by if/ifdef.
+
+        Skip tokens until we hit #endif or alike.
+        """
+        nesting = 0
+        while True:
+            hash_token = self.next_token(expand=False)
+
+            # Check end of file:
+            if hash_token is None:
+                self.error('Unterminated #if/#elif/#else block')
+
+            # Check if we have a directive.
+            if hash_token.first and hash_token.typ == '#':
+                directive_token = self.next_token(expand=False)
+                if directive_token.typ == 'ID':
+                    # Stop on else/elif/endif block:
+                    if nesting == 0 and \
+                            directive_token.val in ['else', 'elif', 'endif']:
+                        self.unget_token(directive_token)
+                        self.unget_token(hash_token)
+                        break
+
+                    # Handle nesting levels:
+                    if directive_token.val in ['endif']:
+                        nesting -= 1
+                    elif directive_token.val in ['if', 'ifdef', 'ifndef']:
+                        nesting += 1
+
+            # Consume line in all cases:
+            self.eat_line()
+
+            # Construct empty line:
+            new_line_token = CToken('WS', '', '', True, hash_token.loc)
+            yield new_line_token
 
     def handle_ifdef_directive(self, directive_token):
         """ Handle an `#ifdef` directive. """
-        if self.files[-1].enabled:
-            test_define = self.consume('ID', expand=False, stop_eol=True).val
-            condition = self.is_defined(test_define)
-            self.files[-1].if_stack.append(IfState(condition))
-        else:
-            self.eat_line()
-            self.files[-1].if_stack.append(IfState(True))
-
-        self.calculate_active()
+        test_define = self.consume('ID', expand=False, stop_eol=True).val
+        condition = self.is_defined(test_define)
         new_line_token = CToken('WS', '', '', True, directive_token.loc)
         yield new_line_token
+        yield from self.do_if(condition)
 
     def handle_ifndef_directive(self, directive_token):
         """ Handle an `#ifndef` directive. """
-        if self.files[-1].enabled:
-            test_define = self.consume('ID', expand=False, stop_eol=True).val
-            condition = not self.is_defined(test_define)
-            self.files[-1].if_stack.append(IfState(condition))
-        else:
-            self.eat_line()
-            self.files[-1].if_stack.append(IfState(True))
-
-        self.calculate_active()
+        test_define = self.consume('ID', expand=False, stop_eol=True).val
+        condition = not self.is_defined(test_define)
         new_line_token = CToken('WS', '', '', True, directive_token.loc)
         yield new_line_token
+        yield from self.do_if(condition)
 
     def handle_if_directive(self, directive_token):
         """ Process an `#if` directive. """
-        if self.files[-1].enabled:
-            condition = bool(self.eval_expr())
-            self.files[-1].if_stack.append(IfState(condition))
-        else:
-            self.eat_line()
-            self.files[-1].if_stack.append(IfState(True))
-        self.calculate_active()
+        condition = bool(self.eval_expr())
         new_line_token = CToken('WS', '', '', True, directive_token.loc)
         yield new_line_token
+        yield from self.do_if(condition)
+
+    def do_if(self, condition):
+        """ Handle #if/#ifdef/#ifndef. """
+        self.files[-1].if_stack.append(IfState(condition))
+        if not condition:
+            yield from self.skip_excluded_block()
 
     def handle_elif_directive(self, directive_token):
         """ Process `#elif` directive. """
@@ -619,18 +641,15 @@ class CPreProcessor:
         if self.files[-1].if_stack[-1].in_else:
             self.error('#elif after #else', directive_token)
 
-        if self.calc_enabled(self.files[-1].if_stack[:-1]):
-            can_else = not self.files[-1].if_stack[-1].was_active
-            condition = bool(self.eval_expr()) and can_else
-            self.files[-1].if_stack[-1].active = condition
-            if condition:
-                self.files[-1].if_stack[-1].was_active = True
-        else:
-            self.eat_line()
+        can_else = not self.files[-1].if_stack[-1].was_active
+        condition = bool(self.eval_expr()) and can_else
+        if condition:
+            self.files[-1].if_stack[-1].was_active = True
 
-        self.calculate_active()
         new_line_token = CToken('WS', '', '', True, directive_token.loc)
         yield new_line_token
+        if not condition:
+            yield from self.skip_excluded_block()
 
     def handle_else_directive(self, directive_token):
         """ Process the `#else` directive. """
@@ -641,18 +660,17 @@ class CPreProcessor:
             self.error('One else too much in #ifdef', directive_token)
 
         self.files[-1].if_stack[-1].in_else = True
-        self.files[-1].if_stack[-1].active = \
-            not self.files[-1].if_stack[-1].was_active
-        self.calculate_active()
+        active = not self.files[-1].if_stack[-1].was_active
         new_line_token = CToken('WS', '', '', True, directive_token.loc)
         yield new_line_token
+        if not active:
+            yield from self.skip_excluded_block()
 
     def handle_endif_directive(self, directive_token):
         """ Process the `#endif` directive. """
         if not self.files[-1].if_stack:
             self.error('Mismatching #endif', directive_token)
         self.files[-1].if_stack.pop()
-        self.calculate_active()
         new_line_token = CToken('WS', '', '', True, directive_token.loc)
         yield new_line_token
 
@@ -691,7 +709,6 @@ class CPreProcessor:
         token = self.next_token(expand=False)
         if token.typ == '(' and not token.space:
             args = []
-            # if not self.has_consumed(')', expand=False):
             while True:
                 if self.token.typ == '...':
                     self.consume('...', expand=False)
@@ -774,20 +791,6 @@ class CPreProcessor:
     def tokens_to_string(self, tokens):
         """ Create a text from the given tokens """
         return ''.join(map(str, tokens)).strip()
-
-    def calc_enabled(self, stack):
-        if stack:
-            return all(i.active for i in stack)
-        else:
-            return True
-
-    def calculate_active(self):
-        """ Determine if we may emit code given the current if-stack """
-        if self.files[-1].if_stack:
-            enabled = all(i.active for i in self.files[-1].if_stack)
-            self.files[-1].enabled = enabled
-        else:
-            self.files[-1].enabled = True
 
     # Expression parsing:
     def eval_expr(self):
@@ -922,43 +925,40 @@ class CPreProcessor:
     def _eval_tree(self, expr):
         """ Evaluate a parsed tree """
         if isinstance(expr, Const):
-            return expr.value
+            value = expr.value
         elif isinstance(expr, Unop):
-            a = self._eval_tree(expr.a)
+            value = self._eval_tree(expr.a)
             if expr.op == '!':
-                return int(not bool(a))
+                value = int(not bool(value))
             elif expr.op == '-':
-                return -a
+                value = -value
             elif expr.op == '~':
-                return ~a
+                value = ~value
             else:  # pragma: no cover
                 raise NotImplementedError(expr.op)
         elif isinstance(expr, Binop):
             if expr.op == '||':
                 # Short circuit logic:
-                a = self._eval_tree(expr.a)
-                if a:
-                    return True
-                else:
-                    return self._eval_tree(expr.b)
+                value = self._eval_tree(expr.a)
+                if not value:
+                    value = self._eval_tree(expr.b)
             elif expr.op == '&&':
                 # Short circuit logic:
-                a = self._eval_tree(expr.a)
-                if a:
-                    return self._eval_tree(expr.b)
-                else:
-                    return False
+                value = self._eval_tree(expr.a)
+                if value:
+                    value = self._eval_tree(expr.b)
             else:
                 func = self.OP_MAP[expr.op][2]
-                return func(self._eval_tree(expr.a), self._eval_tree(expr.b))
+                value = func(self._eval_tree(expr.a), self._eval_tree(expr.b))
         elif isinstance(expr, Ternop):
-            a = self._eval_tree(expr.a)
-            if a:
-                return self._eval_tree(expr.b)
+            value = self._eval_tree(expr.a)
+            if value:
+                value = self._eval_tree(expr.b)
             else:
-                return self._eval_tree(expr.c)
+                value = self._eval_tree(expr.c)
         else:  # pragma: no cover
             raise NotImplementedError(str(expr))
+        return value
 
 
 class FileExpander:
@@ -972,12 +972,11 @@ class FileExpander:
     """
     def __init__(self, source_file):
         self.source_file = source_file
+        self.dependencies = []  # List of dependent files.
         self.if_stack = []  # If-def stack
         self.token_buffer = []
         self.macro_expansions = []  # A stack of macro expansions
         self.in_directive = False
-        # TODO: remove enabled boolean and skip text instead.
-        self.enabled = True
         self.paren_level = 0
 
     def __repr__(self):
@@ -986,7 +985,7 @@ class FileExpander:
 
     @property
     def peek(self):
-        # First try 
+        # First try
         if self.token_buffer:
             return self.token_buffer[0]
 
@@ -1128,7 +1127,6 @@ class Ternop:
 class IfState:
     """ If status for use on the if-stack """
     def __init__(self, active):
-        self.active = active
         self.was_active = active
         self.in_else = False  # Indicator whether we are in the else clause.
 

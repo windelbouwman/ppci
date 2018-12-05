@@ -177,6 +177,23 @@ class CContext:
         assert field_offset % 8 == 0
         return field_offset // 8
 
+    def has_field(self, typ, field_name):
+        """ Check if the given type has the given field. """
+        if not isinstance(typ, types.StructOrUnionType):
+            raise TypeError('typ must be union or struct type')
+
+        return field_name in typ.get_field_names()
+
+    def get_field(self, typ, field_name):
+        """ Get the given field. """
+        if not isinstance(typ, types.StructOrUnionType):
+            raise TypeError('typ must be union or struct type')
+
+        for field in typ.get_named_fields():
+            if field.name == field_name:
+                return field
+        raise KeyError(field_name)
+
     def get_enum_value(self, enum_typ, enum_constant):
         if enum_constant not in self._enum_values:
             self._calculate_enum_values(enum_typ)

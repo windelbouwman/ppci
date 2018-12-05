@@ -493,16 +493,6 @@ class CParser(RecursiveDescentParser):
 
         return initializer
 
-    def parse_inner_variable_initializer(self):
-        """ Parse array or structure initializer within { and } """
-        if self.peek in ['[', '.'] and self.coptions['std'] == 'c99':
-            target = self.parse_designator()
-            initializer = self.parse_variable_initializer()
-            initializer = (target, initializer)
-        else:
-            initializer = self.parse_variable_initializer(None)
-        return initializer
-
     def parse_struct_initializer(self, struct_typ, initializer):
         """ Match an initializer onto a struct type """
         assert isinstance(struct_typ, types.StructType)

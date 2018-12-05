@@ -117,11 +117,11 @@ class RrrnToken(Token):
 
 
 class Shift1(Transform):
-    def forwards(self, val):
-        return val >> 1
+    def forwards(self, value):
+        return value >> 1
 
-    def backwards(self, val):
-        return val << 1
+    def backwards(self, value):
+        return value << 1
 
 
 class Shift2(Transform):

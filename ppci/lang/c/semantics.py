@@ -533,7 +533,7 @@ class CSemantics:
         typ = base.typ.element_type
         return expressions.ArrayIndex(base, index, typ, True, location)
 
-    def on_field_select(self, base, field, location):
+    def on_field_select(self, base, field_name, location):
         """ Check field select expression """
         if not isinstance(base.typ, types.StructOrUnionType):
             # Maybe we have a pointer to a struct?
@@ -544,7 +544,7 @@ class CSemantics:
                 lhs = expr_to_str(base)
                 hints.append(
                     'Did you mean "{0}->{1}" instead of "{0}.{1}"?'.format(
-                        lhs, field))
+                        lhs, field_name))
             self.error(
                 'Selecting a field of non-struct type', location, hints=hints)
 
@@ -552,10 +552,15 @@ class CSemantics:
             self.error('Expected lvalue', location)
         # TODO: handle qualifiers?
 
-        if not base.typ.has_field(field):
-            self.error('Field {} not part of struct'.format(field), location)
+        if not self.context.has_field(base.typ, field_name):
+            valid_field_names = base.typ.get_field_names()
+            hint = 'This type has those fields: {}'.format(valid_field_names)
+            self.error(
+                'Field {} not part of struct'.format(field_name),
+                location,
+                hints=[hint])
 
-        field = base.typ.get_field(field)
+        field = self.context.get_field(base.typ, field_name)
         expr = expressions.FieldSelect(base, field, field.typ, True, location)
         return expr
 
@@ -585,26 +590,27 @@ class CSemantics:
             self.error('Invalid type for va_copy', src.location)
         return expressions.BuiltInVaCopy(dest, src, location)
 
-    def on_builtin_offsetof(self, typ, member, location):
+    def on_builtin_offsetof(self, typ, member_name, location):
         """ Check offsetof builtin function """
         if not isinstance(typ, types.StructOrUnionType):
             self.error(
                 'Can only apply offsetof on structs and unions', location)
 
         # Test if member is a member of the given type now?
-        if not typ.has_field(member):
+        if not self.context.has_field(typ, member_name):
             self.error(
-                'Cannot find member {}'.format(member), location)
+                'Cannot find member {}'.format(member_name), location)
 
         # Test if field is a bitfield:
-        field = typ.get_field(member)
+        field = self.context.get_field(typ, member_name)
         if field.is_bitfield:
             self.error(
-                'Attempt to take address of bit-field "{}"'.format(member),
+                'Attempt to take address of bit-field "{}"'.format(
+                    member_name),
                 location)
 
         return expressions.BuiltInOffsetOf(
-            typ, member, self.int_type, location)
+            typ, member_name, self.int_type, location)
 
     def on_call(self, callee, arguments, location):
         """ Check function call for validity """

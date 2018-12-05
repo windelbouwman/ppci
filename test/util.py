@@ -7,7 +7,7 @@ import time
 import shutil
 import logging
 import string
-from functools import lru_cache, partial
+from functools import lru_cache
 
 # Store testdir for safe switch back to directory:
 testdir = os.path.dirname(os.path.abspath(__file__))
@@ -56,7 +56,6 @@ def do_long_tests(arch):
         return True
     else:
         return False
-
 
 
 def do_iverilog():
@@ -306,13 +305,13 @@ def run_avr(hexfile):
     return data
 
 
-def gnu_assemble(source, as_args=[], prefix='arm-none-eabi-'):
+def gnu_assemble(source, as_args=(), prefix='arm-none-eabi-'):
     """ Helper function to feed source through gnu assembling tools """
     prefix = 'arm-none-eabi-'
     gas = '{}as'.format(prefix)
     objdump = prefix + 'objdump'
     print('assembling...')
-    p_as = subprocess.Popen([gas] + as_args, stdin=subprocess.PIPE)
+    p_as = subprocess.Popen([gas] + list(as_args), stdin=subprocess.PIPE)
     p_as.communicate(input=source.encode('ascii'))
     if p_as.returncode != 0:
         raise Exception('{}'.format(p_as.returncode))
