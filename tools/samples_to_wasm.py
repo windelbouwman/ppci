@@ -2,9 +2,9 @@
 """
 Handy online wasm to text conversion:
 
-https://cdn.rawgit.com/WebAssembly/wabt/7e56ca56/demo/wasm2wast/
+https://cdn.jsdelivr.net/gh/WebAssembly/wabt@7e56ca56/demo/wasm2wast/
 
-https://cdn.rawgit.com/WebAssembly/wabt/fb986fbd/demo/wat2wasm/
+https://cdn.jsdelivr.net/gh/WebAssembly/wabt@fb986fbd/demo/wat2wasm/
 
 https://github.com/WebAssembly/wabt
 

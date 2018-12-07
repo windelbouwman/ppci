@@ -3,4 +3,4 @@
 
 The source for the factorial wasm code was downloaded from:
 
-https://cdn.rawgit.com/WebAssembly/wabt/fb986fbd/demo/wat2wasm/
+https://cdn.jsdelivr.net/gh/WebAssembly/wabt@fb986fbd/demo/wat2wasm/

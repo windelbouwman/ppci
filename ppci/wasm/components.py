@@ -27,7 +27,7 @@ Common attribute names:
 # https://github.com/mdn/webassembly-examples
 #
 # Validate WAT:
-# https://cdn.rawgit.com/WebAssembly/wabt/aae5a4b7/demo/wat2wasm/
+# https://cdn.jsdelivr.net/gh/WebAssembly/wabt@aae5a4b7/demo/wat2wasm/
 
 from io import BytesIO
 import logging
