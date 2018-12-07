@@ -44,6 +44,10 @@ class CPreProcessor:
         # Indicate standard C:
         self.define_simple_macro('__STDC__', '1', protected=True)
 
+        # Hosted or freestanding:
+        self.define_simple_macro(
+            '__STDC_HOSTED__', '1', protected=True)
+
         # Set c99/c11 version:
         if self.coptions['std'] == 'c99':
             self.define_simple_macro(
@@ -161,12 +165,22 @@ class CPreProcessor:
 
         # Test for empty if-stack:
         if self.files[-1].if_stack:
-            self.error('#if not properly closed')
+            hints = []
+            for if_clause in self.files[-1].if_stack:
+                hints.append(
+                    'This if is not terminated: {}'.format(if_clause))
+            amount = len(self.files[-1].if_stack)
+            self.error(
+                '{} #if/ifdef/ifndef directives not closed.'.format(amount),
+                hints=hints,
+                loc=self.files[-1].if_stack[-1].location
+            )
 
         self.logger.debug('Finished %s', source_file.filename)
         self.files.pop()
 
-    def locate_include(self, filename, loc, use_current_dir: bool):
+    def locate_include(self, filename, loc, use_current_dir: bool,
+                       include_next):
         """ Determine which file to use given the include filename.
 
         Parameters:
@@ -177,9 +191,14 @@ class CPreProcessor:
         self.logger.debug('Locating %s', filename)
 
         # Maybe it is an absolute path:
-        if os.path.isabs(filename) and os.path.exists(filename):
-            self.logger.debug('Absolute path, not searching include paths')
-            return filename
+        if os.path.isabs(filename):
+            if os.path.exists(filename):
+                self.logger.debug('Absolute path, not searching include paths')
+                return filename
+            else:
+                self.error(
+                    'Absolute filename {} not found'.format(filename),
+                    loc)
 
         # Determine search paths:
         search_directories = []
@@ -194,14 +213,22 @@ class CPreProcessor:
             self.logger.debug('Searching in %s', path)
             full_path = os.path.join(path, filename)
             if os.path.exists(full_path):
-                return full_path
+                if include_next:
+                    current_filename = self.files[-1].source_file.filename
+                    if full_path == current_filename:
+                        include_next = False
+                else:
+                    return full_path
+
         self.logger.error('File not found: %s', filename)
         raise CompilerError('Could not find {}'.format(filename), loc)
 
-    def include(self, filename, loc, use_current_dir=False):
+    def include(self, filename, loc, use_current_dir=False,
+                include_next=False):
         """ Turn the given filename into a series of tokens.
         """
-        full_path = self.locate_include(filename, loc, use_current_dir)
+        full_path = self.locate_include(
+            filename, loc, use_current_dir, include_next)
         self.logger.debug('Including %s', full_path)
         source_file = SourceFile(full_path)
         self.files[-1].dependencies.append(source_file)
@@ -221,6 +248,10 @@ class CPreProcessor:
         if token and expand:
             while self.expand(token):
                 token = self.next_token(expand=False)
+
+        if self.verbose:
+            self.logger.debug('Token: %s', repr(token))
+
         return token
 
     def unget_token(self, token):
@@ -258,12 +289,12 @@ class CPreProcessor:
                     expected = ', '.join(typ)
                     self.error(
                         'Expected {} but got {}'.format(expected, token.typ),
-                        token)
+                        loc=token.loc)
             else:
                 if token.typ != typ:
                     self.error(
                         'Expected {} but got {}'.format(typ, token.typ),
-                        token)
+                        loc=token.loc)
         return token
 
     def has_consumed(self, typ, expand=True):
@@ -284,13 +315,10 @@ class CPreProcessor:
         return line
 
     # Output generation:
-    def error(self, msg, token=None):
-        if not token:
-            token = self.token
-        if token:
-            raise CompilerError(msg, token.loc)
-        else:
-            raise CompilerError(msg)
+    def error(self, msg, hints=None, loc=None):
+        """ We hit an error condition. """
+        # self.logger.error(msg)
+        raise CompilerError(msg, hints=hints, loc=loc)
 
     def warning(self, msg):
         self.logger.warning(msg)
@@ -347,7 +375,7 @@ class CPreProcessor:
                 hideset = self.files[-1].macro_expansions[-1].hideset | \
                     {macro.name}
 
-                self.logger.debug('Expanded into %s', expansion)
+                self.logger.debug('%s expanded into %s', name, expansion)
                 self.copy_leading_space(macro_token, expansion)
                 self.push_expansion(MacroExpansion(iter(expansion), hideset))
                 return True
@@ -509,7 +537,7 @@ class CPreProcessor:
         if len(tokens) == 1:
             return tokens[0].copy(space=lhs.space, first=lhs.first)
         else:
-            self.error('Invalidly glued "{}"'.format(total_text), token=lhs)
+            self.error('Invalidly glued "{}"'.format(total_text), loc=lhs.loc)
 
     def concatenate(self, tokens):
         """ Handle the '##' token concatenation operator """
@@ -550,6 +578,8 @@ class CPreProcessor:
             yield from self.handle_endif_directive(directive_token)
         elif directive == 'include':
             yield from self.handle_include_directive(directive_token)
+        elif directive == 'include_next':
+            yield from self.handle_include_next_directive(directive_token)
         elif directive == 'define':
             yield from self.handle_define_directive(directive_token)
         elif directive == 'undef':
@@ -563,8 +593,9 @@ class CPreProcessor:
         elif directive == 'pragma':
             yield from self.handle_warning_directive(directive_token)
         else:  # pragma: no cover
-            self.logger.error('todo: %s', directive)
-            self.error('not implemented', directive_token)
+            self.error(
+                'not implemented: {}'.format(directive),
+                loc=directive_token.loc)
         self.files[-1].in_directive = False
 
     def skip_excluded_block(self):
@@ -610,7 +641,7 @@ class CPreProcessor:
         condition = self.is_defined(test_define)
         new_line_token = CToken('WS', '', '', True, directive_token.loc)
         yield new_line_token
-        yield from self.do_if(condition)
+        yield from self.do_if(condition, directive_token.loc)
 
     def handle_ifndef_directive(self, directive_token):
         """ Handle an `#ifndef` directive. """
@@ -618,28 +649,32 @@ class CPreProcessor:
         condition = not self.is_defined(test_define)
         new_line_token = CToken('WS', '', '', True, directive_token.loc)
         yield new_line_token
-        yield from self.do_if(condition)
+        yield from self.do_if(condition, directive_token.loc)
 
     def handle_if_directive(self, directive_token):
         """ Process an `#if` directive. """
         condition = bool(self.eval_expr())
         new_line_token = CToken('WS', '', '', True, directive_token.loc)
         yield new_line_token
-        yield from self.do_if(condition)
+        yield from self.do_if(condition, directive_token.loc)
 
-    def do_if(self, condition):
+    def do_if(self, condition, location):
         """ Handle #if/#ifdef/#ifndef. """
-        self.files[-1].if_stack.append(IfState(condition))
+        self.files[-1].if_stack.append(IfState(condition, location))
+        if self.verbose:
+            self.logger.debug(
+                'If-stack is %s deep', len(self.files[-1].if_stack))
+
         if not condition:
             yield from self.skip_excluded_block()
 
     def handle_elif_directive(self, directive_token):
         """ Process `#elif` directive. """
         if not self.files[-1].if_stack:
-            self.error('#elif outside #if', directive_token)
+            self.error('#elif outside #if', loc=directive_token.loc)
 
         if self.files[-1].if_stack[-1].in_else:
-            self.error('#elif after #else', directive_token)
+            self.error('#elif after #else', loc=directive_token.loc)
 
         can_else = not self.files[-1].if_stack[-1].was_active
         condition = bool(self.eval_expr()) and can_else
@@ -654,10 +689,10 @@ class CPreProcessor:
     def handle_else_directive(self, directive_token):
         """ Process the `#else` directive. """
         if not self.files[-1].if_stack:
-            self.error('#else outside #if', directive_token)
+            self.error('#else outside #if', loc=directive_token.loc)
 
         if self.files[-1].if_stack[-1].in_else:
-            self.error('One else too much in #ifdef', directive_token)
+            self.error('One else too much in #ifdef', loc=directive_token.loc)
 
         self.files[-1].if_stack[-1].in_else = True
         active = not self.files[-1].if_stack[-1].was_active
@@ -669,13 +704,42 @@ class CPreProcessor:
     def handle_endif_directive(self, directive_token):
         """ Process the `#endif` directive. """
         if not self.files[-1].if_stack:
-            self.error('Mismatching #endif', directive_token)
+            self.error('Mismatching #endif', loc=directive_token.loc)
         self.files[-1].if_stack.pop()
         new_line_token = CToken('WS', '', '', True, directive_token.loc)
         yield new_line_token
 
     def handle_include_directive(self, directive_token):
         """ Process the `#include` directive. """
+        use_current_dir, include_filename = self.parse_included_filename()
+
+        for token in self.include(
+                include_filename, directive_token.loc,
+                use_current_dir=use_current_dir):
+            yield token
+
+        yield LineInfo(
+            directive_token.loc.row + 1,
+            directive_token.loc.filename,
+            flags=[LineInfo.FLAG_RETURN_FROM_INCLUDE])
+
+    def handle_include_next_directive(self, directive_token):
+        """ Process the `#include_next` directive. """
+        use_current_dir, include_filename = self.parse_included_filename()
+
+        for token in self.include(
+                include_filename, directive_token.loc,
+                use_current_dir=use_current_dir,
+                include_next=True):
+            yield token
+
+        yield LineInfo(
+            directive_token.loc.row + 1,
+            directive_token.loc.filename,
+            flags=[LineInfo.FLAG_RETURN_FROM_INCLUDE])
+
+    def parse_included_filename(self):
+        """ Parse filename after #include/#include_next """
         token = self.consume(('<', 'STRING'))
         if token.typ == '<':
             use_current_dir = False
@@ -689,16 +753,7 @@ class CPreProcessor:
         else:
             use_current_dir = True
             include_filename = token.val[1:-1]
-
-        for token in self.include(
-                include_filename, directive_token.loc,
-                use_current_dir=use_current_dir):
-            yield token
-
-        yield LineInfo(
-            directive_token.loc.row + 1,
-            directive_token.loc.filename,
-            flags=[LineInfo.FLAG_RETURN_FROM_INCLUDE])
+        return use_current_dir, include_filename
 
     def handle_define_directive(self, directive_token):
         """ Process `#define` directive. """
@@ -760,7 +815,7 @@ class CPreProcessor:
             if filename_token.typ == 'STRING':
                 filename = filename_token.val[1:-1]
             else:
-                self.error('Expected filename here', token=filename_token)
+                self.error('Expected filename here', loc=filename_token.loc)
             self.files[-1].source_file.filename = filename
 
         new_line_token = CToken('WS', '', '', True, directive_token.loc)
@@ -769,7 +824,7 @@ class CPreProcessor:
     def handle_error_directive(self, directive_token):
         """ Process `#error` directive. """
         message = self.tokens_to_string(self.eat_line())
-        self.error(message, directive_token)
+        self.error(message, loc=directive_token.loc)
         new_line_token = CToken('WS', '', '', True, directive_token.loc)
         yield new_line_token
 
@@ -1126,9 +1181,13 @@ class Ternop:
 
 class IfState:
     """ If status for use on the if-stack """
-    def __init__(self, active):
+    def __init__(self, active, location):
         self.was_active = active
+        self.location = location
         self.in_else = False  # Indicator whether we are in the else clause.
+
+    def __str__(self):
+        return 'If-state(loc={})'.format(self.location)
 
 
 def skip_ws(tokens):

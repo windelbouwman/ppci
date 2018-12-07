@@ -115,6 +115,9 @@ class Visitor:
         elif isinstance(node, expressions.BuiltInVaArg):
             self.visit(node.arg_pointer)
             self.visit(node.typ)
+        elif isinstance(node, expressions.BuiltInVaCopy):
+            self.visit(node.dest)
+            self.visit(node.src)
         elif isinstance(node, expressions.BuiltInOffsetOf):
             self.visit(node.query_typ)
             # self.visit(node.member)

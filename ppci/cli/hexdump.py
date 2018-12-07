@@ -11,6 +11,9 @@ parser = argparse.ArgumentParser(
 parser.add_argument(
     'file', metavar='file', type=argparse.FileType('rb'),
     help='File to dump contents of')
+parser.add_argument(
+    '--width', default=16, type=int,
+    help="Width of the hexdump.")
 
 
 def hexdump(args=None):
@@ -19,7 +22,7 @@ def hexdump(args=None):
     with LogSetup(args):
         contents = args.file.read()
         args.file.close()
-        dump(contents)
+        dump(contents, width=args.width)
 
 
 if __name__ == '__main__':

@@ -978,8 +978,21 @@ class Alloc(LocalValue):
 
 
 class CopyBlob(Instruction):
+    """ Sort of memcpy operation. """
+    dst = value_use('dst')
+    src = value_use('src')
+
+    def __init__(self, dst, src, amount: int):
+        super().__init__()
+        self.dst = dst
+        self.src = src
+        if not isinstance(amount, int):
+            raise TypeError('amount must be int, not {}'.format(type(amount)))
+        self.amount = amount
+
     def __str__(self):
-        return 'copyblob'
+        return 'memcpy({}, {}, {})'.format(
+            self.dst.name, self.src.name, self.amount)
 
 
 class Variable(GlobalValue):

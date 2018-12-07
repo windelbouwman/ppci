@@ -647,9 +647,13 @@ class CSemantics:
             for argument in arguments[num_expected:]:
                 coerced_arguments.append(argument)
 
+        # Determine lvalue. If we return a struct, we return an lvalue.
+        # otherwise we have an rvalue.
+        lvalue = function_type.return_type.is_struct
+
         expr = expressions.FunctionCall(
             callee, coerced_arguments,
-            function_type.return_type, False, location)
+            function_type.return_type, lvalue, location)
         return expr
 
     def on_variable_access(self, name, location):

@@ -1,12 +1,11 @@
 """ Utilities to dump binary data in hex """
 
 
-def hexdump(data, address=0):
+def hexdump(data, address=0, width=16):
     """ Hexdump of the given bytes.
     """
-    w = 16
-    hex_chars_width = w * 3 - 1 + ((w - 1) // 8)
-    for piece in chunks(data, chunk_size=w):
+    hex_chars_width = width * 3 - 1 + ((width - 1) // 8)
+    for piece in chunks(data, chunk_size=width):
         hex_chars = []
         for part8 in chunks(piece, chunk_size=8):
             hex_chars.append(
@@ -19,13 +18,13 @@ def hexdump(data, address=0):
             chars
         )
         print(line)
-        address += w
+        address += width
 
 
 def chunks(data, chunk_size=16):
     """ Split data into pieces of maximum chunk_size bytes """
     idx = 0
     while idx < len(data):
-        s = min(len(data) - idx, chunk_size)
-        yield data[idx:idx+s]
-        idx += s
+        size = min(len(data) - idx, chunk_size)
+        yield data[idx:idx+size]
+        idx += size

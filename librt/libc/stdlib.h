@@ -1,7 +1,7 @@
 #ifndef STDLIB_H
 #define STDLIB_H
 
-typedef unsigned int size_t;
+#include <stddef.h>
 
 // Memory
 void* malloc(size_t size);

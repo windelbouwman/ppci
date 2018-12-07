@@ -32,6 +32,7 @@ class CCodeGenerator:
         self.continue_block_stack = []  # A stack of for loops
         self.labeled_blocks = {}
         self.switch_options = None
+        self.static_counter = 0  # Unique number to make static vars unique
         int_types = {2: ir.i16, 4: ir.i32, 8: ir.i64}
         uint_types = {2: ir.i16, 4: ir.u32, 8: ir.u64}
         int_size = self.context.arch_info.get_size('int')
@@ -125,7 +126,9 @@ class CCodeGenerator:
             size = self.context.sizeof(var_decl.typ)
             alignment = self.context.alignment(var_decl.typ)
             if var_decl.storage_class == 'static':
-                name = '__static' + var_decl.name
+                name = '__static_{}_{}'.format(
+                    self.static_counter, var_decl.name)
+                self.static_counter += 1
             else:
                 name = var_decl.name
             ir_var = ir.Variable(name, size, alignment, value=ivalue)
@@ -421,7 +424,10 @@ class CCodeGenerator:
         self.break_block_stack.append(final_block)
         self.continue_block_stack.append(condition_block)
         if stmt.init:
-            self.gen_expr(stmt.init, rvalue=True)
+            if isinstance(stmt.init, declarations.VariableDeclaration):
+                self.gen_local_variable(stmt.init)
+            else:
+                self.gen_expr(stmt.init, rvalue=True)
         self.emit(ir.Jump(condition_block))
         self.builder.set_block(condition_block)
         if stmt.condition:
@@ -814,8 +820,15 @@ class CCodeGenerator:
             if isinstance(ir_typ, ir.BlobDataTyp):
                 # If we have a blob pointer and want its content
                 # We must get the source of the address of:
-                assert isinstance(lvalue, ir.AddressOf), str(lvalue)
-                value = lvalue.src
+                if isinstance(lvalue, ir.AddressOf):
+                    value = lvalue.src
+                else:
+                    # This code is debatable, allocate new storage and copy
+                    # the data over there?
+                    value = self.emit(ir.Alloc(
+                        'load_blob', ir_typ.size, ir_typ.alignment))
+                    value_ptr = self.emit(ir.AddressOf(value, 'value_ptr'))
+                    self.gen_copy_struct(value_ptr, lvalue, ir_typ.size)
             elif isinstance(lvalue, BitFieldAccess):
                 value = self._load_bitfield(lvalue, ir_typ)
             else:
@@ -1032,22 +1045,34 @@ class CCodeGenerator:
                 '=', '+=', '-=', '*=', '%=', '/=',
                 '>>=', '<<=',
                 '&=', '|=', '~=', '^=']:
-            lhs = self.gen_expr(expr.a, rvalue=False)
-            rhs = self.gen_expr(expr.b, rvalue=True)
-
-            if expr.op == '=':
-                value = rhs
+            # Handle struct assignment special case:
+            if expr.op == '=' and expr.a.typ.is_struct:
+                lhs = self.gen_expr(expr.a, rvalue=False)
+                rhs = self.gen_expr(expr.b, rvalue=False)
+                amount = self.context.sizeof(expr.a.typ)
+                self.gen_copy_struct(lhs, rhs, amount)
+                value = None
             else:
-                # Handle '+=' and friends:
-                op = expr.op[:-1]
-                ir_typ = self.get_ir_type(expr.typ)
-                loaded = self._load_value(lhs, expr.typ)
-                value = self.emit(ir.Binop(
-                    loaded, op, rhs, 'assign', ir_typ))
-            self._store_value(value, lhs)
+                lhs = self.gen_expr(expr.a, rvalue=False)
+                rhs = self.gen_expr(expr.b, rvalue=True)
+
+                if expr.op == '=':
+                    value = rhs
+                else:
+                    # Handle '+=' and friends:
+                    op = expr.op[:-1]
+                    ir_typ = self.get_ir_type(expr.typ)
+                    loaded = self._load_value(lhs, expr.typ)
+                    value = self.emit(ir.Binop(
+                        loaded, op, rhs, 'assign', ir_typ))
+                self._store_value(value, lhs)
         else:  # pragma: no cover
             raise NotImplementedError(str(expr.op))
         return value
+
+    def gen_copy_struct(self, dst, src, amount):
+        """ Generate a copy struct action. """
+        self.emit(ir.CopyBlob(dst, src, amount))
 
     def gen_ternop(self, expr: expressions.TernaryOperator):
         """ Generate code for ternary operator a ? b : c """
@@ -1115,48 +1140,10 @@ class CCodeGenerator:
 
         # Handle variable arguments:
         if ftyp.is_vararg:
-            if not var_args:
-                # Emit a null pointer when no arguments given:
-                vararg_ptr = self.emit(ir.Const(0, 'varargs', ir.ptr))
-                ir_arguments.append(vararg_ptr)
-            else:
-                # Allocate a memory slab:
-                size = 0
-                alignment = 1
-                for va in var_args:
-                    va_size = self.context.sizeof(va.typ)
-                    va_alignment = self.context.alignment(va.typ)
-                    # If not aligned, make it happen:
-                    size += required_padding(size, va_alignment)
-                    size += va_size
-                    alignment = max(alignment, va_alignment)
-                vararg_ptr = self.emit(ir.Alloc('varargs', size, alignment))
-                vararg_ptr = self.emit(ir.AddressOf(vararg_ptr, 'vaptr'))
-                # Append var arg slot:
-                ir_arguments.append(vararg_ptr)
-
-                offset = 0
-                for argument in var_args:
-                    value = self.gen_expr(argument, rvalue=True)
-                    va_size = self.context.sizeof(argument.typ)
-                    va_alignment = self.context.alignment(va.typ)
-
-                    # handle alignment:
-                    padding = required_padding(offset, va_alignment)
-                    if padding > 0:
-                        cnst = self.emit(ir.Const(padding, 'padding', ir.ptr))
-                        vararg_ptr = self.emit(
-                            ir.add(vararg_ptr, cnst, 'va2', ir.ptr))
-                    offset += padding
-
-                    # Store value:
-                    self.emit(ir.Store(value, vararg_ptr))
-
-                    # Increase pointer:
-                    s2 = self.emit(ir.Const(va_size, 'size', ir.ptr))
-                    offset += va_size
-                    vararg_ptr = self.emit(
-                        ir.add(vararg_ptr, s2, 'va2', ir.ptr))
+            vararg_ptr = self.gen_fill_varargs(var_args)
+            ir_arguments.append(vararg_ptr)
+        else:
+            assert not var_args
 
         # Get function pointer or label:
         if isinstance(expr.callee.typ, types.FunctionType):
@@ -1181,6 +1168,55 @@ class CCodeGenerator:
                 ir_function, ir_arguments, 'result', ir_typ))
 
         return value
+
+    def gen_fill_varargs(self, var_args):
+        """ Generate code to fill variable arguments.
+
+        This method takes a list of variable arguments, and returns a
+        pointer to an allocated memory slab.
+        """
+        if var_args:
+            # Allocate a memory slab:
+            size = 0
+            alignment = 1
+            for va in var_args:
+                va_size = self.context.sizeof(va.typ)
+                va_alignment = self.context.alignment(va.typ)
+                # If not aligned, make it happen:
+                size += required_padding(size, va_alignment)
+                size += va_size
+                alignment = max(alignment, va_alignment)
+            vararg_alloc = self.emit(ir.Alloc('varargs', size, alignment))
+            vararg_ptr = self.emit(ir.AddressOf(vararg_alloc, 'vaptr'))
+            vararg_ptr2 = vararg_ptr
+
+            offset = 0
+            for argument in var_args:
+                value = self.gen_expr(argument, rvalue=True)
+                va_size = self.context.sizeof(argument.typ)
+                va_alignment = self.context.alignment(va.typ)
+
+                # handle alignment:
+                padding = required_padding(offset, va_alignment)
+                if padding > 0:
+                    cnst = self.emit(ir.Const(padding, 'padding', ir.ptr))
+                    vararg_ptr2 = self.emit(
+                        ir.add(vararg_ptr2, cnst, 'va2', ir.ptr))
+                offset += padding
+
+                # Store value:
+                self.emit(ir.Store(value, vararg_ptr2))
+
+                # Increase pointer:
+                s2 = self.emit(ir.Const(va_size, 'size', ir.ptr))
+                offset += va_size
+                vararg_ptr2 = self.emit(
+                    ir.add(vararg_ptr2, s2, 'va2', ir.ptr))
+        else:
+            # Emit a null pointer when no arguments given:
+            vararg_ptr = self.emit(ir.Const(0, 'varargs', ir.ptr))
+
+        return vararg_ptr
 
     def gen_compound_literal(self, expr):
         """ Generate code for a compound literal data """
@@ -1226,6 +1262,8 @@ class CCodeGenerator:
             value = self.gen_va_arg(expr)
         elif isinstance(expr, expressions.BuiltInVaStart):
             value = self.gen_va_start(expr)
+        elif isinstance(expr, expressions.BuiltInVaCopy):
+            value = self.gen_va_copy(expr)
         elif isinstance(expr, expressions.BuiltInOffsetOf):
             value = self.gen_offsetof(expr)
         else:  # pragma: no cover
@@ -1253,6 +1291,16 @@ class CCodeGenerator:
         va_ptr = self.emit(ir.add(va_ptr, size, 'incptr', ir.ptr))
         self.emit(ir.Store(va_ptr, valist_ptrptr))
         return value
+
+    def gen_va_copy(self, expr: expressions.BuiltInVaCopy):
+        """ Generate code for the va_copy builtin """
+        # Fetch source va_list
+        valist_ptrptr = self.gen_expr(expr.src, rvalue=False)
+        va_ptr = self.emit(ir.Load(valist_ptrptr, 'va_ptr', ir.ptr))
+
+        # Save the arg pointer into the ap_list variable:
+        valist_ptrptr = self.gen_expr(expr.dest, rvalue=False)
+        self.emit(ir.Store(va_ptr, valist_ptrptr))
 
     def gen_offsetof(self, expr: expressions.BuiltInOffsetOf):
         """ Generate code for offsetof """

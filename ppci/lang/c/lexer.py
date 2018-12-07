@@ -167,7 +167,8 @@ class CLexer(HandLexerBase):
             return self.lex_c
         elif r.char == '\f':
             # Skip form feed ^L chr(0xc) character
-            pass
+            self.ignore()
+            return self.lex_c
         elif r.char == '/':
             if self.accept('/'):
                 if self.coptions['std'] == 'c89':

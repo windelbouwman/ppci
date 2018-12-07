@@ -304,7 +304,11 @@ class SelectionGraphBuilder:
         # self.debug_db.map(node, sgnode)
 
     def do_copy_blob(self, node):
-        pass
+        """ Create a memcpy node. """
+        dst = self.get_address(node.dst)
+        src = self.get_address(node.src)
+        sgnode = self.new_node('MOVB', None, dst, src, value=node.amount)
+        self.chain(sgnode)
 
     def get_address(self, ir_address):
         """ Determine address for load or store. """
@@ -321,10 +325,7 @@ class SelectionGraphBuilder:
     def do_load(self, node):
         """ Create dag node for load operation """
         address = self.get_address(node.address)
-        if isinstance(node.ty, ir.BlobDataTyp):
-            sgnode = self.new_node('MOVB', None, address)
-        else:
-            sgnode = self.new_node('LDR', node.ty, address)
+        sgnode = self.new_node('LDR', node.ty, address)
         # Make sure a data dependence is added to this node
         self.debug_db.map(node, sgnode)
         self.chain(sgnode)

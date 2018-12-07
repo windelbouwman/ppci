@@ -15,18 +15,25 @@ import sys
 import os
 import logging
 import time
-import traceback
+
+try:
+    from powertb import print_exc
+except ImportError:
+    from traceback import print_exc
+
 from ppci.api import cc, link
 from ppci.lang.c import COptions
 from ppci.common import CompilerError, logformat
+from ppci.utils.reporting import HtmlReportGenerator
 
 libmad_folder = os.environ['LIBMAD_FOLDER']
 this_dir = os.path.abspath(os.path.dirname(__file__))
+report_filename = os.path.join(this_dir, 'report_libmad.html')
 libc_includes = os.path.join(this_dir, '..', 'librt', 'libc')
 arch = 'x86_64'
 
 
-def do_compile(filename):
+def do_compile(filename, reporter):
     coptions = COptions()
     include_paths = [
         libc_includes,
@@ -35,7 +42,7 @@ def do_compile(filename):
     coptions.add_include_paths(include_paths)
     coptions.add_define('FPM_DEFAULT')
     with open(filename, 'r') as f:
-        obj = cc(f, arch, coptions=coptions)
+        obj = cc(f, arch, coptions=coptions, reporter=reporter)
     return obj
 
 
@@ -57,26 +64,27 @@ def main():
         'huffman.c',
     ]
     objs = []
-    for filename in sources:
-        filename = os.path.join(libmad_folder, filename)
-        print('      ======================')
-        print('    ========================')
-        print('  ==> Compiling', filename)
-        try:
-            obj = do_compile(filename)
-            objs.append(obj)
-        except CompilerError as ex:
-            print('Error:', ex.msg, ex.loc)
-            ex.print()
-            traceback.print_exc()
-            failed += 1
-        except Exception as ex:
-            print('General exception:', ex)
-            traceback.print_exc()
-            failed += 1
-        else:
-            print('Great success!')
-            passed += 1
+    with open(report_filename, 'w') as f, HtmlReportGenerator(f) as reporter:
+        for filename in sources:
+            filename = os.path.join(libmad_folder, filename)
+            print('      ======================')
+            print('    ========================')
+            print('  ==> Compiling', filename)
+            try:
+                obj = do_compile(filename, reporter)
+                objs.append(obj)
+            except CompilerError as ex:
+                print('Error:', ex.msg, ex.loc)
+                ex.print()
+                print_exc()
+                failed += 1
+            except Exception as ex:
+                print('General exception:', ex)
+                print_exc()
+                failed += 1
+            else:
+                print('Great success!')
+                passed += 1
 
     t2 = time.time()
     elapsed = t2 - t1

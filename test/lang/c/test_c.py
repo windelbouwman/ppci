@@ -142,6 +142,18 @@ class CFrontendTestCase(unittest.TestCase):
         """
         self.do(src)
 
+    def test_for_statement(self):
+        src = """
+        int main() {
+            int i;
+            for (i=i;i<10;i++) { }
+            for (i=0;;) { }
+            for (;;) { }
+            for (int x=0;x<10;x++) { }
+        }
+        """
+        self.do(src)
+
     def test_conditionals(self):
         src = """
         int main() {
@@ -234,6 +246,26 @@ class CFrontendTestCase(unittest.TestCase):
          y->quot = x.rem = sizeof *AllocS.g;
          struct s S;
          S.next->next->b = 1;
+        }
+        """
+        self.do(src)
+
+    def test_struct_copy(self):
+        """ Test struct behavior when copied around. """
+        src = """
+        typedef struct {int a,b,c,d,e,f; } data_t;
+        data_t my_f(data_t y) {
+            data_t z;
+            z.a = y.a;
+            z.b = 42;
+          return z;
+        }
+        void main() {
+            data_t *ptr;
+            data_t x;
+            x = *ptr++;
+            x = my_f(x);
+            x = my_f(*ptr--);
         }
         """
         self.do(src)

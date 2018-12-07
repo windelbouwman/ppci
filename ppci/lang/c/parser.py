@@ -33,6 +33,7 @@ class CParser(RecursiveDescentParser):
     0cc43ed4bb4d475728583eadcf9e9726682a838b/src/parser/parser.c
     """
     logger = logging.getLogger('cparser')
+    verbose = False
     LEFT_ASSOCIATIVE = 'left-associative'
     RIGHT_ASSOCIATIVE = 'right-associative'
 
@@ -221,7 +222,10 @@ class CParser(RecursiveDescentParser):
         if type_specifiers:
             if typ:
                 self.error(
-                    'Type specifiers given in addition to type', location)
+                    'Type specifiers {} given in addition to type {}'.format(
+                        type_specifiers, typ),
+                    location
+                )
             else:
                 typ = self.semantics.on_basic_type(type_specifiers, location)
 
@@ -959,6 +963,7 @@ class CParser(RecursiveDescentParser):
             initial = None
         else:
             if self.is_declaration_statement():
+                # C99 only, declaration inside for-loop!
                 decl_spec = self.parse_decl_specifiers()
                 d = self.parse_declarator()
                 variable_declaration = self.parse_variable_declaration(
@@ -1187,13 +1192,9 @@ class CParser(RecursiveDescentParser):
     def next_token(self):
         """ Advance to the next token """
         tok = super().next_token()
+        if self.verbose:  # pragma: no cover
+            self.logger.debug('Token: %s', tok)
         return tok
-
-    @property
-    def peek(self):
-        """ Look at the next token to parse without popping it """
-        if self.token:
-            return self.token.typ
 
     def at_type_id(self):
         """ Check if the upcoming token is a typedef identifier """
