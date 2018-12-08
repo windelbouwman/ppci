@@ -522,9 +522,11 @@ class CSemantics:
     def on_array_index(self, base, index, location):
         """ Check array indexing """
         index = self.coerce(index, self.int_type)
+
         if not base.lvalue:
             # TODO: must array base be an lvalue?
-            self.error('Expected lvalue', base)
+            self.error('Expected lvalue', location)
+
         if not isinstance(base.typ, types.IndexableType):
             self.error(
                 'Cannot index non array type {}'.format(
@@ -723,7 +725,7 @@ class CSemantics:
                 # self._root_scope.equal_types(
                 #    from_type.element_type, to_type.element_type):
             do_cast = True
-        elif isinstance(from_type, types.BasicType) and \
+        elif isinstance(from_type, (types.BasicType, types.EnumType)) and \
                 isinstance(to_type, (types.BasicType, types.EnumType)):
             # TODO: implement stricter checks
             do_cast = True

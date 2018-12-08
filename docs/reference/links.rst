@@ -39,8 +39,13 @@ Other compilers
 
 * `sdcc`
 
-  THe small device c compiler.
+  The small device c compiler.
   http://sdcc.sourceforge.net/
+
+* `8cc`
+
+  A small C compiler in C99.
+  https://github.com/rui314/8cc
 
 
 Other compilers written in python

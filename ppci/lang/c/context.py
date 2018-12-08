@@ -174,7 +174,9 @@ class CContext:
     def offsetof(self, typ, field):
         """ Returns the offset of a field in a struct/union in bytes """
         field_offset = self._get_field_offsets(typ)[1][field]
-        assert field_offset % 8 == 0
+        # Note that below assert will not always hold.
+        # It is also used to create debug types.
+        # assert field_offset % 8 == 0
         return field_offset // 8
 
     def has_field(self, typ, field_name):

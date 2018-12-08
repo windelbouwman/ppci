@@ -282,12 +282,27 @@ class CFrontendTestCase(unittest.TestCase):
         src = """
         struct z { int foo; };
         void main() {
-         __builtin_offsetof(struct z, foo);
+             __builtin_offsetof(struct z, foo);
         }
         """
         self.do(src)
 
-    def test_offsetof_bitfields(self):
+    def test_offsetof_after_bitfield(self):
+        """ Test offsetof after bitfields works """
+        src = """
+        struct z { char foo : 1; int fu : 2; int bar; };
+        void do_x(struct z g) {
+        }
+
+        void main() {
+             __builtin_offsetof(struct z, bar);
+             struct z y;
+             do_x(y);
+        }
+        """
+        self.do(src)
+
+    def test_offsetof_bitfield(self):
         """ Test offsetof on bitfields returns an error """
         src = """
         struct z { int foo : 23; };
@@ -369,6 +384,17 @@ class CFrontendTestCase(unittest.TestCase):
          enum E e = A;
          e = B;
          e = 2;
+        }
+        """
+        self.do(src)
+
+    def test_enum_implicit_cast(self):
+        """ Test enum casting """
+        src = """
+        void main() {
+         enum E { A, B, C };
+         enum D { X, Y, Z };
+         enum E e = Z;
         }
         """
         self.do(src)
@@ -517,6 +543,15 @@ class CFrontendTestCase(unittest.TestCase):
         void add(int a, int b, int c);
         void main() {
           add((int)22, 2, 3);
+        }
+        """
+        self.do(src)
+
+    def test_function_argument_name(self):
+        """ Test an argument name with the same name as a typedef """
+        src = """
+        typedef int a;
+        void add(a a) {
         }
         """
         self.do(src)

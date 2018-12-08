@@ -171,10 +171,10 @@ class CParser(RecursiveDescentParser):
         while True:
             if self.at_type_id():
                 # We got a typedef type!
-                type_name = self.consume()
                 if typ:
-                    self.error('Unexpected typename', type_name.loc)
+                    break  # We already have a type.
                 else:
+                    type_name = self.consume()
                     typ = self.semantics.on_typename(
                         type_name.val, type_name.loc)
             elif self.peek in self.type_specifiers:

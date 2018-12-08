@@ -40,7 +40,7 @@ def do_compile(filename, reporter):
         libmad_folder,
         ]
     coptions.add_include_paths(include_paths)
-    coptions.add_define('FPM_DEFAULT')
+    coptions.add_define('FPM_DEFAULT', '1')
     with open(filename, 'r') as f:
         obj = cc(f, arch, coptions=coptions, reporter=reporter)
     return obj

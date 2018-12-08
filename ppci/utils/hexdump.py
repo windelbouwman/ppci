@@ -3,6 +3,16 @@
 
 def hexdump(data, address=0, width=16):
     """ Hexdump of the given bytes.
+
+    For example:
+
+        >>> from ppci.utils.hexdump import hexdump
+        >>> data = bytes(range(10))
+        >>> hexdump(data, width=4)
+        00000000  00 01 02 03  |....|
+        00000004  04 05 06 07  |....|
+        00000008  08 09        |..|
+
     """
     hex_chars_width = width * 3 - 1 + ((width - 1) // 8)
     for piece in chunks(data, chunk_size=width):

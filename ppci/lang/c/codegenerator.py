@@ -1373,10 +1373,25 @@ class CCodeGenerator:
             # Ensure to register the type first:
             self.debug_db.enter(typ, dbg_typ)
 
-            for field in typ.fields:
-                field_typ = self.get_debug_type(field.typ)
-                field_offset = self.context.offsetof(typ, field)
-                dbg_typ.add_field(field.name, field_typ, field_offset)
+            if typ.fields:
+                for field in typ.fields:
+                    if field.name:
+                        field_typ = self.get_debug_type(field.typ)
+                        field_offset = self.context.offsetof(typ, field)
+                        dbg_typ.add_field(field.name, field_typ, field_offset)
+        elif isinstance(typ, types.UnionType):
+            # Register union type as struct type:
+            dbg_typ = debuginfo.DebugStructType()
+
+            # Ensure to register the type first:
+            self.debug_db.enter(typ, dbg_typ)
+
+            if typ.fields:
+                for field in typ.fields:
+                    if field.name:
+                        field_typ = self.get_debug_type(field.typ)
+                        field_offset = 0
+                        dbg_typ.add_field(field.name, field_typ, field_offset)
         elif isinstance(typ, types.ArrayType):
             element_typ = self.get_debug_type(typ.element_type)
             size = self.context.eval_expr(typ.size)

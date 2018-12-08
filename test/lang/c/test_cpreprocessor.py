@@ -40,7 +40,19 @@ class CPreProcessorTestCase(unittest.TestCase):
         printf("%i\n",100);"""
         self.preprocess(src, expected)
 
+    def test_null_directive(self):
+        """ Test null directive. """
+        src = r"""
+        #
+        x"""
+        expected = r"""# 1 "dummy.t"
+
+
+        x"""
+        self.preprocess(src, expected)
+
     def test_recursive_define(self):
+        """ Test recursive function like macro. """
         src = r"""
         #define A(X,Y) (100 + X + (Y))
         A(A(1,2),A(A(23,G),22))"""
@@ -51,6 +63,7 @@ class CPreProcessorTestCase(unittest.TestCase):
         self.preprocess(src, expected)
 
     def test_if_expression(self):
+        """ The #if preprocessor directive. """
         src = r"""#if L'\0'-1 > 0
         unsigned wide char
         #endif
@@ -62,7 +75,27 @@ class CPreProcessorTestCase(unittest.TestCase):
         end"""
         self.preprocess(src, expected)
 
+    def test_empty_macro_expansion(self):
+        """ See what happens when on the next line, the first token is
+        macro-expanded into nothing.
+
+        Proper care should be taken to copy the beginning-of-line (BOL)
+        marker.
+        """
+        src = r"""#define foo
+        #if 1
+        foo bla
+        #endif
+        """
+        expected = r"""# 1 "dummy.t"
+
+ bla
+
+"""
+        self.preprocess(src, expected)
+
     def test_ifdef(self):
+        """ Test #ifdef directive. """
         src = r"""
         #ifdef A
         printf("%i\n", A);
@@ -79,6 +112,7 @@ class CPreProcessorTestCase(unittest.TestCase):
         self.preprocess(src, expected)
 
     def test_line_directive(self):
+        """ Test #line directive and __LINE__ and __FILE__ macros. """
         src = r"""
         #line 1234 "cpp"
         fubar
@@ -282,16 +316,19 @@ class CPreProcessorTestCase(unittest.TestCase):
         self.preprocess(src, expected)
 
     def test_mismatching_endif(self):
+        """ Test stray #endif directive. """
         src = r"""     #endif   """
         with self.assertRaises(CompilerError):
             self.preprocess(src)
 
     def test_mismatching_else(self):
+        """ Test wild #else directive. """
         src = r"""     #else   """
         with self.assertRaises(CompilerError):
             self.preprocess(src)
 
     def test_double_else(self):
+        """ Test misplaced #else directive. """
         src = r""" #ifdef A
         #else
         #else
@@ -309,6 +346,7 @@ class CPreProcessorTestCase(unittest.TestCase):
             self.preprocess(src)
 
     def test_command_structure(self):
+        """ Test a typical use case of token glueing. """
         src = r"""
         #define COMMAND(NAME)  { #NAME, NAME ## _command }
         struct command commands[] =
@@ -364,6 +402,7 @@ class CPreProcessorTestCase(unittest.TestCase):
 
     @mock.patch('time.strftime', lambda fmt: '"mastah"')
     def test_builtin_time_macros(self):
+        """ Test builtin macros __DATE__ and __TIME__ """
         src = r"""
         __DATE__;__TIME__;"""
         expected = '''# 1 "dummy.t"

@@ -205,6 +205,9 @@ class Field:
         self.name = name
         self.bitsize = bitsize
 
+    def __repr__(self):
+        return 'Struct-field .{} : {}'.format(self.name, self.bitsize)
+
     @property
     def is_bitfield(self):
         """ Test if this field is a bitfield (or not) """

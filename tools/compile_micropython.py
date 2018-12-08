@@ -1,5 +1,6 @@
-
 """ Helper script to compile micropython.
+
+Links to micropython: https://micropython.org/
 
 """
 
@@ -7,10 +8,15 @@ import os
 import logging
 import glob
 import time
-import traceback
+
 from ppci.api import cc
 from ppci.lang.c import COptions
 from ppci.common import CompilerError, logformat
+
+try:
+    from powertb import print_exc
+except ImportError:
+    from traceback import print_exc
 
 home = os.environ['HOME']
 micropython_folder = os.path.join(home, 'GIT', 'micropython')
@@ -20,17 +26,7 @@ port_folder = os.path.join(micropython_folder, 'ports', 'bare-arm')
 arch = 'arm'
 
 
-def do_compile(filename):
-    include_paths = [
-        # os.path.join(newlib_folder, 'libc', 'include'),
-        # TODO: not sure about the include path below for stddef.h:
-        # '/usr/lib/gcc/x86_64-pc-linux-gnu/7.1.1/include'
-        libc_includes,
-        micropython_folder,
-        port_folder,
-        ]
-    coptions = COptions()
-    coptions.add_include_paths(include_paths)
+def do_compile(filename, coptions):
     # coptions.add_define('NORETURN')
     with open(filename, 'r') as f:
         obj = cc(f, arch, coptions=coptions)
@@ -41,22 +37,34 @@ def main():
     t1 = time.time()
     failed = 0
     passed = 0
+    include_paths = [
+        # os.path.join(newlib_folder, 'libc', 'include'),
+        # TODO: not sure about the include path below for stddef.h:
+        # '/usr/lib/gcc/x86_64-pc-linux-gnu/7.1.1/include'
+        libc_includes,
+        micropython_folder,
+        port_folder,
+        ]
+    coptions = COptions()
+    coptions.add_include_paths(include_paths)
+    coptions.enable('freestanding')
+    coptions.add_define('NO_QSTR', '1')
     file_pattern = os.path.join(micropython_folder, 'py', '*.c')
     for filename in glob.iglob(file_pattern):
         print('==> Compiling', filename)
         try:
-            do_compile(filename)
+            do_compile(filename, coptions)
         except CompilerError as ex:
             print('Error:', ex.msg, ex.loc)
             ex.print()
-            traceback.print_exc()
+            print_exc()
             failed += 1
-            break
+            # break
         except Exception as ex:
             print('General exception:', ex)
-            traceback.print_exc()
+            print_exc()
             failed += 1
-            break
+            # break
         else:
             print('Great success!')
             passed += 1
@@ -67,5 +75,10 @@ def main():
 
 
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.DEBUG, format=logformat)
+    verbose = False
+    if verbose:
+        loglevel = logging.DEBUG
+    else:
+        loglevel = logging.INFO
+    logging.basicConfig(level=loglevel, format=logformat)
     main()
