@@ -22,7 +22,7 @@ home = os.environ['HOME']
 micropython_folder = os.path.join(home, 'GIT', 'micropython')
 this_dir = os.path.abspath(os.path.dirname(__file__))
 libc_includes = os.path.join(this_dir, '..', 'librt', 'libc')
-port_folder = os.path.join(micropython_folder, 'ports', 'bare-arm')
+port_folder = os.path.join(micropython_folder, 'ports', 'unix')
 arch = 'arm'
 
 
@@ -50,10 +50,11 @@ def main():
     coptions.enable('freestanding')
     coptions.add_define('NO_QSTR', '1')
     file_pattern = os.path.join(micropython_folder, 'py', '*.c')
+    objs = []
     for filename in glob.iglob(file_pattern):
         print('==> Compiling', filename)
         try:
-            do_compile(filename, coptions)
+            obj = do_compile(filename, coptions)
         except CompilerError as ex:
             print('Error:', ex.msg, ex.loc)
             ex.print()
@@ -66,8 +67,9 @@ def main():
             failed += 1
             # break
         else:
-            print('Great success!')
+            print('Great success!', obj)
             passed += 1
+            objs.append(obj)
 
     t2 = time.time()
     elapsed = t2 - t1

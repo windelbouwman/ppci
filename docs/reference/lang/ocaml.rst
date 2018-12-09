@@ -2,6 +2,10 @@
 OCaml
 =====
 
+.. warning::
+
+    This module is a work in progress.
+
 OCaml is a functional programming language. Its output is bytecode.
 
 This is an exploration on how to compile this bytecode.

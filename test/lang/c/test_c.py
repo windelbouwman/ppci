@@ -626,15 +626,18 @@ class CFrontendTestCase(unittest.TestCase):
         self.do(src)
 
     def test_initialization(self):
-        """ Test calling of functions """
+        """ Test initialization of complex data structures. """
         src = """
         struct rec {
           int a, b;
           char c[5];
+          struct {
+            int x, y;
+          } d;
         };
         char x = '\2';
         int* ptr = (int*)0x1000;
-        struct rec d = {.b = 2, .c = {[2] = 3}};
+        struct rec d = {.b = 2, .c = {[2] = 3}}; // TODO: , .d.x=100};
 
         void main() {
           char x = '\2';

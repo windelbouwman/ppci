@@ -12,6 +12,7 @@ languages.
     c3
     c
     fortran
+    java
     llvm
     ocaml
     pascal
