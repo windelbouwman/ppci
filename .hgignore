@@ -6,6 +6,7 @@ syntax: glob
 *.prg
 *.o
 *.oj
+*.class
 *.bin
 *.lst
 *.hex

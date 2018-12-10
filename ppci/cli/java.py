@@ -5,7 +5,7 @@ import argparse
 import sys
 from .base import base_parser, march_parser, LogSetup, get_arch_from_args
 from .compile_base import compile_parser, do_compile
-from ..arch.jvm import read_class_file, class_to_ir
+from ..arch.jvm import read_class_file, class_to_ir, print_class_file
 from ..irutils import print_module
 
 
@@ -23,6 +23,12 @@ java_compile_parser.add_argument(
     'class_file', metavar='java class file', type=argparse.FileType('rb'),
     help='class file to compile')
 
+dis_parser = subparsers.add_parser(
+    'javap', help='Disassemble (javap) a java class.')
+dis_parser.add_argument(
+    'class_file', metavar='java class file', type=argparse.FileType('rb'),
+    help='class file to inspect')
+
 
 def java(args=None):
     """ Java command line utility. """
@@ -36,6 +42,10 @@ def java(args=None):
             print_module(ir_module, verify=False)
             ir_modules = [ir_module]
             do_compile(ir_modules, march, log_setup.reporter, log_setup.args)
+        if args.command == 'javap':
+            class_file = read_class_file(args.class_file)
+            args.class_file.close()
+            print_class_file(class_file)
         else:  # pragma: no cover
             parser.print_usage()
             sys.exit(1)

@@ -1,8 +1,9 @@
 """ Module to load class/jar files. """
 
+import enum
+import io
 import logging
 import zipfile
-import io
 from ...format.io import BaseIoReader
 
 logger = logging.getLogger('jvm.io')
@@ -41,6 +42,42 @@ def read_manifest(f):
     return properties
 
 
+class ConstantTag(enum.IntEnum):
+    Utf8 = 1
+    Integer = 3
+    Float = 4
+    Long = 5
+    Double = 6
+    Class = 7
+    String = 8
+    FieldRef = 9
+    MethodRef = 10
+    InterfaceMethodRef = 11
+    NameAndType = 12
+    MethodHandle = 15
+    MethodType = 16
+    InvokeDynamic = 18
+
+
+class AccessFlag(enum.IntFlag):
+    ACC_PUBLIC = 0x1
+    ACC_PRIVATE = 0x2
+    ACC_PROTECTED = 0x4
+    ACC_STATIC = 0x8
+    ACC_FINAL = 0x10
+    ACC_SUPER = 0x20
+    ACC_SYNCHRONIZED = 0x20
+    ACC_BRIDGE = 0x40
+    ACC_VARARGS = 0x80
+    ACC_NATIVE = 0x100
+    ACC_INTERFACE = 0x200
+    ACC_ABSTRACT = 0x400
+    ACC_STRICT = 0x800
+    ACC_SYNTHETIC = 0x1000
+    ACC_ANNOTATION = 0x2000
+    ACC_ENUM = 0x4000
+
+
 class JavaFileReader(BaseIoReader):
     """ Java class file reader.
     """
@@ -52,7 +89,8 @@ class JavaFileReader(BaseIoReader):
         """ Read a class file. """
         magic = self.read_u32()
         logger.debug('Read magic header value 0x%X', magic)
-        assert magic == 0xCAFEBABE
+        if magic != 0xCAFEBABE:
+            raise ValueError('Incorrect magic, no 0xCAFEBABE, no java class!')
         minor_version = self.read_u16()
         major_version = self.read_u16()
         logger.debug('Version %s.%s', major_version, minor_version)
@@ -114,55 +152,53 @@ class JavaFileReader(BaseIoReader):
         return constant_pool
 
     def read_cp_info(self):
-        tag = self.read_u8()
+        """ Read a single tag from the constant pool. """
+        tag = ConstantTag(self.read_u8())
         skip_next = False
-        if tag == 7:
+        if tag == ConstantTag.Class:
             name_index = self.read_u16()
-            info = (7, name_index)
-        elif tag == 9 or tag == 10 or tag == 11:
+            value = (name_index)
+        elif tag == ConstantTag.FieldRef or tag == ConstantTag.MethodRef or \
+                tag == ConstantTag.InterfaceMethodRef:
             class_index = self.read_u16()
             name_and_type_index = self.read_u16()
-            info = (tag, class_index, name_and_type_index)
-        elif tag == 1:  # Utf8 modified text.
+            value = (class_index, name_and_type_index)
+        elif tag == ConstantTag.Utf8:  # Utf8 modified text.
             length = self.read_u16()
             data = self.read_data(length)
-            text = decode_modified_utf8(data)
-            info = (1, text)
-        elif tag == 5:
-            value = self.read_u64()
-            info = (5, value)
+            value = decode_modified_utf8(data)
+        elif tag == ConstantTag.Long:
+            value = self.read_i64()
             skip_next = True
-        elif tag == 6:
+        elif tag == ConstantTag.Double:
             value = self.read_f64()
-            info = (6, value)
             skip_next = True
-        elif tag == 3:
-            value = self.read_u32()
-            info = (3, value)
-        elif tag == 8:
+        elif tag == ConstantTag.Integer:
+            value = self.read_i32()
+        elif tag == ConstantTag.String:
             string_index = self.read_u16()
-            info = (8, string_index)
-        elif tag == 12:
+            value = (string_index)
+        elif tag == ConstantTag.NameAndType:
             name_index = self.read_u16()
             descriptor_index = self.read_u16()
-            info = (tag, name_index, descriptor_index)
-        elif tag == 18:  # Invoke dynamic
+            value = (name_index, descriptor_index)
+        elif tag == ConstantTag.InvokeDynamic:
             bootstrap_method_attr_index = self.read_u16()
             name_and_type_index = self.read_u16()
-            info = (tag, bootstrap_method_attr_index, name_and_type_index)
-        elif tag == 15:  # Method handle
+            value = (bootstrap_method_attr_index, name_and_type_index)
+        elif tag == ConstantTag.MethodHandle:
             reference_kind = self.read_u8()
             reference_index = self.read_u16()
-            info = (tag, reference_kind, reference_index)
-        elif tag == 16:  # Method type
+            value = (reference_kind, reference_index)
+        elif tag == ConstantTag.MethodType:
             descriptor_index = self.read_u16()
-            info = (tag, descriptor_index)
-        elif tag == 4:  # Float
+            value = descriptor_index
+        elif tag == ConstantTag.Float:
             value = self.read_f32()
-            info = (tag, value)
         else:
             raise NotImplementedError(str(tag))
         # logger.debug('Read constant pool info %s', info)
+        info = Constant(tag, value)
         return info, skip_next
 
     def read_field_info(self):
@@ -200,8 +236,11 @@ class JavaFileReader(BaseIoReader):
     def read_f64(self):
         return self.read_fmt('d')
 
-    def read_u64(self):
-        return self.read_fmt('>Q')
+    def read_i64(self):
+        return self.read_fmt('>q')
+
+    def read_i32(self):
+        return self.read_fmt('>i')
 
     def read_u32(self):
         return self.read_fmt('>I')
@@ -245,6 +284,94 @@ def load_code(data):
     return Code(max_stack, max_locals, code, attributes)
 
 
+def parse_method_descriptor(text):
+    parser = DescriptorParser(text)
+    return parser.parse_method_descriptor()
+
+
+class DescriptorParser:
+    """ Descriptor string parser. """
+    def __init__(self, text):
+        self.text = text
+        self.pos = 0
+
+    def parse_field_descriptor(self):
+        typ = self.parse_field_type()
+        assert self.at_end
+        return typ
+
+    def parse_field_type(self):
+        c = self.take()
+        if c in 'BCDFIJSZ':
+            typ = BaseType(c)
+        else:
+            raise NotImplementedError(c)
+        return typ
+
+    def parse_method_descriptor(self):
+        """ Parse a method descriptor.
+
+        """
+        # Parameter types:
+        c = self.take()
+        assert c == '('
+        parameter_types = []
+        while self.peek != ')':
+            typ = self.parse_field_type()
+            parameter_types.append(typ)
+        c = self.take()
+        assert c == ')'
+
+        # Return type:
+        if self.peek == 'V':
+            self.take()
+            return_type = None
+        else:
+            return_type = self.parse_field_type()
+
+        return MethodType(parameter_types, return_type)
+
+    def take(self):
+        c = self.text[self.pos]
+        self.pos += 1
+        return c
+
+    @property
+    def peek(self):
+        if self.pos < len(self.text):
+            return self.text[self.pos]
+
+    @property
+    def at_end(self):
+        return self.pos >= len(self.text)
+
+
+class Constant:
+    def __init__(self, tag, value):
+        self.tag = tag
+        self.value = value
+
+
+class MethodType:
+    def __init__(self, parameter_types, return_type):
+        self.parameter_types = parameter_types
+        self.return_type = return_type
+
+
+class BaseType:
+    def __init__(self, typ):
+        self.typ = typ
+
+
+class ObjectType:
+    pass
+
+
+class ArrayType:
+    def __init__(self, component_type):
+        self.component_type = component_type
+
+
 class ClassFile:
     def __init__(
             self, major_version=None, minor_version=None,
@@ -269,8 +396,8 @@ class ClassFile:
     def get_name(self, index):
         """ Get a name given by an index. """
         constant = self.get_constant(index)
-        assert constant[0] == 1
-        return constant[1]
+        assert constant.tag == ConstantTag.Utf8
+        return constant.value
 
 
 class Method:
