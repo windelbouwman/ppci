@@ -35,9 +35,9 @@ class Writer:
             verify_module(module)
         self.print(0, '{};'.format(module))
 
-        for e in module.externals:
+        for external in module.externals:
             self.print(0, '')
-            self.print(0, '{};'.format(e))
+            self.print(0, '{};'.format(external))
 
         for variable in module.variables:
             self.print(0, '')
@@ -371,15 +371,15 @@ class Builder:
 
     def new_function(self, name, return_ty):
         assert self.module is not None
-        f = ir.Function(name, return_ty)
-        self.module.add_function(f)
-        return f
+        function = ir.Function(name, return_ty)
+        self.module.add_function(function)
+        return function
 
     def new_procedure(self, name):
         assert self.module is not None
-        f = ir.Procedure(name)
-        self.module.add_function(f)
-        return f
+        procedure = ir.Procedure(name)
+        self.module.add_function(procedure)
+        return procedure
 
     def new_block(self, name=None):
         """ Create a new block and add it to the current function """
@@ -391,9 +391,9 @@ class Builder:
         self.function.add_block(block)
         return block
 
-    def set_function(self, f):
-        self.function = f
-        self.block = f.entry if f else None
+    def set_function(self, function):
+        self.function = function
+        self.block = function.entry if function else None
         self.block_number = 0
 
     def set_block(self, block):

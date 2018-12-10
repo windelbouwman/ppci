@@ -4,6 +4,7 @@
 import struct
 from ..utils.leb128 import signed_leb128_encode, unsigned_leb128_encode
 from ..utils.leb128 import unsigned_leb128_decode, signed_leb128_decode
+from ..format.io import BaseIoReader, BaseIoWriter
 
 
 LANG_TYPES = {
@@ -18,12 +19,8 @@ LANG_TYPES = {
 LANG_TYPES_REVERSE = {v[0]: k for k, v in LANG_TYPES.items()}
 
 
-class FileWriter:
+class FileWriter(BaseIoWriter):
     """ Helper class that can write bytes to a file """
-
-    def __init__(self, f):
-        self.f = f
-
     def write(self, bb):
         return self.f.write(bb)
 
@@ -90,11 +87,11 @@ class FileWriter:
         Instruction('end')._to_writer(self)
 
 
-class FileReader:
+class FileReader(BaseIoReader):
     """ Helper class that can read bytes from a file """
 
     def __init__(self, f):
-        self.f = f
+        super().__init__(f)
         self._buffer = bytes()
         self._pos = 0
 
@@ -105,6 +102,9 @@ class FileReader:
         if amount is not None and len(data) != amount:
             raise EOFError('Reading beyond end of file')
         return data
+
+    def read_data(self, amount):
+        return self.read(amount)
 
     def bytefile(self, f):
         b = f.read(1)
@@ -130,17 +130,13 @@ class FileReader:
         return unsigned_leb128_decode(self)
 
     def read_f32(self) -> float:
-        data = self.read(4)
-        value, = struct.unpack('f', data)
-        return value
+        return self.read_fmt('f')
 
     def read_f64(self) -> float:
-        data = self.read(8)
-        value, = struct.unpack('d', data)
-        return value
+        return self.read_fmt('d')
 
     def read_u32(self) -> int:
-        return struct.unpack('<I', self.read(4))[0]
+        return self.read_fmt('<I')
 
     def read_bytes(self) -> bytes:
         """ Read raw bytes data """

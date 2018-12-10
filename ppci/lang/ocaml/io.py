@@ -2,28 +2,13 @@
 """
 
 
-import struct
+from ...format.io import BaseIoReader
 
 
-class FileReader:
+class FileReader(BaseIoReader):
     """ OCaml file reader helper with low level primitive read functions. """
-    def __init__(self, f):
-        self.f = f
-
-    def read_data(self, size):
-        # TODO: deprecate?
-        return self.f.read(size)
-
-    def read_bytes(self, size):
-        return self.f.read(size)
-
     def read_byte(self):
         return self.read_bytes(1)[0]
-
-    def read_fmt(self, fmt):
-        size = struct.calcsize(fmt)
-        data = self.read_data(size)
-        return struct.unpack(fmt, data)[0]
 
     def read_u8(self):
         return self.read_fmt('B')

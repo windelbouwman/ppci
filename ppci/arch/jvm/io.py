@@ -1,7 +1,9 @@
+""" Module to load class/jar files. """
+
 import logging
-import struct
 import zipfile
 import io
+from ...format.io import BaseIoReader
 
 logger = logging.getLogger('jvm.io')
 
@@ -27,18 +29,26 @@ def read_jar(filename):
 def read_manifest(f):
     """ Read a jarfile manifest. """
     logger.debug('Reading manifest')
-    text = f.read()
-    print(text)
+    properties = {}
+    for line in f:
+        line = line.strip()
+        if line:
+            key, value = map(str.strip, line.split(':', 1))
+            if key in properties:
+                logger.warning('Duplicate key in manifest file: %s', key)
+            properties[key] = value.strip()
+    logger.debug('Read manifest: %s', properties)
+    return properties
 
 
-class ClassFileReader:
+class JavaFileReader(BaseIoReader):
     """ Java class file reader.
     """
-    def __init__(self, f):
-        self.f = f
-        self.verbose = False
+    def __init__(self, f, verbose=False):
+        super().__init__(f)
+        self.verbose = verbose
 
-    def read(self):
+    def read_class_file(self):
         """ Read a class file. """
         magic = self.read_u32()
         logger.debug('Read magic header value 0x%X', magic)
@@ -46,7 +56,7 @@ class ClassFileReader:
         minor_version = self.read_u16()
         major_version = self.read_u16()
         logger.debug('Version %s.%s', major_version, minor_version)
-        self.read_constant_pool()
+        constant_pool = self.read_constant_pool()
         access_flags = self.read_u16()
         this_class = self.read_u16()
         super_class = self.read_u16()
@@ -75,45 +85,20 @@ class ClassFileReader:
         attributes = self.read_attributes()
         class_file = ClassFile(
             major_version=major_version, minor_version=minor_version,
+            constant_pool=constant_pool,
             access_flags=access_flags,
             this_class=this_class, super_class=super_class,
+            interfaces=interfaces,
+            fields=fields,
+            methods=methods,
             attributes=attributes
         )
         return class_file
 
-    def read_method_info(self):
-        """ Read method info structure """
-        access_flags = self.read_u16()
-        name_index = self.read_u16()
-        descriptor_index = self.read_u16()
-        attributes = self.read_attributes()
-        return (access_flags, name_index, descriptor_index, attributes)
-
-    def read_attributes(self):
-        attributes_count = self.read_u16()
-        attributes = []
-        for _ in range(attributes_count):
-            attribute = self.read_attribute_info()
-            attributes.append(attribute)
-        return attributes
-
-    def read_attribute_info(self):
-        attribute_name_index = self.read_u16()
-        attribute_length = self.read_u32()
-        info = self.read_data(attribute_length)
-        return (attribute_name_index, info)
-
-    def read_field_info(self):
-        access_flags = self.read_u16()
-        name_index = self.read_u16()
-        descriptor_index = self.read_u16()
-        attributes = self.read_attributes()
-        return (access_flags, name_index, descriptor_index, attributes)
-
     def read_constant_pool(self):
         """ Read the constant pool. """
         constant_pool_count = self.read_u16()
-        constant_pool = []
+        constant_pool = [None]  # Start with a dummy at position 0.
         if constant_pool_count > 0:
             skip_next = False
             for idx in range(constant_pool_count - 1):
@@ -180,61 +165,130 @@ class ClassFileReader:
         # logger.debug('Read constant pool info %s', info)
         return info, skip_next
 
+    def read_field_info(self):
+        access_flags = self.read_u16()
+        name_index = self.read_u16()
+        descriptor_index = self.read_u16()
+        attributes = self.read_attributes()
+        return (access_flags, name_index, descriptor_index, attributes)
+
+    def read_method_info(self):
+        """ Read method info structure """
+        access_flags = self.read_u16()
+        name_index = self.read_u16()
+        descriptor_index = self.read_u16()
+        attributes = self.read_attributes()
+        return Method(access_flags, name_index, descriptor_index, attributes)
+
+    def read_attributes(self):
+        attributes_count = self.read_u16()
+        attributes = []
+        for _ in range(attributes_count):
+            attribute = self.read_attribute_info()
+            attributes.append(attribute)
+        return attributes
+
+    def read_attribute_info(self):
+        attribute_name_index = self.read_u16()
+        attribute_length = self.read_u32()
+        info = self.read_data(attribute_length)
+        return Attribute(attribute_name_index, info)
+
     def read_f32(self):
-        data = self.read_data(4)
-        return struct.unpack('f', data)[0]
+        return self.read_fmt('f')
 
     def read_f64(self):
-        data = self.read_data(8)
-        return struct.unpack('d', data)[0]
+        return self.read_fmt('d')
 
     def read_u64(self):
-        data = self.read_data(8)
-        return struct.unpack('>Q', data)[0]
+        return self.read_fmt('>Q')
 
     def read_u32(self):
-        data = self.read_data(4)
-        return struct.unpack('>I', data)[0]
+        return self.read_fmt('>I')
 
     def read_u16(self):
-        data = self.read_data(2)
-        return struct.unpack('>H', data)[0]
+        return self.read_fmt('>H')
 
     def read_u8(self):
         data = self.read_data(1)
         return data[0]
 
-    def read_data(self, amount):
-        data = self.f.read(amount)
-        if len(data) != amount:
-            raise ValueError()
-        return data
-
 
 def decode_modified_utf8(data):
     # TODO: decode custom utf-8..
-    return data
+    return data.decode('utf8')
 
 
-def read_class_file(f):
+def read_class_file(f, verbose=False):
     """ Read a class file.
     """
     logger.debug('Reading classfile %s', f)
-    reader = ClassFileReader(f)
-    return reader.read()
+    reader = JavaFileReader(f, verbose=verbose)
+    return reader.read_class_file()
+
+
+class Code:
+    def __init__(self, max_stack, max_locals, code, attributes):
+        self.max_stack = max_stack
+        self.max_locals = max_locals
+        self.code = code
+        self.attributes = attributes
+
+
+def load_code(data):
+    reader = JavaFileReader(io.BytesIO(data))
+    max_stack = reader.read_u16()
+    max_locals = reader.read_u16()
+    code_length = reader.read_u32()
+    code = reader.read_data(code_length)
+    attributes = reader.read_attributes()
+    return Code(max_stack, max_locals, code, attributes)
 
 
 class ClassFile:
     def __init__(
             self, major_version=None, minor_version=None,
+            constant_pool=None,
             access_flags=None, this_class=None, super_class=None,
+            interfaces=None, fields=None, methods=None,
             attributes=None):
         self.major_version = major_version
         self.minor_version = minor_version
+        self.constant_pool = constant_pool
         self.access_flags = access_flags
         self.this_class = this_class
         self.super_class = super_class
+        self.interfaces = interfaces
+        self.fields = fields
+        self.methods = methods
         self.attributes = attributes
+
+    def get_constant(self, index):
+        return self.constant_pool[index]
+
+    def get_name(self, index):
+        """ Get a name given by an index. """
+        constant = self.get_constant(index)
+        assert constant[0] == 1
+        return constant[1]
+
+
+class Method:
+    def __init__(self, access_flags, name_index, descriptor_index, attributes):
+        self.access_flags = access_flags
+        self.name_index = name_index
+        self.descriptor_index = descriptor_index
+        self.attributes = attributes
+
+
+class Attribute:
+    def __init__(self, name_index, data):
+        self.name_index = name_index
+        self.data = data
+
+    def __repr__(self):
+        return 'Attribute(name_index={}, data={})'.format(
+            self.name_index, self.data)
 
 
 class Manifest:
