@@ -18,6 +18,11 @@ def class_to_ir(class_file):
     return generator.get_result()
 
 
+def jar_to_ir(jar_file):
+    """ Translate entire jar to ir code. """
+    raise NotImplementedError()
+
+
 class Generator:
     def __init__(self):
         self._builder = Builder()
@@ -74,6 +79,7 @@ class Generator:
             self.gen_method(method)
 
     def gen_method(self, method):
+        """ Generate code for a single method. """
         method_name = self.class_file.get_name(method.name_index)
         logger.info(
             'processing method %s access=%X',
@@ -158,11 +164,11 @@ class Generator:
             result = self.emit(ir.add(v1, v2, 'add', ir.i32))
             self.stack.append(result)
         elif instruction == 0x1a:
-            v = self.local_variables[0]
-            self.stack.append(v)
+            value = self.local_variables[0]
+            self.stack.append(value)
         elif instruction == 0x1b:
-            v = self.local_variables[1]
-            self.stack.append(v)
+            value = self.local_variables[1]
+            self.stack.append(value)
         elif instruction == 0x4:  # int 1
             value = self.emit(ir.Const(1, 'x', ir.i32))
             self.stack.append(value)

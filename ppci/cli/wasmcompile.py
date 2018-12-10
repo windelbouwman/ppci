@@ -15,7 +15,7 @@ parser = argparse.ArgumentParser(
     description=__doc__,
     parents=[base_parser, march_parser, compile_parser])
 parser.add_argument(
-    'wasm', metavar='wasm file', type=argparse.FileType('rb'),
+    'wasm_file', metavar='wasm file', type=argparse.FileType('rb'),
     help='wasm file to compile')
 
 
@@ -24,7 +24,8 @@ def wasmcompile(args=None):
     args = parser.parse_args(args)
     with LogSetup(args) as log_setup:
         march = get_arch_from_args(args)
-        wasm_module = read_wasm(args.wasm)
+        wasm_module = read_wasm(args.wasm_file)
+        args.wasm_file.close()
         ir_module = wasm_to_ir(
             wasm_module,
             march.info.get_type_info('ptr'),

@@ -59,7 +59,7 @@ class ConstantTag(enum.IntEnum):
     InvokeDynamic = 18
 
 
-class AccessFlag(enum.IntFlag):
+class AccessFlag(enum.IntEnum):
     ACC_PUBLIC = 0x1
     ACC_PRIVATE = 0x2
     ACC_PROTECTED = 0x4
@@ -255,7 +255,7 @@ class JavaFileReader(BaseIoReader):
 
 def decode_modified_utf8(data):
     # TODO: decode custom utf-8..
-    return data.decode('utf8')
+    return data.decode('utf8', errors='ignore')
 
 
 def read_class_file(f, verbose=False):

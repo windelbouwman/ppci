@@ -42,7 +42,7 @@ def java(args=None):
             print_module(ir_module, verify=False)
             ir_modules = [ir_module]
             do_compile(ir_modules, march, log_setup.reporter, log_setup.args)
-        if args.command == 'javap':
+        elif args.command == 'javap':
             class_file = read_class_file(args.class_file)
             args.class_file.close()
             print_class_file(class_file)
