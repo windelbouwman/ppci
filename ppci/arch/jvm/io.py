@@ -1,10 +1,21 @@
-""" Module to load class/jar files. """
+""" Module to load class/jar files.
 
-import enum
+Another really good python java package:
+https://github.com/TkTech/Jawa
+http://jawa.tkte.ch/
+
+"""
+
 import io
 import logging
 import zipfile
 from ...format.io import BaseIoReader
+from .nodes import ClassFile, Constant, ConstantPool
+from .nodes import Method, Attribute, BaseType, MethodType
+from .nodes import CodeAttribute, Instruction
+from .enums import ConstantTag, AccessFlag
+from .opcodes import op_to_arg_types
+
 
 logger = logging.getLogger('jvm.io')
 
@@ -42,42 +53,6 @@ def read_manifest(f):
     return properties
 
 
-class ConstantTag(enum.IntEnum):
-    Utf8 = 1
-    Integer = 3
-    Float = 4
-    Long = 5
-    Double = 6
-    Class = 7
-    String = 8
-    FieldRef = 9
-    MethodRef = 10
-    InterfaceMethodRef = 11
-    NameAndType = 12
-    MethodHandle = 15
-    MethodType = 16
-    InvokeDynamic = 18
-
-
-class AccessFlag(enum.IntEnum):
-    ACC_PUBLIC = 0x1
-    ACC_PRIVATE = 0x2
-    ACC_PROTECTED = 0x4
-    ACC_STATIC = 0x8
-    ACC_FINAL = 0x10
-    ACC_SUPER = 0x20
-    ACC_SYNCHRONIZED = 0x20
-    ACC_BRIDGE = 0x40
-    ACC_VARARGS = 0x80
-    ACC_NATIVE = 0x100
-    ACC_INTERFACE = 0x200
-    ACC_ABSTRACT = 0x400
-    ACC_STRICT = 0x800
-    ACC_SYNTHETIC = 0x1000
-    ACC_ANNOTATION = 0x2000
-    ACC_ENUM = 0x4000
-
-
 class JavaFileReader(BaseIoReader):
     """ Java class file reader.
     """
@@ -91,39 +66,23 @@ class JavaFileReader(BaseIoReader):
         logger.debug('Read magic header value 0x%X', magic)
         if magic != 0xCAFEBABE:
             raise ValueError('Incorrect magic, no 0xCAFEBABE, no java class!')
+
         minor_version = self.read_u16()
         major_version = self.read_u16()
         logger.debug('Version %s.%s', major_version, minor_version)
-        constant_pool = self.read_constant_pool()
-        access_flags = self.read_u16()
+        self.constant_pool = self.read_constant_pool()
+        access_flags = self.read_flags()
         this_class = self.read_u16()
         super_class = self.read_u16()
 
-        interfaces_count = self.read_u16()
-        interfaces = []
-        for _ in range(interfaces_count):
-            idx = self.read_u16()
-            interfaces.append(idx)
-        logger.debug('Loaded interfaces: %s', interfaces)
-
-        fields_count = self.read_u16()
-        fields = []
-        for _ in range(fields_count):
-            field = self.read_field_info()
-            fields.append(field)
-        logger.debug('Loaded %s fields', len(fields))
-
-        methods_count = self.read_u16()
-        methods = []
-        for _ in range(methods_count):
-            method = self.read_method_info()
-            methods.append(method)
-        logger.debug('Loaded %s methods', len(methods))
+        interfaces = self.read_interfaces()
+        fields = self.read_fields()
+        methods = self.read_methods()
 
         attributes = self.read_attributes()
         class_file = ClassFile(
             major_version=major_version, minor_version=minor_version,
-            constant_pool=constant_pool,
+            constant_pool=self.constant_pool,
             access_flags=access_flags,
             this_class=this_class, super_class=super_class,
             interfaces=interfaces,
@@ -144,14 +103,14 @@ class JavaFileReader(BaseIoReader):
                     const_info = None
                     skip_next = False
                 else:
-                    const_info, skip_next = self.read_cp_info()
+                    const_info, skip_next = self.read_constant_pool_info()
                     if self.verbose:
                         logger.debug('constant #%s: %s', idx+1, const_info)
                 constant_pool.append(const_info)
         logger.debug('Read constant pool with %s items', len(constant_pool))
         return constant_pool
 
-    def read_cp_info(self):
+    def read_constant_pool_info(self):
         """ Read a single tag from the constant pool. """
         tag = ConstantTag(self.read_u8())
         skip_next = False
@@ -181,6 +140,7 @@ class JavaFileReader(BaseIoReader):
         elif tag == ConstantTag.NameAndType:
             name_index = self.read_u16()
             descriptor_index = self.read_u16()
+            # value = NameAndTypeConstant(name_index, descriptor_index)
             value = (name_index, descriptor_index)
         elif tag == ConstantTag.InvokeDynamic:
             bootstrap_method_attr_index = self.read_u16()
@@ -201,22 +161,69 @@ class JavaFileReader(BaseIoReader):
         info = Constant(tag, value)
         return info, skip_next
 
+    def read_flags(self):
+        """ Process flag field. """
+        flag_value = self.read_u16()
+        flags = set()
+        for bit in range(16):
+            mask = 1 << bit
+            if flag_value & mask:
+                flags.add(AccessFlag(mask))
+        return flags
+
+    def read_interfaces(self):
+        """ Read all interfaces from a class file. """
+        interfaces_count = self.read_u16()
+        interfaces = []
+        for _ in range(interfaces_count):
+            idx = self.read_u16()
+            interfaces.append(idx)
+        logger.debug('Loaded interfaces: %s', interfaces)
+        return interfaces
+
+    def read_fields(self):
+        """ Read the fields of a class file. """
+        fields_count = self.read_u16()
+        fields = []
+        for _ in range(fields_count):
+            field = self.read_field_info()
+            fields.append(field)
+        logger.debug('Loaded %s fields', len(fields))
+        return fields
+
     def read_field_info(self):
-        access_flags = self.read_u16()
+        """ Read field info structure. """
+        access_flags = self.read_flags()
         name_index = self.read_u16()
+        name = self.get_utf8(name_index)
         descriptor_index = self.read_u16()
+        descriptor = self.get_utf8(descriptor_index)
         attributes = self.read_attributes()
-        return (access_flags, name_index, descriptor_index, attributes)
+        return (access_flags, name, descriptor, attributes)
+
+    def read_methods(self):
+        """ Read the methods from a classfile. """
+        methods_count = self.read_u16()
+        methods = []
+        for _ in range(methods_count):
+            method = self.read_method_info()
+            methods.append(method)
+        logger.debug('Loaded %s methods', len(methods))
+        return methods
 
     def read_method_info(self):
         """ Read method info structure """
-        access_flags = self.read_u16()
+        access_flags = self.read_flags()
         name_index = self.read_u16()
+        name = self.get_utf8(name_index)
         descriptor_index = self.read_u16()
+        descriptor = self.get_utf8(descriptor_index)
+        descriptor = parse_method_descriptor(descriptor)
         attributes = self.read_attributes()
-        return Method(access_flags, name_index, descriptor_index, attributes)
+        return Method(access_flags, name, descriptor, attributes)
 
     def read_attributes(self):
+        """ Read a series of attributes. """
         attributes_count = self.read_u16()
         attributes = []
         for _ in range(attributes_count):
@@ -225,16 +232,23 @@ class JavaFileReader(BaseIoReader):
         return attributes
 
     def read_attribute_info(self):
+        """ Read a single attribute. """
         attribute_name_index = self.read_u16()
+        name = self.get_utf8(attribute_name_index)
         attribute_length = self.read_u32()
         info = self.read_data(attribute_length)
-        return Attribute(attribute_name_index, info)
+        return Attribute(name, info)
+
+    def get_utf8(self, index):
+        constant = self.constant_pool[index]
+        assert constant.tag == ConstantTag.Utf8
+        return constant.value
 
     def read_f32(self):
-        return self.read_fmt('f')
+        return self.read_fmt('>f')
 
     def read_f64(self):
-        return self.read_fmt('d')
+        return self.read_fmt('>d')
 
     def read_i64(self):
         return self.read_fmt('>q')
@@ -248,9 +262,27 @@ class JavaFileReader(BaseIoReader):
     def read_u16(self):
         return self.read_fmt('>H')
 
+    def read_i8(self):
+        return self.read_fmt('b')
+
     def read_u8(self):
         data = self.read_data(1)
         return data[0]
+
+
+class JavaFileWriter:
+    """ Enables writing of java class files. """
+    def write_class_file(self, class_file):
+        self.write_u32(0xCAFEBABE)
+        self.write_u16(class_file.major_version)
+        self.write_u16(class_file.minor_version)
+        raise NotImplementedError()
+
+    def write_u32(self, value):
+        self.write_fmt('>I', value)
+
+    def write_u16(self, value):
+        self.write_fmt('>H', value)
 
 
 def decode_modified_utf8(data):
@@ -266,12 +298,32 @@ def read_class_file(f, verbose=False):
     return reader.read_class_file()
 
 
-class Code:
-    def __init__(self, max_stack, max_locals, code, attributes):
-        self.max_stack = max_stack
-        self.max_locals = max_locals
-        self.code = code
-        self.attributes = attributes
+def disassemble(bytecode):
+    """ Process a bytecode slab into instructions. """
+    reader = JavaFileReader(io.BytesIO(bytecode))
+    offset = 0
+    instructions = []
+    while offset < len(bytecode):
+        opcode = reader.read_u8()
+        offset += 1
+        args = []
+        for arg_type in op_to_arg_types[opcode]:
+            if arg_type == 'i8':
+                arg = reader.read_i8()
+                offset += 1
+            elif arg_type == 'idx8':
+                arg = reader.read_u8()
+                offset += 1
+            elif arg_type == 'idx16':
+                arg = reader.read_u16()
+                offset += 2
+            else:
+                raise NotImplementedError(arg_type)
+            args.append(arg)
+        instruction = Instruction(opcode, args)
+        logger.debug('Loaded %s', instruction)
+        instructions.append(instruction)
+    return instructions
 
 
 def load_code(data):
@@ -280,8 +332,9 @@ def load_code(data):
     max_locals = reader.read_u16()
     code_length = reader.read_u32()
     code = reader.read_data(code_length)
+    code = disassemble(code)
     attributes = reader.read_attributes()
-    return Code(max_stack, max_locals, code, attributes)
+    return CodeAttribute(max_stack, max_locals, code, attributes)
 
 
 def parse_method_descriptor(text):
@@ -344,79 +397,3 @@ class DescriptorParser:
     @property
     def at_end(self):
         return self.pos >= len(self.text)
-
-
-class Constant:
-    def __init__(self, tag, value):
-        self.tag = tag
-        self.value = value
-
-
-class MethodType:
-    def __init__(self, parameter_types, return_type):
-        self.parameter_types = parameter_types
-        self.return_type = return_type
-
-
-class BaseType:
-    def __init__(self, typ):
-        self.typ = typ
-
-
-class ObjectType:
-    pass
-
-
-class ArrayType:
-    def __init__(self, component_type):
-        self.component_type = component_type
-
-
-class ClassFile:
-    def __init__(
-            self, major_version=None, minor_version=None,
-            constant_pool=None,
-            access_flags=None, this_class=None, super_class=None,
-            interfaces=None, fields=None, methods=None,
-            attributes=None):
-        self.major_version = major_version
-        self.minor_version = minor_version
-        self.constant_pool = constant_pool
-        self.access_flags = access_flags
-        self.this_class = this_class
-        self.super_class = super_class
-        self.interfaces = interfaces
-        self.fields = fields
-        self.methods = methods
-        self.attributes = attributes
-
-    def get_constant(self, index):
-        return self.constant_pool[index]
-
-    def get_name(self, index):
-        """ Get a name given by an index. """
-        constant = self.get_constant(index)
-        assert constant.tag == ConstantTag.Utf8
-        return constant.value
-
-
-class Method:
-    def __init__(self, access_flags, name_index, descriptor_index, attributes):
-        self.access_flags = access_flags
-        self.name_index = name_index
-        self.descriptor_index = descriptor_index
-        self.attributes = attributes
-
-
-class Attribute:
-    def __init__(self, name_index, data):
-        self.name_index = name_index
-        self.data = data
-
-    def __repr__(self):
-        return 'Attribute(name_index={}, data={})'.format(
-            self.name_index, self.data)
-
-
-class Manifest:
-    pass

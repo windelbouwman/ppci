@@ -13,7 +13,7 @@ logging.basicConfig(level=logging.DEBUG)
 filename = 'Test14.class'
 if os.path.exists(filename):
     x = load_class(filename)
-    print(x.my_add(1, 5), ' <== must be 7')
+    print('my_add(1, 5) =', x.my_add(1, 5), ' <== must be 7')
 else:
     print('Compile first with: javac Test14.class')
 
@@ -21,6 +21,7 @@ else:
 filename = 'add/AddKt.class'
 if os.path.exists(filename):
     x = load_class(filename)
-    print(x.my_add(1, 5), ' <== must be 7')
+    print('my_add(1, 5) =', x.my_add(1, 5), ' <== must be 7')
+    print('my_func(3) =', x.my_func(3), ' <== must be 31.4')
 else:
     print('Compile first with: kotlinc add.kt')
