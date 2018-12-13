@@ -65,7 +65,7 @@ class Isa:
         """ Add a peephole optimization function """
         self.postlinkopts.append(function)
         return function
-    
+
     def pattern(
             self, non_term, tree, condition=None,
             size=1, cycles=1, energy=1):

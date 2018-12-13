@@ -45,7 +45,7 @@ The stack frame is layout as follows:
 
 Stack grows
     ||
-    \/
+     /
 
 """
 

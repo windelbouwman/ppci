@@ -32,15 +32,14 @@ def wasmify(func, target='native'):
     to native code. Assumes that all variables are floats.
     Can be used as a decorator, like Numba!
     """
-    
+
     from ppci.lang.python import python_to_wasm
-    from ppci.wasm import instantiate
-    
+
     def f64_print(x: float) -> None:
         print(x)
-    
+
     wa = python_to_wasm(func)
-    imports = {'env':{'f64_print': f64_print}}
+    imports = {'env': {'f64_print': f64_print}}
     mod = instantiate(wa, imports, target=target)
     wasmfunc = getattr(mod.exports, func.__name__)
     return wasmfunc

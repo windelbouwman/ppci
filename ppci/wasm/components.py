@@ -40,7 +40,9 @@ from ..lang.sexpr import parse_sexpr
 from .io import FileReader, FileWriter
 
 
-this_is_js = lambda: False  # For PyScript
+def this_is_js():
+    return False  # For PyScript
+
 
 logger = logging.getLogger('wasm')
 
@@ -559,9 +561,12 @@ class Instruction(WASMComponent):
                 args = ('align=%i' % 2**args[0], 'offset=%i' % args[1])
         elif self.opcode == 'call_indirect':
             if args[1].index == 0:  # zero'th table
-                args = ('(type %s)' % args[0], ) 
+                args = ('(type %s)' % args[0], )
             else:
-                args = ('(type %s)' % args[0], '(const.i64 %i)' % args[1].index)
+                args = (
+                    '(type %s)' % args[0],
+                    '(const.i64 %i)' % args[1].index
+                )
         subtext = self._get_sub_string(args)
         if '\n' in subtext:
             return '(' + self.opcode + '\n' + subtext + '\n)'
@@ -613,12 +618,16 @@ class Instruction(WASMComponent):
     rfm = {
         ArgType.TYPE: lambda reader: reader.read_type(),
         ArgType.U32: lambda reader: reader.read_uint(),
-        ArgType.LABELIDX: lambda reader: Ref('label', index=reader.read_uint()),
-        ArgType.LOCALIDX: lambda reader: Ref('local', index=reader.read_uint()),
-        ArgType.GLOBALIDX: lambda reader: Ref('global', index=reader.read_uint()),
+        ArgType.LABELIDX: lambda reader: Ref(
+            'label', index=reader.read_uint()),
+        ArgType.LOCALIDX: lambda reader: Ref(
+            'local', index=reader.read_uint()),
+        ArgType.GLOBALIDX: lambda reader: Ref(
+            'global', index=reader.read_uint()),
         ArgType.FUNCIDX: lambda reader: Ref('func', index=reader.read_uint()),
         ArgType.TYPEIDX: lambda reader: Ref('type', index=reader.read_uint()),
-        ArgType.TABLEIDX: lambda reader: Ref('table', index=reader.read_uint()),
+        ArgType.TABLEIDX: lambda reader: Ref(
+            'table', index=reader.read_uint()),
         ArgType.I32: lambda reader: reader.read_int(),
         ArgType.I64: lambda reader: reader.read_int(),
         ArgType.F32: lambda reader: reader.read_f32(),
@@ -663,11 +672,11 @@ class BlockInstruction(Instruction):
             id, *args = args
         self.id = id
         return super()._from_args(opcode, *args)
-    
+
     def _from_reader(self, reader):
         self.id = None
         return super()._from_reader(reader)
-    
+
     def to_string(self):
         idtext = '' if self.id is None else ' ' + self.id
         a0 = self.args[0]
@@ -675,7 +684,7 @@ class BlockInstruction(Instruction):
         return '(' + self.opcode + idtext + subtext + ')'
 
 
-## Definition classes
+# Definition classes
 
 
 class Definition(WASMComponent):
@@ -899,7 +908,6 @@ class Table(Definition):
     """
 
     __slots__ = ('id', 'kind', 'min', 'max')
-
 
     def _from_args(self, id, kind, min, max):
         self.id = check_id(id)
@@ -1205,7 +1213,8 @@ class Elem(Definition):
     Attributes:
 
     * ref: the table id that this element applies to.
-    * offset: the element offset, expressed as an instruction list (i.e. [i32.const, end])
+    * offset: the element offset, expressed as an instruction list
+      (i.e. [i32.const, end])
     * refs: a list of function references.
     """
 
@@ -1303,9 +1312,9 @@ class Data(Definition):
 class Custom(Definition):
     """ Custom binary data.
     """
-    
+
     __slots__ = ('name', 'data')
-    
+
     def _from_args(self, name, data):
         assert isinstance(name, str)
         assert isinstance(data, bytes)
@@ -1314,17 +1323,19 @@ class Custom(Definition):
 
     def to_string(self):
         raise NotImplementedError('Cannot convert custom section to string.')
-    
+
     def _to_writer(self, f):
         f.write_str(self.name)
         f.write(self.data)
 
     def _from_reader(self, reader):
-        raise NotImplementedError()  # Module does it, because need nbytes of section
+        # Module does it, because need nbytes of section
+        raise NotImplementedError()
 
 
 # Do some validation on the classes
 DEFINITION_CLASSES = {}  # classes that represent a WASM module definition
+
 
 def _validate():
     names1 = set()
@@ -1336,10 +1347,12 @@ def _validate():
 
     names2 = set(SECTION_IDS).difference(['code', 'function'])
     if names1 != names2:
-        raise RuntimeError('Class validation failed:' +
+        raise RuntimeError(
+            'Class validation failed:' +
             '\n  Unknown field clases: %s' % names1.difference(names2) +
             '\n  Missing field classes: %s' % names2.difference(names1)
-            )
+        )
+
 
 _validate()
 

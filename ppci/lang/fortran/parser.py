@@ -136,7 +136,7 @@ class FortranLexer:
         self.mode_progs['S'] = mk(tok_spec)
 
         fmt_spec = str_spec + [
-            ('FMTSPEC', 'A|(I\d+)|(\d+X)|(E\d+\.\d+)',
+            ('FMTSPEC', r'A|(I\d+)|(\d+X)|(E\d+\.\d+)',
                 lambda typ, val: (typ, val)),
             ('SKIP', r'[ \t]', None),
             ('LEESTEKEN', r'[\(\),]', lambda typ, val: (val, val)),
@@ -499,8 +499,8 @@ class FortranParser:
 
     def parse_label_ref(self):
         """ Parse a label reference, this can be a number or.. a variable? """
-        l = self.consume('NUMBER')
-        c = nodes.Const(l.val, 'INT', l.loc)
+        label = self.consume('NUMBER')
+        c = nodes.Const(label.val, 'INT', label.loc)
         return c
 
     def parse_fmt_spec(self):

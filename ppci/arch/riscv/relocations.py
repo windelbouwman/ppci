@@ -14,7 +14,7 @@ class BImm12Relocation(Relocation):
         offset = (sym_value - reloc_value) // 2
         return wrap_negative(offset, 12)
 
-    def apply(self, sym_value, data, reloc_value, opt = False):
+    def apply(self, sym_value, data, reloc_value, opt=False):
         """ Apply this relocation type given some parameters.
 
         This is the default implementation which stores the outcome of
@@ -27,14 +27,14 @@ class BImm12Relocation(Relocation):
         if opt:
             return token.encode(), 4
         else:
-            return token.encode() 
+            return token.encode()
+
 
 class BImm20Relocation(Relocation):
     name = 'b_imm20'
     token = RiscvToken
-    
 
-    def apply(self, sym_value, data, reloc_value, opt = False):
+    def apply(self, sym_value, data, reloc_value, opt=False):
         assert sym_value % 2 == 0
         assert reloc_value % 2 == 0
         offset = sym_value - reloc_value
@@ -47,15 +47,14 @@ class BImm20Relocation(Relocation):
         if opt:
             return data, 4
         else:
-            return data 
+            return data
 
 
 class Abs32Imm20Relocation(Relocation):
     name = 'abs32_imm20'
     token = RiscvToken
-   
 
-    def apply(self, sym_value, data, reloc_value, opt = False):
+    def apply(self, sym_value, data, reloc_value, opt=False):
         assert sym_value % 2 == 0
         bv = BitView(data, 0, 4)
         if (sym_value & 0x800 == 0):
@@ -66,14 +65,14 @@ class Abs32Imm20Relocation(Relocation):
         if opt:
             return data, 4
         else:
-            return data 
+            return data
 
 
 class RelImm20Relocation(Relocation):
     name = 'rel_imm20'
     token = RiscvToken
 
-    def apply(self, sym_value, data, reloc_value, opt = False):
+    def apply(self, sym_value, data, reloc_value, opt=False):
         assert sym_value % 2 == 0
         assert reloc_value % 2 == 0
         offset = sym_value - reloc_value
@@ -86,7 +85,7 @@ class RelImm20Relocation(Relocation):
         if opt:
             return data, 4
         else:
-            return data 
+            return data
 
 
 class Abs32Imm12Relocation(Relocation):
@@ -97,8 +96,8 @@ class Abs32Imm12Relocation(Relocation):
     def calc(self, sym_value, reloc_value):
         assert sym_value % 2 == 0
         return sym_value & 0xfff
-    
-    def apply(self, sym_value, data, reloc_value, opt = False):
+
+    def apply(self, sym_value, data, reloc_value, opt=False):
         """ Apply this relocation type given some parameters.
 
         This is the default implementation which stores the outcome of
@@ -111,22 +110,21 @@ class Abs32Imm12Relocation(Relocation):
         if opt:
             return token.encode(), 4
         else:
-            return token.encode() 
+            return token.encode()
 
 
 class RelImm12Relocation(Relocation):
     name = 'rel_imm12'
     token = RiscvIToken
     field = 'imm'
-    
 
     def calc(self, sym_value, reloc_value):
         assert sym_value % 2 == 0
         assert reloc_value % 2 == 0
         offset = sym_value - reloc_value + 4
         return offset & 0xfff
-    
-    def apply(self, sym_value, data, reloc_value, opt = False):
+
+    def apply(self, sym_value, data, reloc_value, opt=False):
         """ Apply this relocation type given some parameters.
 
         This is the default implementation which stores the outcome of
@@ -139,19 +137,18 @@ class RelImm12Relocation(Relocation):
         if opt:
             return token.encode(), 4
         else:
-            return token.encode() 
+            return token.encode()
 
 
 class AbsAddr32Relocation(Relocation):
     name = 'absaddr32'
     token = RiscvToken
-   
 
-    def apply(self, sym_value, data, reloc_value, opt = False):
+    def apply(self, sym_value, data, reloc_value, opt=False):
         offset = sym_value
         bv = BitView(data, 0, 4)
         bv[0:32] = offset
         if opt:
             return data, 4
         else:
-            return data 
+            return data

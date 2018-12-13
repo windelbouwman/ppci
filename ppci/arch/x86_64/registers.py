@@ -272,21 +272,29 @@ XmmRegisterSingle.registers = [
 
 
 xmm_mp = {r.num: r for r in XmmRegister.registers}
+
+
 def get_xmm_reg(num):
     return xmm_mp[num]
 
 
 reg8_mp = {r.num: r for r in [al, bl, cl, dl]}
+
+
 def get8reg(num):
     return reg8_mp[num]
 
 
 reg16_mp = {r.num: r for r in Register16.registers}
+
+
 def get16reg(num):
     return reg16_mp[num]
 
 
 reg32_mp = {r.num: r for r in Register32.registers}
+
+
 def get32reg(num):
     return reg32_mp[num]
 

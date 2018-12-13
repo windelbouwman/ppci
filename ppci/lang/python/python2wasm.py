@@ -19,20 +19,22 @@ def syntax_error(filename, node, message):
 
 def python_to_wasm(*sources):
     """ Compile Python functions to wasm, by using Python's ast parser
-    and compiling a very specific subset to WASM instructions. All values 
+    and compiling a very specific subset to WASM instructions. All values
     are float64. Each source can be a string, a function, or AST.
     """
-    
+
     # Allow simple code snippet as main() (legacy behavior)
-    if len(sources) == 1 and isinstance(sources[0], str) and not 'def ' in sources[0]:
-        lines = ['def main():'] + ['    ' + line for line in sources[0].splitlines()]
+    if len(sources) == 1 and isinstance(sources[0], str) and \
+            'def ' not in sources[0]:
+        lines = ['def main():']
+        lines += ['    ' + line for line in sources[0].splitlines()]
         sources = ['\n'.join(lines)]
-    
+
     # Collect funcdefs
     funcdefs = []
     for source in sources:
         funcdefs.extend(_python_to_wasm_funcdefs(source))
-    
+
     # Produce wasm module
     module = Module(
         '(import "env" "f64_print" (func $print (param f64)))',
@@ -41,7 +43,6 @@ def python_to_wasm(*sources):
 
 
 def _python_to_wasm_funcdefs(source):
-    
     filename = None
     # Verify / convert input
     if isinstance(source, ast.AST):
@@ -63,7 +64,8 @@ def _python_to_wasm_funcdefs(source):
             line = lines[i]
             line_indent = len(line) - len(line.lstrip())
             if line_indent < indent and line.strip():
-                assert line.lstrip().startswith('#')  # only possible for comments
+                assert line.lstrip().startswith('#')
+                # only possible for comments
                 lines[i] = indent * ' ' + line.lstrip()
             else:
                 lines[i] = line[indent:]
@@ -78,24 +80,28 @@ def _python_to_wasm_funcdefs(source):
     if not isinstance(root, ast.Module):
         raise ValueError(
             'python_to_wasm() expecteded root node to be a ast.Module.')
-    
+
     funcdefs = []
-    
+
     # Iterate over content
     for node in root.body:
         if not isinstance(node, ast.FunctionDef):
-            syntax_error(filename, node,
+            syntax_error(
+                filename, node,
                 'python_to_wasm() expects only func as toplevel nodes.')
         # Checks
         if node.args.defaults or node.args.vararg:
-            syntax_error(filename, node,
+            syntax_error(
+                filename, node,
                 'python_to_wasm() func args cannot have defaults.')
         if node.args.kwonlyargs or node.args.kwonlyargs:
-            syntax_error(filename, node,
+            syntax_error(
+                filename, node,
                 'python_to_wasm() func cannot have keyword wargs.')
         assert node.name.isidentifier()
         # Get instructions, params, results, and export
-        ctx = PythonFuncToWasmCompiler([a.arg for a in node.args.args], filename)
+        ctx = PythonFuncToWasmCompiler(
+            [a.arg for a in node.args.args], filename)
         ctx.compile_body(node.body)
         # Compose
         params = [('param', 'f64') for a in node.args.args]
@@ -103,19 +109,21 @@ def _python_to_wasm_funcdefs(source):
         locals = [('local', 'f64')
                   for i in range(len(ctx.names) - len(node.args.args))]
         exports = [('export', node.name)]
-        funcdefs.append(tuple(['func', '$' + node.name] +
-            exports + params + results + locals + ctx.instructions))
+        funcdefs.append(tuple(
+            ['func', '$' + node.name] +
+            exports + params + results + locals + ctx.instructions
+        ))
         # Main?
         if node.name == 'main':
             funcdefs.append(('start', '$main'))
-    
+
     return funcdefs
 
 
 class PythonFuncToWasmCompiler:
     """ Compiles one Python function body to wasm instructions.
     """
-    
+
     def __init__(self, args, filename=None):
         self._filename = filename
         self.instructions = []
@@ -126,11 +134,11 @@ class PythonFuncToWasmCompiler:
         # Init args
         for name in args:
             self.name_idx(name)
-    
+
     def compile_body(self, body):
         for node in body:
             self._compile_expr(node, False)
-    
+
     def name_idx(self, name):
         if name not in self.names:
             self.names[name] = self._name_counter
@@ -155,7 +163,6 @@ class PythonFuncToWasmCompiler:
 
     def _compile_expr(self, node, push_stack):
         """ Generate wasm instruction for the given ast node """
-        
         if isinstance(node, ast.Expr):
             self._compile_expr(node.value, push_stack)
 
@@ -237,7 +244,7 @@ class PythonFuncToWasmCompiler:
             self._compile_expr(node.test, True)
             assert not push_stack  # Python is not an expression lang
             self.push_block('if')
-            #self.instructions.append(('if', 'emptyblock'))
+            # self.instructions.append(('if', 'emptyblock'))
             self.instructions.append('if')
             for e in node.body:
                 self._compile_expr(e, False)
@@ -291,8 +298,8 @@ class PythonFuncToWasmCompiler:
             for i in [
                     ('get_local', start_stub),
                     ('set_local', target),  # Init target
-                    'block',  #('block', 'emptyblock'),
-                    'loop',  #('loop', 'emptyblock'),  # enter loop
+                    'block',  # ('block', 'emptyblock'),
+                    'loop',  # ('loop', 'emptyblock'),  # enter loop
                     ('get_local', target),
                     ('get_local', end_stub),
                     ('f64.ge',), ('br_if', 1),  # break (level 2)
@@ -319,7 +326,7 @@ class PythonFuncToWasmCompiler:
             # Body
             self.push_block('while')
             # enter loop (outer block for break):
-            #for i in [('block', 'emptyblock'), ('loop', 'emptyblock')]:
+            # for i in [('block', 'emptyblock'), ('loop', 'emptyblock')]:
             for i in ['block', 'loop']:
                 self.instructions.append(i)
             for subnode in node.body:

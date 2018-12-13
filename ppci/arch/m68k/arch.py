@@ -10,7 +10,7 @@ from ... import ir
 from ...binutils.assembler import BaseAssembler
 from ..arch import Architecture
 from ..arch_info import ArchInfo, TypeInfo, Endianness
-from ..data_instructions import data_isa, Db
+from ..data_instructions import data_isa
 from ..generic_instructions import Label
 from ..generic_instructions import RegisterUseDef
 from ..stack import StackLocation

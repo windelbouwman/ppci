@@ -53,14 +53,14 @@ class Or1kArch(Architecture):
 
     def determine_arg_locations(self, arg_types):
         """ Given a set of argument types, determine location for argument """
-        l = []
+        locations = []
         regs = [
             registers.r3, registers.r4, registers.r5, registers.r6,
             registers.r7, registers.r8]
         for a in arg_types:
             r = regs.pop(0)
-            l.append(r)
-        return l
+            locations.append(r)
+        return locations
 
     def determine_rv_location(self, ret_type):
         return registers.r11

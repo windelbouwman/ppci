@@ -1,4 +1,6 @@
-""" Wrapper for the WebAssembly Binary Toolkit - https://github.com/WebAssembly/wabt/
+""" Wrapper for the WebAssembly Binary Toolkit
+
+https://github.com/WebAssembly/wabt/
 
 The wabt is more or less the reference implementation of WebAssembly,
 so its a great tool to have a solid reference implementation for a few tasks.
@@ -76,8 +78,10 @@ def wat2wasm(wat):
     js = js_wat2wasm.replace('libwabt.js', os.path.basename(libfile))
 
     # Run
-    p = subprocess.Popen([node, '-e', js], cwd=libdir,
-        stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    p = subprocess.Popen(
+        [node, '-e', js], cwd=libdir,
+        stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+    )
     blob = wat.encode()  # ?? (sys.getfilesystemencoding())
     out, err = p.communicate(blob)
     if err:
@@ -101,13 +105,17 @@ def wasm2wat(wasm, resolve_names=False):
     # Compose JS
     js = js_wasm2wat.replace('libwabt.js', os.path.basename(libfile))
     if resolve_names:
-        js = js.replace('READ_DEBUG_NAMES', 'true').replace('GENERATE_NAMES', 'true')
+        js = js.replace(
+            'READ_DEBUG_NAMES', 'true').replace('GENERATE_NAMES', 'true')
     else:
-        js = js.replace('READ_DEBUG_NAMES', 'false').replace('GENERATE_NAMES', 'false')
+        js = js.replace(
+            'READ_DEBUG_NAMES', 'false').replace('GENERATE_NAMES', 'false')
 
     # Run
-    p = subprocess.Popen([node, '-e', js], cwd=libdir,
-        stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    p = subprocess.Popen(
+        [node, '-e', js], cwd=libdir,
+        stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+    )
     out, err = p.communicate(wasm)
     if err:
         raise RuntimeError(err.decode())
@@ -118,13 +126,15 @@ def wasm2wat(wasm, resolve_names=False):
 def _get_wabt_lib():
     """ Get the filename of the wabt js lib.
     """
-    # Update the commit tag to make use of a newer version. We tag to a specific commit
+    # Update the commit tag to make use of a newer version. We tag to a
+    # specific commit
     # to avoid unexpected regressions as the wabt API changes.
     commit = '409d61ef'
     filename = os.path.join(THIS_DIR, 'libwabt_{}.js'.format(commit))
     if not os.path.isfile(filename):
         print('Downloading libwabt.js ...')
-        url = 'https://raw.githubusercontent.com/WebAssembly/wabt/{}/demo/libwabt.js'.format(commit)
+        url = 'https://raw.githubusercontent.com/WebAssembly' \
+            '/wabt/{}/demo/libwabt.js'.format(commit)
         with urlopen(url, timeout=5) as f:
             bb = f.read()
         with open(filename, 'wb') as f:
@@ -133,7 +143,6 @@ def _get_wabt_lib():
 
 
 if __name__ == '__main__':
-    
     x = wat2wasm('(module)')
     print(x)
     y = wasm2wat(x)

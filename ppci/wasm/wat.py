@@ -162,7 +162,8 @@ class WatTupleLoader(TupleParser):
         self.expect(Token.LPAR, 'func')
         params, results = self._parse_function_signature()
         self.expect(Token.RPAR, Token.RPAR)
-        # Note cannot reuse type here unless we remap the id whereever it is used
+        # Note cannot reuse type here unless we remap the id whereever
+        # it is used
         self.add_definition(components.Type(id, params, results))
 
     def _parse_optional_id(self, default=None):
@@ -533,7 +534,8 @@ class WatTupleLoader(TupleParser):
                     # Maybe we have a then instruction?
                     if self.munch(Token.RPAR):
                         instructions.append(
-                            components.BlockInstruction('if', block_id, result))
+                            components.BlockInstruction(
+                                'if', block_id, result))
                     else:
                         # Nested stuff
                         # First is the condition:
@@ -541,7 +543,8 @@ class WatTupleLoader(TupleParser):
                             instructions.extend(self._load_instruction())
 
                         instructions.append(
-                            components.BlockInstruction('if', block_id, result))
+                            components.BlockInstruction(
+                                'if', block_id, result))
 
                         if self.munch(Token.RPAR):
                             pass

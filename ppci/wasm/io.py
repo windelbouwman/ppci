@@ -1,7 +1,6 @@
 """ This module assists with reading and writing wasm to binary.
 """
 
-import struct
 from ..utils.leb128 import signed_leb128_encode, unsigned_leb128_encode
 from ..utils.leb128 import unsigned_leb128_decode, signed_leb128_decode
 from ..format.io import BaseIoReader, BaseIoWriter
@@ -25,13 +24,13 @@ class FileWriter(BaseIoWriter):
         return self.f.write(bb)
 
     def write_f64(self, x):
-        self.f.write(struct.pack('<d', x))
+        self.write_fmt('<d', x)
 
     def write_f32(self, x):
-        self.f.write(struct.pack('<f', x))
+        self.write_fmt('<f', x)
 
     def write_u32(self, x):
-        self.f.write(struct.pack('<I', x))
+        self.write_fmt('<I', x)
 
     def write_str(self, x):
         bb = x.encode('utf-8')

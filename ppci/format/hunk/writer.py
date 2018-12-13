@@ -1,9 +1,10 @@
 """ Create Amiga hunk files.
 """
 
-import struct
 import logging
 from . import enums
+from ..io import BaseIoWriter
+
 
 logger = logging.getLogger('hunk-writer')
 
@@ -14,17 +15,13 @@ def write_hunk(filename, code_data):
     with open(filename, 'wb') as f:
         writer = Writer(f)
         if len(code_data) % 4:
-            padding = 4  - len(code_data) % 4
+            padding = 4 - len(code_data) % 4
             code_data += bytes(padding * [0])
         writer.write(code_data)
 
 
-class Writer:
+class Writer(BaseIoWriter):
     """ Writer for amiga hunk files. """
-
-    def __init__(self, f):
-        self.f = f
-
     def write(self, code_data):
         hunk_sizes = [len(code_data) // 4]
         self.write_header(hunk_sizes)
@@ -59,8 +56,3 @@ class Writer:
 
     def write_u32(self, value):
         self.write_fmt('>I', value)
-
-    def write_fmt(self, fmt, value):
-        data = struct.pack(fmt, value)
-        self.f.write(data)
-

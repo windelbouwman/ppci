@@ -70,7 +70,6 @@ register_classes = [
         'reg',
         [ir.i8, ir.i16, ir.i32, ir.ptr, ir.u8, ir.u16, ir.u32],
         MicroBlazeRegister,
-        general_purpose)
-    ]
-
-
+        general_purpose
+    )
+]

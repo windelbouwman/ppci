@@ -2,6 +2,7 @@
 
 """
 
+# pylint: disable=invalid-name
 from ..isa import Isa
 from ..encoding import Instruction, Syntax, Operand, Constructor
 from ..encoding import Relocation
@@ -754,4 +755,3 @@ def cjmp_impl_unsigned(context, op, yes_label, no_label):
     jmp_ins = Bra(no_label.name, jumps=[no_label])
     context.emit(Bop(yes_label.name, jumps=[yes_label, jmp_ins]))
     context.emit(jmp_ins)
-

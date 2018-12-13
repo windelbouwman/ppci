@@ -179,7 +179,6 @@ class Generator:
             local_ptr = self.emit(ir.AddressOf(alloc_local, 'ptr'))
             self.local_variables.append(local_ptr)
 
-        print(self.local_variables)
         self.stack = []
         for instruction in code.code:
             self.gen_instr(instruction)
@@ -370,10 +369,36 @@ class Generator:
             self.gen_binop('/', ir.f32)
         elif mnemonic == 'ddiv':
             self.gen_binop('/', ir.f64)
+        elif mnemonic == 'i2l':
+            self.gen_cast(ir.i32, ir.i64)
         elif mnemonic == 'i2f':
             self.gen_cast(ir.i32, ir.f32)
         elif mnemonic == 'i2d':
             self.gen_cast(ir.i32, ir.f64)
+        elif mnemonic == 'l2i':
+            self.gen_cast(ir.i64, ir.i32)
+        elif mnemonic == 'l2f':
+            self.gen_cast(ir.i64, ir.f32)
+        elif mnemonic == 'l2d':
+            self.gen_cast(ir.i64, ir.f64)
+        elif mnemonic == 'f2i':
+            self.gen_cast(ir.f32, ir.i32)
+        elif mnemonic == 'f2l':
+            self.gen_cast(ir.f32, ir.i64)
+        elif mnemonic == 'f2d':
+            self.gen_cast(ir.f32, ir.f64)
+        elif mnemonic == 'd2i':
+            self.gen_cast(ir.f64, ir.i32)
+        elif mnemonic == 'd2l':
+            self.gen_cast(ir.f64, ir.i64)
+        elif mnemonic == 'd2f':
+            self.gen_cast(ir.f64, ir.f32)
+        elif mnemonic == 'i2b':
+            self.gen_cast(ir.i32, ir.i8)
+        elif mnemonic == 'i2c':
+            self.gen_cast(ir.i32, ir.i8)
+        elif mnemonic == 'i2s':
+            self.gen_cast(ir.i32, ir.i16)
         elif mnemonic == 'ireturn':
             self.gen_return(ir.i32)
         elif mnemonic == 'lreturn':
@@ -403,6 +428,7 @@ class Generator:
             raise NotImplementedError(mnemonic)
 
     def call_sub(self, name, signature):
+        """ Call a function / method """
         ir_method = self.get_method_ref(name, signature)
 
         # Gather arguments from stack:

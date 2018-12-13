@@ -24,4 +24,3 @@ class FunctionMacro(BaseMacro):
     def __init__(self, name, function):
         super().__init__(name, protected=True)
         self.function = function
-

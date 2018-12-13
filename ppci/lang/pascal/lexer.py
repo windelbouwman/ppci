@@ -61,11 +61,11 @@ class Lexer(SimpleLexer):
     def handle_number(self, val):
         return 'NUMBER', int(val)
 
-    @on('\(\*.*\*\)', flags=re.DOTALL, order=-2)
+    @on(r'\(\*.*\*\)', flags=re.DOTALL, order=-2)
     def handle_oldcomment(self, val):
         pass
 
-    @on('\{.*\}', flags=re.DOTALL, order=-1)
+    @on(r'\{.*\}', flags=re.DOTALL, order=-1)
     def handle_comment(self, val):
         pass
 

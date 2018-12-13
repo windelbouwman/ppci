@@ -89,7 +89,7 @@ def native_instantiate(module, imports, reporter, cache_file):
     from ..api import ir_to_object, get_current_arch
     logger.info('Instantiating wasm module as native code')
     arch = get_current_arch()
-    key = (arch, module)
+    # key = (arch, module)
     # TODO: think of clever caching trickery:
     cache_file = None
     if cache_file and os.path.exists(cache_file):
@@ -119,7 +119,8 @@ def native_instantiate(module, imports, reporter, cache_file):
     for definition in module:
         if isinstance(definition, Export):
             if definition.kind == 'func':
-                exported_name = ppci_module._wasm_function_names[definition.ref.index]
+                exported_name = ppci_module._wasm_function_names[
+                    definition.ref.index]
                 instance.exports._function_map[definition.name] = \
                     getattr(instance._code_module, exported_name)
             elif definition.kind == 'global':
@@ -162,7 +163,8 @@ def python_instantiate(module, imports, reporter, cache_file):
             # TODO: maybe validate imported functions?
         elif isinstance(definition, Export):
             if definition.kind == 'func':
-                exported_name = ppci_module._wasm_function_names[definition.ref.index]
+                exported_name = ppci_module._wasm_function_names[
+                    definition.ref.index]
                 instance.exports._function_map[definition.name] = \
                     getattr(instance._py_module, exported_name)
             elif definition.kind == 'global':

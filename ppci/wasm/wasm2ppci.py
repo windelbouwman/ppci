@@ -164,7 +164,10 @@ class WasmToIrCompiler:
 
                     if definition.ref.index is not None:
                         if definition.ref.index in export_names:
-                            self.logger.debug('Exporting function twice, now with name %s', name)
+                            self.logger.debug(
+                                'Exporting function twice, now with name %s',
+                                name
+                            )
                         else:
                             export_names[definition.ref.index] = name
                 else:
@@ -300,11 +303,12 @@ class WasmToIrCompiler:
         ppci_function.entry = entryblock
 
         # Initialize global values:
-        # (This must be done here, since initial values may contain imported globals)
+        # (This must be done here, since initial values may contain
+        # imported globals)
         for g2, init in global_inits:
             value = self.gen_expression(init)
             self.emit(ir.Store(value, g2))
-            
+
         # Fill function pointer tables:
         # TODO: we might be able to do this at link time?
         for table_variable, elems in tables:
@@ -321,7 +325,8 @@ class WasmToIrCompiler:
                 # Add offset:
                 offset_value = self.gen_expression(offset)
                 assert offset_value.ty is ir.i32
-                offset_value = self.emit(ir.Cast(offset_value, 'offset', ir.ptr))
+                offset_value = self.emit(ir.Cast(
+                    offset_value, 'offset', ir.ptr))
                 address = self.emit(
                     ir.add(address, offset_value, 'table_address', ir.ptr))
 
@@ -390,7 +395,7 @@ class WasmToIrCompiler:
             self.generate_instruction(instruction)
         assert len(self.stack) == 1
         return self.stack[-1]
-        
+
     def generate_function(self, ppci_function, signature, wasm_function):
         """ Generate code for a single function """
         self.logger.info(
@@ -746,11 +751,11 @@ class WasmToIrCompiler:
             self._runtime_call(inst)
 
             # TODO: this does not work for all cases:
-            #ir_typ = self.get_ir_type(inst)
-            #value = self.pop_value(ir_typ)
-            #value = self.emit(ir.Cast(value, 'cast', ir.u64))
-            #value = self.emit(ir.Cast(value, 'cast', ir_typ))
-            #self.push_value(value)
+            # ir_typ = self.get_ir_type(inst)
+            # value = self.pop_value(ir_typ)
+            # value = self.emit(ir.Cast(value, 'cast', ir.u64))
+            # value = self.emit(ir.Cast(value, 'cast', ir_typ))
+            # self.push_value(value)
             # Someday we may have a Unary op for this,
             # or a call into a native runtime lib?
             # value = self.emit(

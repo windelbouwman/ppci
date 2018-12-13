@@ -27,3 +27,7 @@ class BaseIoReader:
 class BaseIoWriter:
     def __init__(self, f):
         self.f = f
+
+    def write_fmt(self, fmt, value):
+        data = struct.pack(fmt, value)
+        self.f.write(data)

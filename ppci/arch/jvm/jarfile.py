@@ -1,0 +1,4 @@
+
+
+class JarFile:
+    pass

@@ -1,5 +1,6 @@
 """ The xtensa instructions """
 
+# pylint: disable=invalid-name
 from ..token import Token, bit_range
 from ..isa import Isa
 from ..encoding import Instruction, Operand, Syntax, Transform

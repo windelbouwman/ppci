@@ -1,3 +1,7 @@
+""" Motorola s-record format.
+
+https://en.wikipedia.org/wiki/SREC_(file_format)
+"""
 
 import binascii
 from ..utils.bitfun import value_to_bytes_big_endian
@@ -54,4 +58,3 @@ def write_srecord(obj, f):
         address += len(chunk)
     record = SRecord(9, 0, bytes())
     print(record.to_line(), file=f)
-

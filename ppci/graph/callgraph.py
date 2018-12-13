@@ -33,4 +33,3 @@ def mod_to_call_graph(ir_module) -> CallGraph:
                 cg.add_edge(n1, n2)
 
     return cg
-

@@ -132,7 +132,8 @@ class IrToWasmCompiler:
         functions_to_do = []
 
         # Register function numbers (for mutual recursive functions):
-        for idx, ir_function in enumerate(ir_module.functions, len(self.function_refs)):
+        for idx, ir_function in enumerate(
+                ir_module.functions, len(self.function_refs)):
             if self.has_function(ir_function.name):
                 raise ValueError(
                     'Function {} already defined'.format(ir_function.name))
@@ -208,7 +209,9 @@ class IrToWasmCompiler:
             type_ref = components.Ref('type', index=type_id)
             self.type_refs[key] = type_ref
             self.add_definition(
-                components.Type(type_id, [(i, a) for i, a in enumerate(arg_types)], ret_types))
+                components.Type(
+                    type_id,
+                    [(i, a) for i, a in enumerate(arg_types)], ret_types))
         # Query the id for this sig
         return self.type_refs[key]
 

@@ -1,7 +1,7 @@
 """ Contains a list of java virtual machine bytecodes. """
 
-# TODO: work in progress
-opcodes = [
+
+OPCODES = [
     ('nop', 0x00),
     ('aconst_null', 0x01),
     ('iconst_m1', 0x02),
@@ -32,12 +32,35 @@ opcodes = [
     ('iload_1', 0x1b),
     ('iload_2', 0x1c),
     ('iload_3', 0x1d),
-
+    ('lload_0', 0x1e),
+    ('lload_1', 0x1f),
+    ('lload_2', 0x20),
+    ('lload_3', 0x21),
+    ('fload_0', 0x22),
+    ('fload_1', 0x23),
+    ('fload_2', 0x24),
+    ('fload_3', 0x25),
+    ('dload_0', 0x26),
+    ('dload_1', 0x27),
+    ('dload_2', 0x28),
+    ('dload_3', 0x29),
+    ('aload_0', 0x2a),
+    ('aload_1', 0x2b),
+    ('aload_2', 0x2c),
+    ('aload_3', 0x2d),
+    ('iaload', 0x2e),
+    ('laload', 0x2f),
+    ('faload', 0x30),
+    ('daload', 0x31),
+    ('aaload', 0x32),
+    ('baload', 0x33),
+    ('caload', 0x34),
+    ('saload', 0x35),
     ('istore', 0x36, ('idx8',)),
     ('lstore', 0x37, ('idx8',)),
     ('fstore', 0x38, ('idx8',)),
     ('dstore', 0x39, ('idx8',)),
-
+    ('astore', 0x3a, ('idx8',)),
     ('istore_0', 0x3b),
     ('istore_1', 0x3c),
     ('istore_2', 0x3d),
@@ -69,7 +92,12 @@ opcodes = [
     ('pop', 0x57),
     ('pop2', 0x58),
     ('dup', 0x59),
-
+    ('dup_x1', 0x5a),
+    ('dup_x2', 0x5b),
+    ('dup2', 0x5c),
+    ('dup2_x1', 0x5d),
+    ('dup2_x2', 0x5e),
+    ('swap', 0x5f),
     ('iadd', 0x60),
     ('ladd', 0x61),
     ('fadd', 0x62),
@@ -106,7 +134,7 @@ opcodes = [
     ('lor', 0x81),
     ('ixor', 0x82),
     ('lxor', 0x83),
-
+    ('iinc', 0x84, ('idx8', 'i8')),
     ('i2l', 0x85),
     ('i2f', 0x86),
     ('i2d', 0x87),
@@ -122,6 +150,28 @@ opcodes = [
     ('i2b', 0x91),
     ('i2c', 0x92),
     ('i2s', 0x93),
+    ('lcmp', 0x94),
+    ('fcmpl', 0x95),
+    ('fcmpg', 0x96),
+    ('dcmpl', 0x97),
+    ('dcmpg', 0x98),
+    ('ifeq', 0x99, ('branch16',)),
+    ('ifne', 0x9a, ('branch16',)),
+    ('iflt', 0x9b, ('branch16',)),
+    ('ifge', 0x9c, ('branch16',)),
+    ('ifgt', 0x9d, ('branch16',)),
+    ('ifle', 0x9e, ('branch16',)),
+    ('if_icmpeq', 0x9f, ('branch16',)),
+    ('if_icmpne', 0xa0, ('branch16',)),
+    ('if_icmplt', 0xa1, ('branch16',)),
+    ('if_icmpge', 0xa2, ('branch16',)),
+    ('if_icmpgt', 0xa3, ('branch16',)),
+    ('if_icmple', 0xa4, ('branch16',)),
+    ('if_acmpeq', 0xa5, ('branch16',)),
+    ('if_acmpne', 0xa6, ('branch16',)),
+    ('goto', 0xa7, ('branch16',)),
+    ('jsr', 0xa8, ('branch16',)),
+    ('ret', 0xa9, ('idx8',)),
 
     ('ireturn', 0xac),
     ('lreturn', 0xad),
@@ -129,7 +179,6 @@ opcodes = [
     ('dreturn', 0xaf),
     ('areturn', 0xb0),
     ('return', 0xb1),
-
     ('getstatic', 0xb2, ('idx16',)),
     ('putstatic', 0xb3, ('idx16',)),
     ('getfield', 0xb4, ('idx16',)),
@@ -138,15 +187,30 @@ opcodes = [
     ('invokespecial', 0xb7, ('idx16',)),
     ('invokestatic', 0xb8, ('idx16',)),
 
-    ('new', 0xbb, ('idx',)),
-    # TODO: complete list?
+    ('new', 0xbb, ('idx16',)),
+
+    ('anewarray', 0xbd, ('idx16',)),
+    ('arraylength', 0xbe),
+    ('athrow', 0xbf),
+    ('checkcast', 0xc0, ('idx16',)),
+    ('instanceof', 0xc1, ('idx16',)),
+    ('monitorenter', 0xc2),
+    ('monitorexit', 0xc3),
+    ('ifnull', 0xc6, ('branch16',)),
+    ('ifnonnull', 0xc7, ('branch16',)),
+    ('goto_w', 0xc8, ('branch32',)),
+    ('jsr_w', 0xc9, ('branch32',)),
+    ('breakpoint', 0xca),
+
+    ('impdep1', 0xfe),
+    ('impdep2', 0xff),
 ]
 
 
 op_to_name = {}
 op_to_arg_types = {}
 
-for opcode in opcodes:
+for opcode in OPCODES:
     mnemonic = opcode[0]
     code = opcode[1]
     arg_types = opcode[2] if len(opcode) > 2 else []

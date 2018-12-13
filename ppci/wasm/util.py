@@ -115,7 +115,10 @@ def datastring2bytes(s):
                 delta = 3
             except ValueError:
                 # Escape ... we cant do Unicode yet
-                v = {'t': 9, 'n': 10, 'r': 13, '"': 34, '\'': 39, '\\': 92}[s[i+1]]
+                v = {
+                    't': 9, 'n': 10, 'r': 13, '"': 34,
+                    '\'': 39, '\\': 92
+                }[s[i+1]]
                 delta = 2
             f.write(struct.pack('<B', v))
             i += delta

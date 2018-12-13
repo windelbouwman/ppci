@@ -2,6 +2,7 @@
 
 import enum
 
+
 class ArgType(enum.Enum):
     TYPE = 1
     BYTE = 2
@@ -50,7 +51,10 @@ instruction_table = [
     ('return', 0x0f),
 
     ('call', 0x10, (ArgType.FUNCIDX,)),  # funcidx
-    ('call_indirect', 0x11, (ArgType.TYPEIDX, ArgType.TABLEIDX)),  # typeidx, tableidx
+    (
+        'call_indirect', 0x11,
+        (ArgType.TYPEIDX, ArgType.TABLEIDX)
+    ),  # typeidx, tableidx
 
     ('drop', 0x1a),
     ('select', 0x1b),
@@ -85,15 +89,26 @@ instruction_table = [
     ('i64.store8', 0x3C, (ArgType.U32, ArgType.U32)),
     ('i64.store16', 0x3D, (ArgType.U32, ArgType.U32)),
     ('i64.store32', 0x3E, (ArgType.U32, ArgType.U32)),
-    
+
     ('memory.size', 0x3f, ('byte',), (), ('i32',)),
     ('memory.grow', 0x40, ('byte',), ('i32',), ('i32',)),
 
-    ('i32.const', 0x41, (ArgType.I32,), (), ('i32',), lambda i, v: (i.args[0],)),
-    ('i64.const', 0x42, (ArgType.I64,), (), ('i64',), lambda i, v: (i.args[0],)),
-    ('f32.const', 0x43, (ArgType.F32,), (), ('f32',), lambda i, v: (i.args[0],)),
-    ('f64.const', 0x44, (ArgType.F64,), (), ('f64',), lambda i, v: (i.args[0],)),
-
+    (
+        'i32.const', 0x41, (ArgType.I32,), (), ('i32',),
+        lambda i, v: (i.args[0],)
+    ),
+    (
+        'i64.const', 0x42, (ArgType.I64,), (), ('i64',),
+        lambda i, v: (i.args[0],)
+    ),
+    (
+        'f32.const', 0x43, (ArgType.F32,), (), ('f32',),
+        lambda i, v: (i.args[0],)
+    ),
+    (
+        'f64.const', 0x44, (ArgType.F64,), (), ('f64',),
+        lambda i, v: (i.args[0],)
+    ),
     ('i32.eqz', 0x45),
     ('i32.eq', 0x46),
     ('i32.ne', 0x47),
@@ -359,4 +374,3 @@ def eval_expr(expr):
         return stack[0]
     else:
         raise ValueError('Expression does not leave value on stack!')
-

@@ -16,7 +16,8 @@ class BaseType:
 
 
 class ObjectType:
-    pass
+    def __init__(self, class_name):
+        self.class_name = class_name
 
 
 class ArrayType:
@@ -59,6 +60,11 @@ class ConstantPool:
 
     def __getitem__(self, key):
         return self._pool[key]
+
+    def __len__(self):
+        # TODO: strictly speaking, we could return the amount
+        # of non-None objects in the pool?
+        return len(self._pool)
 
     def append(self, constant):
         self._pool.append(constant)

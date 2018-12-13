@@ -406,8 +406,8 @@ class RmRip(Constructor):
 
 class RmAbsLabel(Constructor):
     """ absolute address access """
-    l = Operand('l', str)
-    syntax = Syntax(['[', l, ']'], priority=2)
+    label = Operand('label', str)
+    syntax = Syntax(['[', label, ']'], priority=2)
     patterns = {
         'mod': 0, 'rm': 4, 'index': 4, 'x': 0, 'b': 0, 'ss': 0, 'base': 5
     }
@@ -417,17 +417,17 @@ class RmAbsLabel(Constructor):
 
     def gen_relocations(self):
         # TODO: this offset is from the end of all possible tokens..
-        yield Abs32Relocation(self.l, offset=-5)
+        yield Abs32Relocation(self.label, offset=-5)
 
 
 class RmAbs(Constructor):
     """ absolute address access """
-    l = Operand('l', int)
-    syntax = Syntax(['[', l, ']'], priority=2)
+    address = Operand('address', int)
+    syntax = Syntax(['[', address, ']'], priority=2)
     patterns = {'mod': 0, 'rm': 4, 'index': 4, 'base': 5, 'x': 0, 'b': 0}
 
     def set_user_patterns(self, tokens):
-        tokens.set_field('disp32', self.l)
+        tokens.set_field('disp32', self.address)
 
 
 class RmReg64(Constructor):
@@ -2418,7 +2418,7 @@ def pattern_u8toi16(context, tree, c0):
 
     context.emit(bits16.XorRmReg(RmReg16(ax), ax))
     context.move(al, c0)
-    # TODO: 
+    # TODO:
     # raise Warning()
 
     defu2 = RegisterUseDef()

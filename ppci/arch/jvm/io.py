@@ -11,7 +11,8 @@ import logging
 import zipfile
 from ...format.io import BaseIoReader
 from .nodes import ClassFile, Constant, ConstantPool
-from .nodes import Method, Attribute, BaseType, MethodType
+from .nodes import Method, Attribute
+from .nodes import BaseType, MethodType, ObjectType, ArrayType
 from .nodes import CodeAttribute, Instruction
 from .enums import ConstantTag, AccessFlag
 from .opcodes import op_to_arg_types
@@ -30,7 +31,6 @@ def read_jar(filename):
         # Load some random classes:
         class_files = []
         for name in f.namelist():
-            print(name)
             if name.endswith('.class'):
                 with f.open(name, 'r') as class_file:
                     class_file = read_class_file(class_file)
@@ -95,7 +95,7 @@ class JavaFileReader(BaseIoReader):
     def read_constant_pool(self):
         """ Read the constant pool. """
         constant_pool_count = self.read_u16()
-        constant_pool = [None]  # Start with a dummy at position 0.
+        constant_pool = ConstantPool()
         if constant_pool_count > 0:
             skip_next = False
             for idx in range(constant_pool_count - 1):
@@ -357,6 +357,16 @@ class DescriptorParser:
         c = self.take()
         if c in 'BCDFIJSZ':
             typ = BaseType(c)
+        elif c == 'L':
+            c = self.take()
+            class_name = ''
+            while c != ';':
+                class_name += c
+                c = self.take()
+            typ = ObjectType(class_name)
+        elif c == '[':
+            component_type = self.parse_field_type()
+            typ = ArrayType(component_type)
         else:
             raise NotImplementedError(c)
         return typ

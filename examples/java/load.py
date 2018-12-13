@@ -4,7 +4,7 @@
 
 import logging
 import os.path
-from ppci.arch.jvm import load_class
+from ppci.arch.jvm import load_class, ClassLoader
 
 
 logging.basicConfig(level=logging.DEBUG)

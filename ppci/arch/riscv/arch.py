@@ -18,23 +18,22 @@ from .registers import R9, R18, R19
 from .registers import R20, R21, R22, R23, R24, R25, R26, R27
 from .registers import F10, F12, F13, F14, F15, F16, F17
 from ... import ir
-from ..registers import RegisterClass
 from .registers import register_classes_hwfp, register_classes_swfp
 from ..stack import StackLocation
-from ..stack import FramePointerLocation 
+from ..stack import FramePointerLocation
 from ..data_instructions import data_isa
 from ...binutils.assembler import BaseAssembler
 from .instructions import dcd, Addi, Movr, Bl, Sw, Lw, Blr, Lb, Sb
 from .rvc_instructions import CSwsp, CLwsp, CBl, CJr, CBlr, CMovr
 from .rvc_instructions import CLwsp, CSwsp, CAddi16sp, CAddi4spn
- 
+
 
 def isinsrange(bits, val):
-        msb = 1<<(bits-1)
+        msb = 1 << (bits-1)
         ll = -msb
-        if (val<=(msb-1) and (val >=ll)):
+        if (val <= (msb-1) and (val >= ll)):
             return True
-        else:    
+        else:
             return False
 
 
@@ -64,14 +63,14 @@ class RiscvAssembler(BaseAssembler):
 
 class RiscvArch(Architecture):
     name = 'riscv'
-    option_names = ('rvc','rvf')
+    option_names = ('rvc', 'rvf')
 
     def __init__(self, options=None):
         super().__init__(options=options)
         if self.has_option('rvc'):
             self.isa = isa + rvcisa + data_isa
             self.store = CSwsp
-            self.load = CLwsp 
+            self.load = CLwsp
             self.regclass = register_classes_swfp
         elif self.has_option('rvf'):
             self.isa = isa + rvfisa + data_isa
@@ -83,7 +82,7 @@ class RiscvArch(Architecture):
             self.store = Sw
             self.load = Lw
             self.regclass = register_classes_swfp
-        self.fp_location = FramePointerLocation.BOTTOM 
+        self.fp_location = FramePointerLocation.BOTTOM
         self.isa.sectinst = Section
         self.isa.dbinst = DByte
         self.isa.dsinst = DZero
@@ -93,7 +92,6 @@ class RiscvArch(Architecture):
         self.assembler = RiscvAssembler()
         self.assembler.gen_asm_parser(self.isa)
 
-        
         self.info = ArchInfo(
             type_infos={
                 ir.i8: TypeInfo(1, 1), ir.u8: TypeInfo(1, 1),
@@ -153,13 +151,13 @@ class RiscvArch(Architecture):
 
         __exit:
         jalr x0,ra,0
-        """          
+        """
         return asm(io.StringIO(asm_src), self)
 
     def move(self, dst, src):
         """ Generate a move from src to dst """
         if self.has_option('rvc'):
-            return CMovr(dst, src, ismove=True)        
+            return CMovr(dst, src, ismove=True)
         else:
             if isinstance(dst, RiscvFRegister) and self.has_option('rvf'):
                 return movf(dst, src)
@@ -181,7 +179,7 @@ class RiscvArch(Architecture):
         # Setup parameters:
         for arg_loc, arg2 in zip(arg_locs, args):
             arg = arg2[1]
-            if isinstance(arg_loc, (RiscvRegister,RiscvFRegister)):
+            if isinstance(arg_loc, (RiscvRegister, RiscvFRegister)):
                 yield self.move(arg_loc, arg)
             else:  # pragma: no cover
                 raise NotImplementedError('Parameters in memory not impl')
@@ -249,7 +247,7 @@ class RiscvArch(Architecture):
                     else:
                         arg_size = self.info.get_size(a)
                         r = StackLocation(offset, arg_size)
-                        offset += arg_size                                 
+                        offset += arg_size
             locations.append(r)
         return locations
 
@@ -268,26 +266,27 @@ class RiscvArch(Architecture):
         if self.has_option('rvc') and isinsrange(10, -ssize):
             yield CAddi16sp(-ssize)  # Reserve stack space
         else:
-            yield Addi(SP, SP, -ssize)  # Reserve stack space            
-        
+            yield Addi(SP, SP, -ssize)  # Reserve stack space
+
         if self.has_option('rvc'):
             yield CSwsp(LR, 4)
             yield CSwsp(FP, 0)
         else:
             yield Sw(LR, 4, SP)
             yield Sw(FP, 0, SP)
-        
+
         if self.has_option('rvc'):
             yield CAddi4spn(FP, 8)  # Setup frame pointer
         else:
-            yield Addi(FP, SP, 8)  # Setup frame pointer        
-        #yield Addi(FP, SP, 8)  # Setup frame pointer        
-        
+            yield Addi(FP, SP, 8)  # Setup frame pointer
+
+        # yield Addi(FP, SP, 8)  # Setup frame pointer
+
         rsize = 0
         for register in self.callee_save:
             if frame.is_used(register):
-                rsize += 4 
-        rsize = round_up(rsize)         
+                rsize += 4
+        rsize = round_up(rsize)
         if self.has_option('rvc') and isinsrange(10, rsize):
             yield CAddi16sp(-rsize)  # Reserve stack space
         else:
@@ -297,10 +296,9 @@ class RiscvArch(Architecture):
             if frame.is_used(register):
                 i -= 4
                 if self.has_option('rvc'):
-                    yield CSwsp(register,i + rsize)
+                    yield CSwsp(register, i + rsize)
                 else:
                     yield Sw(register, i + rsize, SP)
-        
 
         # Allocate space for outgoing calls:
         extras = max(frame.out_calls) if frame.out_calls else 0
@@ -309,7 +307,7 @@ class RiscvArch(Architecture):
             if self.has_option('rvc') and isinsrange(10, ssize):
                 yield CAddi16sp(-ssize)  # Reserve stack space
             else:
-                yield Addi(SP, SP, -ssize)  # Reserve stack space            
+                yield Addi(SP, SP, -ssize)  # Reserve stack space
 
     def litpool(self, frame):
         """ Generate instruction for the current literals """
@@ -330,7 +328,7 @@ class RiscvArch(Architecture):
                 yield Align(4)  # Align at 4 bytes
             else:  # pragma: no cover
                 raise NotImplementedError('Constant of type {}'.format(value))
-        
+
         yield Section('code')
 
     def between_blocks(self, frame):
@@ -344,18 +342,18 @@ class RiscvArch(Architecture):
         # Free space for outgoing calls:
         extras = max(frame.out_calls) if frame.out_calls else 0
         if extras:
-            ssize = round_up(extras)            
+            ssize = round_up(extras)
             if self.has_option('rvc') and isinsrange(10, ssize):
                 yield CAddi16sp(ssize)  # Reserve stack space
             else:
-                yield Addi(SP, SP, ssize)  # Reserve stack space            
+                yield Addi(SP, SP, ssize)  # Reserve stack space
         # Callee saved registers:
         rsize = 0
         for register in self.callee_save:
             if frame.is_used(register):
-                rsize += 4 
+                rsize += 4
         rsize = round_up(rsize)
-        
+
         i = 0
         for register in self.callee_save:
             if frame.is_used(register):
@@ -363,26 +361,26 @@ class RiscvArch(Architecture):
                 if self.has_option('rvc'):
                     yield CLwsp(register, i + rsize)
                 else:
-                    yield Lw(register, i + rsize, SP)              
-               
+                    yield Lw(register, i + rsize, SP)
+
         if self.has_option('rvc') and isinsrange(10, rsize):
             yield CAddi16sp(rsize)  # Reserve stack space
         else:
-            yield Addi(SP, SP, rsize)  # Reserve stack space              
-        
+            yield Addi(SP, SP, rsize)  # Reserve stack space
+
         if self.has_option('rvc'):
             yield CLwsp(LR, 4)
             yield CLwsp(FP, 0)
         else:
             yield Lw(LR, 4, SP)
             yield Lw(FP, 0, SP)
-        
-        ssize = round_up(frame.stacksize + 8) 
+
+        ssize = round_up(frame.stacksize + 8)
         if self.has_option('rvc') and isinsrange(10, ssize):
             yield CAddi16sp(ssize)  # Free stack space
         else:
             yield Addi(SP, SP, ssize)  # Free stack space
-            
+
         # Return
         if self.has_option('rvc'):
             yield CJr(LR)

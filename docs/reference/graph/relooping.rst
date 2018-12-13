@@ -38,14 +38,13 @@ detected.
     >>> shape, _ = find_structure(ir_function)
     >>> print_shape(shape)
        code: CFG-node(inc_block0)
-          loop
-             if-then CFG-node(inc_block1)
-                Break-shape 0
-             else
-                Continue-shape 0
-             end-if
-          end-loop
-          code: CFG-node(inc_block2)
+       loop
+          if-then CFG-node(inc_block1)
+             code: CFG-node(inc_block2)
+          else
+             Continue-shape 0
+          end-if
+       end-loop
 
 As can be seen, the program contains one loop.
 

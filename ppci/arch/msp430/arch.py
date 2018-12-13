@@ -67,9 +67,9 @@ class Msp430Arch(Architecture):
         return mov(src, dst)
 
     @staticmethod
-    def round_upwards(v):
+    def round_upwards(value):
         """ Round value upwards to multiple of 2 """
-        return v + (v % 2)
+        return value + (value % 2)
 
     def gen_prologue(self, frame):
         """ Returns prologue instruction sequence """
@@ -193,17 +193,17 @@ class Msp430Arch(Architecture):
             further parameters are put on stack.
             retval = r12
         """
-        l = []
+        locations = []
         regs = [r12, r13, r14, r15]
         offset = 0
-        for a in arg_types:
+        for arg_type in arg_types:
             if regs:
                 reg = regs.pop(0)
-                l.append(reg)
+                locations.append(reg)
             else:
-                l.append(StackLocation(offset, 2))
+                locations.append(StackLocation(offset, 2))
                 offset += 2
-        return l
+        return locations
 
     def determine_rv_location(self, ret_type):
         rv = r12
@@ -227,7 +227,8 @@ class Msp430Arch(Architecture):
             'divsi3',
             'mulsi3',
         ])
-        # report_generator = HtmlReportGenerator(open('msp430.html', 'wt', encoding='utf8'))
+        # report_generator = HtmlReportGenerator(
+        # open('msp430.html', 'wt', encoding='utf8'))
         with DummyReportGenerator() as reporter:
             obj1 = asm(io.StringIO(RT_ASM_SRC), march)
             obj2 = c3c(c3_sources, [], march, reporter=reporter)
