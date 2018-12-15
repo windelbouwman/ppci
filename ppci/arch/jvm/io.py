@@ -72,6 +72,7 @@ class JavaFileReader(BaseIoReader):
         logger.debug('Version %s.%s', major_version, minor_version)
         self.constant_pool = self.read_constant_pool()
         access_flags = self.read_flags()
+        logger.debug('Access flags: %s', access_flags)
         this_class = self.read_u16()
         super_class = self.read_u16()
 

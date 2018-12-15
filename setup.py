@@ -25,6 +25,7 @@ setup(
             'ppci-disasm = ppci.cli.disasm:disasm',
             'ppci-hexdump = ppci.cli.hexdump:hexdump',
             'ppci-hexutil = ppci.cli.hexutil:hexutil',
+            'ppci-java = ppci.cli.java:java',
             'ppci-ld = ppci.cli.link:link',
             'ppci-llc = ppci.cli.llc:llc',
             'ppci-mkuimage = ppci.cli.mkuimage:mkuimage',
@@ -48,7 +49,9 @@ setup(
     classifiers=[
         'License :: OSI Approved :: BSD License',
         'Development Status :: 3 - Alpha',
+        'Programming Language :: Assembly',
         'Programming Language :: C',
+        'Programming Language :: Java',
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5',
@@ -58,6 +61,8 @@ setup(
         'Programming Language :: Python :: Implementation :: PyPy',
         'Topic :: Software Development :: Compilers',
         'Topic :: Software Development :: Assemblers',
+        'Topic :: Software Development :: Code Generators',
         'Topic :: Software Development :: Embedded Systems',
+        'Topic :: Software Development :: Pre-processors',
     ]
 )

@@ -11,4 +11,4 @@ from .parser import parse
 
 __all__ = (
     'parse',
-    'SymbolSet', 'Kleene')
+    'Symbol', 'SymbolSet', 'Kleene')

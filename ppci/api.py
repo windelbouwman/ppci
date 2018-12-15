@@ -50,7 +50,7 @@ __all__ = [
     'asm', 'c3c', 'cc', 'link', 'objcopy', 'bfcompile', 'construct',
     'optimize', 'preprocess',
     'get_arch', 'get_current_arch', 'is_platform_supported',
-    'ir_to_object', 'ir_to_python',
+    'ir_to_object', 'ir_to_python', 'ir_to_assembly',
     'bf_to_ir', 'ws_to_ir']
 
 
@@ -243,6 +243,16 @@ def ir_to_stream(
     # Code generation:
     code_generator.generate(
         ir_module, output_stream, reporter=reporter, debug=debug)
+
+
+def ir_to_assembly(ir_modules, march, add_binary=False):
+    """ Translate the given ir-code into assembly code.
+    """
+    text_file = io.StringIO()
+    text_stream = TextOutputStream(f=text_file, add_binary=add_binary)
+    for ir_module in ir_modules:
+        ir_to_stream(ir_module, march, text_stream)
+    return text_file.getvalue()
 
 
 def ir_to_object(

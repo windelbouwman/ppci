@@ -1,19 +1,24 @@
+""" Test cases for the various commandline utilities. """
+
 import unittest
 import tempfile
 import io
 import os
 from unittest.mock import patch
 
-from ppci.cli.c3c import c3c
-from ppci.cli.build import build
 from ppci.cli.asm import asm
-from ppci.cli.yacc import yacc
+from ppci.cli.build import build
+from ppci.cli.c3c import c3c
+from ppci.cli.cc import cc
+from ppci.cli.hexdump import hexdump
+from ppci.cli.java import java
+from ppci.cli.link import link
 from ppci.cli.objdump import objdump
 from ppci.cli.objcopy import objcopy
-from ppci.cli.pascal import pascal
-from ppci.cli.link import link
+from ppci.cli.ocaml import ocaml
 from ppci.cli.opt import opt
-from ppci.cli.cc import cc
+from ppci.cli.pascal import pascal
+from ppci.cli.yacc import yacc
 from ppci import api
 from ppci.common import DiagnosticsManager, SourceLocation
 from ppci.binutils.objectfile import ObjectFile, Section, Image
@@ -269,6 +274,38 @@ class YaccTestCase(unittest.TestCase):
         with open(file1, 'r') as f:
             content = f.read()
         self.assertIn('Automatically generated', content)
+
+
+class JavaTestCase(unittest.TestCase):
+    @patch('sys.stdout', new_callable=io.StringIO)
+    def test_help(self, mock_stdout):
+        with self.assertRaises(SystemExit) as cm:
+            java(['-h'])
+        self.assertEqual(0, cm.exception.code)
+        self.assertIn('java', mock_stdout.getvalue())
+
+
+class OcamlTestCase(unittest.TestCase):
+    @patch('sys.stdout', new_callable=io.StringIO)
+    def test_help(self, mock_stdout):
+        with self.assertRaises(SystemExit) as cm:
+            ocaml(['-h'])
+        self.assertEqual(0, cm.exception.code)
+        self.assertIn('OCaml', mock_stdout.getvalue())
+
+
+class HexDumpTestCase(unittest.TestCase):
+    @patch('sys.stdout', new_callable=io.StringIO)
+    def test_help(self, mock_stdout):
+        with self.assertRaises(SystemExit) as cm:
+            hexdump(['-h'])
+        self.assertEqual(0, cm.exception.code)
+        self.assertIn('dump', mock_stdout.getvalue())
+
+    @patch('sys.stdout', new_callable=io.StringIO)
+    def test_dump(self, mock_stdout):
+        bin_file = relpath('..', 'docs', 'logo', 'logo.png')
+        hexdump([bin_file])
 
 
 class DiagnosticsTestCase(unittest.TestCase):

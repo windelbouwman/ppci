@@ -6,6 +6,7 @@ import sys
 from .base import base_parser, march_parser, LogSetup, get_arch_from_args
 from .compile_base import compile_parser, do_compile
 from ..arch.jvm import read_class_file, class_to_ir, print_class_file
+from ..arch.jvm import read_jar
 from ..irutils import print_module
 
 
@@ -29,6 +30,12 @@ dis_parser.add_argument(
     'class_file', metavar='java class file', type=argparse.FileType('rb'),
     help='class file to inspect')
 
+jar_parser = subparsers.add_parser(
+    'jar', help='Explore jar file.')
+jar_parser.add_argument(
+    'jarfile', metavar='java jar file',
+    help='jar file to inspect')
+
 
 def java(args=None):
     """ Java command line utility. """
@@ -46,6 +53,8 @@ def java(args=None):
             class_file = read_class_file(args.class_file)
             args.class_file.close()
             print_class_file(class_file)
+        elif args.command == 'jar':
+            read_jar(args.jarfile)
         else:  # pragma: no cover
             parser.print_usage()
             sys.exit(1)

@@ -2,11 +2,11 @@
 Faq
 ===
 
-*Why? WHY?!*
+*Why did you do this?*
 
     There are several reasons:
 
-    * it is possible!
+    * it is possible! (For me, this already is a sufficient explanation :))
     * this compiler is very portable due to python being portable.
     * writing a compiler is a very challenging task
 
@@ -25,4 +25,14 @@ Faq
 
 *Why would one want to make a compiler for such a weird language such as C?*
 
-    Because of the enormous amount of C-source code available.
+    Because of the enormous amount of C-source code available. This serves
+    as a great test suite for the compiler.
+
+*Why are the so many different parts in ppci, should you not better split
+this package into several smaller ones?*
+
+   This would certainly be possible, but for now I would like to keep all
+   code in a single package. This simplifies the dependencies, and also
+   ensures that a single version works as a whole. Another benefit is that
+   the packaging overhead is reduced. Also, functionality can be easily
+   shared (but should not lead to spaghetti code of course).

@@ -1,4 +1,6 @@
 
+.. _hexfile:
+
 Hexfile manipulation
 ====================
 

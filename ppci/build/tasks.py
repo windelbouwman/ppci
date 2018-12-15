@@ -36,7 +36,7 @@ class Project:
         self.name = name
         self.targets = {}
         self.properties = {}
-        self.macro_regex = re.compile('\$\{([^\}]+)\}')
+        self.macro_regex = re.compile(r'\$\{([^\}]+)\}')
 
     def set_property(self, name, value):
         """ Set a property in this project """

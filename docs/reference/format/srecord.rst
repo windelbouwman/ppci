@@ -1,4 +1,6 @@
 
+.. _srecord:
+
 S-record
 --------
 
