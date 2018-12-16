@@ -8,8 +8,8 @@ from ..data_instructions import Dd
 from ...utils.bitfun import inrange
 from ..generic_instructions import ArtificialInstruction, Alignment
 from ..generic_instructions import SectionInstruction
-from ..generic_instructions import RegisterUseDef
-from .registers import RiscvRegister, FP, LR, R0, R10, R12, R13
+from ..generic_instructions import RegisterUseDef 
+from .registers import RiscvRegister, RiscvFRegister, RiscvCsrRegister, FP, LR, R0, R10, R12, R13
 from .relocations import AbsAddr32Relocation
 from .relocations import BImm12Relocation, BImm20Relocation
 from .relocations import Abs32Imm20Relocation
@@ -86,6 +86,58 @@ class Movr(RiscvInstruction):
     patterns = {
         'opcode': 0b0010011, 'rd': rd, 'funct3': 0, 'rs1': rm,
         'rs2': 0, 'funct7': 0}
+
+class Csrs(RiscvInstruction):
+    rd = Operand('rd', RiscvCsrRegister, write=True)
+    rm = Operand('rm', RiscvRegister, read=True)
+    syntax = Syntax(['csrs', ' ', rd, ',', ' ', rm])
+    tokens = [RiscvIToken]
+    patterns = {
+        'opcode': 0x73, 'rd': 0, 'funct3': 2, 'rs1': rm,
+        'imm': rd}
+
+def make_csrwi(mnemonic, func):
+    rd = Operand('rd', RiscvCsrRegister, write=True)
+    imm = Operand('imm', int)
+    syntax = Syntax([mnemonic, ' ', rd, ',', ' ', imm])
+    tokens = [RiscvIToken]
+    patterns = {
+        'opcode': 0x73, 'rd': 0, 'funct3': func, 'rs1': imm,
+        'imm': rd}
+    members = {
+        'syntax': syntax, 'tokens': tokens, 'patterns': patterns,
+        'rd': rd, 'imm': imm}
+    return type(mnemonic.title(), (RiscvInstruction,), members)
+
+
+Csrwi = make_csrwi('csrwi', 0b101)
+Csrsi = make_csrwi('csrsi', 0b110)
+Csrci = make_csrwi('csrci', 0b111)
+
+class Csrw(RiscvInstruction):
+    rd = Operand('rd', RiscvCsrRegister, write=True)
+    rm = Operand('rm', RiscvRegister, read=True)
+    syntax = Syntax(['csrw', ' ', rd, ',', ' ', rm])
+    tokens = [RiscvIToken]
+    patterns = {
+        'opcode': 0x73, 'rd': 0, 'funct3': 1, 'rs1': rm,
+        'imm': rd}
+        
+class Csrr(RiscvInstruction):
+    rd = Operand('rd', RiscvRegister, write=True)
+    rm = Operand('rm', RiscvCsrRegister, read=True)
+    syntax = Syntax(['csrr', ' ', rd, ',', ' ', rm])
+    tokens = [RiscvIToken]
+    patterns = {
+        'opcode': 0x73, 'rd': rd, 'funct3': 2, 'rs1': 0,
+        'imm': rm}
+
+class Mret(RiscvInstruction):    
+    syntax = Syntax(['mret'])
+    tokens = [RiscvIToken]
+    patterns = {
+        'opcode': 0x73, 'rd': 0, 'funct3': 0, 'rs1': 0,
+        'imm': 0x302}
 
 
 def make_regregreg(mnemonic, opcode, func):
@@ -565,8 +617,7 @@ def pattern_movi8(context, tree, c0):
 def pattern_jmp(context, tree):
     tgt = tree.value
     context.emit(B(tgt.name, jumps=[tgt]))
-
-
+    
 @isa.pattern('stm', 'MOVB(reg, reg)', size=40)
 def pattern_movb(context, tree, c0, c1):
     # Emit memcpy
@@ -575,8 +626,8 @@ def pattern_movb(context, tree, c0, c1):
     tmp = context.new_reg(RiscvRegister)
     size = tree.value
     for instruction in context.arch.gen_riscv_memcpy(dst, src, tmp, size):
-        context.emit(instruction)
-
+        context.emit(instruction) 
+    
 
 @isa.pattern('reg', 'REGI32', size=0)
 @isa.pattern('reg', 'REGI16', size=0)
@@ -588,6 +639,7 @@ def pattern_movb(context, tree, c0, c1):
 @isa.pattern('reg', 'REGU8', size=0)
 def pattern_reg(context, tree):
     return tree.value
+
 
 
 @isa.pattern('reg', 'U32TOU32(reg)', size=0)
@@ -670,7 +722,6 @@ def pattern_32_to_8_16(context, tree, c0):
     # TODO: do something like sign extend or something else?
     return c0
 
-
 @isa.pattern('reg', 'CONSTI32', size=4)
 @isa.pattern('reg', 'CONSTU32', size=4)
 @isa.pattern('reg', 'CONSTI16', size=4)
@@ -691,16 +742,14 @@ def pattern_const_i32(context, tree):
     context.emit(Li(d, c0))
     return d
 
-
 @isa.pattern('reg', 'CONSTF32', size=10)
 @isa.pattern('reg', 'CONSTF64', size=10)
 def pattern_const_f32(context, tree):
     float_const = struct.pack('f', tree.value)
     c0, = struct.unpack('i', float_const)
-    d = context.new_reg(RiscvRegister)
+    d = context.new_reg(RiscvRegister)    
     context.emit(Li(d, c0))
     return d
-
 
 @isa.pattern('stm', 'CJMPI32(reg, reg)', size=4)
 @isa.pattern('stm', 'CJMPI16(reg, reg)', size=4)
@@ -1010,23 +1059,21 @@ def pattern_shr_u32(context, tree, c0, c1):
 
 
 @isa.pattern('reg', 'SHRI8(reg, reg)', size=2)
-def pattern_shr_i8(context, tree, c0, c1):
-    d = context.new_reg(RiscvRegister)
+def pattern_shr_i32(context, tree, c0, c1):
+    d = context.new_reg(RiscvRegister)    
     context.emit(Slli(c0, c0, 24))
     context.emit(Srai(c0, c0, 24))
     context.emit(Sra(d, c0, c1))
     return d
-
-
+    
 @isa.pattern('reg', 'SHRI16(reg, reg)', size=2)
-def pattern_shr_i16(context, tree, c0, c1):
+def pattern_shr_i32(context, tree, c0, c1):
     d = context.new_reg(RiscvRegister)
     context.emit(Slli(c0, c0, 16))
     context.emit(Srai(c0, c0, 16))
     context.emit(Sra(d, c0, c1))
     return d
-
-
+    
 @isa.pattern('reg', 'SHRI32(reg, reg)', size=2)
 def pattern_shr_i32(context, tree, c0, c1):
     d = context.new_reg(RiscvRegister)
@@ -1146,93 +1193,73 @@ def pattern_xor_i32_const_reg(context, tree, c0):
     c1 = tree.children[0].value
     context.emit(Xori(d, c0, c1))
     return d
-
+    
 
 def call_internal2(context, name, a, b, clobbers=()):
     d = context.new_reg(RiscvRegister)
     context.move(R12, a)
     context.move(R13, b)
-    context.emit(RegisterUseDef(uses=(R12, R13)))
-    context.emit(Bl(LR, name, clobbers=clobbers))
-    context.emit(RegisterUseDef(uses=(R10,)))
+    context.emit(RegisterUseDef(uses=(R12, R13))) 
+    context.emit(Bl(LR, name, clobbers=clobbers)) 
+    context.emit(RegisterUseDef(uses=(R10,)))     
     context.move(d, R10)
-    return d
-
+    return d 
 
 def call_internal1(context, name, a, clobbers=()):
     d = context.new_reg(RiscvRegister)
-    context.move(R12, a)
-    context.emit(RegisterUseDef(uses=(R12,)))
-    context.emit(Bl(LR, name, clobbers=clobbers))
-    context.emit(RegisterUseDef(uses=(R10,)))
+    context.move(R12, a)    
+    context.emit(RegisterUseDef(uses=(R12,))) 
+    context.emit(Bl(LR, name, clobbers=clobbers)) 
+    context.emit(RegisterUseDef(uses=(R10,)))     
     context.move(d, R10)
-    return d
+    return d 
 
-
-@isa.pattern('reg', 'ADDF64(reg, reg)', size=20)
+@isa.pattern('reg', 'ADDF64(reg, reg)', size=20)    
 @isa.pattern('reg', 'ADDF32(reg, reg)', size=20)
-def pattern_add_f32(context, tree, c0, c1):
-    return call_internal2(
-        context, 'float32_add', c0, c1, clobbers=context.arch.caller_save)
+def pattern_add_f32(context, tree, c0, c1):    
+    return call_internal2(context,'float32_add', c0, c1, clobbers=context.arch.caller_save)
 
-
-@isa.pattern('reg', 'SUBF64(reg, reg)', size=20)
+@isa.pattern('reg', 'SUBF64(reg, reg)', size=20)    
 @isa.pattern('reg', 'SUBF32(reg, reg)', size=20)
-def pattern_sub_f32(context, tree, c0, c1):
-    return call_internal2(
-        context, 'float32_sub', c0, c1, clobbers=context.arch.caller_save)
-
-
+def pattern_sub_f32(context, tree, c0, c1):    
+    return call_internal2(context,'float32_sub', c0, c1, clobbers=context.arch.caller_save)
+    
 @isa.pattern('reg', 'MULF64(reg, reg)', size=20)
 @isa.pattern('reg', 'MULF32(reg, reg)', size=20)
-def pattern_mul_f32(context, tree, c0, c1):
-    return call_internal2(
-        context, 'float32_mul', c0, c1, clobbers=context.arch.caller_save)
-
-
+def pattern_mul_f32(context, tree, c0, c1):    
+    return call_internal2(context,'float32_mul', c0, c1, clobbers=context.arch.caller_save)
+    
 @isa.pattern('reg', 'DIVF64(reg, reg)', size=20)
 @isa.pattern('reg', 'DIVF32(reg, reg)', size=20)
-def pattern_div_f32(context, tree, c0, c1):
-    return call_internal2(
-        context, 'float32_div', c0, c1, clobbers=context.arch.caller_save)
-
-
+def pattern_div_f32(context, tree, c0, c1):    
+    return call_internal2(context,'float32_div', c0, c1, clobbers=context.arch.caller_save)
+    
 @isa.pattern('reg', 'NEGF64(reg)', size=20)
 @isa.pattern('reg', 'NEGF32(reg)', size=20)
-def pattern_neg_f32(context, tree, c0):
-    return call_internal1(
-        context, 'float32_neg', c0, clobbers=context.arch.caller_save)
-
-
+def pattern_neg_f32(context, tree, c0):    
+    return call_internal1(context,'float32_neg', c0, clobbers=context.arch.caller_save)
+    
 @isa.pattern('reg', 'F32TOI32(reg)', size=20)
 @isa.pattern('reg', 'F64TOI32(reg)', size=20)
-def pattern_ftoi_f32(context, tree, c0):
-    return call_internal1(
-        context, 'float32_to_int32', c0, clobbers=context.arch.caller_save)
-
-
+def pattern_ftoi_f32(context, tree, c0):    
+    return call_internal1(context,'float32_to_int32', c0, clobbers=context.arch.caller_save)
+    
 @isa.pattern('reg', 'I32TOF32(reg)', size=20)
 @isa.pattern('reg', 'I32TOF64(reg)', size=20)
-def pattern_itof_f32(context, tree, c0):
-    return call_internal1(
-        context, 'int32_to_float32', c0, clobbers=context.arch.caller_save)
-
+def pattern_itof_f32(context, tree, c0):    
+    return call_internal1(context,'int32_to_float32', c0, clobbers=context.arch.caller_save)
 
 @isa.pattern('stm', 'CJMPF32(reg, reg)', size=20)
 @isa.pattern('stm', 'CJMPF64(reg, reg)', size=20)
 def pattern_cjmp(context, tree, c0, c1):
     op, yes_label, no_label = tree.value
-    opnames = {
-        "<": "float32_lt", ">": "float32_gt",
-        "==": "float32_eq", "!=": "float32_ne",
-        ">=": "float32_ge", "<=": "float32_le"
-    }
+    opnames = {"<": "float32_lt", ">": "float32_gt", "==": "float32_eq", "!=": "float32_ne", ">=": "float32_ge", "<=": "float32_le"}
     Bop = opnames[op]
     jmp_ins = B(no_label.name, jumps=[no_label])
     call_internal2(context, Bop, c0, c1, clobbers=context.arch.caller_save)
     context.emit(Bne(R10, R0, yes_label.name, jumps=[yes_label, jmp_ins]))
     context.emit(jmp_ins)
-
-
+    
+    
 # TODO: implement DIVI32 by library call.
 # TODO: Do that here, or in irdag?

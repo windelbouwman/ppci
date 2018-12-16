@@ -1,6 +1,6 @@
 
-from ..registers import Register, RegisterClass
-from ... import ir
+from ..registers import Register, RegisterClass 
+from ... import ir 
 
 # pylint: disable=invalid-name
 
@@ -19,11 +19,12 @@ class RiscvRegister(Register):
 class RiscvProgramCounterRegister(Register):
     bitsize = 32
 
-
 class RiscvFRegister(Register):
     bitsize = 32
 
-
+class RiscvCsrRegister(Register):
+    bitsize = 32
+    
 def get_register(n):
     """ Based on a number, get the corresponding register """
     return num2regmap[n]
@@ -103,53 +104,47 @@ F29 = RiscvFRegister('f29', num=29)
 F30 = RiscvFRegister('f30', num=30)
 F31 = RiscvFRegister('f31', num=31)
 
+MSTATUS = RiscvCsrRegister('mstatus', num=0x300)
+MIE = RiscvCsrRegister('mie', num=0x304)
+MTVEC = RiscvCsrRegister('mtvec', num=0x305)
+MEPC = RiscvCsrRegister('mepc', num=0x341)
+MCAUSE = RiscvCsrRegister('mcause', num=0x342)
 
-registers = [
-    R0, LR, SP, R3, R4, R5, R6, R7,
+registers = [R0, LR, SP, R3, R4, R5, R6, R7,
     FP, R9, R10, R11, R12, R13, R14, R15, R16,
     R17, R18, R19, R20, R21, R22, R23, R24,
-    R25, R26, R27, R28, R29, R30, R31
-]
+    R25, R26, R27, R28, R29, R30, R31]
 RiscvRegister.registers = registers
 
-fregisters = [
-    F0, F1, F2, F3, F4, F5, F6, F7, F8, F9,
+fregisters = [F0, F1, F2, F3, F4, F5, F6, F7, F8, F9,
     F10, F11, F12, F13, F14, F15, F16, F17, F18, F19, F20, F21, F22,
-    F23, F24, F25, F26, F27, F28, F29, F30, F31
-]
-
+    F23, F24, F25, F26, F27, F28, F29, F30, F31]
+    
 RiscvFRegister.registers = fregisters
 num2regmap = {r.num: r for r in registers}
 
 gdb_registers = registers + [PC]
+RiscvCsrRegister.registers = [MSTATUS, MIE, MTVEC, MEPC, MCAUSE]
 
 register_classes_hwfp = [
-    RegisterClass(
-        'reg', [ir.i8, ir.i16, ir.i32, ir.ptr, ir.u8, ir.u16, ir.u32],
-        RiscvRegister,
-        [
-            R9, R10, R11, R12, R13, R14, R15, R16, R17, R18, R19, R20,
-            R21, R22, R23, R24, R25, R26, R27
-        ]
-    ),
-    RegisterClass(
-        'freg', [ir.f32, ir.f64],
-        RiscvFRegister,
-        fregisters
-    ),
-]
-
+     RegisterClass(
+                'reg', [ir.i8, ir.i16, ir.i32, ir.ptr, ir.u8, ir.u16, ir.u32],
+                RiscvRegister,
+                [
+                    R9, R10, R11, R12, R13, R14, R15, R16, R17, R18, R19, R20,
+                    R21, R22, R23, R24, R25, R26, R27
+                ]), 
+     RegisterClass('freg', [ir.f32, ir.f64], 
+     RiscvFRegister,
+        fregisters), 
+    ]
+    
 register_classes_swfp = [
-    RegisterClass(
-        'reg',
-        [
-            ir.i8, ir.i16, ir.i32, ir.ptr,
-            ir.u8, ir.u16, ir.u32, ir.f32, ir.f64
-        ],
-        RiscvRegister,
-        [
-            R9, R10, R11, R12, R13, R14, R15, R16, R17, R18, R19, R20,
-            R21, R22, R23, R24, R25, R26, R27
-        ]
-    ),
-]
+     RegisterClass(
+                'reg', [ir.i8, ir.i16, ir.i32, ir.ptr, ir.u8, ir.u16, ir.u32, ir.f32, ir.f64],
+                RiscvRegister,
+                [
+                    R9, R10, R11, R12, R13, R14, R15, R16, R17, R18, R19, R20,
+                    R21, R22, R23, R24, R25, R26, R27
+                ]),      
+    ]
