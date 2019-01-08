@@ -77,7 +77,7 @@
 #include <limits.h>
 #include "clib.h"
 #include "murax.h"
-
+#include "uart.h"
 //#define static_assert(cond) switch(0) { case 0: case !!(long)(cond): ; }
 
 size_t

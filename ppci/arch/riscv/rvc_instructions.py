@@ -526,6 +526,7 @@ class Lwv(PseudoRiscvInstruction):
     offset = Operand('offset', int)
     rs1 = Operand('rs1', RiscvRegister, read=True)
     syntax = Syntax(['lw', ' ', rd, ',', ' ', offset, '(', rs1, ')'])
+    fprel = False
 
     def render(self):
         if self.rd.num in range(8, 16) and self.rs1.num in range(8, 16) and \
@@ -541,6 +542,7 @@ class Swv(PseudoRiscvInstruction):
     rs2 = Operand('rs2', RiscvRegister, read=True)
     offset = Operand('offset', int)
     rs1 = Operand('rs1', RiscvRegister, read=True)
+    fprel = False
     syntax = Syntax(['sw', ' ', rs2, ',', ' ', offset, '(', rs1, ')'])
 
     def render(self):
@@ -698,7 +700,9 @@ def pattern_stri32_const(context, tree, c0):
 def pattern_ldri32(context, tree, c0):
     d = context.new_reg(RiscvRegister)
     base_reg, offset = c0
-    context.emit(Lwv(d, offset, base_reg))
+    Code = Lwv(d, offset, base_reg)
+    Code.fprel = True 
+    context.emit(Code)
     return d
 
 
@@ -707,7 +711,7 @@ def pattern_ldri32_addi32(context, tree, c0):
     d = context.new_reg(RiscvRegister)
     c1 = tree.children[0].children[1].value
     assert isinstance(c1, int)
-    context.emit(Lwv(d, c1, c0))
+    context.emit(Lwv(d, c1, c0)) 
     return d
 
 
@@ -715,7 +719,9 @@ def pattern_ldri32_addi32(context, tree, c0):
 @rvcisa.pattern('stm', 'STRI32(mem, reg)', size=1)
 def pattern_stri32(self, tree, c0, c1):
     base_reg, offset = c0
-    self.emit(Swv(c1, offset, base_reg))
+    Code = Swv(c1, offset, base_reg)
+    Code.fprel = True 
+    self.emit(Code)
 
 
 @rvcisa.pattern(

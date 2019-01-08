@@ -5,7 +5,7 @@ TRACE_START=0
 #ADDCFLAGS += -CFLAGS -pthread -LDFLAGS "-pthread"
 
 
-VERILATOR_ARGS += --trace
+VERILATOR_ARGS += --trace-fst
 ADDCFLAGS += -CFLAGS -DTRACE
 
 ifeq ($(DEBUG),yes)

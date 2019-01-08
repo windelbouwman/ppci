@@ -24,12 +24,12 @@ typedef struct _TickContext
 
 #if (NOS_CONFIG_TIMER_THREAD_ENABLE > 0)
  #if (NOS_CONFIG_THREAD_JOIN_ENABLE > 0)
-  static int _Thread (void *arg);
+  static int _Threadt (void *arg);
  #else
-  static void _Thread (void *arg);
+  static void _Threadt (void *arg);
  #endif
 #endif
-static  void    _Tick       (void *payload, void *arg);
+static  void    _TickT      (void *payload, void *arg);
 
 static nOS_List                 _activeList;
 #if (NOS_CONFIG_TIMER_HIGHEST_PRIO > 0)
@@ -101,9 +101,9 @@ static nOS_TimerCounter         _tickCounter;
 
 #if (NOS_CONFIG_TIMER_THREAD_ENABLE > 0)
 #if (NOS_CONFIG_THREAD_JOIN_ENABLE > 0)
-static int _Thread (void *arg)
+static int _Threadt (void *arg)
 #else
-static void _Thread (void *arg)
+static void _Threadt (void *arg)
 #endif
 {
     nOS_StatusReg   sr;
@@ -136,7 +136,7 @@ static void _Thread (void *arg)
 #endif
 
 /* Called from critical section */
-static void _Tick (void *payload, void *arg)
+static void _TickT(void *payload, void *arg)
 {
     nOS_Timer           *timer  = (nOS_Timer *)payload;
     _TickContext        *ctx    = (_TickContext *)arg;
@@ -182,7 +182,7 @@ void nOS_InitTimer(void)
     nOS_InitList(&_activeList);
 #if (NOS_CONFIG_TIMER_THREAD_ENABLE > 0)
     nOS_ThreadCreate(&_thread,
-                     _Thread,
+                     _Threadt,
                      NULL
  #ifdef NOS_SIMULATED_STACK
                     ,&_stack
@@ -217,7 +217,7 @@ void nOS_TimerTick (nOS_TickCounter ticks)
 #endif
 
     nOS_EnterCritical(sr);
-    nOS_WalkInList(&_activeList, _Tick, &ctx);
+    nOS_WalkInList(&_activeList, _TickT, &ctx);
 #if (NOS_CONFIG_TIMER_THREAD_ENABLE > 0)
     if (ctx.triggered && (_thread.state == (NOS_THREAD_READY | NOS_THREAD_ON_HOLD))) {
         nOS_WakeUpThread(&_thread, NOS_OK);

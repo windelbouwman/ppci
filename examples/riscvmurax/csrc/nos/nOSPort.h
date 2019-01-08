@@ -33,7 +33,9 @@ typedef uint32_t                    nOS_StatusReg;
  
 #define nOS_EnterCritical(sr) entercritical()                                                 
 #define nOS_LeaveCritical(sr) leavecritical()                                                 
-    
+
+void entercritical();     
+void leavecritical();     
 
 nOS_Stack*  nOS_EnterIsr        (nOS_Stack *sp);
 nOS_Stack*  nOS_LeaveIsr        (nOS_Stack *sp);

@@ -161,7 +161,9 @@ class CodeGenerator:
 
         # TODO: Peep-hole here?
         # frame.instructions = [i for i in frame.instructions]
-
+        if hasattr(self.arch, "peephole"):
+           frame.instructions = self.arch.peephole(frame)
+        
         reporter.dump_frame(frame)
 
         # Add label and return and stack adjustment:
@@ -258,3 +260,6 @@ class CodeGenerator:
                 # print(tmp, di)
                 # frame.live_ranges(tmp)
                 # print('live ranges:', lr)
+
+def round_up(s):
+    return s + (16 - s % 16) 

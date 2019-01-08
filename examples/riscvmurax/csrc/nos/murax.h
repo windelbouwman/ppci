@@ -8,11 +8,9 @@
 #ifndef BRIEY_H_
 #define BRIEY_H_
 
-#include "timer.h"
 #include "prescaler.h"
-#include "interrupt.h"
 #include "gpio.h"
-#include "uart.h"
+
 
 #define CORE_HZ 50000000
 

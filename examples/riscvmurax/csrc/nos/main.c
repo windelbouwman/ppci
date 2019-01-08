@@ -19,9 +19,12 @@
  limitations under the License.
  */
 void enable_interrupts();
+void entercritical();
 
 #include "nOS.h"
 #include "clib.h"
+#include "timer.h"
+#include "interrupt.h"
 #include "murax.h"
 
 
@@ -74,7 +77,6 @@ void main(void)
     nOS_InitSpecific();    
     
     interruptCtrl_init(TIMER_INTERRUPT);
-	prescaler_init(TIMER_PRESCALER);
 	timer_init(TIMER_A);
 
 	TIMER_PRESCALER->LIMIT = 500-1; //10us rate

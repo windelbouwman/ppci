@@ -140,7 +140,7 @@ public:
 	string name;
     int vcd;
 	uint64_t time = 0;
-	VerilatedVcdC* tfp;
+	VerilatedFstC* tfp;
 	
 	ofstream logTraces;
 
@@ -180,9 +180,9 @@ public:
 		// init trace dump
 		if(vcd) {
 		Verilated::traceEverOn(true);
-		tfp = new VerilatedVcdC;
+		tfp = new VerilatedFstC;
 		top->trace(tfp, 99);
-		tfp->open((string(name)+ ".vcd").c_str());
+		tfp->open((string(name)+ ".fst").c_str());
 		}
 
 		struct timespec start_time,tick_time;

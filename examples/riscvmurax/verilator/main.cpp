@@ -1,7 +1,7 @@
 #include "VMurax.h"
 #include "VMurax_Murax.h"
 #include "verilated.h"
-#include "verilated_vcd_c.h"
+#include "verilated_fst_c.h"
 
 #include "framework.h"
 #include "jtag.h"

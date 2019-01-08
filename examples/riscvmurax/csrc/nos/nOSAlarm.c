@@ -24,29 +24,29 @@ typedef struct _TickContext
 
 #if (NOS_CONFIG_ALARM_THREAD_ENABLE > 0)
  #if (NOS_CONFIG_THREAD_JOIN_ENABLE > 0)
-  static int _Thread (void *arg);
+  static int _Threada (void *arg);
  #else
-  static void _Thread (void *arg);
+  static void _Threada (void *arg);
  #endif
 #endif
-static  void    _Tick       (void *payload, void *arg);
+static  void    _TickA      (void *payload, void *arg);
 
 static nOS_List         _waitingList;
-static nOS_List         _triggeredList;
+static nOS_List         _triggeredListA;
 #if (NOS_CONFIG_ALARM_THREAD_ENABLE > 0)
- static nOS_Thread      _thread;
+ static nOS_Thread      _threadA;
  #ifdef NOS_SIMULATED_STACK
-  static nOS_Stack      _stack;
+  static nOS_Stack      _stackA;
  #else
-  static nOS_Stack      _stack[NOS_CONFIG_ALARM_THREAD_STACK_SIZE];
+  static nOS_Stack      _stackA[NOS_CONFIG_ALARM_THREAD_STACK_SIZE];
  #endif
 #endif
 
 #if (NOS_CONFIG_ALARM_THREAD_ENABLE > 0)
 #if (NOS_CONFIG_THREAD_JOIN_ENABLE > 0)
-static int _Thread (void *arg)
+static int _Threada (void *arg)
 #else
-static void _Thread (void *arg)
+static void _Threada (void *arg)
 #endif
 {
     nOS_StatusReg   sr;
@@ -57,7 +57,7 @@ static void _Thread (void *arg)
         nOS_AlarmProcess();
 
         nOS_EnterCritical(sr);
-        if (nOS_GetHeadOfList(&_triggeredList) == NULL) {
+        if (nOS_GetHeadOfList(&_triggeredListA) == NULL) {
             nOS_WaitForEvent(NULL,
                              NOS_THREAD_ON_HOLD
 #if (NOS_CONFIG_WAITING_TIMEOUT_ENABLE > 0) || (NOS_CONFIG_SLEEP_ENABLE > 0) || (NOS_CONFIG_SLEEP_UNTIL_ENABLE > 0)
@@ -79,7 +79,7 @@ static void _Thread (void *arg)
 #endif
 
 /* Called from critical section */
-static void _Tick (void *payload, void *arg)
+static void _TickA(void *payload, void *arg)
 {
     nOS_Alarm       *alarm  = (nOS_Alarm *)payload;
     _TickContext    *ctx    = (_TickContext *)arg;
@@ -89,7 +89,7 @@ static void _Tick (void *payload, void *arg)
         alarm->state = (nOS_AlarmState)(alarm->state &~ NOS_ALARM_WAITING);
 
         alarm->state = (nOS_AlarmState)(alarm->state | NOS_ALARM_TRIGGERED);
-        nOS_AppendToList(&_triggeredList, &alarm->node);
+        nOS_AppendToList(&_triggeredListA, &alarm->node);
 
 #if (NOS_CONFIG_ALARM_THREAD_ENABLE > 0)
         ctx->triggered = true;
@@ -100,15 +100,15 @@ static void _Tick (void *payload, void *arg)
 void nOS_InitAlarm(void)
 {
     nOS_InitList(&_waitingList);
-    nOS_InitList(&_triggeredList);
+    nOS_InitList(&_triggeredListA);
 #if (NOS_CONFIG_ALARM_THREAD_ENABLE > 0)
-    nOS_ThreadCreate(&_thread,
-                     _Thread,
+    nOS_ThreadCreate(&_threadA,
+                     _Threada,
                      NULL
  #ifdef NOS_SIMULATED_STACK
-                    ,&_stack
+                    ,&_stackA
  #else
-                    ,_stack
+                    ,_stackA
  #endif
                     ,NOS_CONFIG_ALARM_THREAD_STACK_SIZE
  #ifdef NOS_USE_SEPARATE_CALL_STACK
@@ -142,10 +142,10 @@ void nOS_AlarmTick (void)
 #if (NOS_CONFIG_ALARM_THREAD_ENABLE > 0)
     ctx.triggered = false;
 #endif
-    nOS_WalkInList(&_waitingList, _Tick, &ctx);
+    nOS_WalkInList(&_waitingList, _TickA, &ctx);
 #if (NOS_CONFIG_ALARM_THREAD_ENABLE > 0)
-    if (ctx.triggered && (_thread.state == (NOS_THREAD_READY | NOS_THREAD_ON_HOLD))) {
-        nOS_WakeUpThread(&_thread, NOS_OK);
+    if (ctx.triggered && (_threadA.state == (NOS_THREAD_READY | NOS_THREAD_ON_HOLD))) {
+        nOS_WakeUpThread(&_threadA, NOS_OK);
     }
 #endif
 #if (NOS_CONFIG_ALARM_TICK_ENABLE == 0)
@@ -161,9 +161,9 @@ void nOS_AlarmProcess (void)
     void                *arg;
 
     nOS_EnterCritical(sr);
-    alarm = (nOS_Alarm*)nOS_GetHeadOfList(&_triggeredList);
+    alarm = (nOS_Alarm*)nOS_GetHeadOfList(&_triggeredListA);
     if (alarm != NULL) {
-        nOS_RemoveFromList(&_triggeredList, &alarm->node);
+        nOS_RemoveFromList(&_triggeredListA, &alarm->node);
         alarm->state = (nOS_AlarmState)(alarm->state &~ NOS_ALARM_TRIGGERED);
 
         /* Call callback function outside of critical section */
@@ -202,7 +202,7 @@ nOS_Error nOS_AlarmCreate (nOS_Alarm *alarm, nOS_AlarmCallback callback, void *a
             alarm->node.payload = (void *)alarm;
             if (time <= nOS_TimeGet()) {
                 alarm->state = (nOS_AlarmState)(alarm->state | NOS_ALARM_TRIGGERED);
-                nOS_AppendToList(&_triggeredList, &alarm->node);
+                nOS_AppendToList(&_triggeredListA, &alarm->node);
             }
             else {
                 alarm->state = (nOS_AlarmState)(alarm->state | NOS_ALARM_WAITING);
@@ -240,7 +240,7 @@ nOS_Error nOS_AlarmDelete (nOS_Alarm *alarm)
                 nOS_RemoveFromList(&_waitingList, &alarm->node);
             }
             else if (alarm->state & NOS_ALARM_TRIGGERED) {
-                nOS_RemoveFromList(&_triggeredList, &alarm->node);
+                nOS_RemoveFromList(&_triggeredListA, &alarm->node);
             }
             alarm->state = NOS_ALARM_DELETED;
 
@@ -277,7 +277,7 @@ nOS_Error nOS_AlarmSetTime (nOS_Alarm *alarm, nOS_Time time)
                     alarm->state = (nOS_AlarmState)(alarm->state &~ NOS_ALARM_WAITING);
                 }
                 else if (alarm->state & NOS_ALARM_TRIGGERED) {
-                    nOS_RemoveFromList(&_triggeredList, &alarm->node);
+                    nOS_RemoveFromList(&_triggeredListA, &alarm->node);
                     alarm->state = (nOS_AlarmState)(alarm->state &~ NOS_ALARM_TRIGGERED);
                 }
 
@@ -285,7 +285,7 @@ nOS_Error nOS_AlarmSetTime (nOS_Alarm *alarm, nOS_Time time)
 
                 if (time <= nOS_TimeGet()) {
                     alarm->state = (nOS_AlarmState)(alarm->state | NOS_ALARM_TRIGGERED);
-                    nOS_AppendToList(&_triggeredList, &alarm->node);
+                    nOS_AppendToList(&_triggeredListA, &alarm->node);
                 }
                 else {
                     alarm->state = (nOS_AlarmState)(alarm->state | NOS_ALARM_WAITING);
