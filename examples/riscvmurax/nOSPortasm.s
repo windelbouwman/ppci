@@ -59,9 +59,11 @@ nOS_SwitchContextHandler:
        
         
         ;/* Save stack pointer to running thread structure */
+        auipc  x12, nOS_runningThread
         lw     x12, nOS_runningThread
         sw     x2, 0(x12)
         ;/* Copy nOS_highPrioThread to nOS_runningThread */
+        auipc   x12, nOS_highPrioThread
         lw      x12, nOS_highPrioThread
         la      x11, nOS_runningThread
         sw      x12, 0(x11)
