@@ -127,6 +127,7 @@ class FLw(RiscvInstruction):
     offset = Operand('offset', int)
     rs1 = Operand('rs1', RiscvRegister, read=True)
     syntax = Syntax(['flw', ' ', rd, ',', ' ', offset, '(', rs1, ')'])
+    fprel = False
     tokens = [RiscvIToken]
     patterns = {
         'opcode': 0b0000111, 'rd': rd, 'funct3': 0b010, 'rs1': rs1,
@@ -140,6 +141,7 @@ class FSw(RiscvInstruction):
     rs1 = Operand('rs1', RiscvRegister, read=True)
     syntax = Syntax(['fsw', ' ', rs2, ',', ' ', offset, '(', rs1, ')'])
     tokens = [RiscvSToken]
+    fprel = False
     patterns = {
         'opcode': 0b0100111, 'funct3': 0b010, 'rs1': rs1, 'rs2': rs2,
         'imm': offset
@@ -288,16 +290,34 @@ def pattern_utof_f32(context, tree, c0):
 def pattern_ldr32_fprel(context, tree, c0):
     d = context.new_reg(RiscvFRegister)
     base_reg, offset = c0
-    context.emit(FLw(d, offset, base_reg))
+    Code = FLw(d, offset, base_reg)
+    Code.fprel = True
+    context.emit(Code)
     return d
 
+@rvfisa.pattern('freg', 'LDRF32(reg)', size=2)
+@rvfisa.pattern('freg', 'LDRF64(reg)', size=2)
+def pattern_ldr32_fprel(context, tree, c0):
+    d = context.new_reg(RiscvFRegister)
+    base_reg, offset = c0, 0
+    Code = FLw(d, offset, base_reg)
+    context.emit(Code)
+    return d
 
 @rvfisa.pattern('stm', 'STRF32(mem, freg)', size=2)
 @rvfisa.pattern('stm', 'STRF64(mem, freg)', size=2)
 def pattern_sw32(context, tree, c0, c1):
     base_reg, offset = c0
-    context.emit(FSw(c1, offset, base_reg))
+    Code = FSw(c1, offset, base_reg)
+    Code.fprel = True
+    context.emit(Code)
 
+@rvfisa.pattern('stm', 'STRF32(reg, freg)', size=2)
+@rvfisa.pattern('stm', 'STRF64(reg, freg)', size=2)
+def pattern_sw32(context, tree, c0, c1):
+    base_reg, offset = c0, 0
+    Code = FSw(c1, offset, base_reg)
+    context.emit(Code)
 
 @rvfisa.pattern('stm', 'CJMPF32(freg, freg)', size=2)
 @rvfisa.pattern('stm', 'CJMPF64(freg, freg)', size=2)

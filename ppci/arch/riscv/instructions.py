@@ -1,7 +1,6 @@
 """ Definitions of Riscv instructions. """
 
 # pylint: disable=no-member,invalid-name
-import logging 
 from ..isa import Isa
 from ..encoding import Instruction, Syntax, Operand
 from ..data_instructions import Dd
@@ -343,7 +342,7 @@ class Adru(RiscvInstruction):
 class Adrurel(RiscvInstruction):
 	rd = Operand('rd', RiscvRegister, write=True)
 	label = Operand('label', str)
-	syntax = Syntax(['auipc', ' ', rd, ',', ' ', label])
+	syntax = Syntax(['auipc', ' ', rd, ',', ' ', '%', 'pcrel_hi', '(', label, ')'])
 
 	def encode(self):
 		tokens = self.get_tokens()
@@ -378,7 +377,7 @@ class Adrl(RiscvInstruction):
 class Loadlrel(RiscvInstruction):
 	rd = Operand('rd', RiscvRegister, write=True, read=True)
 	label = Operand('label', str)
-	syntax = Syntax(['lw', ' ', rd, ',', ' ', label])
+	syntax = Syntax(['lw', ' ', rd, '%', 'pcrel_lo', '(', label, ')', '(', rd, ')'])
 
 	def encode(self):
 		tokens = self.get_tokens()
@@ -431,7 +430,7 @@ class Labelrel(PseudoRiscvInstruction):
 
 	def render(self):
 		yield Adrurel(self.rd, self.label)
-		yield Loadlrel(self.rd, self.label)
+		yield Loadlrel(self.rd, self.label, self.rd)
 
 
 class La(PseudoRiscvInstruction):
@@ -863,13 +862,9 @@ def pattern_label2(context, tree):
 @isa.pattern(
 	'reg', 'FPRELU32', size=4,
 	condition=lambda t: t.value.offset in range(-2048, 2048))
-def pattern_fpreli32(context, tree):
-	logger = logging.getLogger('FPREL')
-	d = context.new_reg(RiscvRegister)
-	#offset = tree.value.offset + round_up(context.frame.stacksize + 8) - 8
-	#offset = tree.value.offset + context.frame.stacksize
-	offset = tree.value.offset
-	#logger.info("%s: %d\n" %(context.frame.name, context.frame.stacksize))
+def pattern_fpreli32(context, tree):	
+	d = context.new_reg(RiscvRegister)	
+	offset = tree.value.offset	
 	Code = Addi(d, FP, offset)
 	Code.fprel = True
 	context.emit(Code)
@@ -881,12 +876,12 @@ def pattern_fpreli32(context, tree):
 	'mem', 'FPRELU32', size=0,
 	condition=lambda t: t.value.offset in range(-2048, 2048))
 def pattern_mem_fpreli32(context, tree):
-	offset = tree.value.offset
-	#offset = tree.value.offset + round_up(context.frame.stacksize + 8) - 8
-	#offset = tree.value.offset + context.frame.stacksize
+	offset = tree.value.offset	
 	return FP, offset
 
-
+@isa.pattern('mem', 'reg', size=10)
+def pattern_mem_reg(context, tree, c0):
+    return c0, 0
 
 
 @isa.pattern('stm', 'STRU32(mem, reg)', size=2)
@@ -1317,5 +1312,3 @@ def pattern_cjmp(context, tree, c0, c1):
 def round_up(s):
 	return s + (16 - s % 16)
 
-# TODO: implement DIVI32 by library call.
-# TODO: Do that here, or in irdag?

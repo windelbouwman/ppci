@@ -161,8 +161,8 @@ class RiscvArch(Architecture):
         if self.has_option('rvc'):
             return CMovr(dst, src, ismove=True)        
         else:
-            if isinstance(dst, RiscvFRegister) and self.has_option('rvf'):
-                return movf(dst, src)
+            if isinstance(dst, RiscvFRegister) and isinstance(src, RiscvFRegister) and self.has_option('rvf'):
+                return movf(dst, src)           
             else:
                 return Movr(dst, src, ismove=True)
 

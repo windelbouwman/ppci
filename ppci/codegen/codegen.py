@@ -261,5 +261,3 @@ class CodeGenerator:
                 # frame.live_ranges(tmp)
                 # print('live ranges:', lr)
 
-def round_up(s):
-    return s + (16 - s % 16) 
