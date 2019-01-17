@@ -1,4 +1,4 @@
-.align	4 
+.align  4 
 enable_interrupts:
     sw x15, -4(x2)
     li x15, 0x80
@@ -9,19 +9,19 @@ enable_interrupts:
     jalr x0, x1, 0 
 
 
-.align	4 
+.align  4 
 entercritical:
     csrci mstatus, 8
     jalr x0, x1, 0 
     
 
-.align	4 
+.align  4 
 leavecritical:
     csrsi mstatus, 8
     jalr x0, x1, 0 
     
 
-.align	4 
+.align  4 
 nOS_SwitchContextHandler:
         ;/* Push all registers to running thread stack */
         addi x2, x2, -128
@@ -59,11 +59,9 @@ nOS_SwitchContextHandler:
        
         
         ;/* Save stack pointer to running thread structure */
-        auipc  x12, nOS_runningThread
         lw     x12, nOS_runningThread
         sw     x2, 0(x12)
         ;/* Copy nOS_highPrioThread to nOS_runningThread */
-        auipc   x12, nOS_highPrioThread
         lw      x12, nOS_highPrioThread
         la      x11, nOS_runningThread
         sw      x12, 0(x11)
@@ -107,7 +105,7 @@ nOS_SwitchContextHandler:
         mret
         
 
-.align	4 
+.align  4 
 TIMER_CMP_ISR:
         
         addi x2, x2, -128
