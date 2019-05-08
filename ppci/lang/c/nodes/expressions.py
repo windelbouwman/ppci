@@ -49,29 +49,44 @@ class Initializer(CExpression):
     pass
 
 
-class StructInitializer(Initializer):
+class InitializerList(Initializer):
+    """ Base initializer list. """
+    pass
+
+
+class StructInitializer(InitializerList):
     """ Struct initializer """
     def __init__(self, typ, location):
         super().__init__(typ, False, location)
-        self.field_values = {}
+        self.values = {}
+
+    def __repr__(self):
+        return 'Struct initializer: {}'.format(self.values)
 
 
-class UnionInitializer(Initializer):
+class UnionInitializer(InitializerList):
     """ Initial value for a union """
     def __init__(self, typ, location):
         super().__init__(typ, False, location)
         self.field = None
         self.value = None
 
+    def __repr__(self):
+        return 'Union-initializer({}={})'.format(self.field, self.value)
 
-class ArrayInitializer(Initializer):
+
+class ArrayInitializer(InitializerList):
     """ Initial value for array's """
-    def __init__(self, typ, init_values, location):
+    def __init__(self, typ, values, location):
         super().__init__(typ, False, location)
-        self.init_values = init_values
+        self.values = values
+
+    def __repr__(self):
+        return 'Array-init({})'.format(self.values)
 
 
 class ImplicitInitialValue(Initializer):
+    """ Uninitialized value. """
     pass
 
 

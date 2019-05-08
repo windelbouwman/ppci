@@ -19,9 +19,8 @@ The result of parser-semantic actions is a type-checked AST.
 
 import difflib
 import logging
-from ...common import CompilerError
 from .nodes import nodes, types, declarations, statements, expressions
-from . import utils
+from . import utils, init
 from .scope import Scope, RootScope
 from .printer import expr_to_str
 
@@ -132,12 +131,6 @@ class CSemantics:
         return declaration
 
     # Variable initialization!
-    def on_array_designator(self, index):
-        pass
-
-    def on_field_designator(self, field_name):
-        pass
-
     def on_variable_initialization(self, variable, expression):
         """ Handle a variable initialized to some value """
         # This is a good point to determine array size and check
@@ -155,6 +148,89 @@ class CSemantics:
             else:
                 pass
 
+    def new_init_cursor(self):
+        return init.InitCursor(self.context)
+
+    def on_init_compound_enter(self, init_cursor, typ, location, implicit):
+        self.logger.debug('Entering compound at cursor %s', init_cursor)
+        if not typ.is_compound:
+            self.error('Cannot init non-compound type', location)
+        init_cursor.enter_compound(typ, location, implicit)
+        return init_cursor
+
+    def init_store(self, init_cursor, initial_value):
+        """ Store an initial value at position pointed by cursor. """
+
+        if init_cursor.at_end():
+            self.warning('Excess elements!')
+
+        # Determine if we need implicit init levels:
+        target_typ = init_cursor.at_typ()
+        while not self._root_scope.equal_types(initial_value.typ, target_typ):
+            # If we are at a complex type, implicit descend otherwise cast:
+            if target_typ.is_compound:
+                init_cursor.enter_compound(
+                    target_typ, initial_value.location, True
+                )
+                target_typ = init_cursor.at_typ()
+            else:
+                initial_value = self.coerce(initial_value, target_typ)
+                break
+
+        self.logger.debug(
+            'Storing %s at cursor %s', initial_value, init_cursor)
+
+        # Retrieve current value to check overwrite:
+        previous_value = init_cursor.get_value()
+        if previous_value:
+            self.warning(
+                'This overwrites other initial value.',
+                initial_value.location
+            )
+            self.warning(
+                'previously defined here.', previous_value.location)
+        init_cursor.set_value(initial_value)
+
+    def on_array_designator(self, init_cursor, index, location):
+        """ Handle array designator. """
+        # TODO: Handle things like [4..30] = 23
+        # Calculate position:
+        pos = self.context.eval_expr(index)
+
+        # Array index must be positive:
+        if pos < 0:
+            self.error('Array desgnator must be positive', location)
+
+        if not init_cursor.level.typ.is_array:
+            self.error(
+                'Cannot use array position designators in non-array',
+                location
+            )
+
+        # Update current position:
+        init_cursor.level.go_to_pos(pos)
+
+    def on_field_designator(self, init_cursor, field_name, location):
+        """ Check field designator. """
+        init_level = init_cursor.level
+        typ = init_level.typ
+
+        if not (typ.is_struct or typ.is_union):
+            self.error(
+                'Cannot use designator in non-struct/union type', location
+            )
+
+        if typ.has_field(field_name):
+            field = typ.get_field(field_name)
+        else:
+            self.error(
+                'No such field {}'.format(field_name), location
+            )
+
+        # Determine position of field inside the structure:
+        init_level.go_to_field(field)
+
+    # Declarations:
     def on_typedef(self, typ, name, modifiers, location):
         """ Handle typedef declaration """
         typ = self.apply_type_modifiers(modifiers, typ)
@@ -721,9 +797,9 @@ class CSemantics:
             do_cast = True
         elif isinstance(from_type, types.IndexableType) and \
                 isinstance(to_type, types.IndexableType):
-                # and \
-                # self._root_scope.equal_types(
-                #    from_type.element_type, to_type.element_type):
+            # and \
+            # self._root_scope.equal_types(
+            #    from_type.element_type, to_type.element_type):
             do_cast = True
         elif isinstance(from_type, (types.BasicType, types.EnumType)) and \
                 isinstance(to_type, (types.BasicType, types.EnumType)):
@@ -782,10 +858,9 @@ class CSemantics:
             self.error(
                 'Cannot determine type rank for {}'.format(typ), location)
 
-    @staticmethod
-    def error(message, location, hints=None):
+    def error(self, message, location, hints=None):
         """ Trigger an error at the given location """
-        raise CompilerError(message, loc=location, hints=hints)
+        self.context.error(message, location, hints=hints)
 
     def not_impl(self, message, location):  # pragma: no cover
         """ Call this function to mark unimplemented code """

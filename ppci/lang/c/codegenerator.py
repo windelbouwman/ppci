@@ -613,7 +613,7 @@ class CCodeGenerator:
     def _init_array(self, ptr, typ, expr: expressions.ArrayInitializer):
         assert isinstance(expr, expressions.ArrayInitializer)
         inc = 0
-        for iv in expr.init_values:
+        for iv in expr.values:
             # TODO: do array elements need to be aligned?
             ptr, inc2 = self.gen_local_init(ptr, typ.element_type, iv)
             inc += inc2
@@ -635,7 +635,7 @@ class CCodeGenerator:
                     ptr = self.emit(ir.add(ptr, padding, 'iptr', ir.ptr))
                     offset += pad_inc
 
-                iv = expr.field_values[field]
+                iv = expr.values[field]
                 # Fill position:
                 if field.is_bitfield:  # Bit field special case!
                     value = self.gen_expr(iv, rvalue=True)

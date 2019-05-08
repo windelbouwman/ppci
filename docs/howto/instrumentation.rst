@@ -26,11 +26,13 @@ So, first define a function in C, called my_add, and turn it into IR-code:
     >>> api.optimize(module, level=2)
     >>> module.display()
     module main;
+    <BLANKLINE>
     function i32 my_add(i32 a, i32 b) {
       my_add_block0: {
-         i32 op = a + b;
-         return op;
+        i32 op = a + b;
+        return op;
       }
+    <BLANKLINE>
     }
 
 Now comes the cool part, the addition of tracing functionality. Since we
@@ -43,14 +45,18 @@ is target independent!
     >>> add_tracer(module)
     >>> module.display()
     module main;
+    <BLANKLINE>
+    external procedure trace(ptr);
+    <BLANKLINE>
     function i32 my_add(i32 a, i32 b) {
       my_add_block0: {
-         blob<7:1> func_name = Literal b'6d795f61646400';
-         ptr name_ptr = &func_name;
-         call trace(name_ptr);
-         i32 op = a + b;
-         return op;
+        blob<7:1> func_name = Literal b'6d795f61646400';
+        ptr name_ptr = &func_name;
+        call trace(name_ptr);
+        i32 op = a + b;
+        return op;
       }
+    <BLANKLINE>
     }
 
 Notice the extra code inserted! Now, we could turn this into machine code
@@ -88,6 +94,7 @@ like this:
      my_add_literal_1:
            dcd =my_add_literal_0
            ALIGN(4)
+    <BLANKLINE>
 
 Notice here as well the extra call to the trace function!
 

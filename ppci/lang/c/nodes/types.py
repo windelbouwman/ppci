@@ -5,7 +5,13 @@
 
 def is_scalar(typ):
     """ Determine whether the given type is of scalar kind """
-    return isinstance(typ, BasicType) and not is_void(typ)
+    return isinstance(typ, (BasicType, PointerType)) and not is_void(typ)
+
+
+def is_char_array(typ):
+    """ Check if the given type is of string type. """
+    return isinstance(typ, ArrayType) and \
+        typ.element_type.is_scalar
 
 
 def is_integer(typ):
@@ -35,6 +41,21 @@ def is_float(typ):
     return isinstance(typ, BasicType) and typ.type_id == BasicType.FLOAT
 
 
+def is_array(typ):
+    """ Check if the given type is an array """
+    return isinstance(typ, ArrayType)
+
+
+def is_union(typ):
+    """ Check if the given type is of union type """
+    return isinstance(typ, UnionType)
+
+
+def is_struct(typ):
+    """ Check if the given type is a struct """
+    return isinstance(typ, StructType)
+
+
 # A type system:
 class CType:
     """ Base class for all types """
@@ -62,6 +83,16 @@ class CType:
         return is_scalar(self)
 
     @property
+    def is_compound(self):
+        """ Test if this type is of compound type. """
+        return not self.is_scalar
+
+    @property
+    def is_char_array(self):
+        """ Check if this type is string type. """
+        return is_char_array(self)
+
+    @property
     def is_integer(self):
         """ Check if this type is an integer type """
         return is_integer(self)
@@ -72,14 +103,23 @@ class CType:
         return is_signed_integer(self)
 
     @property
+    def is_array(self):
+        """ Check if this type is array type. """
+        return is_array(self)
+
+    @property
     def is_struct(self):
         """ Check if this type is a struct """
-        return isinstance(self, StructType)
+        return is_struct(self)
 
     @property
     def is_union(self):
         """ Check if this type is of union type """
-        return isinstance(self, UnionType)
+        return is_union(self)
+
+    def pointer_to(self):
+        """ Create a new pointer type to this type. """
+        return PointerType(self)
 
 
 class FunctionType(CType):
@@ -183,6 +223,7 @@ class StructOrUnionType(CType):
 
     def has_field(self, name: str):
         """ Check if this type has the given field """
+        assert isinstance(name, str)
         return name in self._field_map
 
     def get_field(self, name: str):
@@ -194,7 +235,7 @@ class StructOrUnionType(CType):
 class StructType(StructOrUnionType):
     """ Structure type """
     def __repr__(self):
-        return 'Structured-type'
+        return 'Structured-type field_names={}'.format(self.get_field_names())
 
 
 class Field:
@@ -206,7 +247,10 @@ class Field:
         self.bitsize = bitsize
 
     def __repr__(self):
-        return 'Struct-field .{} : {}'.format(self.name, self.bitsize)
+        if self.bitsize is None:
+            return 'Struct-field .{}'.format(self.name)
+        else:
+            return 'Struct-field .{} : {}'.format(self.name, self.bitsize)
 
     @property
     def is_bitfield(self):

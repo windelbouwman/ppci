@@ -123,11 +123,12 @@ class Visitor:
             # self.visit(node.member)
             self.visit(node.typ)
         elif isinstance(node, expressions.ArrayInitializer):
-            for i_val in node.init_values:
+            for i_val in node.values:
                 self.visit(i_val)
         elif isinstance(node, expressions.StructInitializer):
             # self.visit(node.field_values)
-            pass
+            for i_val in node.values.values():
+                self.visit(i_val)
         elif isinstance(node, expressions.UnionInitializer):
             pass
         else:  # pragma: no cover

@@ -6,11 +6,22 @@ The following parts can be distinguished:
 - Declaration parsing: parsing types and declarations
 - Statement parsing: dealing with the C statements, like for, if, etc..
 - Expression parsing: parsing the C expressions.
+
+Sources of inspiration:
+
+- https://github.com/libfirm/cparser/blob/master/src/parser/parser.c
+- https://github.com/gcc-mirror/gcc/blob/master/gcc/c/c-parser.c
+- https://github.com/rui314/8cc/blob/master/parse.c
+
 """
 
 import logging
 from ..tools.recursivedescent import RecursiveDescentParser
-from .nodes import nodes, statements, expressions, types
+from .nodes import statements, expressions, types
+
+
+LEFT_ASSOCIATIVE = 'left-associative'
+RIGHT_ASSOCIATIVE = 'right-associative'
 
 
 class CParser(RecursiveDescentParser):
@@ -34,8 +45,6 @@ class CParser(RecursiveDescentParser):
     """
     logger = logging.getLogger('cparser')
     verbose = False
-    LEFT_ASSOCIATIVE = 'left-associative'
-    RIGHT_ASSOCIATIVE = 'right-associative'
 
     def __init__(self, coptions, semantics):
         super().__init__()
@@ -43,10 +52,12 @@ class CParser(RecursiveDescentParser):
         self.semantics = semantics
         self.type_qualifiers = {'volatile', 'const'}
         self.storage_classes = {
-            'typedef', 'static', 'extern', 'register', 'auto'}
+            'typedef', 'static', 'extern', 'register', 'auto'
+        }
         self.type_specifiers = {
             'void', 'char', 'int', 'float', 'double',
-            'short', 'long', 'signed', 'unsigned'}
+            'short', 'long', 'signed', 'unsigned'
+        }
 
         self.keywords = {
             'true', 'false',
@@ -54,13 +65,14 @@ class CParser(RecursiveDescentParser):
             'switch', 'case', 'default', 'break', 'continue',
             'sizeof', 'struct', 'union', 'enum',
             '__builtin_va_arg', '__builtin_va_start', '__builtin_va_copy',
-            '__builtin_offsetof'}
+            '__builtin_offsetof'
+        }
 
         # gcc extensions:
         self.keywords.add('__attribute__')
 
         # Some additions from C99:
-        if coptions['std'] == 'c99':
+        if self.is_c99:
             self.type_qualifiers.add('restrict')
             self.keywords.add('inline')
 
@@ -71,43 +83,46 @@ class CParser(RecursiveDescentParser):
 
         # Define a priority map for operators:
         self.prio_map = {
-            ',': (self.LEFT_ASSOCIATIVE, 3),
-            '=': (self.RIGHT_ASSOCIATIVE, 10),
-            '+=': (self.RIGHT_ASSOCIATIVE, 10),
-            '-=': (self.RIGHT_ASSOCIATIVE, 10),
-            '*=': (self.RIGHT_ASSOCIATIVE, 10),
-            '/=': (self.RIGHT_ASSOCIATIVE, 10),
-            '%=': (self.RIGHT_ASSOCIATIVE, 10),
-            '>>=': (self.RIGHT_ASSOCIATIVE, 10),
-            '<<=': (self.RIGHT_ASSOCIATIVE, 10),
-            '|=': (self.RIGHT_ASSOCIATIVE, 10),
-            '&=': (self.RIGHT_ASSOCIATIVE, 10),
-            '^=': (self.RIGHT_ASSOCIATIVE, 10),
+            ',': (LEFT_ASSOCIATIVE, 3),
+            '=': (RIGHT_ASSOCIATIVE, 10),
+            '+=': (RIGHT_ASSOCIATIVE, 10),
+            '-=': (RIGHT_ASSOCIATIVE, 10),
+            '*=': (RIGHT_ASSOCIATIVE, 10),
+            '/=': (RIGHT_ASSOCIATIVE, 10),
+            '%=': (RIGHT_ASSOCIATIVE, 10),
+            '>>=': (RIGHT_ASSOCIATIVE, 10),
+            '<<=': (RIGHT_ASSOCIATIVE, 10),
+            '|=': (RIGHT_ASSOCIATIVE, 10),
+            '&=': (RIGHT_ASSOCIATIVE, 10),
+            '^=': (RIGHT_ASSOCIATIVE, 10),
             # '++': (LEFT_ASSOCIATIVE, 50),
             # '--': (LEFT_ASSOCIATIVE, 50),
-            '?': (self.RIGHT_ASSOCIATIVE, 17),
-            '||': (self.LEFT_ASSOCIATIVE, 20),
-            '&&': (self.LEFT_ASSOCIATIVE, 30),
-            '|': (self.LEFT_ASSOCIATIVE, 40),
-            '^': (self.LEFT_ASSOCIATIVE, 50),
-            '&': (self.LEFT_ASSOCIATIVE, 60),
-            '<': (self.LEFT_ASSOCIATIVE, 70),
-            '<=': (self.LEFT_ASSOCIATIVE, 70),
-            '>': (self.LEFT_ASSOCIATIVE, 70),
-            '>=': (self.LEFT_ASSOCIATIVE, 70),
-            '!=': (self.LEFT_ASSOCIATIVE, 70),
-            '==': (self.LEFT_ASSOCIATIVE, 70),
-            '>>': (self.LEFT_ASSOCIATIVE, 80),
-            '<<': (self.LEFT_ASSOCIATIVE, 80),
-            '+': (self.LEFT_ASSOCIATIVE, 90),
-            '-': (self.LEFT_ASSOCIATIVE, 90),
-            '*': (self.LEFT_ASSOCIATIVE, 100),
-            '/': (self.LEFT_ASSOCIATIVE, 100),
-            '%': (self.LEFT_ASSOCIATIVE, 100),
+            '?': (RIGHT_ASSOCIATIVE, 17),
+            '||': (LEFT_ASSOCIATIVE, 20),
+            '&&': (LEFT_ASSOCIATIVE, 30),
+            '|': (LEFT_ASSOCIATIVE, 40),
+            '^': (LEFT_ASSOCIATIVE, 50),
+            '&': (LEFT_ASSOCIATIVE, 60),
+            '<': (LEFT_ASSOCIATIVE, 70),
+            '<=': (LEFT_ASSOCIATIVE, 70),
+            '>': (LEFT_ASSOCIATIVE, 70),
+            '>=': (LEFT_ASSOCIATIVE, 70),
+            '!=': (LEFT_ASSOCIATIVE, 70),
+            '==': (LEFT_ASSOCIATIVE, 70),
+            '>>': (LEFT_ASSOCIATIVE, 80),
+            '<<': (LEFT_ASSOCIATIVE, 80),
+            '+': (LEFT_ASSOCIATIVE, 90),
+            '-': (LEFT_ASSOCIATIVE, 90),
+            '*': (LEFT_ASSOCIATIVE, 100),
+            '/': (LEFT_ASSOCIATIVE, 100),
+            '%': (LEFT_ASSOCIATIVE, 100),
         }
 
         # Set work variables:
         self.typedefs = set()
+
+    def is_c99(self):
+        return self.coptions['std'] == 'c99'
 
     # Entry points:
     def parse(self, tokens):
@@ -236,7 +251,7 @@ class CParser(RecursiveDescentParser):
             # self.error('Expected at least one type specifier')
 
         typ = self.semantics.on_type_qualifiers(type_qualifiers, typ)
-        decl_spec = nodes.DeclSpec(storage_class, typ)
+        decl_spec = DeclSpec(storage_class, typ)
         return decl_spec
 
     def parse_struct_or_union(self):
@@ -252,7 +267,8 @@ class CParser(RecursiveDescentParser):
             # print(self.typedefs)
             self.error(
                 'Expected tag name or "{{", but got {}'.format(self.peek),
-                keyword.loc)
+                keyword.loc
+            )
 
         if self.peek == '{':
             fields = self.parse_struct_fields()
@@ -310,7 +326,8 @@ class CParser(RecursiveDescentParser):
             self.error(
                 'Expected tag name or enum declaration, but got {}'.format(
                     self.peek),
-                keyword.loc)
+                keyword.loc
+            )
 
         ctyp = self.semantics.on_enum(tag, keyword.loc)
 
@@ -422,7 +439,7 @@ class CParser(RecursiveDescentParser):
 
         # Handle the initial value:
         if self.has_consumed('='):
-            initializer = self.parse_variable_initializer(variable.typ)
+            initializer = self.parse_initializer(variable.typ)
             self.semantics.on_variable_initialization(variable, initializer)
         return variable
 
@@ -449,10 +466,10 @@ class CParser(RecursiveDescentParser):
         # if decl_spec.storage_class == 'typedef':
         #    assert name is not None
         #    self.typedefs.add(name)
-        return nodes.Declarator(name, type_modifiers, location)
+        return Declarator(name, type_modifiers, location)
 
     # Initialization section:
-    def parse_variable_initializer(self, typ):
+    def parse_initializer(self, typ):
         """ Parse the C-style array or struct initializer stuff.
 
         Heavily copied from: https://github.com/rui314/8cc/blob/master/parse.c
@@ -466,231 +483,140 @@ class CParser(RecursiveDescentParser):
         = {.foobar = {23, 3}}; // C99
         = {[2..5] = 2}; // C99
         """
-        if self.peek == '{' or self.is_string(typ):
+        if self.peek == '{':
             initializer = self.parse_initializer_list(typ)
+        elif typ.is_char_array and self.peek == 'STRING':
+            initializer = self.parse_array_string_initializer(typ)
         else:
             expr = self.parse_constant_expression()
             initializer = self.semantics.coerce(expr, typ)
+
+        if typ.is_array and typ.size is None:
+            # Fill size of array if it was unknown
+            typ.size = len(initializer.values)
+
         return initializer
 
-    def is_string(self, typ):
-        return isinstance(typ, types.ArrayType) and \
-                typ.element_type.is_scalar
+    def parse_scalar_initializer(self):
+        """ Parse a scalar initial value. """
+        raise NotImplementedError()
+
+    def parse_array_string_initializer(self, typ):
+        """ Handle the special case where an array is initialized with
+        a string.
+        """
+        # isinstance(initializer, expressions.StringLiteral):
+        string = self.consume('STRING')
+        # Turn into sequence of characters:
+        il = []
+        location = string.loc
+        for c in string.val:
+            il.append(expressions.CharLiteral(
+                ord(c), self.semantics.char_type, location))
+        il.append(expressions.CharLiteral(
+            0, self.semantics.char_type, location))
+        initializer = expressions.ArrayInitializer(typ, il, location)
+        return initializer
 
     def parse_initializer_list(self, typ):
-        """ Based on type, determine what we could expect.
+        """ Parse braced initializer list.
 
-        This function is only called somewhere within { and }.
+        Parse opening brace, elements and closing brace.
         """
-        if typ.is_scalar or \
-                isinstance(typ, (types.PointerType, types.EnumType)):
-            expr = self.parse_constant_expression()
-            initializer = self.semantics.coerce(expr, typ)
-        elif isinstance(typ, types.ArrayType):
-            initializer = self.parse_array_initializer(typ)
-        elif isinstance(typ, types.StructType):
-            initializer = self.parse_struct_initializer(typ, None)
-        elif isinstance(typ, types.UnionType):
-            initializer = self.parse_union_initializer(typ, None)
-        else:  # pragma: no cover
-            raise NotImplementedError(str(typ))
 
-        return initializer
+        init_cursor = self.semantics.new_init_cursor()
+        return self.parse_initializer_list_sub(init_cursor, typ)
 
-    def parse_struct_initializer(self, struct_typ, initializer):
-        """ Match an initializer onto a struct type """
-        assert isinstance(struct_typ, types.StructType)
-        if not struct_typ.complete:
-            self.error(
-                'Struct not fully defined!',
-                initializer.initializer.location)
+    def parse_initializer_list_sub(self, init_cursor, typ):
+        """ Parse braced initializer list.
 
-        # if self
-        has_brace = self.peek == '{'
-        if has_brace:
-            location = self.consume('{').loc
-        else:
-            location = self.current_location
-        # location = self.consume('{').loc
+        Parse opening brace, elements and closing brace.
+        """
+        location = self.consume('{').loc
+        self.semantics.on_init_compound_enter(
+            init_cursor, typ, location, False)
 
-        # Struct is initialized like '= { 1, 2, .. }'
-        # Grab all fields from the initializer list:
-
-        # Start with uninitialized data:
-        initializer = expressions.StructInitializer(struct_typ, location)
-        pos = 0
-        # for field in typ.fields:
         while True:
-            # Determine current field, or whether we are done:
+            self.parse_initializer_list_element(init_cursor)
+
+            if not self.has_consumed(','):
+                break
+
             if self.peek == '}':
-                # We are done with this struct
                 break
-            elif self.peek == '.':
-                # Enter this designator!
-                self.consume('.')
-                field_name = self.consume('ID')
-                self.consume('=')
-                field_select_loc = field_name.loc
-                field_name = field_name.val
-                if not struct_typ.has_field(field_name):
-                    self.error(
-                        'No such field {}'.format(field_name),
-                        loc=field_select_loc
-                    )
-                else:
-                    field = struct_typ.get_field(field_name)
-                pos = struct_typ.fields.index(field)
-            elif pos >= len(struct_typ.fields) and not has_brace:
-                # If we passed all fields, we are done.
-                break
-            else:
-                field = struct_typ.fields[pos]
-                pos += 1
 
-            # Load selected field:
-            fi = self.parse_initializer_list(field.typ)
-            if field in initializer.field_values:
-                # We have a double initialize
-                old_init = initializer.field_values[field]
-                self.warning("Double initialization", old_init.location)
-            initializer.field_values[field] = fi
+        self.consume('}')
+        init_cursor.unwind()
+        return init_cursor.leave_compound()
 
-            self.has_consumed(',')
-
-        # print(initializer)
-        if has_brace:
-            self.consume('}')
-
-        # Fill un initialized fields now:
-        # TODO
-
-        # Assert that we filled all fields:
-        # assert len(il) == len(typ.fields)
-        # else:
-        #    # Struct is initialized with expression '= f();'
-        #    result = self.coerce(initializer, typ)
-        return initializer
-
-    def parse_union_initializer(self, union_typ, initializer):
-        """ Match an initializer onto a union type """
-        assert isinstance(union_typ, types.UnionType)
-        if not union_typ.complete:
-            self.error(
-                'Union not fully defined!',
-                initializer.initializer.location)
-
-        has_brace = self.peek == '{'
-        if has_brace:
-            location = self.consume('{').loc
-        else:
-            location = self.current_location
-        initializer = expressions.UnionInitializer(union_typ, location)
-
-        # Initialize the first element:
-        if self.peek == '}':
-            # Implicit initialization:
-            i = 0
-            field = union_typ.fields[0]
-        else:
-            if self.peek == '.':
-                self.consume('.')
-                field_name = self.consume('ID')
-                field_select_loc = field_name.loc
-                field_name = field_name.val
-                self.consume('=')
-                if not union_typ.has_field(field_name):
-                    self.error(
-                        'Union does not have field {}'.format(field_name),
-                        field_select_loc
-                    )
-                else:
-                    field = union_typ.get_field(field_name)
-            else:
-                field = union_typ.fields[0]
-            i = self.parse_initializer_list(field.typ)
-
-            # Eat eventual comma:
-            self.has_consumed(',')
-        initializer.value = i
-        initializer.field = field
-
-        if has_brace:
-            self.consume('}')
-
-        return initializer
-
-    def parse_array_initializer(self, array_typ):
-        """ Process array initializers.
-
-        For example an array maybe initilized with a single value.
-        Or, one can use an designated initializer.
+    def parse_initializer_list_element(self, init_cursor):
+        """ Parse an initializer list element with optional designators.
         """
-        assert isinstance(array_typ, types.ArrayType)
-        has_brace = self.peek == '{'
-        if has_brace:
-            location = self.consume('{').loc
-        else:
-            location = self.current_location
-
-        if self.peek == 'STRING':
-            # isinstance(initializer, expressions.StringLiteral):
-            string = self.consume('STRING')
-            # Turn into sequence of characters:
-            il = []
-            location = string.loc
-            for c in string.val:
-                il.append(expressions.CharLiteral(
-                    ord(c), self.semantics.char_type, location))
-            il.append(expressions.CharLiteral(
-                0, self.semantics.char_type, location))
-            initializer = expressions.ArrayInitializer(array_typ, il, location)
-        else:
-            top_level = True  # TODO?
-            if array_typ.size is None and not top_level:
-                self.error(
-                    'Unknown array size',
-                    location)
-
-            initializer = expressions.ArrayInitializer(array_typ, [], location)
-
-            n = 0
-            if array_typ.size:
-                typ_size = self.semantics.context.eval_expr(array_typ.size)
-            else:
-                typ_size = None
-
-            while typ_size is None or n < typ_size:
-                if self.peek == '}':
-                    break
-                elif self.peek == '[':
-                    self.consume('[')
-                    idx = self.parse_constant_expression()
-                    self.consume(']')
-                    self.consume('=')
-                    print(idx)
+        # Load eventual designators:
+        if self.is_c99 and self.peek in ['.', '[']:
+            # We face designated initializer here...
+            designators = True
+            # Retreat to top-level!
+            init_cursor.unwind()
+            while self.peek in ['.', '[']:
+                # Select proper location:
+                if self.peek == '[':
+                    location = self.parse_array_designator(init_cursor)
                 else:
-                    pass
+                    location = self.parse_struct_designator(init_cursor)
 
-                # Initialize current element:
-                el = self.parse_initializer_list(array_typ.element_type)
-                initializer.init_values.append(el)
-                n += 1
+                # Maybe we require to descend if we face more designators:
+                if self.peek in ['.', '[']:
+                    typ = init_cursor.at_typ()
+                    self.semantics.on_init_compound_enter(
+                        init_cursor, typ, location, True)
 
-                # Eat eventual comma:
-                self.has_consumed(',')
+            self.consume('=')
+        else:
+            designators = False
 
-        # Fill length of array if it was implicit:
-        if array_typ.size is None:
-            array_typ.size = len(initializer.init_values)
+        # Parse actual initializer.
+        typ = init_cursor.level.element_typ()
+        if self.peek == '{':
+            initializer = self.parse_initializer_list_sub(init_cursor, typ)
+        else:
+            initializer = self.parse_constant_expression()
+            self.semantics.init_store(init_cursor, initializer)
 
-        if has_brace:
-            self.consume('}')
+        # Pop designators:
+        if designators:
+            init_cursor.unwind()
 
-        return initializer
+        # Go to next element:
+        init_cursor.next_element()
 
+    def parse_array_designator(self, init_cursor):
+        """ Parse array designator like '{2, [10]=4}' """
+        location = self.consume('[').loc
+        index = self.parse_constant_expression()
+        self.consume(']')
+        self.semantics.on_array_designator(init_cursor, index, location)
+        return location
+
+    def parse_struct_designator(self, init_cursor):
+        """ Parse a struct designator in an initializer list. """
+        location = self.consume('.').loc
+        field = self.consume('ID')
+        field_name = field.val
+        self.semantics.on_field_designator(init_cursor, field_name, location)
+        return location
+
+    def skip_initializer_lists(self):
+        """ Skip superfluous initial values. """
+        while self.peek != '}':
+            self.next_token()
+
+    # Types section:
     def parse_function_arguments(self):
-        """ Parse function postfix. We have type and name, now parse
-            function arguments """
+        """ Parse function postfix.
+
+        We have type and name, now parse function arguments.
+        """
         # TODO: allow K&R style arguments
         arguments = []
         # self.consume('(')
@@ -808,14 +734,14 @@ class CParser(RecursiveDescentParser):
         if self.is_declaration_statement():
             # TODO: do not use current location member.
             location = self.current_location
-            statements = []
+            statement_list = []
             for declaration in self.parse_declarations():
                 statement = self.semantics.on_declaration_statement(
                     declaration, location)
-                statements.append(statement)
+                statement_list.append(statement)
         else:
-            statements = [self.parse_statement()]
-        return statements
+            statement_list = [self.parse_statement()]
+        return statement_list
 
     def is_declaration_statement(self):
         """ Determine whether we are facing a declaration or not """
@@ -875,13 +801,13 @@ class CParser(RecursiveDescentParser):
 
     def parse_compound_statement(self):
         """ Parse a series of statements surrounded by '{' and '}' """
-        statements = []
+        statement_list = []
         location = self.consume('{').loc
         self.semantics.enter_compound_statement(location)
         while self.peek != '}':
-            statements.extend(self.parse_statement_or_declaration())
+            statement_list.extend(self.parse_statement_or_declaration())
         self.consume('}')
-        return self.semantics.on_compound_statement(statements, location)
+        return self.semantics.on_compound_statement(statement_list, location)
 
     def parse_if_statement(self):
         """ Parse an if statement """
@@ -965,9 +891,9 @@ class CParser(RecursiveDescentParser):
             if self.is_declaration_statement():
                 # C99 only, declaration inside for-loop!
                 decl_spec = self.parse_decl_specifiers()
-                d = self.parse_declarator()
+                declaration = self.parse_declarator()
                 variable_declaration = self.parse_variable_declaration(
-                    decl_spec, d)
+                    decl_spec, declaration)
                 initial = variable_declaration
             else:
                 initial = self.parse_expression()
@@ -1031,7 +957,7 @@ class CParser(RecursiveDescentParser):
             return False
 
         op_associativity, op_prio = self.prio_map[op]
-        if op_associativity == self.LEFT_ASSOCIATIVE:
+        if op_associativity == LEFT_ASSOCIATIVE:
             return op_prio > priority
         else:
             return op_prio >= priority
@@ -1055,12 +981,6 @@ class CParser(RecursiveDescentParser):
                 lhs = self.semantics.on_binop(lhs, op.val, rhs, op.loc)
         return lhs
 
-    def parse_unary_expression(self):
-        return self.parse_postfix_expression()
-
-    def parse_postfix_expression(self):
-        return self.parse_primary_expression()
-
     def parse_primary_expression(self):
         """ Parse a primary expression """
         if self.peek == 'ID':
@@ -1068,11 +988,11 @@ class CParser(RecursiveDescentParser):
             expr = self.semantics.on_variable_access(
                 identifier.val, identifier.loc)
         elif self.peek == 'NUMBER':
-            n = self.consume()
-            expr = self.semantics.on_number(n.val, n.loc)
+            number = self.consume()
+            expr = self.semantics.on_number(number.val, number.loc)
         elif self.peek == 'CHAR':
-            n = self.consume()
-            expr = self.semantics.on_char(n.val, n.loc)
+            char = self.consume()
+            expr = self.semantics.on_char(char.val, char.loc)
         elif self.peek == 'STRING':
             txt = self.consume()
             expr = self.semantics.on_string(txt.val, txt.loc)
@@ -1135,9 +1055,7 @@ class CParser(RecursiveDescentParser):
                 to_typ = self.parse_typename()
                 self.consume(')')
                 if self.peek == '{':
-                    self.consume('{')
                     init = self.parse_initializer_list(to_typ)
-                    self.consume('}')
                     expr = expressions.CompoundLiteral(to_typ, init, loc)
                 else:
                     casted_expr = self.parse_primary_expression()
@@ -1204,3 +1122,21 @@ class CParser(RecursiveDescentParser):
             if self.token.typ == 'ID' and self.token.val in self.typedefs:
                 return True
         return False
+
+
+class DeclSpec:
+    """ Contains a type and a set of modifiers """
+    def __init__(self, storage_class, typ):
+        self.storage_class = storage_class
+        self.typ = typ  # The later determined type!
+
+    def __repr__(self):
+        return '[decl-spec storage={}, type={}]'.format(
+            self.storage_class, self.typ)
+
+
+class Declarator:
+    def __init__(self, name, type_modifiers, location):
+        self.name = name
+        self.type_modifiers = type_modifiers
+        self.location = location

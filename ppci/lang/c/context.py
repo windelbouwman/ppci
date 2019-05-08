@@ -234,7 +234,7 @@ class CContext:
                 ival2 = expressions.StructInitializer(typ, None)
                 for field, value in zip(typ.fields, ival):
                     value = self._make_ival(field.typ, value)
-                    ival2.field_values[field] = value
+                    ival2.values[field] = value
                 ival = ival2
             else:
                 raise NotImplementedError(str(typ))
@@ -274,17 +274,23 @@ class CContext:
         """ Properly fill an array with initial values """
         assert isinstance(ival, expressions.ArrayInitializer)
         assert ival.typ is typ
-        mem = tuple()
-        for iv in ival.init_values:
-            # TODO: handle alignment
-            mem = mem + self.gen_global_ival(typ.element_type, iv)
 
-        array_size = self.eval_expr(typ.size)
         element_size = self.sizeof(typ.element_type)
         implicit_value = tuple([bytes([0] * element_size)])
 
-        if len(ival.init_values) < array_size:
-            extra_implicit = array_size - len(ival.init_values)
+        mem = tuple()
+        for iv in ival.values:
+            # TODO: handle alignment
+            if iv is None:
+                element_mem = implicit_value
+            else:
+                element_mem = self.gen_global_ival(typ.element_type, iv)
+            mem = mem + element_mem
+
+        array_size = self.eval_expr(typ.size)
+
+        if len(ival.values) < array_size:
+            extra_implicit = array_size - len(ival.values)
             mem = mem + implicit_value * extra_implicit
         return mem
 
@@ -314,8 +320,8 @@ class CContext:
         for field in typ.fields:
             if field.is_bitfield:
                 # Special case for bitfields
-                if field in ival.field_values:
-                    iv = ival.field_values[field]
+                if field in ival.values:
+                    iv = ival.values[field]
                     cval = self.eval_expr(iv)
                 else:
                     cval = 0
@@ -336,8 +342,8 @@ class CContext:
                     mem = mem + (bytes([0] * padding_count),)
 
                 # Add field data, if any:
-                if field in ival.field_values:
-                    iv = ival.field_values[field]
+                if field in ival.values:
+                    iv = ival.values[field]
                     mem = mem + self.gen_global_ival(field.typ, iv)
                 else:
                     field_size = self.sizeof(field.typ)
@@ -361,9 +367,10 @@ class CContext:
                 raise NotImplementedError(repr(part))
         return size
 
-    def error(self, message, location):
+    @staticmethod
+    def error(message, location, hints=None):
         """ Trigger an error at the given location """
-        raise CompilerError(message, loc=location)
+        raise CompilerError(message, loc=location, hints=hints)
 
     def eval_expr(self, expr):
         """ Evaluate an expression right now! (=at compile time) """

@@ -637,7 +637,7 @@ class CFrontendTestCase(unittest.TestCase):
         };
         char x = '\2';
         int* ptr = (int*)0x1000;
-        struct rec d = {.b = 2, .c = {[2] = 3}}; // TODO: , .d.x=100};
+        struct rec d = {.b = 2, .c = {[2] = 3}, .d.x=100};
 
         void main() {
           char x = '\2';

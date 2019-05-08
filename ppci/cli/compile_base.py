@@ -8,6 +8,7 @@ from .. import api, irutils
 from ..binutils.outstream import TextOutputStream
 from .base import out_parser
 from ..wasm import ir_to_wasm
+from ..instrument import add_tracer
 
 
 compile_parser = argparse.ArgumentParser(add_help=False, parents=[out_parser])
@@ -27,6 +28,9 @@ compile_parser.add_argument(
     action='store_true', default=False)
 compile_parser.add_argument(
     '-O', help='optimize code', default='0', choices=api.OPT_LEVELS)
+compile_parser.add_argument(
+    '--instrument-functions', help='Instrument given functions',
+    action='store_true', default=False)
 
 
 def do_compile(ir_modules, march, reporter, args):
@@ -35,6 +39,11 @@ def do_compile(ir_modules, march, reporter, args):
     # Optimize:
     for ir_module in ir_modules:
         api.optimize(ir_module, level=args.O, reporter=reporter)
+
+    # Instrument:
+    if args.instrument_functions:
+        for ir_module in ir_modules:
+            add_tracer(ir_module)
 
     # TODO: what to do with the -c option? Add it here?
 

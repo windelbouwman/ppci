@@ -83,6 +83,12 @@ activated stand alone.
 .. autoprogram:: ppci.cli.wabt:parser
     :prog: ppci-wabt
 
+.. autoprogram:: ppci.cli.ocaml:parser
+    :prog: ppci-ocaml
+
+.. autoprogram:: ppci.cli.java:parser
+    :prog: ppci-java
+
 .. autoprogram:: ppci.cli.hexutil:parser
     :prog: ppci-hexutil
 

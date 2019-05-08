@@ -18,11 +18,11 @@ import io
 import logging
 from itertools import cycle
 
-from prompt_toolkit import Application
-import prompt_toolkit as pt
 from pygments.styles import get_style_by_name
 from pygments.lexers import CLexer
 
+from prompt_toolkit import Application
+import prompt_toolkit as pt
 from prompt_toolkit.buffer import Buffer
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.key_binding.bindings.focus import focus_next
@@ -44,6 +44,8 @@ from ppci import __version__ as ppci_version
 from ppci import api
 from ppci.binutils.outstream import TextOutputStream
 from ppci.common import CompilerError, logformat
+from ppci.irutils import print_module
+from ppci.lang.c import create_ast, print_ast
 
 
 class MyHandler(logging.Handler):
@@ -75,10 +77,12 @@ class PpciExplorer:
         available_archs = ['arm', 'x86_64', 'riscv', 'avr', 'or1k', 'xtensa']
         # State variables:
         self.arch = available_archs[-1]
+        self.stage = 'asm'
         self.show_log = False
         self.optimize = False
 
         self.archs = cycle(available_archs)
+        self.stages = cycle(['ir', 'ast', 'asm'])
 
         # Some key bindings:
         kb = KeyBindings()
@@ -87,6 +91,7 @@ class PpciExplorer:
         def quit_(event):
             event.app.exit()
 
+        kb.add(Keys.F6, eager=True)(self.cycle_stage)
         kb.add(Keys.F7, eager=True)(self.next_architecture)
         kb.add(Keys.F8, eager=True)(self.toggle_optimize)
         kb.add(Keys.F9, eager=True)(self.toggle_log)
@@ -157,6 +162,7 @@ class PpciExplorer:
         return \
              'Welcome to the ppci explorer {}'.format(ppci_version) + \
              '(prompt_toolkit {})'.format(pt.__version__) + \
+             ' [Stage = {} (F6)] '.format(self.stage) + \
              ' [Arch = {} (F7)] '.format(self.arch) + \
              ' [Optimize = {} (F8)] '.format(self.optimize)
 
@@ -168,7 +174,7 @@ class PpciExplorer:
         except CompilerError as ex:
             if ex.loc:
                 self.errors_processor.errors[ex.loc.row] = ex.msg
-                self.output_buffer.text = ''
+                self.output_buffer.text = str(ex)
             else:
                 self.output_buffer.text = str(ex)
         except Exception as ex:  # Catch the more hard-core exceptions.
@@ -176,24 +182,41 @@ class PpciExplorer:
 
     def compile(self, source):
         """ Compile the given source with current settings. """
-        f = io.StringIO(source)
-        ir_module = api.c_to_ir(f, self.arch)
-        f2 = io.StringIO()
-        if self.optimize:
-            api.optimize(ir_module, level=2)
-        text_stream = TextOutputStream(f=f2, add_binary=True)
-        api.ir_to_stream(ir_module, self.arch, text_stream)
-        return f2.getvalue()
+        srcfile = io.StringIO(source)
+        outfile = io.StringIO()
+        if self.stage == 'ast':
+            src_ast = create_ast(srcfile, api.get_arch(self.arch).info)
+            print_ast(src_ast, file=outfile)
+        else:
+            ir_module = api.c_to_ir(srcfile, self.arch)
 
-    def next_architecture(self, event):
+            if self.optimize:
+                api.optimize(ir_module, level=2)
+
+            if self.stage == 'ir':
+                print_module(ir_module, file=outfile)
+            else:
+                text_stream = TextOutputStream(f=outfile, add_binary=True)
+                api.ir_to_stream(ir_module, self.arch, text_stream)
+        return outfile.getvalue()
+
+    def cycle_stage(self, _):
+        """ Cycle between AST, ir or assembly. """
+        self.stage = next(self.stages)
+        self.do_compile()
+
+    def next_architecture(self, _):
+        """ Cycle into the next architecture. """
         self.arch = next(self.archs)
         self.do_compile()
 
-    def toggle_optimize(self, event):
+    def toggle_optimize(self, _):
+        """ Toggle optimization. """
         self.optimize = not self.optimize
         self.do_compile()
 
-    def toggle_log(self, event):
+    def toggle_log(self, _):
+        """ Toggle logging. """
         self.show_log = not self.show_log
 
 
@@ -205,6 +228,15 @@ def ppci_explorer():
 
 DEMO_SOURCE = """
 int g=23;
+struct X {
+  int a;
+  int b;
+};
+
+struct X x = { 1, 2 };
+
+int A[][2] = {1,2,3,4,5,6,7,8,9};
+int B[] = {1,2,3};
 
 int add(int a, int b) {
   return a + b - g;
