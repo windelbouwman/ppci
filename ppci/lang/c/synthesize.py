@@ -7,6 +7,7 @@ class CSynthesizer:
     """ Take an IR-module and convert it into a C-AST.
 
     This does essentially the opposite of the codegenerator. """
+
     def __init__(self):
         self.var_map = {}
         self.block_map = {}
@@ -54,14 +55,16 @@ class CSynthesizer:
         if isinstance(instruction, ir.Alloc):
             ctyp = types.BasicType(types.BasicType.INT)
             declaration = declarations.VariableDeclaration(
-                None, ctyp, instruction.name, None, None)
+                None, ctyp, instruction.name, None, None
+            )
             statement = statements.DeclarationStatement(declaration, None)
         elif isinstance(instruction, ir.Store):
             lhs = self.get_var_ref(instruction.address)
             value = self.get_var_ref(instruction.value)
             typ = self.voidptr_type
             expression = expressions.BinaryOperator(
-                lhs, '=', value, typ, True, None)
+                lhs, "=", value, typ, True, None
+            )
             statement = statements.ExpressionStatement(expression)
         elif isinstance(instruction, ir.Binop):
             lhs = instruction.name
@@ -77,8 +80,7 @@ class CSynthesizer:
             typ = self.voidptr_type
             loc = None
             src = self.get_var_ref(instruction.src)
-            expression = expressions.UnaryOperator(
-                '&', src, typ, False, loc)
+            expression = expressions.UnaryOperator("&", src, typ, False, loc)
             statement = statements.ExpressionStatement(expression)
         elif isinstance(instruction, ir.LiteralData):
             value = instruction.data
@@ -91,8 +93,7 @@ class CSynthesizer:
             args = []
             typ = self.voidptr_type
             loc = None
-            call = expressions.FunctionCall(
-                callee, args, typ, False, loc)
+            call = expressions.FunctionCall(callee, args, typ, False, loc)
             statement = statements.ExpressionStatement(call)
         elif isinstance(instruction, ir.Exit):
             statement = statements.Return(None, None)

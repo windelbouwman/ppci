@@ -10,20 +10,22 @@ def is_scalar(typ):
 
 def is_char_array(typ):
     """ Check if the given type is of string type. """
-    return isinstance(typ, ArrayType) and \
-        typ.element_type.is_scalar
+    return isinstance(typ, ArrayType) and typ.element_type.is_scalar
 
 
 def is_integer(typ):
     """ Test if the given type is of integer type """
-    return isinstance(typ, BasicType) and \
-        typ.type_id in BasicType.INTEGER_TYPES
+    return (
+        isinstance(typ, BasicType) and typ.type_id in BasicType.INTEGER_TYPES
+    )
 
 
 def is_signed_integer(typ):
     """ Test if the given type is of signed integer type """
-    return isinstance(typ, BasicType) and \
-        typ.type_id in BasicType.SIGNED_INTEGER_TYPES
+    return (
+        isinstance(typ, BasicType)
+        and typ.type_id in BasicType.SIGNED_INTEGER_TYPES
+    )
 
 
 def is_void(typ):
@@ -59,6 +61,7 @@ def is_struct(typ):
 # A type system:
 class CType:
     """ Base class for all types """
+
     def __init__(self, qualifiers=None):
         self.qualifiers = qualifiers
 
@@ -124,6 +127,7 @@ class CType:
 
 class FunctionType(CType):
     """ Function type """
+
     def __init__(self, arguments, return_type, is_vararg=False):
         super().__init__()
         self.is_vararg = is_vararg
@@ -135,11 +139,12 @@ class FunctionType(CType):
         assert isinstance(return_type, CType)
 
     def __repr__(self):
-        return 'Function-type'
+        return "Function-type"
 
 
 class IndexableType(CType):
     """ Array or pointer type """
+
     def __init__(self, element_type):
         super().__init__()
         assert isinstance(element_type, CType)
@@ -148,22 +153,25 @@ class IndexableType(CType):
 
 class ArrayType(IndexableType):
     """ Array type """
+
     def __init__(self, element_type, size):
         super().__init__(element_type)
         self.size = size
 
     def __repr__(self):
-        return 'Array-type'
+        return "Array-type"
 
 
 class PointerType(IndexableType):
     """ The famous pointer! """
+
     def __repr__(self):
-        return 'Pointer-type'
+        return "Pointer-type"
 
 
 class EnumType(CType):
     """ Enum type """
+
     def __init__(self, constants=None):
         super().__init__()
         self.constants = constants
@@ -174,11 +182,12 @@ class EnumType(CType):
         return self.constants is not None
 
     def __repr__(self):
-        return 'Enum-type'
+        return "Enum-type"
 
 
 class StructOrUnionType(CType):
     """ Common base for struct and union types """
+
     def __init__(self, tag=None, fields=None):
         super().__init__()
         self._fields = None
@@ -234,12 +243,14 @@ class StructOrUnionType(CType):
 
 class StructType(StructOrUnionType):
     """ Structure type """
+
     def __repr__(self):
-        return 'Structured-type field_names={}'.format(self.get_field_names())
+        return "Structured-type field_names={}".format(self.get_field_names())
 
 
 class Field:
     """ A field inside a union or struct """
+
     def __init__(self, typ, name, bitsize):
         self.typ = typ
         assert isinstance(typ, CType)
@@ -248,9 +259,9 @@ class Field:
 
     def __repr__(self):
         if self.bitsize is None:
-            return 'Struct-field .{}'.format(self.name)
+            return "Struct-field .{}".format(self.name)
         else:
-            return 'Struct-field .{} : {}'.format(self.name, self.bitsize)
+            return "Struct-field .{} : {}".format(self.name, self.bitsize)
 
     @property
     def is_bitfield(self):
@@ -260,42 +271,32 @@ class Field:
 
 class UnionType(StructOrUnionType):
     """ Union type """
+
     def __repr__(self):
-        return 'Union-type'
+        return "Union-type"
 
 
 class BasicType(CType):
     """ This type is one of: int, unsigned int, float or void """
-    VOID = 'void'
-    CHAR = 'char'
-    UCHAR = 'unsigned char'
-    SHORT = 'short'
-    USHORT = 'unsigned short'
-    INT = 'int'
-    UINT = 'unsigned int'
-    LONG = 'long'
-    ULONG = 'unsigned long'
-    LONGLONG = 'long long'
-    ULONGLONG = 'unsigned long long'
-    FLOAT = 'float'
-    DOUBLE = 'double'
-    LONGDOUBLE = 'long double'
 
-    SIGNED_INTEGER_TYPES = {
-        CHAR,
-        SHORT,
-        INT,
-        LONG,
-        LONGLONG,
-    }
+    VOID = "void"
+    CHAR = "char"
+    UCHAR = "unsigned char"
+    SHORT = "short"
+    USHORT = "unsigned short"
+    INT = "int"
+    UINT = "unsigned int"
+    LONG = "long"
+    ULONG = "unsigned long"
+    LONGLONG = "long long"
+    ULONGLONG = "unsigned long long"
+    FLOAT = "float"
+    DOUBLE = "double"
+    LONGDOUBLE = "long double"
 
-    UNSIGNED_INTEGER_TYPES = {
-        UCHAR,
-        USHORT,
-        UINT,
-        ULONG,
-        ULONGLONG
-    }
+    SIGNED_INTEGER_TYPES = {CHAR, SHORT, INT, LONG, LONGLONG}
+
+    UNSIGNED_INTEGER_TYPES = {UCHAR, USHORT, UINT, ULONG, ULONGLONG}
 
     INTEGER_TYPES = SIGNED_INTEGER_TYPES | UNSIGNED_INTEGER_TYPES
 
@@ -304,4 +305,4 @@ class BasicType(CType):
         self.type_id = type_id
 
     def __repr__(self):
-        return 'Basic type {}'.format(self.type_id)
+        return "Basic type {}".format(self.type_id)

@@ -3,6 +3,7 @@ from . import nodes, types, declarations, expressions, statements
 
 class Visitor:
     """ Recursively visit all nodes """
+
     def visit(self, node):
         if isinstance(node, nodes.CompilationUnit):
             for d in node.declarations:
@@ -92,8 +93,8 @@ class Visitor:
             self.visit(node.expression)
             self.visit(node.statement)
         elif isinstance(
-                node,
-                (statements.Goto, statements.Break, statements.Continue)):
+            node, (statements.Goto, statements.Break, statements.Continue)
+        ):
             pass
         elif isinstance(node, (statements.Label, statements.Default)):
             self.visit(node.statement)

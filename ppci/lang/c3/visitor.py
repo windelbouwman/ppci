@@ -10,6 +10,7 @@ class Visitor:
         Visitor that can visit all nodes in the AST
         and run pre and post functions.
     """
+
     def __init__(self, pre=None, post=None):
         self.pre = pre
         self.post = post
@@ -125,6 +126,7 @@ class Visitor:
 
 class AstPrinter:
     """ Prints an AST as text """
+
     def print_ast(self, pkg, f):
         self.indent = 2
         self.f = f
@@ -132,7 +134,7 @@ class AstPrinter:
         visitor.visit(pkg)
 
     def print1(self, node):
-        print(' ' * self.indent + str(node), file=self.f)
+        print(" " * self.indent + str(node), file=self.f)
         self.indent += 2
 
     def print2(self, _):

@@ -11,13 +11,12 @@ def preprocess(f, output_file, coptions=None):
     if coptions is None:
         coptions = COptions()
     preprocessor = CPreProcessor(coptions)
-    filename = f.name if hasattr(f, 'name') else None
+    filename = f.name if hasattr(f, "name") else None
     tokens = preprocessor.process_file(f, filename=filename)
     CTokenPrinter().dump(tokens, file=output_file)
 
 
-def c_to_ir(
-        source: io.TextIOBase, march, coptions=None, reporter=None):
+def c_to_ir(source: io.TextIOBase, march, coptions=None, reporter=None):
     """ C to ir translation.
 
     Args:
@@ -36,11 +35,12 @@ def c_to_ir(
         coptions = COptions()
 
     from ...api import get_arch
+
     march = get_arch(march)
     cbuilder = CBuilder(march.info, coptions)
     assert isinstance(source, io.TextIOBase)
-    if hasattr(source, 'name'):
-        filename = getattr(source, 'name')
+    if hasattr(source, "name"):
+        filename = getattr(source, "name")
     else:
         filename = None
 

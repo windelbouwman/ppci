@@ -9,9 +9,11 @@ the original source as possible.
 
 class CompilationUnit:
     """ A single compilation unit """
+
     def __init__(self, declarations):
         self.declarations = declarations
 
     def __repr__(self):
-        return 'Compilation unit with {} declarations'.format(
-            len(self.declarations))
+        return "Compilation unit with {} declarations".format(
+            len(self.declarations)
+        )

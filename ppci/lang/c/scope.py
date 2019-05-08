@@ -11,40 +11,39 @@ def type_tuple(*args):
 
 class RootScope:
     """ Root scope with basic types """
+
     def __init__(self):
         self.atomic_types = {
-            type_tuple('void'): BasicType.VOID,
-            type_tuple('char',): BasicType.CHAR,
-            type_tuple('signed', 'char'): BasicType.CHAR,
-            type_tuple('unsigned', 'char'): BasicType.UCHAR,
-            type_tuple('short',): BasicType.SHORT,
-            type_tuple('signed', 'short',): BasicType.SHORT,
-            type_tuple('short', 'int'): BasicType.SHORT,
-            type_tuple('signed', 'short', 'int'): BasicType.SHORT,
-            type_tuple('unsigned', 'short'): BasicType.USHORT,
-            type_tuple('unsigned', 'short', 'int'): BasicType.USHORT,
-            type_tuple('int',): BasicType.INT,
-            type_tuple('signed',): BasicType.INT,
-            type_tuple('signed', 'int',): BasicType.INT,
-            type_tuple('unsigned', 'int',): BasicType.UINT,
-            type_tuple('unsigned',): BasicType.UINT,
-            type_tuple('long',): BasicType.LONG,
-            type_tuple('signed', 'long',): BasicType.LONG,
-            type_tuple('long', 'int'): BasicType.LONG,
-            type_tuple('signed', 'long', 'int'): BasicType.LONG,
-            type_tuple('unsigned', 'long'): BasicType.ULONG,
-            type_tuple('unsigned', 'long', 'int'): BasicType.ULONG,
-            type_tuple('long', 'long',): BasicType.LONGLONG,
-            type_tuple('signed', 'long', 'long',): BasicType.LONGLONG,
-            type_tuple('long', 'long', 'int'): BasicType.LONGLONG,
-            type_tuple('signed', 'long', 'long', 'int'):
-                BasicType.LONGLONG,
-            type_tuple('unsigned', 'long', 'long'): BasicType.ULONGLONG,
-            type_tuple('unsigned', 'long', 'long', 'int'):
-                BasicType.ULONGLONG,
-            type_tuple('float',): BasicType.FLOAT,
-            type_tuple('double',): BasicType.DOUBLE,
-            type_tuple('long', 'double'): BasicType.LONGDOUBLE,
+            type_tuple("void"): BasicType.VOID,
+            type_tuple("char"): BasicType.CHAR,
+            type_tuple("signed", "char"): BasicType.CHAR,
+            type_tuple("unsigned", "char"): BasicType.UCHAR,
+            type_tuple("short"): BasicType.SHORT,
+            type_tuple("signed", "short"): BasicType.SHORT,
+            type_tuple("short", "int"): BasicType.SHORT,
+            type_tuple("signed", "short", "int"): BasicType.SHORT,
+            type_tuple("unsigned", "short"): BasicType.USHORT,
+            type_tuple("unsigned", "short", "int"): BasicType.USHORT,
+            type_tuple("int"): BasicType.INT,
+            type_tuple("signed"): BasicType.INT,
+            type_tuple("signed", "int"): BasicType.INT,
+            type_tuple("unsigned", "int"): BasicType.UINT,
+            type_tuple("unsigned"): BasicType.UINT,
+            type_tuple("long"): BasicType.LONG,
+            type_tuple("signed", "long"): BasicType.LONG,
+            type_tuple("long", "int"): BasicType.LONG,
+            type_tuple("signed", "long", "int"): BasicType.LONG,
+            type_tuple("unsigned", "long"): BasicType.ULONG,
+            type_tuple("unsigned", "long", "int"): BasicType.ULONG,
+            type_tuple("long", "long"): BasicType.LONGLONG,
+            type_tuple("signed", "long", "long"): BasicType.LONGLONG,
+            type_tuple("long", "long", "int"): BasicType.LONGLONG,
+            type_tuple("signed", "long", "long", "int"): BasicType.LONGLONG,
+            type_tuple("unsigned", "long", "long"): BasicType.ULONGLONG,
+            type_tuple("unsigned", "long", "long", "int"): BasicType.ULONGLONG,
+            type_tuple("float"): BasicType.FLOAT,
+            type_tuple("double"): BasicType.DOUBLE,
+            type_tuple("long", "double"): BasicType.LONGDOUBLE,
         }
 
     def is_valid(self, type_specifiers):
@@ -79,11 +78,16 @@ class RootScope:
                 return typ1.type_id == typ2.type_id
         elif isinstance(typ1, types.FunctionType):
             if isinstance(typ2, types.FunctionType):
-                return \
-                    len(typ1.argument_types) == len(typ2.argument_types) and \
-                    self.equal_types(typ1.return_type, typ2.return_type) and \
-                    all(self.equal_types(a1, a2) for a1, a2 in zip(
-                        typ1.argument_types, typ2.argument_types))
+                return (
+                    len(typ1.argument_types) == len(typ2.argument_types)
+                    and self.equal_types(typ1.return_type, typ2.return_type)
+                    and all(
+                        self.equal_types(a1, a2)
+                        for a1, a2 in zip(
+                            typ1.argument_types, typ2.argument_types
+                        )
+                    )
+                )
         elif isinstance(typ1, types.IndexableType):
             if isinstance(typ2, types.IndexableType):
                 return self.equal_types(typ1.element_type, typ2.element_type)
@@ -124,6 +128,7 @@ class RootScope:
 
 class Scope:
     """ A variable scope """
+
     def __init__(self, parent=None):
         self.parent = parent
         # Different namespaces in this scope:

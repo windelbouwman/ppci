@@ -27,7 +27,7 @@ def render_ast(ast):
 def expr_to_str(expr):
     """ Render an expression as text.
     """
-    print('foo', expr)
+    print("foo", expr)
     f = io.StringIO()
     printer = CPrinter(f)
     return printer.gen_expr(expr)
@@ -37,6 +37,7 @@ class CPrinter:
     """ Render a C program as text
 
     """
+
     def __init__(self, f=None):
         self._indent = 0
         self.f = f
@@ -50,161 +51,187 @@ class CPrinter:
         """ Spit out a declaration """
         if isinstance(declaration, declarations.VariableDeclaration):
             if declaration.initial_value:
-                self._print('{} = {};'.format(
-                    self.render_type(declaration.typ, declaration.name),
-                    self.gen_expr(declaration.initial_value)))
+                self._print(
+                    "{} = {};".format(
+                        self.render_type(declaration.typ, declaration.name),
+                        self.gen_expr(declaration.initial_value),
+                    )
+                )
             else:
-                self._print('{};'.format(
-                    self.render_type(declaration.typ, declaration.name)))
+                self._print(
+                    "{};".format(
+                        self.render_type(declaration.typ, declaration.name)
+                    )
+                )
         elif isinstance(declaration, declarations.FunctionDeclaration):
             if declaration.body:
-                self._print('{}'.format(
-                    self.render_type(declaration.typ, declaration.name)))
+                self._print(
+                    "{}".format(
+                        self.render_type(declaration.typ, declaration.name)
+                    )
+                )
                 self.gen_statement(declaration.body)
                 self._print()
             else:
-                self._print('{};'.format(
-                    self.render_type(declaration.typ, declaration.name)))
+                self._print(
+                    "{};".format(
+                        self.render_type(declaration.typ, declaration.name)
+                    )
+                )
         elif isinstance(declaration, declarations.Typedef):
-            self._print('typedef {};'.format(
-                self.render_type(declaration.typ, declaration.name)))
+            self._print(
+                "typedef {};".format(
+                    self.render_type(declaration.typ, declaration.name)
+                )
+            )
         else:  # pragma: no cover
             raise NotImplementedError(str(declaration))
 
     def render_type(self, typ, name=None):
         """ Generate a proper C-string for the given type """
         if name is None:
-            name = ''
+            name = ""
         if isinstance(typ, types.BasicType):
             if name:
-                return '{} {}'.format(typ.type_id, name)
+                return "{} {}".format(typ.type_id, name)
             else:
                 return str(typ.type_id)
         elif isinstance(typ, types.PointerType):
-            return self.render_type(typ.element_type, '* {}'.format(name))
+            return self.render_type(typ.element_type, "* {}".format(name))
         elif isinstance(typ, types.ArrayType):
             if isinstance(typ.size, expressions.CExpression):
                 size = self.gen_expr(typ.size)
             else:
-                size = ''
+                size = ""
             return self.render_type(
-                typ.element_type, '{}[{}]'.format(name, size))
+                typ.element_type, "{}[{}]".format(name, size)
+            )
         elif isinstance(typ, types.UnionType):
             return str(typ)  # self.render_type()
         elif isinstance(typ, types.StructType):
             return str(typ)  # self.render_type()
         elif isinstance(typ, types.FunctionType):
-            parameters = ', '.join(
-                self.render_type(p.typ, p.name) for p in typ.arguments)
+            parameters = ", ".join(
+                self.render_type(p.typ, p.name) for p in typ.arguments
+            )
             return self.render_type(
-                typ.return_type, '{}({})'.format(name, parameters))
+                typ.return_type, "{}({})".format(name, parameters)
+            )
         # elif isinstance(typ, types.QualifiedType):
         #     qualifiers = ' '.join(typ.qualifiers)
         #     return self.render_type(
         #         typ.typ, '{} {}'.format(qualifiers, name))
         elif isinstance(typ, types.EnumType):
-            return '{}'.format(typ)
+            return "{}".format(typ)
         elif isinstance(typ, types.BitFieldType):
-            return '{}'.format(typ)
+            return "{}".format(typ)
         else:  # pragma: no cover
             raise NotImplementedError(str(typ))
 
     def gen_statement(self, statement):
         """ Render a single statement as text """
         if isinstance(statement, statements.Compound):
-            self._print('{')
+            self._print("{")
             with self._indented(1):
                 for inner_statement in statement.statements:
                     self.gen_statement(inner_statement)
-            self._print('}')
+            self._print("}")
         elif isinstance(statement, statements.If):
-            self._print('if ({})'.format(self.gen_expr(statement.condition)))
+            self._print("if ({})".format(self.gen_expr(statement.condition)))
             self.gen_statement(statement.yes)
             if statement.no:
-                self._print('else')
+                self._print("else")
                 self.gen_statement(statement.no)
             self._print()
         elif isinstance(statement, statements.Switch):
-            self._print('switch ({})'.format(
-                self.gen_expr(statement.expression)))
+            self._print(
+                "switch ({})".format(self.gen_expr(statement.expression))
+            )
             self.gen_statement(statement.statement)
         elif isinstance(statement, statements.Empty):
             pass
         elif isinstance(statement, statements.While):
-            self._print('while ({})'.format(
-                self.gen_expr(statement.condition)))
+            self._print(
+                "while ({})".format(self.gen_expr(statement.condition))
+            )
             self.gen_statement(statement.body)
             self._print()
         elif isinstance(statement, statements.DoWhile):
-            self._print('do')
+            self._print("do")
             self.gen_statement(statement.body)
-            self._print('while ({})'.format(
-                self.gen_expr(statement.condition)))
+            self._print(
+                "while ({})".format(self.gen_expr(statement.condition))
+            )
             self._print()
         elif isinstance(statement, statements.Goto):
-            self._print('goto {};'.format(statement.label))
+            self._print("goto {};".format(statement.label))
         elif isinstance(statement, statements.Label):
-            self._print('{}:'.format(statement.name))
+            self._print("{}:".format(statement.name))
             self.gen_statement(statement.statement)
         elif isinstance(statement, statements.Case):
-            self._print('case {}:'.format(statement.value))
+            self._print("case {}:".format(statement.value))
             with self._indented(1):
                 self.gen_statement(statement.statement)
         elif isinstance(statement, statements.Default):
-            self._print('default:')
+            self._print("default:")
             with self._indented(1):
                 self.gen_statement(statement.statement)
         elif isinstance(statement, statements.Break):
-            self._print('break;')
+            self._print("break;")
         elif isinstance(statement, statements.Continue):
-            self._print('continue;')
+            self._print("continue;")
         elif isinstance(statement, statements.For):
-            self._print('for ({}; {}; {})'.format(
-                self.gen_expr(statement.init),
-                self.gen_expr(statement.condition),
-                self.gen_expr(statement.post)))
+            self._print(
+                "for ({}; {}; {})".format(
+                    self.gen_expr(statement.init),
+                    self.gen_expr(statement.condition),
+                    self.gen_expr(statement.post),
+                )
+            )
             self.gen_statement(statement.body)
             self._print()
         elif isinstance(statement, statements.Return):
             if statement.value:
-                self._print('return {};'.format(
-                    self.gen_expr(statement.value)))
+                self._print(
+                    "return {};".format(self.gen_expr(statement.value))
+                )
             else:
-                self._print('return;')
+                self._print("return;")
         elif isinstance(statement, statements.DeclarationStatement):
             self.gen_declaration(statement.declaration)
         elif isinstance(statement, statements.ExpressionStatement):
-            self._print('{};'.format(self.gen_expr(statement.expression)))
+            self._print("{};".format(self.gen_expr(statement.expression)))
         else:  # pragma: no cover
             raise NotImplementedError(str(statement))
 
     def gen_expr(self, expr):
         """ Format an expression as text """
         if expr is None:
-            return ''
+            return ""
         elif isinstance(expr, expressions.BinaryOperator):
-            return '({} {} {})'.format(
-                self.gen_expr(expr.a), expr.op, self.gen_expr(expr.b))
+            return "({} {} {})".format(
+                self.gen_expr(expr.a), expr.op, self.gen_expr(expr.b)
+            )
         elif isinstance(expr, expressions.TernaryOperator):
-            return '({} ? {} : {})'.format(
+            return "({} ? {} : {})".format(
                 self.gen_expr(expr.a),
                 self.gen_expr(expr.b),
-                self.gen_expr(expr.c))
+                self.gen_expr(expr.c),
+            )
         elif isinstance(expr, expressions.UnaryOperator):
-            return '({}){}'.format(
-                self.gen_expr(expr.a), expr.op)
+            return "({}){}".format(self.gen_expr(expr.a), expr.op)
         elif isinstance(expr, expressions.VariableAccess):
             return expr.name
         elif isinstance(expr, expressions.FieldSelect):
             base = self.gen_expr(expr.base)
-            return '{}.{}'.format(base, expr.field.name)
+            return "{}.{}".format(base, expr.field.name)
         elif isinstance(expr, expressions.ArrayIndex):
             base = self.gen_expr(expr.base)
             index = self.gen_expr(expr.index)
-            return '{}[{}]'.format(base, index)
+            return "{}[{}]".format(base, index)
         elif isinstance(expr, expressions.FunctionCall):
-            args = ', '.join(map(self.gen_expr, expr.args))
-            return '{}({})'.format(self.gen_expr(expr.callee), args)
+            args = ", ".join(map(self.gen_expr, expr.args))
+            return "{}({})".format(self.gen_expr(expr.callee), args)
         elif isinstance(expr, expressions.Literal):
             return str(expr.value)
         elif isinstance(expr, int):
@@ -214,19 +241,21 @@ class CPrinter:
                 thing = self.render_type(expr.sizeof_typ)
             else:
                 thing = self.gen_expr(expr.sizeof_typ)
-            return 'sizeof({})'.format(thing)
+            return "sizeof({})".format(thing)
         elif isinstance(expr, expressions.InitializerList):
-            thing = ', '.join(self.gen_expr(e) for e in expr.elements)
-            return '{' + thing + '}'
+            thing = ", ".join(self.gen_expr(e) for e in expr.elements)
+            return "{" + thing + "}"
         elif isinstance(expr, expressions.ArrayInitializer):
-            thing = ', '.join(self.gen_expr(e) for e in expr.values)
-            return '{' + thing + '}'
+            thing = ", ".join(self.gen_expr(e) for e in expr.values)
+            return "{" + thing + "}"
         elif isinstance(expr, expressions.Cast):
-            return '({})({})'.format(
-                self.render_type(expr.to_typ), self.gen_expr(expr.expr))
+            return "({})({})".format(
+                self.render_type(expr.to_typ), self.gen_expr(expr.expr)
+            )
         elif isinstance(expr, expressions.BuiltInOffsetOf):
-            return 'offsetof({}, {})'.format(
-                self.render_type(expr.query_typ), expr.member)
+            return "offsetof({}, {})".format(
+                self.render_type(expr.query_typ), expr.member
+            )
         else:  # pragma: no cover
             raise NotImplementedError(str(type(expr)))
 
@@ -239,5 +268,5 @@ class CPrinter:
         yield
         self._indent -= amount
 
-    def _print(self, txt=''):
-        print(self._indent * '   ' + txt, file=self.f)
+    def _print(self, txt=""):
+        print(self._indent * "   " + txt, file=self.f)

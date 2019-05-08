@@ -1,4 +1,3 @@
-
 """
 The api module contains a set of handy functions to invoke compilation,
 linking and assembling.
@@ -47,25 +46,39 @@ from .arch import get_arch, get_current_arch
 
 # When using 'from ppci.api import *' include the following:
 __all__ = [
-    'asm', 'c3c', 'cc', 'link', 'objcopy', 'bfcompile', 'construct',
-    'optimize', 'preprocess',
-    'get_arch', 'get_current_arch', 'is_platform_supported',
-    'ir_to_object', 'ir_to_python', 'ir_to_assembly',
-    'bf_to_ir', 'ws_to_ir']
+    "asm",
+    "c3c",
+    "cc",
+    "link",
+    "objcopy",
+    "bfcompile",
+    "construct",
+    "optimize",
+    "preprocess",
+    "get_arch",
+    "get_current_arch",
+    "is_platform_supported",
+    "ir_to_object",
+    "ir_to_python",
+    "ir_to_assembly",
+    "bf_to_ir",
+    "ws_to_ir",
+]
 
 
 def get_reporter(reporter):
     if reporter is None:
         return DummyReportGenerator()
     elif isinstance(reporter, str):
-        if reporter.endswith('.html'):
-            f = open(reporter, 'wt', encoding='utf8')
+        if reporter.endswith(".html"):
+            f = open(reporter, "wt", encoding="utf8")
             r = HtmlReportGenerator(f)
             r.header()
             return r
         else:
             raise ValueError(
-                'Cannot determine report type for {}'.format(reporter))
+                "Cannot determine report type for {}".format(reporter)
+            )
     else:
         return reporter
 
@@ -86,14 +99,14 @@ def construct(buildfile, targets=()):
     try:
         project = recipe_loader.load_file(buildfile)
     except OSError:
-        raise TaskError('Could not load {}'.format(buildfile))
+        raise TaskError("Could not load {}".format(buildfile))
     except xml.parsers.expat.ExpatError:
-        raise TaskError('Invalid xml')
+        raise TaskError("Invalid xml")
     finally:
         buildfile.close()
 
     if not project:
-        raise TaskError('No project loaded')
+        raise TaskError("No project loaded")
 
     runner = TaskRunner()
     runner.run(project, list(targets))
@@ -120,7 +133,7 @@ def asm(source, march, debug=False):
         >>> print(obj)
         CodeObject of 1 bytes
     """
-    logger = logging.getLogger('assemble')
+    logger = logging.getLogger("assemble")
     diag = DiagnosticsManager()
     march = get_arch(march)
     assembler = march.assembler
@@ -128,9 +141,9 @@ def asm(source, march, debug=False):
     obj = ObjectFile(march)
     if debug:
         obj.debug_info = DebugInfo()
-    logger.debug('Assembling into code section')
+    logger.debug("Assembling into code section")
     ostream = BinaryOutputStream(obj)
-    ostream.select_section('code')
+    ostream.select_section("code")
     try:
         assembler.prepare()
         assembler.assemble(source, ostream, diag, debug=debug)
@@ -138,7 +151,7 @@ def asm(source, march, debug=False):
     except CompilerError as ex:
         diag.error(ex.msg, ex.loc)
         diag.print_errors()
-        raise TaskError('Errors during assembling')
+        raise TaskError("Errors during assembling")
     return obj
 
 
@@ -165,7 +178,7 @@ def disasm(data, march):
     disassembler.disasm(data, ostream)
 
 
-OPT_LEVELS = ('0', '1', '2', 's')
+OPT_LEVELS = ("0", "1", "2", "s")
 
 
 def optimize(ir_module, level=0, reporter=None):
@@ -182,33 +195,35 @@ def optimize(ir_module, level=0, reporter=None):
             s: optimize for size
         reporter: Report detailed log to this reporter
     """
-    logger = logging.getLogger('optimize')
+    logger = logging.getLogger("optimize")
     level = str(level)
 
-    logger.info('Optimizing module %s level %s', ir_module.name, level)
+    logger.info("Optimizing module %s level %s", ir_module.name, level)
 
     if reporter:
-        reporter.message('{} before optimization:'.format(ir_module))
-        reporter.message('{} {}'.format(ir_module, ir_module.stats()))
+        reporter.message("{} before optimization:".format(ir_module))
+        reporter.message("{} {}".format(ir_module, ir_module.stats()))
         reporter.dump_ir(ir_module)
 
     assert level in OPT_LEVELS
-    if level == '0':
+    if level == "0":
         return
 
     # TODO: differentiate between optimization levels!
 
     # Optimization passes (bag of tricks) run them three times:
-    opt_passes = [Mem2RegPromotor(),
-                  RemoveAddZeroPass(),
-                  ConstantFolder(),
-                  CommonSubexpressionEliminationPass(),
-                  TailCallOptimization(),
-                  LoadAfterStorePass(),
-                  DeleteUnusedInstructionsPass(),
-                  CleanPass()] * 3
+    opt_passes = [
+        Mem2RegPromotor(),
+        RemoveAddZeroPass(),
+        ConstantFolder(),
+        CommonSubexpressionEliminationPass(),
+        TailCallOptimization(),
+        LoadAfterStorePass(),
+        DeleteUnusedInstructionsPass(),
+        CleanPass(),
+    ] * 3
 
-    if level == '3':
+    if level == "3":
         opt_passes.append(CJumpPass())
 
     # Run the passes over the module:
@@ -220,16 +235,16 @@ def optimize(ir_module, level=0, reporter=None):
 
     if reporter:
         # Dump report:
-        reporter.message('{} after optimization:'.format(ir_module))
-        reporter.message('{} {}'.format(ir_module, ir_module.stats()))
+        reporter.message("{} after optimization:".format(ir_module))
+        reporter.message("{} {}".format(ir_module, ir_module.stats()))
         reporter.dump_ir(ir_module)
 
     verify_module(ir_module)
 
 
 def ir_to_stream(
-        ir_module, march, output_stream, reporter=None,
-        debug=False, opt='speed'):
+    ir_module, march, output_stream, reporter=None, debug=False, opt="speed"
+):
     """ Translate IR module to output stream.
     """
     march = get_arch(march)
@@ -242,7 +257,8 @@ def ir_to_stream(
 
     # Code generation:
     code_generator.generate(
-        ir_module, output_stream, reporter=reporter, debug=debug)
+        ir_module, output_stream, reporter=reporter, debug=debug
+    )
 
 
 def ir_to_assembly(ir_modules, march, add_binary=False):
@@ -256,8 +272,8 @@ def ir_to_assembly(ir_modules, march, add_binary=False):
 
 
 def ir_to_object(
-        ir_modules, march, reporter=None, debug=False,
-        opt='speed', outstream=None):
+    ir_modules, march, reporter=None, debug=False, opt="speed", outstream=None
+):
     """ Translate IR-modules into code for the given architecture.
 
     Args:
@@ -277,7 +293,7 @@ def ir_to_object(
     if not reporter:  # pragma: no cover
         reporter = DummyReportGenerator()
 
-    reporter.heading(2, 'Code generation')
+    reporter.heading(2, "Code generation")
     reporter.message("Target: {}".format(march))
 
     # Construct output object:
@@ -296,18 +312,29 @@ def ir_to_object(
 
     for ir_module in ir_modules:
         ir_to_stream(
-            ir_module, march, output_stream,
-            reporter=reporter, debug=debug, opt=opt)
+            ir_module,
+            march,
+            output_stream,
+            reporter=reporter,
+            debug=debug,
+            opt=opt,
+        )
 
     # TODO: refactor polishing?
     obj.polish()
-    reporter.message('All modules generated!')
+    reporter.message("All modules generated!")
     reporter.dump_instructions(instruction_list, march)
     return obj
 
 
-def cc(source: io.TextIOBase, march, coptions=None, opt_level=0,
-       debug=False, reporter=None):
+def cc(
+    source: io.TextIOBase,
+    march,
+    coptions=None,
+    opt_level=0,
+    debug=False,
+    reporter=None,
+):
     """ C compiler. compiles a single source file into an object file.
 
     Args:
@@ -336,7 +363,7 @@ def cc(source: io.TextIOBase, march, coptions=None, opt_level=0,
         coptions = COptions()
 
     ir_module = c_to_ir(source, march, coptions=coptions, reporter=reporter)
-    reporter.message('{} {}'.format(ir_module, ir_module.stats()))
+    reporter.message("{} {}".format(ir_module, ir_module.stats()))
     reporter.dump_ir(ir_module)
     optimize(ir_module, level=opt_level, reporter=reporter)
     return ir_to_object([ir_module], march, debug=debug, reporter=reporter)
@@ -351,7 +378,8 @@ def wasmcompile(source: io.TextIOBase, march, opt_level=2, reporter=None):
 
     wasm_module = read_wasm(source)
     ir_module = wasm_to_ir(
-        wasm_module, march.info.get_type_info('ptr'), reporter=reporter)
+        wasm_module, march.info.get_type_info("ptr"), reporter=reporter
+    )
 
     # Optimize:
     optimize(ir_module, level=opt_level)
@@ -367,8 +395,15 @@ def llc(source, march):
     return ir_to_object([ir_module], march)
 
 
-def c3c(sources, includes, march, opt_level=0, reporter=None, debug=False,
-        outstream=None):
+def c3c(
+    sources,
+    includes,
+    march,
+    opt_level=0,
+    reporter=None,
+    debug=False,
+    outstream=None,
+):
     """ Compile a set of sources into binary format for the given target.
 
     Args:
@@ -393,15 +428,19 @@ def c3c(sources, includes, march, opt_level=0, reporter=None, debug=False,
     """
     reporter = get_reporter(reporter)
     march = get_arch(march)
-    ir_module = \
-        c3_to_ir(sources, includes, march, reporter=reporter)
+    ir_module = c3_to_ir(sources, includes, march, reporter=reporter)
 
     optimize(ir_module, level=opt_level, reporter=reporter)
 
-    opt_cg = 'size' if opt_level == 's' else 'speed'
+    opt_cg = "size" if opt_level == "s" else "speed"
     return ir_to_object(
-        [ir_module], march, debug=debug, reporter=reporter,
-        opt=opt_cg, outstream=outstream)
+        [ir_module],
+        march,
+        debug=debug,
+        reporter=reporter,
+        opt=opt_cg,
+        outstream=outstream,
+    )
 
 
 def pascal(sources, march, opt_level=0, reporter=None):
@@ -443,11 +482,12 @@ def bfcompile(source, target, reporter=None):
     """
     if not reporter:
         reporter = DummyReportGenerator()
-    reporter.message('brainfuck compilation listings')
+    reporter.message("brainfuck compilation listings")
     target = get_arch(target)
     ir_module = bf_to_ir(source, target)
     reporter.message(
-        'Before optimization {} {}'.format(ir_module, ir_module.stats()))
+        "Before optimization {} {}".format(ir_module, ir_module.stats())
+    )
     reporter.dump_ir(ir_module)
     optimize(ir_module, reporter=reporter)
     return ir_to_object([ir_module], target, reporter=reporter)
@@ -473,18 +513,18 @@ def fortrancompile(sources, target, reporter=DummyReportGenerator()):
 
 def objcopy(obj: ObjectFile, image_name: str, fmt: str, output_filename):
     """ Copy some parts of an object file to an output """
-    fmts = ['bin', 'hex', 'elf', 'exe', 'ldb', 'uimage']
+    fmts = ["bin", "hex", "elf", "exe", "ldb", "uimage"]
     if fmt not in fmts:
-        formats = ', '.join(fmts[:-1]) + ' and ' + fmts[-1]
-        raise TaskError('Only {} are supported'.format(formats))
+        formats = ", ".join(fmts[:-1]) + " and " + fmts[-1]
+        raise TaskError("Only {} are supported".format(formats))
 
     obj = get_object(obj)
     if fmt == "bin":
         image = obj.get_image(image_name)
-        with open(output_filename, 'wb') as output_file:
+        with open(output_filename, "wb") as output_file:
             output_file.write(image.data)
     elif fmt == "elf":
-        with open(output_filename, 'wb') as output_file:
+        with open(output_filename, "wb") as output_file:
             write_elf(obj, output_file)
         status = os.stat(output_filename)
         os.chmod(output_filename, status.st_mode | stat.S_IEXEC)
@@ -492,27 +532,30 @@ def objcopy(obj: ObjectFile, image_name: str, fmt: str, output_filename):
         image = obj.get_image(image_name)
         hexfile = HexFile()
         hexfile.add_region(image.address, image.data)
-        with open(output_filename, 'wt', encoding='utf8') as output_file:
+        with open(output_filename, "wt", encoding="utf8") as output_file:
             hexfile.save(output_file)
-    elif fmt == 'ldb':
+    elif fmt == "ldb":
         # TODO: fix this some other way to extract debug info
-        with open(output_filename, 'wt', encoding='utf8') as output_file:
+        with open(output_filename, "wt", encoding="utf8") as output_file:
             write_ldb(obj, output_file)
-    elif fmt == 'uimage':
+    elif fmt == "uimage":
         image = obj.get_image(image_name)
         uboot_architectures = {
-            'arm': uboot_image.Architecture.ARM,
-            'or1k': uboot_image.Architecture.OPENRISC,
-            'xtensa': uboot_image.Architecture.XTENSA,
+            "arm": uboot_image.Architecture.ARM,
+            "or1k": uboot_image.Architecture.OPENRISC,
+            "xtensa": uboot_image.Architecture.XTENSA,
         }
-        with open(output_filename, 'wb') as f:
+        with open(output_filename, "wb") as f:
             uboot_image.write_uboot_image(
-                f, image.data,
-                load_address=image.address, entry_point=image.address,
-                arch=uboot_architectures[obj.arch.name])
-    elif fmt == 'exe':
+                f,
+                image.data,
+                load_address=image.address,
+                entry_point=image.address,
+                arch=uboot_architectures[obj.arch.name],
+            )
+    elif fmt == "exe":
         writer = ExeWriter()
-        with open(output_filename, 'wb') as output_file:
+        with open(output_filename, "wb") as output_file:
             writer.write(obj, output_file)
     else:  # pragma: no cover
         raise NotImplementedError("output format not implemented")
@@ -525,9 +568,11 @@ def write_ldb(obj, output_file):
     - https://github.com/embedded-systems/qr/blob/master/in4073_xufo/
       x32-debug/ex2.dbg
     """
+
     def fx(address):
         assert isinstance(address, DebugAddress)
         return obj.get_section(address.section).address + address.offset
+
     debug_info = obj.debug_info
     for debug_location in debug_info.locations:
         filename = debug_location.loc.filename
@@ -535,16 +580,18 @@ def write_ldb(obj, output_file):
         address = fx(debug_location.address)
         print(
             'line: "{}":{} @ 0x{:08X}'.format(filename, row, address),
-            file=output_file)
+            file=output_file,
+        )
     for func in debug_info.functions:
         name = func.name
         address = fx(func.begin)
         print(
-            'function: {} <0> @ 0x{:08X}'.format(name, address),
-            file=output_file)
+            "function: {} <0> @ 0x{:08X}".format(name, address),
+            file=output_file,
+        )
     for var in debug_info.variables:
         name = var.name
         address = fx(var.address)
         print(
-            'global: {} <0> @ 0x{:08X}'.format(name, address),
-            file=output_file)
+            "global: {} <0> @ 0x{:08X}".format(name, address), file=output_file
+        )

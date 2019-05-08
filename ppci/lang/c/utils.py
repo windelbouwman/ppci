@@ -1,4 +1,3 @@
-
 import re
 from .nodes.visitor import Visitor
 
@@ -20,6 +19,7 @@ def print_ast(ast, file=None):
 
 class CAstPrinter(Visitor):
     """ Print AST of a C program """
+
     def __init__(self, file=None):
         self.indent = 0
         self.file = file
@@ -28,7 +28,7 @@ class CAstPrinter(Visitor):
         self.visit(node)
 
     def _print(self, node):
-        print('    ' * self.indent + str(node), file=self.file)
+        print("    " * self.indent + str(node), file=self.file)
 
     def visit(self, node):
         self._print(node)
@@ -46,6 +46,7 @@ class LineInfo:
     3: the following comes from a system header file
     4: The following should be wrapped inside extern "C" implicitly
     """
+
     FLAG_START_OF_NEW_FILE = 1
     FLAG_RETURN_FROM_INCLUDE = 2
 
@@ -56,9 +57,9 @@ class LineInfo:
 
     def __str__(self):
         if self.flags:
-            flags = ' ' + ' '.join(map(str, self.flags))
+            flags = " " + " ".join(map(str, self.flags))
         else:
-            flags = ''
+            flags = ""
         return '# {} "{}"{}'.format(self.line, self.filename, flags)
 
 
@@ -69,39 +70,39 @@ def cnum(txt: str):
     # Lower tha casing:
     num = txt.lower()
 
-    if '.' in txt:
+    if "." in txt:
         # Floating point
-        type_specifiers = ['double']
+        type_specifiers = ["double"]
         return float(num), type_specifiers
     else:
         # Integer:
 
         # Determine base:
-        if num.startswith('0x'):
+        if num.startswith("0x"):
             num = num[2:]
             base = 16
-        elif num.startswith('0b'):
+        elif num.startswith("0b"):
             num = num[2:]
             base = 2
-        elif num.startswith('0'):
+        elif num.startswith("0"):
             base = 8
         else:
             base = 10
 
         # Determine suffix:
         type_specifiers = []
-        while num.endswith(('l', 'u')):
-            if num.endswith('u'):
+        while num.endswith(("l", "u")):
+            if num.endswith("u"):
                 num = num[:-1]
-                type_specifiers.append('unsigned')
-            elif num.endswith('l'):
+                type_specifiers.append("unsigned")
+            elif num.endswith("l"):
                 num = num[:-1]
-                type_specifiers.append('long')
+                type_specifiers.append("long")
             else:
                 raise NotImplementedError()
 
         if not type_specifiers:
-            type_specifiers.append('int')
+            type_specifiers.append("int")
 
         # Take the integer:
         return int(num, base), type_specifiers
@@ -110,8 +111,9 @@ def cnum(txt: str):
 def replace_escape_codes(txt: str):
     """ Replace escape codes inside the given text """
     prog = re.compile(
-        r'(\\[0-7]{1,3})|(\\x[0-9a-fA-F]+)|'
-        r'(\\[\'"?\\abfnrtv])|(\\u[0-9a-fA-F]{4})|(\\U[0-9a-fA-F]{8})')
+        r"(\\[0-7]{1,3})|(\\x[0-9a-fA-F]+)|"
+        r'(\\[\'"?\\abfnrtv])|(\\u[0-9a-fA-F]{4})|(\\U[0-9a-fA-F]{8})'
+    )
     pos = 0
     endpos = len(txt)
     parts = []
@@ -121,7 +123,7 @@ def replace_escape_codes(txt: str):
         if mo:
             # We have an escape code:
             if mo.start() > pos:
-                parts.append(txt[pos:mo.start()])
+                parts.append(txt[pos : mo.start()])
             # print(mo.groups())
             octal, hx, ch, uni1, uni2 = mo.groups()
             if octal:
@@ -130,17 +132,17 @@ def replace_escape_codes(txt: str):
                 char = chr(int(hx[2:], 16))
             elif ch:
                 mp = {
-                    'a': '\a',
-                    'b': '\b',
-                    'f': '\f',
-                    'n': '\n',
-                    'r': '\r',
-                    't': '\t',
-                    'v': '\v',
-                    '\\': '\\',
+                    "a": "\a",
+                    "b": "\b",
+                    "f": "\f",
+                    "n": "\n",
+                    "r": "\r",
+                    "t": "\t",
+                    "v": "\v",
+                    "\\": "\\",
                     '"': '"',
                     "'": "'",
-                    '?': '?',
+                    "?": "?",
                 }
                 char = mp[ch[1:]]
             elif uni1:
@@ -155,13 +157,13 @@ def replace_escape_codes(txt: str):
             # No escape code found:
             parts.append(txt[pos:])
             pos = endpos
-    return ''.join(parts)
+    return "".join(parts)
 
 
 def charval(txt: str):
     """ Get the character value of a char literal """
     # Wide char?
-    if txt.startswith('L'):
+    if txt.startswith("L"):
         txt = txt[1:]
 
     # Strip out ' and '
@@ -170,4 +172,4 @@ def charval(txt: str):
     txt = txt[1:-1]
     assert len(txt) == 1
     # TODO: implement wide characters!
-    return ord(txt), ['char']
+    return ord(txt), ["char"]

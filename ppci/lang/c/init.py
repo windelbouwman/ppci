@@ -11,12 +11,13 @@ from .nodes import expressions, types
 class InitCursor:
     """ A cursor into an arbitrary complex data structure.
     """
+
     def __init__(self, context):
         self.context = context
         self._stack = []
 
     def __repr__(self):
-        return 'InitCursor({})'.format(self._stack)
+        return "InitCursor({})".format(self._stack)
 
     @property
     def level(self):
@@ -49,7 +50,8 @@ class InitCursor:
             initializer = self.get_value()
 
         init_level = self._make_init_level(
-            typ, location, initializer, implicit)
+            typ, location, initializer, implicit
+        )
 
         if not is_toplevel and not initializer:
             self.set_value(init_level.initializer)
@@ -102,6 +104,7 @@ class InitCursor:
 
 class InitLevel(metaclass=abc.ABCMeta):
     """ An in progress initializer. """
+
     def __init__(self, initializer, implicit):
         self.typ = initializer.typ
         self.initializer = initializer
@@ -131,7 +134,7 @@ class StructInitLevel(InitLevel):
         self.pos = 0  # TODO: integer pos or field name?
 
     def __repr__(self):
-        return 'Initializing struct {}, got so far: {}, at pos: {}'.format(
+        return "Initializing struct {}, got so far: {}, at pos: {}".format(
             self.typ, self.initializer, self.pos
         )
 
@@ -161,6 +164,7 @@ class StructInitLevel(InitLevel):
 
 class UnionInitLevel(InitLevel):
     """ Union initialization in progress. """
+
     def __init__(self, initializer, implicit):
         assert initializer.typ.is_union
         assert isinstance(initializer, expressions.UnionInitializer)
@@ -173,7 +177,7 @@ class UnionInitLevel(InitLevel):
         self._end = False
 
     def __repr__(self):
-        return 'Initializing union {}, got so far: {}'.format(
+        return "Initializing union {}, got so far: {}".format(
             self.typ, self.initializer
         )
 
@@ -197,6 +201,7 @@ class UnionInitLevel(InitLevel):
 
 class ArrayInitLevel(InitLevel):
     """ Array initialization in progress. """
+
     def __init__(self, initializer, size, implicit):
         assert initializer.typ.is_array
         assert isinstance(initializer, expressions.ArrayInitializer)
@@ -205,7 +210,7 @@ class ArrayInitLevel(InitLevel):
         self.pos = 0  # The position in the array
 
     def __repr__(self):
-        return 'Initializing array {} at position {}, got so far: {}'.format(
+        return "Initializing array {} at position {}, got so far: {}".format(
             self.typ, self.pos, self.initializer
         )
 
