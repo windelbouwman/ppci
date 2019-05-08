@@ -19,7 +19,7 @@ def get_sources(folder, extension):
 with open('report.html', 'w') as f:
     arch = get_arch('riscv')
     o1 = asm("start.s", arch)
-    o2 = asm("nosportasm.s", arch)
+    o2 = asm("nOSPortasm.s", arch)
     reporter = HtmlReportGenerator(f)
     path = os.path.join('.','csrc',argv[1])
     dirs, srcs = get_sources(path, '*.c')

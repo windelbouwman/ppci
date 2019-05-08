@@ -1,5 +1,5 @@
 
-Copyright (c) 2011-2018, Windel Bouwman
+Copyright (c) 2011-2019, Windel Bouwman
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without

@@ -1,4 +1,3 @@
-
 from .isa import thumb_isa, ThumbToken
 from ..encoding import Relocation
 from ...utils.bitfun import align, wrap_negative, BitView
@@ -6,13 +5,12 @@ from ...utils.bitfun import align, wrap_negative, BitView
 
 @thumb_isa.register_relocation
 class Lit8Relocation(Relocation):
-    name = 'lit8'
+    name = "lit8"
     token = ThumbToken
 
     def apply(self, sym_value, data, reloc_value):
-        assert sym_value % 4 == 0, '{} not multiple of 4'\
-            .format(sym_value)
-        offset = (sym_value - (align(reloc_value + 2, 4)))
+        assert sym_value % 4 == 0, "{} not multiple of 4".format(sym_value)
+        offset = sym_value - (align(reloc_value + 2, 4))
         assert offset in range(0, 1024, 4), str(offset)
         rel8 = offset >> 2
         data[0] = rel8
@@ -21,7 +19,7 @@ class Lit8Relocation(Relocation):
 
 @thumb_isa.register_relocation
 class WrapNew11Relocation(Relocation):
-    name = 'wrap_new11'
+    name = "wrap_new11"
     token = ThumbToken
 
     def apply(self, sym_value, data, reloc_value):
@@ -35,7 +33,7 @@ class WrapNew11Relocation(Relocation):
 
 @thumb_isa.register_relocation
 class Rel8Relocation(Relocation):
-    name = 'rel8'
+    name = "rel8"
     token = ThumbToken
 
     def apply(self, sym_value, data, reloc_value):
@@ -49,7 +47,7 @@ class Rel8Relocation(Relocation):
 
 @thumb_isa.register_relocation
 class BlImm11Relocation(Relocation):
-    name = 'bl_imm11'
+    name = "bl_imm11"
 
     @classmethod
     def size(cls):
@@ -72,7 +70,7 @@ class BlImm11Relocation(Relocation):
 
 @thumb_isa.register_relocation
 class BImm11Imm6Relocation(Relocation):
-    name = 'b_imm11_imm6'
+    name = "b_imm11_imm6"
 
     @classmethod
     def size(cls):
@@ -95,5 +93,5 @@ class BImm11Imm6Relocation(Relocation):
         data[3] |= (imm11 >> 8) & 0x7
         data[3] |= (j1 << 5) | (j2 << 3)
         data[0] |= imm6
-        data[1] |= (s << 2)
+        data[1] |= s << 2
         return data

@@ -30,6 +30,7 @@ test/FORTRAN
 .tox
 .mypy_cache
 *report.html
+tools/report*.html
 .cache
 .coverage
 htmlcov

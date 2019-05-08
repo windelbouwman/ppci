@@ -16,4 +16,4 @@ from .arch import MicroBlazeArch
 from .registers import MicroBlazeRegister
 
 
-__all__ = ('MicroBlazeArch', 'MicroBlazeRegister')
+__all__ = ("MicroBlazeArch", "MicroBlazeRegister")

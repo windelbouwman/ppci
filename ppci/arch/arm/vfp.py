@@ -23,20 +23,20 @@ class VfpToken(Token):
 class VfpInstruction(Instruction):
     tokens = [VfpToken]
     isa = vfp_isa
-    patterns = {'x1': 0b1110, 'x2': 0b1010, 'x3': 0b0}
+    patterns = {"x1": 0b1110, "x2": 0b1010, "x3": 0b0}
 
 
 class Vadd(VfpInstruction):
-    d = Operand('d', VfpRegister, write=True)
-    m = Operand('m', VfpRegister, read=True)
-    n = Operand('n', VfpRegister, read=True)
-    syntax = Syntax(['vadd.f64', ' ', d, ',', ' ', n, ',', ' ', m])
-    patterns = {'opc1': 0b0011, 'opc3': 0b00, 'opc': 2}
+    d = Operand("d", VfpRegister, write=True)
+    m = Operand("m", VfpRegister, read=True)
+    n = Operand("n", VfpRegister, read=True)
+    syntax = Syntax(["vadd.f64", " ", d, ",", " ", n, ",", " ", m])
+    patterns = {"opc1": 0b0011, "opc3": 0b00, "opc": 2}
 
 
 class Vsubf64(VfpInstruction):
-    d = Operand('d', VfpRegister, write=True)
-    m = Operand('m', VfpRegister, read=True)
-    n = Operand('n', VfpRegister, read=True)
-    syntax = Syntax(['vsub.f64', ' ', d, ',', ' ', n, ',', ' ', m])
-    patterns = {'opc1': 0b0011, 'opc3': 0b00, 'opc': 2}
+    d = Operand("d", VfpRegister, write=True)
+    m = Operand("m", VfpRegister, read=True)
+    n = Operand("n", VfpRegister, read=True)
+    syntax = Syntax(["vsub.f64", " ", d, ",", " ", n, ",", " ", m])
+    patterns = {"opc1": 0b0011, "opc3": 0b00, "opc": 2}
