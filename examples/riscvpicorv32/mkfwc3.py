@@ -1,10 +1,11 @@
 import os
 import argparse
-
+import logging
 from ppci.api import asm, c3c, link, objcopy, get_arch
 from ppci.binutils.objectfile import merge_memories
 from ppci.utils.reporting import HtmlReportGenerator
 
+logging.basicConfig(level=logging.DEBUG, filename='debug.log') 
 parser = argparse.ArgumentParser()
 parser.add_argument('example', help='example name from the c3src directory')
 parser.add_argument(
@@ -41,7 +42,7 @@ with open("report.html", 'w') as f, HtmlReportGenerator(f) as reporter:
     objcopy(obj, "flash", "bin", "code.bin")
     objcopy(obj, "ram", "bin", "data.bin")
     objcopy(obj, "flash", "elf", "firmware.elf")
-    size = 0x2000
+    size = 0x8000
     cimg = obj.get_image('flash')
     dimg = obj.get_image('ram')
     img = merge_memories(cimg, dimg, 'img')

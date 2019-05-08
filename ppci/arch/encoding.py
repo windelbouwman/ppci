@@ -467,7 +467,7 @@ class Syntax:
     GLYPHS = [
         '@', '&', '#', '=', ',', '.', ':',
         '(', ')', '[', ']', '{', '}',
-        '+', '-', '*']
+        '+', '-', '*', '%']
 
     def __init__(self, syntax, priority=0):
         assert isinstance(syntax, (list, tuple))
