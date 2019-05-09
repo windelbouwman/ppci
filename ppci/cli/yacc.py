@@ -41,11 +41,14 @@ from ..lang.tools.yacc import transform
 parser = argparse.ArgumentParser(
     description=__doc__,
     formatter_class=argparse.RawDescriptionHelpFormatter,
-    parents=[base_parser])
+    parents=[base_parser],
+)
 parser.add_argument(
-    'source', type=argparse.FileType('r'), help='the parser specification')
+    "source", type=argparse.FileType("r"), help="the parser specification"
+)
 parser.add_argument(
-    '-o', '--output', type=argparse.FileType('w'), required=True)
+    "-o", "--output", type=argparse.FileType("w"), required=True
+)
 
 
 def yacc(args=None):
@@ -55,5 +58,5 @@ def yacc(args=None):
         args.output.close()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     yacc()

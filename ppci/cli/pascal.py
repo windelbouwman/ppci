@@ -14,10 +14,9 @@ from ..common import CompilerError, get_file
 
 
 parser = argparse.ArgumentParser(
-    description=__doc__,
-    parents=[base_parser, march_parser, compile_parser])
-parser.add_argument(
-    'sources', metavar='source', help='source file', nargs='+')
+    description=__doc__, parents=[base_parser, march_parser, compile_parser]
+)
+parser.add_argument("sources", metavar="source", help="source file", nargs="+")
 
 
 def pascal(args=None):
@@ -34,13 +33,14 @@ def pascal(args=None):
         else:
             obj = api.pascal(sources, march, reporter=log_setup.reporter)
             from .runtime import create_linux_exe
+
             my_system = platform.system()
-            if my_system == 'Linux':
-                entry_function_name = 'hello1_hello1_main'
-                create_linux_exe(entry_function_name, 'w00t', obj)
+            if my_system == "Linux":
+                entry_function_name = "hello1_hello1_main"
+                create_linux_exe(entry_function_name, "w00t", obj)
             else:
-                raise CompilerError('System %s not supported' % my_system)
+                raise CompilerError("System %s not supported" % my_system)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     pascal()

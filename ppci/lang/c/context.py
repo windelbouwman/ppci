@@ -3,6 +3,7 @@
 
 """
 
+import logging
 import struct
 from ...common import CompilerError
 from ...utils.bitfun import value_to_bits, bits_to_bytes
@@ -15,6 +16,8 @@ from .utils import required_padding
 
 class CContext:
     """ A context as a substitute for global data """
+
+    logger = logging.getLogger("ccontext")
 
     def __init__(self, coptions, arch_info):
         self.coptions = coptions
@@ -131,8 +134,6 @@ class CContext:
             return self.arch_info.get_alignment("int")
         elif isinstance(typ, (types.PointerType, types.FunctionType)):
             return self.arch_info.get_alignment("ptr")
-        elif isinstance(typ, types.BitFieldType):
-            return 1
         else:  # pragma: no cover
             raise NotImplementedError(str(typ))
 
@@ -279,12 +280,12 @@ class CContext:
         implicit_value = tuple([bytes([0] * element_size)])
 
         mem = tuple()
-        for iv in ival.values:
+        for value in ival.values:
             # TODO: handle alignment
-            if iv is None:
+            if value is None:
                 element_mem = implicit_value
             else:
-                element_mem = self.gen_global_ival(typ.element_type, iv)
+                element_mem = self.gen_global_ival(typ.element_type, value)
             mem = mem + element_mem
 
         array_size = self.eval_expr(typ.size)
@@ -320,8 +321,8 @@ class CContext:
             if field.is_bitfield:
                 # Special case for bitfields
                 if field in ival.values:
-                    iv = ival.values[field]
-                    cval = self.eval_expr(iv)
+                    value = ival.values[field]
+                    cval = self.eval_expr(value)
                 else:
                     cval = 0
                 bitsize = self.eval_expr(field.bitsize)
@@ -342,8 +343,8 @@ class CContext:
 
                 # Add field data, if any:
                 if field in ival.values:
-                    iv = ival.values[field]
-                    mem = mem + self.gen_global_ival(field.typ, iv)
+                    value = ival.values[field]
+                    mem = mem + self.gen_global_ival(field.typ, value)
                 else:
                     field_size = self.sizeof(field.typ)
                     mem = mem + (bytes([0] * field_size),)
@@ -370,6 +371,12 @@ class CContext:
     def error(message, location, hints=None):
         """ Trigger an error at the given location """
         raise CompilerError(message, loc=location, hints=hints)
+
+    def warning(self, message, location, hints=None):
+        """ Trigger a warning at the given location """
+        # TODO: figure a nice way to gather warnings.
+        self.logger.warning(message)
+        self.logger.info('At: %s, hints: %s', location, hints)
 
     def eval_expr(self, expr):
         """ Evaluate an expression right now! (=at compile time) """
@@ -416,8 +423,15 @@ class CContext:
         elif isinstance(expr, expressions.CharLiteral):
             value = expr.value
         elif isinstance(expr, expressions.Cast):
-            # TODO: do some real casting!
             value = self.eval_expr(expr.expr)
+
+            # do some real casting:
+            if expr.typ.is_integer:
+                value = int(value)
+            elif expr.typ.is_float or expr.typ.is_double:
+                value = float(value)
+            else:
+                pass
         elif isinstance(expr, expressions.Sizeof):
             if isinstance(expr.sizeof_typ, types.CType):
                 value = self.sizeof(expr.sizeof_typ)

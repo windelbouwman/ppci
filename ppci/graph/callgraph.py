@@ -1,4 +1,3 @@
-
 """ A callgraph is a graph of functions which call eachother.
 
 """

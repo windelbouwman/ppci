@@ -8,13 +8,15 @@ from .. import api
 from ..binutils.objectfile import ObjectFile, print_object
 
 
-parser = argparse.ArgumentParser(
-    description=__doc__, parents=[base_parser])
+parser = argparse.ArgumentParser(description=__doc__, parents=[base_parser])
+parser.add_argument("obj", help="object file", type=argparse.FileType("r"))
 parser.add_argument(
-    'obj', help='object file', type=argparse.FileType('r'))
-parser.add_argument(
-    '-d', '--disassemble', help='Disassemble contents', action='store_true',
-    default=False)
+    "-d",
+    "--disassemble",
+    help="Disassemble contents",
+    action="store_true",
+    default=False,
+)
 
 
 def objdump(args=None):
@@ -31,5 +33,5 @@ def objdump(args=None):
                 api.disasm(f, obj.arch)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     objdump()

@@ -632,9 +632,17 @@ class CCodeGenerator:
     def _init_array(self, ptr, typ, expr: expressions.ArrayInitializer):
         assert isinstance(expr, expressions.ArrayInitializer)
         inc = 0
-        for iv in expr.values:
+        for value in expr.values:
             # TODO: do array elements need to be aligned?
-            ptr, inc2 = self.gen_local_init(ptr, typ.element_type, iv)
+            if value is None:
+                # Implicit value (a hole between other valid values.)
+                pad_inc = self.context.sizeof(typ.element_type)
+                padding = self.emit(ir.Const(
+                    pad_inc, "padding", ir.ptr))
+                ptr = self.emit(ir.add(ptr, padding, "iptr", ir.ptr))
+                inc2 = pad_inc
+            else:
+                ptr, inc2 = self.gen_local_init(ptr, typ.element_type, value)
             inc += inc2
         return ptr, inc
 
@@ -654,19 +662,28 @@ class CCodeGenerator:
                     ptr = self.emit(ir.add(ptr, padding, "iptr", ir.ptr))
                     offset += pad_inc
 
-                iv = expr.values[field]
                 # Fill position:
                 if field.is_bitfield:  # Bit field special case!
-                    value = self.gen_expr(iv, rvalue=True)
-                    bitsize = self.context.eval_expr(field.bitsize)
-                    bitshift = field_offsets[field] % 8
-                    signed = field.typ.is_signed
-                    access = BitFieldAccess(ptr, bitshift, bitsize, signed)
-                    self._store_bitfield(value, access)
+                    if field in expr.values:
+                        value = expr.values[field]
+                        value = self.gen_expr(value, rvalue=True)
+                        bitsize = self.context.eval_expr(field.bitsize)
+                        bitshift = field_offsets[field] % 8
+                        signed = field.typ.is_signed
+                        access = BitFieldAccess(ptr, bitshift, bitsize, signed)
+                        self._store_bitfield(value, access)
                     # TODO: how much to increase now?
                     inc2 = 0
                 else:
-                    ptr, inc2 = self.gen_local_init(ptr, field.typ, iv)
+                    if field in expr.values:
+                        value = expr.values[field]
+                        ptr, inc2 = self.gen_local_init(ptr, field.typ, value)
+                    else:
+                        pad_inc = self.context.sizeof(field.typ)
+                        padding = self.emit(ir.Const(
+                            pad_inc, "padding", ir.ptr))
+                        ptr = self.emit(ir.add(ptr, padding, "iptr", ir.ptr))
+                        inc2 = pad_inc
                 offset += inc2
 
             # Fill last padding space:

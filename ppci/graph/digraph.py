@@ -9,6 +9,7 @@ from .graph import BaseGraph, Node
 
 class DiGraph(BaseGraph):
     """ Directed graph. """
+
     def __init__(self):
         super().__init__()
         self.suc_map = defaultdict(set)
@@ -66,6 +67,7 @@ class DiGraph(BaseGraph):
 
 class DiNode(Node):
     """ Node in a directed graph """
+
     @property
     def successors(self):
         """ Get the successors of this node """

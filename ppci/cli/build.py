@@ -9,13 +9,15 @@ from .base import base_parser, LogSetup
 from .. import api
 
 
-parser = argparse.ArgumentParser(
-    description=__doc__, parents=[base_parser])
+parser = argparse.ArgumentParser(description=__doc__, parents=[base_parser])
 parser.add_argument(
-    '-f', '--buildfile', metavar='build-file',
-    help='use buildfile, otherwise build.xml is the default',
-    default='build.xml')
-parser.add_argument('targets', metavar='target', nargs='*')
+    "-f",
+    "--buildfile",
+    metavar="build-file",
+    help="use buildfile, otherwise build.xml is the default",
+    default="build.xml",
+)
+parser.add_argument("targets", metavar="target", nargs="*")
 
 
 def build(args=None):
@@ -25,5 +27,5 @@ def build(args=None):
         api.construct(args.buildfile, args.targets)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     build()

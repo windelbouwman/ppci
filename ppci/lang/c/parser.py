@@ -543,10 +543,6 @@ class CParser(RecursiveDescentParser):
 
         return initializer
 
-    def parse_scalar_initializer(self):
-        """ Parse a scalar initial value. """
-        raise NotImplementedError()
-
     def parse_array_string_initializer(self, typ):
         """ Handle the special case where an array is initialized with
         a string.
@@ -1123,7 +1119,7 @@ class CParser(RecursiveDescentParser):
                 expr = self.parse_expression()
                 self.consume(")")
         else:
-            self.not_impl(self.peek)
+            self.error('Expected expression')
 
         # Postfix operations (have the highest precedence):
         while self.peek in ["--", "++", "[", ".", "->", "("]:

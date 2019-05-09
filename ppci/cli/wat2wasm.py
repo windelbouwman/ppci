@@ -8,15 +8,20 @@ from .base import base_parser, LogSetup
 from ..wasm import read_wat
 
 
-parser = argparse.ArgumentParser(
-    description=__doc__,
-    parents=[base_parser])
+parser = argparse.ArgumentParser(description=__doc__, parents=[base_parser])
 parser.add_argument(
-    'wat', metavar='wat file', type=argparse.FileType('r'),
-    help='wasm text file to read')
+    "wat",
+    metavar="wat file",
+    type=argparse.FileType("r"),
+    help="wasm text file to read",
+)
 parser.add_argument(
-    '-o', '--output', metavar='wasm file', type=argparse.FileType('wb'),
-    help='File to write the binary wasm file to, default is stdout')
+    "-o",
+    "--output",
+    metavar="wasm file",
+    type=argparse.FileType("wb"),
+    help="File to write the binary wasm file to, default is stdout",
+)
 
 
 def wat2wasm(args=None):
@@ -28,5 +33,5 @@ def wat2wasm(args=None):
         args.output.close()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     wat2wasm()

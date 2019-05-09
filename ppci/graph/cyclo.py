@@ -1,4 +1,3 @@
-
 """ Calculate the cyclomatic complexity.
 
 Cyclomatic complexity is defined as:

@@ -18,7 +18,7 @@ def topological_sort(nodes):
 
     def visit(n):
         # print(n)
-        assert n not in temp_marked, 'DAG has cycles'
+        assert n not in temp_marked, "DAG has cycles"
         if n in unmarked:
             temp_marked.add(n)
             for m in n.children:
@@ -37,6 +37,7 @@ def topological_sort(nodes):
 
 class BaseGraph(abc.ABC):
     """ Base graph class """
+
     def __init__(self):
         self.nodes = OrderedSet()
 
@@ -91,6 +92,7 @@ class Graph(BaseGraph):
 
     Can dump to graphviz dot format for example!
     """
+
     def del_node(self, node):
         """ Remove a node from the graph """
         # Delete edges:
@@ -157,6 +159,7 @@ class Graph(BaseGraph):
 
 class Node:
     """ Node in a graph. """
+
     def __init__(self, graph):
         self.graph = graph
         self.graph.add_node(self)

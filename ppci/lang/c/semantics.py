@@ -169,37 +169,37 @@ class CSemantics:
         init_cursor.enter_compound(typ, location, implicit)
         return init_cursor
 
-    def init_store(self, init_cursor, initial_value):
+    def init_store(self, init_cursor, value):
         """ Store an initial value at position pointed by cursor. """
 
         if init_cursor.at_end():
-            self.warning("Excess elements!")
+            self.warning("Excess elements!", value.location)
 
         # Determine if we need implicit init levels:
         target_typ = init_cursor.at_typ()
-        while not self._root_scope.equal_types(initial_value.typ, target_typ):
+        while not self._root_scope.equal_types(value.typ, target_typ):
             # If we are at a complex type, implicit descend otherwise cast:
             if target_typ.is_compound:
                 init_cursor.enter_compound(
-                    target_typ, initial_value.location, True
+                    target_typ, value.location, True
                 )
                 target_typ = init_cursor.at_typ()
             else:
-                initial_value = self.coerce(initial_value, target_typ)
+                value = self.coerce(value, target_typ)
                 break
 
         self.logger.debug(
-            "Storing %s at cursor %s", initial_value, init_cursor
+            "Storing %s at cursor %s", value, init_cursor
         )
 
         # Retrieve current value to check overwrite:
         previous_value = init_cursor.get_value()
         if previous_value:
             self.warning(
-                "This overwrites other initial value.", initial_value.location
+                "This overwrites other initial value.", value.location
             )
             self.warning("previously defined here.", previous_value.location)
-        init_cursor.set_value(initial_value)
+        init_cursor.set_value(value)
 
     def on_array_designator(self, init_cursor, index, location):
         """ Handle array designator. """
@@ -923,6 +923,10 @@ class CSemantics:
     def error(self, message, location, hints=None):
         """ Trigger an error at the given location """
         self.context.error(message, location, hints=hints)
+
+    def warning(self, message, location, hints=None):
+        """ Trigger a warning at the given location """
+        self.context.warning(message, location, hints=hints)
 
     def not_impl(self, message, location):  # pragma: no cover
         """ Call this function to mark unimplemented code """

@@ -9,10 +9,9 @@ from .. import api
 
 
 parser = argparse.ArgumentParser(
-    description=__doc__,
-    parents=[base_parser, march_parser, compile_parser])
-parser.add_argument(
-    'source', help='source file', type=argparse.FileType('r'))
+    description=__doc__, parents=[base_parser, march_parser, compile_parser]
+)
+parser.add_argument("source", help="source file", type=argparse.FileType("r"))
 
 
 def llc(args=None):
@@ -24,5 +23,5 @@ def llc(args=None):
         do_compile([ir_module], march, log_setup.reporter, log_setup.args)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     llc()

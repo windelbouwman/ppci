@@ -10,13 +10,20 @@ from .. import api
 parser = argparse.ArgumentParser(
     description=__doc__,
     formatter_class=argparse.RawDescriptionHelpFormatter,
-    parents=[base_parser, march_parser, out_parser])
+    parents=[base_parser, march_parser, out_parser],
+)
 parser.add_argument(
-    '-g', '--debug', help='create debug information',
-    action='store_true', default=False)
+    "-g",
+    "--debug",
+    help="create debug information",
+    action="store_true",
+    default=False,
+)
 parser.add_argument(
-    'sourcefile', type=argparse.FileType('r'),
-    help='the source file to assemble')
+    "sourcefile",
+    type=argparse.FileType("r"),
+    help="the source file to assemble",
+)
 
 
 def asm(args=None):
@@ -28,9 +35,9 @@ def asm(args=None):
         obj = api.asm(args.sourcefile, march, debug=args.debug)
 
         # Write object file to disk:
-        with open(args.output, 'w') as output:
+        with open(args.output, "w") as output:
             obj.save(output)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     asm()

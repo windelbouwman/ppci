@@ -7,4 +7,4 @@ from .digraph import DiGraph, DiNode
 from .maskable_graph import MaskableGraph
 
 
-__all__ = ('Graph', 'Node', 'DiGraph', 'DiNode', 'MaskableGraph')
+__all__ = ("Graph", "Node", "DiGraph", "DiNode", "MaskableGraph")

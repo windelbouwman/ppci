@@ -16,12 +16,17 @@ from .. import api
 parser = argparse.ArgumentParser(
     description=__doc__,
     formatter_class=argparse.RawDescriptionHelpFormatter,
-    parents=[base_parser, march_parser, compile_parser])
+    parents=[base_parser, march_parser, compile_parser],
+)
 parser.add_argument(
-    '-i', '--include', action='append', metavar='include',
-    help='include file', default=[])
-parser.add_argument(
-    'sources', metavar='source', help='source file', nargs='+')
+    "-i",
+    "--include",
+    action="append",
+    metavar="include",
+    help="include file",
+    default=[],
+)
+parser.add_argument("sources", metavar="source", help="source file", nargs="+")
 
 
 def c3c(args=None):
@@ -32,11 +37,11 @@ def c3c(args=None):
         march = get_arch_from_args(args)
 
         ir_module = api.c3_to_ir(
-            args.sources, args.include, march,
-            reporter=log_setup.reporter)
+            args.sources, args.include, march, reporter=log_setup.reporter
+        )
 
         do_compile([ir_module], march, log_setup.reporter, log_setup.args)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     c3c()

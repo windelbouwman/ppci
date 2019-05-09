@@ -17,6 +17,7 @@ Idea:
 import io
 import logging
 from itertools import cycle
+import traceback
 
 from pygments.styles import get_style_by_name
 from pygments.lexers import CLexer
@@ -174,11 +175,14 @@ class PpciExplorer:
         except CompilerError as ex:
             if ex.loc:
                 self.errors_processor.errors[ex.loc.row] = ex.msg
-                self.output_buffer.text = str(ex)
+                self.output_buffer.text = 'Compiler error: {}'.format(ex)
             else:
-                self.output_buffer.text = str(ex)
+                self.output_buffer.text = 'Compiler error: {}'.format(ex)
         except Exception as ex:  # Catch the more hard-core exceptions.
-            self.output_buffer.text = str(ex)
+            stderr = io.StringIO()
+            print('Other error: {} -> {}'.format(type(ex), ex), file=stderr)
+            traceback.print_exc(file=stderr)
+            self.output_buffer.text = stderr.getvalue()
 
     def compile(self, source):
         """ Compile the given source with current settings. """

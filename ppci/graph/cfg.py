@@ -11,17 +11,20 @@ Functions present:
 """
 
 import logging
+
 # TODO: this is possibly the third edition of flow graph code.. Merge at will!
 from .digraph import DiGraph, DiNode
 from . import lt
 from .algorithm.fixed_point_dominator import calculate_dominators
 from .algorithm.fixed_point_dominator import calculate_post_dominators
-from .algorithm.fixed_point_dominator import calculate_immediate_post_dominators
+from .algorithm.fixed_point_dominator import (
+    calculate_immediate_post_dominators,
+)
 from collections import namedtuple
 
-DomTreeNode = namedtuple('DomTreeNode', ['node', 'children'])
-Loop = namedtuple('Loop', ['header', 'rest'])
-logger = logging.getLogger('cfg')
+DomTreeNode = namedtuple("DomTreeNode", ["node", "children"])
+Loop = namedtuple("Loop", ["header", "rest"])
+logger = logging.getLogger("cfg")
 
 
 def ir_function_to_graph(ir_function):
@@ -66,7 +69,8 @@ def ir_function_to_graph(ir_function):
                 node.no = block_map[block.last_instruction.lab_no]
 
     logger.debug(
-        'created cfg for %s with %s nodes', ir_function.name, len(cfg))
+        "created cfg for %s with %s nodes", ir_function.name, len(cfg)
+    )
     return cfg, block_map
 
 
@@ -85,6 +89,7 @@ class ControlFlowGraph(DiGraph):
     - Reachable nodes
     - Loops
     """
+
     def __init__(self):
         super().__init__()
         self.entry_node = None
@@ -202,7 +207,8 @@ class ControlFlowGraph(DiGraph):
             self._spdom[node] = self._pdom[node] - {node}
 
         self._ipdom = calculate_immediate_post_dominators(
-            self.nodes, self._pdom, self._spdom)
+            self.nodes, self._pdom, self._spdom
+        )
 
     def calculate_reach(self):
         """ Calculate which nodes can reach what other nodes """
@@ -240,9 +246,14 @@ class ControlFlowGraph(DiGraph):
                     # Back edge!
                     # Determine the other nodes in the loop:
                     loop_nodes = [
-                        ln for ln in self._reach[header]
-                        if (header.dominates(ln)
-                            and ln.can_reach(header) and ln is not header)]
+                        ln
+                        for ln in self._reach[header]
+                        if (
+                            header.dominates(ln)
+                            and ln.can_reach(header)
+                            and ln is not header
+                        )
+                    ]
                     loop = Loop(header=header, rest=loop_nodes)
                     loops.append(loop)
         return loops
@@ -342,4 +353,4 @@ class ControlFlowNode(DiNode):
 
     def __repr__(self):
         value = self.name if self.name else id(self)
-        return 'CFG-node({})'.format(value)
+        return "CFG-node({})".format(value)

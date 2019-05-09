@@ -9,11 +9,15 @@ from .. import api
 
 
 parser = argparse.ArgumentParser(
-    description=__doc__,
-    parents=[base_parser, march_parser, compile_parser])
+    description=__doc__, parents=[base_parser, march_parser, compile_parser]
+)
 parser.add_argument(
-    'sources', metavar='source', help='source file', nargs='+',
-    type=argparse.FileType('r'))
+    "sources",
+    metavar="source",
+    help="source file",
+    nargs="+",
+    type=argparse.FileType("r"),
+)
 
 
 def pycompile(args=None):
@@ -30,5 +34,5 @@ def pycompile(args=None):
         do_compile(ir_modules, march, log_setup.reporter, log_setup.args)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     pycompile()

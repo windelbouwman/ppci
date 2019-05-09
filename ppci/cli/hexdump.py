@@ -5,15 +5,16 @@ from .base import base_parser, LogSetup
 from ..utils.hexdump import hexdump as dump
 
 
-parser = argparse.ArgumentParser(
-    description=__doc__,
-    parents=[base_parser])
+parser = argparse.ArgumentParser(description=__doc__, parents=[base_parser])
 parser.add_argument(
-    'file', metavar='file', type=argparse.FileType('rb'),
-    help='File to dump contents of')
+    "file",
+    metavar="file",
+    type=argparse.FileType("rb"),
+    help="File to dump contents of",
+)
 parser.add_argument(
-    '--width', default=16, type=int,
-    help="Width of the hexdump.")
+    "--width", default=16, type=int, help="Width of the hexdump."
+)
 
 
 def hexdump(args=None):
@@ -25,5 +26,5 @@ def hexdump(args=None):
         dump(contents, width=args.width)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     hexdump()
