@@ -6,4 +6,4 @@ from .debugger import Debugger
 from .cli import DebugCli
 
 
-__all__ = ['Debugger', 'DebugCli', 'DebugDriver']
+__all__ = ["Debugger", "DebugCli", "DebugDriver"]

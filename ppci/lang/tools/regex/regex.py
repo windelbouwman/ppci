@@ -16,22 +16,23 @@ class Regex(metaclass=abc.ABCMeta):
 
     def __or__(self, other):
         if not isinstance(other, Regex):
-            raise TypeError('Expected Regex but got {}'.format(type(other)))
+            raise TypeError("Expected Regex but got {}".format(type(other)))
         return LogicalOr(self, other)
 
     def __and__(self, other):
         if not isinstance(other, Regex):
-            raise TypeError('Expected Regex but got {}'.format(type(other)))
+            raise TypeError("Expected Regex but got {}".format(type(other)))
         return LogicalAnd(self, other)
 
     def __add__(self, other):
         if not isinstance(other, Regex):
-            raise TypeError('Expected Regex but got {}'.format(type(other)))
+            raise TypeError("Expected Regex but got {}".format(type(other)))
         return Concatenation(self, other)
 
 
 class Epsilon(Regex):
     """ The empty string """
+
     def nu(self):
         return self
 
@@ -39,7 +40,7 @@ class Epsilon(Regex):
         return NULL
 
     def __str__(self):
-        return ''
+        return ""
 
 
 EPSILON = Epsilon()
@@ -47,6 +48,7 @@ EPSILON = Epsilon()
 
 class SymbolSet(Regex):
     """ Match a single symbol """
+
     def __init__(self, symbols):
         self._symbols = symbol_set.SymbolSet(symbols)
 
@@ -70,9 +72,10 @@ def Symbol(symbol):
 
 class Kleene(Regex):
     """ Kleene closure modifier r* """
+
     def __init__(self, expr):
         if not isinstance(expr, Regex):
-            raise TypeError('Expected Regex but got {}'.format(type(expr)))
+            raise TypeError("Expected Regex but got {}".format(type(expr)))
         self._expr = expr
 
     def nu(self):
@@ -82,17 +85,18 @@ class Kleene(Regex):
         return self._expr.derivative(symbol) + self
 
     def __str__(self):
-        return '{}*'.format(self._expr)
+        return "{}*".format(self._expr)
 
 
 class Concatenation(Regex):
     """ Concatenate two regular expressions a . b """
+
     def __init__(self, lhs, rhs):
         if not isinstance(lhs, Regex):
-            raise TypeError('Expected Regex but got {}'.format(type(lhs)))
+            raise TypeError("Expected Regex but got {}".format(type(lhs)))
         self._lhs = lhs
         if not isinstance(rhs, Regex):
-            raise TypeError('Expected Regex but got {}'.format(type(rhs)))
+            raise TypeError("Expected Regex but got {}".format(type(rhs)))
         self._rhs = rhs
 
     def nu(self):
@@ -102,20 +106,22 @@ class Concatenation(Regex):
         nu = self._lhs.nu()
         return LogicalOr(
             Concatenation(self._lhs.derivative(symbol), self._rhs),
-            Concatenation(nu, self._rhs.derivative(symbol)))
+            Concatenation(nu, self._rhs.derivative(symbol)),
+        )
 
     def __str__(self):
-        return '{}{}'.format(self._lhs, self._rhs)
+        return "{}{}".format(self._lhs, self._rhs)
 
 
 class LogicalOr(Regex):
     """ Alternation operator a | b """
+
     def __init__(self, lhs, rhs):
         if not isinstance(lhs, Regex):
-            raise TypeError('Expected Regex but got {}'.format(type(lhs)))
+            raise TypeError("Expected Regex but got {}".format(type(lhs)))
         self._lhs = lhs
         if not isinstance(rhs, Regex):
-            raise TypeError('Expected Regex but got {}'.format(type(rhs)))
+            raise TypeError("Expected Regex but got {}".format(type(rhs)))
         self._rhs = rhs
 
     def nu(self):
@@ -125,17 +131,18 @@ class LogicalOr(Regex):
         return self._lhs.derivative(symbol) | self._rhs.derivative(symbol)
 
     def __str__(self):
-        return '({})|({})'.format(self._lhs, self._rhs)
+        return "({})|({})".format(self._lhs, self._rhs)
 
 
 class LogicalAnd(Regex):
     """ operator a & b """
+
     def __init__(self, lhs, rhs):
         if not isinstance(lhs, Regex):
-            raise TypeError('Expected Regex but got {}'.format(type(rhs)))
+            raise TypeError("Expected Regex but got {}".format(type(rhs)))
         self._lhs = lhs
         if not isinstance(rhs, Regex):
-            raise TypeError('Expected Regex but got {}'.format(type(rhs)))
+            raise TypeError("Expected Regex but got {}".format(type(rhs)))
         self._rhs = rhs
 
     def nu(self):
@@ -145,4 +152,4 @@ class LogicalAnd(Regex):
         return self._lhs.derivative(symbol) & self._rhs.derivative(symbol)
 
     def __str__(self):
-        return '({})&({})'.format(self._lhs, self._rhs)
+        return "({})&({})".format(self._lhs, self._rhs)

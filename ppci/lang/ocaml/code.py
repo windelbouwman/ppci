@@ -7,12 +7,12 @@ from .opcodes import Instrs, Instruction, Opcode
 from .io import FileReader
 
 
-logger = logging.getLogger('ocaml')
+logger = logging.getLogger("ocaml")
 
 
 def load_code(data: bytes):
     if len(data) % 4 != 0:
-        raise ValueError('codesize must be a multiple of 4')
+        raise ValueError("codesize must be a multiple of 4")
     reader = FileReader(io.BytesIO(data))
     return CodeReader(reader, len(data)).read()
 
@@ -29,7 +29,7 @@ class CodeReader:
         while self.reader.f.tell() < self.size:
             instruction = self.read_instr()
             instructions.append(instruction)
-        logger.debug('Read %s instructions', len(instructions))
+        logger.debug("Read %s instructions", len(instructions))
         return instructions
 
     def read_instr(self):
@@ -37,13 +37,13 @@ class CodeReader:
         label = self.nr
         opcode = self.read_word()
         if opcode not in Instrs:
-            raise ValueError('Unknown opcode %s' % opcode)
+            raise ValueError("Unknown opcode %s" % opcode)
 
         name, arg_names = Instrs[opcode]
         if opcode == Opcode.SWITCH:
             n = self.read_word()
             size_tag = n >> 16
-            size_long = n & 0xffff
+            size_long = n & 0xFFFF
             size = size_tag + size_long
             tab = []
             for _ in range(size):
@@ -74,4 +74,4 @@ class CodeReader:
 
     def read_word(self):
         self.nr += 1
-        return self.reader.read_fmt('<I')
+        return self.reader.read_fmt("<I")

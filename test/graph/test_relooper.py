@@ -10,7 +10,7 @@ class RelooperTestCase(unittest.TestCase):
     def test_return_from_loop(self):
         """ Check the behavior when we return from within a loop """
         mod = """module foo;
-        procedure x() {
+        global procedure x() {
             block1: {
                 jmp block2;
             }

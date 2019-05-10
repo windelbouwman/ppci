@@ -16,7 +16,7 @@ detected.
     >>> from ppci.irutils import read_module, verify_module
     >>> ir_source = """
     ... module demo;
-    ... function i32 inc(i32 a, i32 b) {
+    ... global function i32 inc(i32 a, i32 b) {
     ...   inc_block0: {
     ...     jmp inc_block1;
     ...   }

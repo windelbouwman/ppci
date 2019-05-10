@@ -18,44 +18,45 @@ from .enums import ConstantTag, AccessFlag
 from .opcodes import op_to_arg_types
 
 
-logger = logging.getLogger('jvm.io')
+logger = logging.getLogger("jvm.io")
 
 
 def read_jar(filename):
     """ Take a stroll through a java jar file. """
-    logger.info('Reading jar: %s', filename)
+    logger.info("Reading jar: %s", filename)
     with zipfile.ZipFile(filename) as f:
-        with f.open('META-INF/MANIFEST.MF') as manifest_file:
+        with f.open("META-INF/MANIFEST.MF") as manifest_file:
             read_manifest(io.TextIOWrapper(manifest_file))
 
         # Load some random classes:
         class_files = []
         for name in f.namelist():
-            if name.endswith('.class'):
-                with f.open(name, 'r') as class_file:
+            if name.endswith(".class"):
+                with f.open(name, "r") as class_file:
                     class_file = read_class_file(class_file)
                 class_files.append(class_file)
-        logger.debug('Loaded %s class files', len(class_files))
+        logger.debug("Loaded %s class files", len(class_files))
 
 
 def read_manifest(f):
     """ Read a jarfile manifest. """
-    logger.debug('Reading manifest')
+    logger.debug("Reading manifest")
     properties = {}
     for line in f:
         line = line.strip()
         if line:
-            key, value = map(str.strip, line.split(':', 1))
+            key, value = map(str.strip, line.split(":", 1))
             if key in properties:
-                logger.warning('Duplicate key in manifest file: %s', key)
+                logger.warning("Duplicate key in manifest file: %s", key)
             properties[key] = value.strip()
-    logger.debug('Read manifest: %s', properties)
+    logger.debug("Read manifest: %s", properties)
     return properties
 
 
 class JavaFileReader(BaseIoReader):
     """ Java class file reader.
     """
+
     def __init__(self, f, verbose=False):
         super().__init__(f)
         self.verbose = verbose
@@ -63,16 +64,16 @@ class JavaFileReader(BaseIoReader):
     def read_class_file(self):
         """ Read a class file. """
         magic = self.read_u32()
-        logger.debug('Read magic header value 0x%X', magic)
+        logger.debug("Read magic header value 0x%X", magic)
         if magic != 0xCAFEBABE:
-            raise ValueError('Incorrect magic, no 0xCAFEBABE, no java class!')
+            raise ValueError("Incorrect magic, no 0xCAFEBABE, no java class!")
 
         minor_version = self.read_u16()
         major_version = self.read_u16()
-        logger.debug('Version %s.%s', major_version, minor_version)
+        logger.debug("Version %s.%s", major_version, minor_version)
         self.constant_pool = self.read_constant_pool()
         access_flags = self.read_flags()
-        logger.debug('Access flags: %s', access_flags)
+        logger.debug("Access flags: %s", access_flags)
         this_class = self.read_u16()
         super_class = self.read_u16()
 
@@ -82,14 +83,16 @@ class JavaFileReader(BaseIoReader):
 
         attributes = self.read_attributes()
         class_file = ClassFile(
-            major_version=major_version, minor_version=minor_version,
+            major_version=major_version,
+            minor_version=minor_version,
             constant_pool=self.constant_pool,
             access_flags=access_flags,
-            this_class=this_class, super_class=super_class,
+            this_class=this_class,
+            super_class=super_class,
             interfaces=interfaces,
             fields=fields,
             methods=methods,
-            attributes=attributes
+            attributes=attributes,
         )
         return class_file
 
@@ -106,9 +109,9 @@ class JavaFileReader(BaseIoReader):
                 else:
                     const_info, skip_next = self.read_constant_pool_info()
                     if self.verbose:
-                        logger.debug('constant #%s: %s', idx+1, const_info)
+                        logger.debug("constant #%s: %s", idx + 1, const_info)
                 constant_pool.append(const_info)
-        logger.debug('Read constant pool with %s items', len(constant_pool))
+        logger.debug("Read constant pool with %s items", len(constant_pool))
         return constant_pool
 
     def read_constant_pool_info(self):
@@ -117,9 +120,12 @@ class JavaFileReader(BaseIoReader):
         skip_next = False
         if tag == ConstantTag.Class:
             name_index = self.read_u16()
-            value = (name_index)
-        elif tag == ConstantTag.FieldRef or tag == ConstantTag.MethodRef or \
-                tag == ConstantTag.InterfaceMethodRef:
+            value = name_index
+        elif (
+            tag == ConstantTag.FieldRef
+            or tag == ConstantTag.MethodRef
+            or tag == ConstantTag.InterfaceMethodRef
+        ):
             class_index = self.read_u16()
             name_and_type_index = self.read_u16()
             value = (class_index, name_and_type_index)
@@ -137,7 +143,7 @@ class JavaFileReader(BaseIoReader):
             value = self.read_i32()
         elif tag == ConstantTag.String:
             string_index = self.read_u16()
-            value = (string_index)
+            value = string_index
         elif tag == ConstantTag.NameAndType:
             name_index = self.read_u16()
             descriptor_index = self.read_u16()
@@ -179,7 +185,7 @@ class JavaFileReader(BaseIoReader):
         for _ in range(interfaces_count):
             idx = self.read_u16()
             interfaces.append(idx)
-        logger.debug('Loaded interfaces: %s', interfaces)
+        logger.debug("Loaded interfaces: %s", interfaces)
         return interfaces
 
     def read_fields(self):
@@ -189,7 +195,7 @@ class JavaFileReader(BaseIoReader):
         for _ in range(fields_count):
             field = self.read_field_info()
             fields.append(field)
-        logger.debug('Loaded %s fields', len(fields))
+        logger.debug("Loaded %s fields", len(fields))
         return fields
 
     def read_field_info(self):
@@ -209,7 +215,7 @@ class JavaFileReader(BaseIoReader):
         for _ in range(methods_count):
             method = self.read_method_info()
             methods.append(method)
-        logger.debug('Loaded %s methods', len(methods))
+        logger.debug("Loaded %s methods", len(methods))
         return methods
 
     def read_method_info(self):
@@ -246,25 +252,25 @@ class JavaFileReader(BaseIoReader):
         return constant.value
 
     def read_f32(self):
-        return self.read_fmt('>f')
+        return self.read_fmt(">f")
 
     def read_f64(self):
-        return self.read_fmt('>d')
+        return self.read_fmt(">d")
 
     def read_i64(self):
-        return self.read_fmt('>q')
+        return self.read_fmt(">q")
 
     def read_i32(self):
-        return self.read_fmt('>i')
+        return self.read_fmt(">i")
 
     def read_u32(self):
-        return self.read_fmt('>I')
+        return self.read_fmt(">I")
 
     def read_u16(self):
-        return self.read_fmt('>H')
+        return self.read_fmt(">H")
 
     def read_i8(self):
-        return self.read_fmt('b')
+        return self.read_fmt("b")
 
     def read_u8(self):
         data = self.read_data(1)
@@ -273,6 +279,7 @@ class JavaFileReader(BaseIoReader):
 
 class JavaFileWriter:
     """ Enables writing of java class files. """
+
     def write_class_file(self, class_file):
         self.write_u32(0xCAFEBABE)
         self.write_u16(class_file.major_version)
@@ -280,21 +287,21 @@ class JavaFileWriter:
         raise NotImplementedError()
 
     def write_u32(self, value):
-        self.write_fmt('>I', value)
+        self.write_fmt(">I", value)
 
     def write_u16(self, value):
-        self.write_fmt('>H', value)
+        self.write_fmt(">H", value)
 
 
 def decode_modified_utf8(data):
     # TODO: decode custom utf-8..
-    return data.decode('utf8', errors='ignore')
+    return data.decode("utf8", errors="ignore")
 
 
 def read_class_file(f, verbose=False):
     """ Read a class file.
     """
-    logger.debug('Reading classfile %s', f)
+    logger.debug("Reading classfile %s", f)
     reader = JavaFileReader(f, verbose=verbose)
     return reader.read_class_file()
 
@@ -309,20 +316,20 @@ def disassemble(bytecode):
         offset += 1
         args = []
         for arg_type in op_to_arg_types[opcode]:
-            if arg_type == 'i8':
+            if arg_type == "i8":
                 arg = reader.read_i8()
                 offset += 1
-            elif arg_type == 'idx8':
+            elif arg_type == "idx8":
                 arg = reader.read_u8()
                 offset += 1
-            elif arg_type == 'idx16':
+            elif arg_type == "idx16":
                 arg = reader.read_u16()
                 offset += 2
             else:
                 raise NotImplementedError(arg_type)
             args.append(arg)
         instruction = Instruction(opcode, args)
-        logger.debug('Loaded %s', instruction)
+        logger.debug("Loaded %s", instruction)
         instructions.append(instruction)
     return instructions
 
@@ -345,6 +352,7 @@ def parse_method_descriptor(text):
 
 class DescriptorParser:
     """ Descriptor string parser. """
+
     def __init__(self, text):
         self.text = text
         self.pos = 0
@@ -356,16 +364,16 @@ class DescriptorParser:
 
     def parse_field_type(self):
         c = self.take()
-        if c in 'BCDFIJSZ':
+        if c in "BCDFIJSZ":
             typ = BaseType(c)
-        elif c == 'L':
+        elif c == "L":
             c = self.take()
-            class_name = ''
-            while c != ';':
+            class_name = ""
+            while c != ";":
                 class_name += c
                 c = self.take()
             typ = ObjectType(class_name)
-        elif c == '[':
+        elif c == "[":
             component_type = self.parse_field_type()
             typ = ArrayType(component_type)
         else:
@@ -378,16 +386,16 @@ class DescriptorParser:
         """
         # Parameter types:
         c = self.take()
-        assert c == '('
+        assert c == "("
         parameter_types = []
-        while self.peek != ')':
+        while self.peek != ")":
             typ = self.parse_field_type()
             parameter_types.append(typ)
         c = self.take()
-        assert c == ')'
+        assert c == ")"
 
         # Return type:
-        if self.peek == 'V':
+        if self.peek == "V":
             self.take()
             return_type = None
         else:

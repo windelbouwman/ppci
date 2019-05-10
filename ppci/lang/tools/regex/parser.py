@@ -15,6 +15,7 @@ def parse(r):
 
 class Parser:
     """ Regular expression program parser """
+
     def parse(self, txt):
         self.txt = txt
         self.pos = 0
@@ -33,7 +34,7 @@ class Parser:
         """ Consume single character """
         actual = self.current()
         if actual is None:
-            raise ValueError('At end of string!')
+            raise ValueError("At end of string!")
 
         self.pos += 1
         if c is None:
@@ -41,7 +42,7 @@ class Parser:
         elif actual == c:
             return actual
         else:
-            raise ValueError('Expected {} but got {}'.format(c, actual))
+            raise ValueError("Expected {} but got {}".format(c, actual))
 
     def did_eat(self, c):
         if self.peek(c):
@@ -54,7 +55,7 @@ class Parser:
 
     def _parse_or(self):
         expr = self._parse_and()
-        while self.did_eat('|'):
+        while self.did_eat("|"):
             rhs = self._parse_and()
             expr = expr | rhs
 
@@ -63,11 +64,11 @@ class Parser:
 
     def _parse_element(self):
         """ Parse single element of regex """
-        if self.peek('('):
-            self.eat('(')
+        if self.peek("("):
+            self.eat("(")
             expr = self._parse_top()
-            self.eat(')')
-        elif self.peek('['):
+            self.eat(")")
+        elif self.peek("["):
             return self._parse_set()
         else:
             raise NotImplementedError()
@@ -76,33 +77,33 @@ class Parser:
 
     def _parse_set(self):
         """ Parse a set of options '[0-9abc]' """
-        self.eat('[')
+        self.eat("[")
         options = []
         # Check inversion:
-        if self.peek('^'):
-            self.eat('^')
+        if self.peek("^"):
+            self.eat("^")
             complement = True
         else:
             complement = False
 
         options.append(complement)
-        while not self.peek(']'):
+        while not self.peek("]"):
             start = self.eat()
-            if self.peek('-'):
-                self.eat('-')
+            if self.peek("-"):
+                self.eat("-")
                 end = self.eat()
                 options.append((start, end))
             else:
                 options.append(start)
-        self.eat(']')
+        self.eat("]")
 
     def _parse_modifier(self, expr):
         """ Parse any modifiers after an expression """
-        if self.eat('*'):
+        if self.eat("*"):
             return regex.Kleene(expr)
-        elif self.eat('+'):
+        elif self.eat("+"):
             return expr + regex.Kleene(expr)
-        elif self.eat('?'):
+        elif self.eat("?"):
             raise NotImplementedError()
             # return expr | eps
         else:

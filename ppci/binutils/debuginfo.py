@@ -1,4 +1,3 @@
-
 """
     This module contains classes for storage of debug information.
 """
@@ -14,7 +13,8 @@ class DebugDb:
         This is a class that can track the location.
         This object is some sort of an internal database.
     """
-    logger = logging.getLogger('debugdb')
+
+    logger = logging.getLogger("debugdb")
     verbose = False
 
     def __init__(self):
@@ -25,7 +25,7 @@ class DebugDb:
     def new_label(self):
         """ Create a new label name that is unique """
         self.label_nr += 1
-        return '.LDBG_{}'.format(self.label_nr)
+        return ".LDBG_{}".format(self.label_nr)
 
     def enter(self, src, info):
         """ Register debug info as a result of something """
@@ -63,6 +63,7 @@ class DebugInfo:
         in the form of mappings from intermediate code to source locations
         as well as from assembly code to source locations.
     """
+
     def __init__(self):
         self.locations = []
         self.functions = []
@@ -119,11 +120,12 @@ class LineInfo:
 
 class DebugType:
     """ Debug type base class """
+
     def __init__(self):
         pass
 
     def __repr__(self):
-        return 'DBGTYP[ {} ]'.format(type(self))
+        return "DBGTYP[ {} ]".format(type(self))
 
     def sizeof(self):
         """ Determine the size of a debug type """
@@ -145,11 +147,12 @@ class DebugBaseType(DebugType):
         return self.size
 
 
-DebugStructField = namedtuple('DebugStructField', ['name', 'typ', 'offset'])
+DebugStructField = namedtuple("DebugStructField", ["name", "typ", "offset"])
 
 
 class DebugStructType(DebugType):
     """ A structured type """
+
     def __init__(self):
         super().__init__()
         self.fields = []
@@ -168,7 +171,7 @@ class DebugStructType(DebugType):
         raise KeyError(name)
 
     def __repr__(self):
-        return 'struct {...}'
+        return "struct {...}"
 
     def sizeof(self):
         """ Determine the size of a debug type """
@@ -177,13 +180,14 @@ class DebugStructType(DebugType):
 
 class DebugPointerType(DebugType):
     """ A type that points somewhere else """
+
     def __init__(self, pointed_type):
         super().__init__()
         assert isinstance(pointed_type, DebugType)
         self.pointed_type = pointed_type
 
     def __repr__(self):
-        return '*{}'.format(self.pointed_type)
+        return "*{}".format(self.pointed_type)
 
 
 class DebugArrayType(DebugType):
@@ -195,7 +199,7 @@ class DebugArrayType(DebugType):
         self.size = size
 
     def __repr__(self):
-        return '{}[{}]'.format(self.element_type, self.size)
+        return "{}[{}]".format(self.element_type, self.size)
 
     def sizeof(self):
         """ Determine the size of a debug type """
@@ -210,9 +214,10 @@ class DebugFormalParameter:
 
 class DebugFunction(DebugBaseInfo):
     """ Info about a function """
+
     def __init__(
-            self, name, loc, return_type, arguments,
-            begin=0, end=0, variables=()):
+        self, name, loc, return_type, arguments, begin=0, end=0, variables=()
+    ):
         super().__init__()
         assert isinstance(loc, SourceLocation)
         self.name = name
@@ -225,8 +230,9 @@ class DebugFunction(DebugBaseInfo):
         self.variables = list(variables)
 
     def __repr__(self):
-        return 'DBGFNC[ {} {} begin={}, end={} ]'.format(
-            self.name, self.loc, self.begin, self.end)
+        return "DBGFNC[ {} {} begin={}, end={} ]".format(
+            self.name, self.loc, self.begin, self.end
+        )
 
     def add_variable(self, variable):
         self.variables.append(variable)
@@ -235,6 +241,7 @@ class DebugFunction(DebugBaseInfo):
 # TODO: change name to FixedAddress?
 class DebugAddress:
     """ A single point into the code at some place """
+
     def __init__(self, section, offset):
         self.section = section
         self.offset = offset
@@ -245,7 +252,7 @@ class FpOffsetAddress:
         self.offset = offset
 
     def __repr__(self):
-        return '@(FP + {})'.format(self.offset)
+        return "@(FP + {})".format(self.offset)
 
 
 class UnknownAddress:
@@ -254,6 +261,7 @@ class UnknownAddress:
 
 class TemporalDebugAddress:
     """ A location depending on the position of the instruction ptr """
+
     def __init__(self, start, end, address):
         self.begin = start
         self.end = end
@@ -262,6 +270,7 @@ class TemporalDebugAddress:
 
 class DebugLocation(DebugBaseInfo):
     """ Location information """
+
     def __init__(self, loc: SourceLocation, address=None):
         super().__init__()
         assert isinstance(loc, SourceLocation)
@@ -269,12 +278,13 @@ class DebugLocation(DebugBaseInfo):
         self.address = address
 
     def __repr__(self):
-        return 'DBGLOC[ {} addr={} ]'.format(self.loc, self.address)
+        return "DBGLOC[ {} addr={} ]".format(self.loc, self.address)
 
 
 class DebugVariable(DebugBaseInfo):
     def __init__(
-            self, name, typ: DebugType, loc: SourceLocation, address=None):
+        self, name, typ: DebugType, loc: SourceLocation, address=None
+    ):
         super().__init__()
         assert isinstance(loc, SourceLocation)
         assert isinstance(typ, DebugType), str(typ)
@@ -286,8 +296,7 @@ class DebugVariable(DebugBaseInfo):
         self.address = address
 
     def __repr__(self):
-        return 'DBGVAR[ {} {} {} ]'.format(
-            self.name, self.typ, self.address)
+        return "DBGVAR[ {} {} {} ]".format(self.name, self.typ, self.address)
 
 
 class DebugParameter(DebugBaseInfo):
@@ -298,7 +307,7 @@ class DebugParameter(DebugBaseInfo):
         self.typ = typ
 
     def __repr__(self):
-        return 'DBGPARAM[ {} {} ]'.format(self.name, self.typ)
+        return "DBGPARAM[ {} {} ]".format(self.name, self.typ)
 
 
 def serialize(debug_info):
@@ -308,6 +317,7 @@ def serialize(debug_info):
 
 class DebugInfoReplicator:
     """ Create a copy of debug info and all referred stuff """
+
     def replicate(self, debug_info_in, debug_info_out):
         """ Replicate debug info from one object into the other """
         for location in debug_info_in.locations:
@@ -330,9 +340,14 @@ class DebugInfoReplicator:
         end = self.do_address(function.end)
         variables = [self.do_variable(v) for v in function.variables]
         return DebugFunction(
-            function.name, function.loc,
-            function.return_type, function.arguments,
-            begin=begin, end=end, variables=variables)
+            function.name,
+            function.loc,
+            function.return_type,
+            function.arguments,
+            begin=begin,
+            end=end,
+            variables=variables,
+        )
 
     def do_type(self, typ):
         # TODO: create copies of typ class?
@@ -342,7 +357,8 @@ class DebugInfoReplicator:
         """ Replicate a variable """
         address = self.do_address(variable.address)
         return DebugVariable(
-            variable.name, variable.typ, variable.loc, address=address)
+            variable.name, variable.typ, variable.loc, address=address
+        )
 
     def do_address(self, address):
         """ Replicate an address """
@@ -359,6 +375,7 @@ class DebugInfoReplicator:
 class SectionAdjustingReplicator(DebugInfoReplicator):
     """ Replicate debug information, but shift offsets in sections by
         the amount given in the offsets dictionary """
+
     def __init__(self, offsets):
         self.offsets = offsets
 
@@ -372,6 +389,7 @@ class SectionAdjustingReplicator(DebugInfoReplicator):
 
 class DictSerializer:
     """ Serialize debug information into dictionary format """
+
     def __init__(self):
         self.type_ids = {}
 
@@ -385,17 +403,17 @@ class DictSerializer:
         variables = list(map(self.serialize_variable, dbi.variables))
         functions = list(map(self.serialize_function, dbi.functions))
         return {
-            'locations': locations,
-            'types': types,
-            'variables': variables,
-            'functions': functions,
+            "locations": locations,
+            "types": types,
+            "variables": variables,
+            "functions": functions,
         }
 
     def serialize_location(self, loc):
         """ Create dict for a location """
         return {
-            'source': self.write_source_location(loc.loc),
-            'address': self.write_address(loc.address),
+            "source": self.write_source_location(loc.loc),
+            "address": self.write_address(loc.address),
         }
 
     def serialize_function(self, function):
@@ -403,30 +421,27 @@ class DictSerializer:
         arguments = [self.serialize_argument(fp) for fp in function.arguments]
         variables = [self.serialize_variable(v) for v in function.variables]
         return {
-            'source': self.write_source_location(function.loc),
-            'function_name': function.name,
-            'return_type': self.get_type_id(function.return_type),
-            'arguments': arguments,
-            'begin': self.write_address(function.begin),
-            'end': self.write_address(function.end),
-            'variables': variables,
+            "source": self.write_source_location(function.loc),
+            "function_name": function.name,
+            "return_type": self.get_type_id(function.return_type),
+            "arguments": arguments,
+            "begin": self.write_address(function.begin),
+            "end": self.write_address(function.end),
+            "variables": variables,
         }
 
     def serialize_argument(self, var):
         """ Turn a formal parameter into a dictionary """
-        return {
-            'name': var.name,
-            'type': self.get_type_id(var.typ),
-        }
+        return {"name": var.name, "type": self.get_type_id(var.typ)}
 
     def serialize_variable(self, var):
         """ Turn a variable into a dictionary """
         address = self.write_address(var.address)
         return {
-            'source': self.write_source_location(var.loc),
-            'name': var.name,
-            'type': self.get_type_id(var.typ),
-            'address': address,
+            "source": self.write_source_location(var.loc),
+            "name": var.name,
+            "type": self.get_type_id(var.typ),
+            "address": address,
         }
 
     def serialize_type(self, typ):
@@ -434,36 +449,34 @@ class DictSerializer:
         i = self.get_type_id(typ)
         if isinstance(typ, DebugBaseType):
             return {
-                'id': i,
-                'kind': 'base',
-                'name': typ.name,
-                'size': typ.size,
+                "id": i,
+                "kind": "base",
+                "name": typ.name,
+                "size": typ.size,
             }
         elif isinstance(typ, DebugStructType):
             fields = []
             for field in typ.fields:
-                fields.append({
-                    'name': field.name,
-                    'type': self.get_type_id(field.typ),
-                    'offset': field.offset,
-                    })
-            return {
-                'id': i,
-                'kind': 'struct',
-                'fields': fields,
-            }
+                fields.append(
+                    {
+                        "name": field.name,
+                        "type": self.get_type_id(field.typ),
+                        "offset": field.offset,
+                    }
+                )
+            return {"id": i, "kind": "struct", "fields": fields}
         elif isinstance(typ, DebugArrayType):
             return {
-                'id': i,
-                'kind': 'array',
-                'element_type': self.get_type_id(typ.element_type),
-                'size': typ.size,
+                "id": i,
+                "kind": "array",
+                "element_type": self.get_type_id(typ.element_type),
+                "size": typ.size,
             }
         elif isinstance(typ, DebugPointerType):
             return {
-                'id': i,
-                'kind': 'pointer',
-                'pointed_type': self.get_type_id(typ.pointed_type),
+                "id": i,
+                "kind": "pointer",
+                "pointed_type": self.get_type_id(typ.pointed_type),
             }
         else:  # pragma: no cover
             raise NotImplementedError(str(type(typ)))
@@ -471,29 +484,24 @@ class DictSerializer:
     def write_source_location(self, loc):
         """ Serialize a location object """
         return {
-            'filename': loc.filename,
-            'row': loc.row,
-            'column': loc.col,
-            'length': loc.length,
+            "filename": loc.filename,
+            "row": loc.row,
+            "column": loc.col,
+            "length": loc.length,
         }
 
     def write_address(self, address):
         """ Generate an address into a dict """
         if isinstance(address, DebugAddress):
             return {
-                'kind': 'fixed',
-                'section': address.section,
-                'offset': address.offset
+                "kind": "fixed",
+                "section": address.section,
+                "offset": address.offset,
             }
         elif isinstance(address, FpOffsetAddress):
-            return {
-                'kind': 'fprel',
-                'offset': address.offset.offset
-            }
+            return {"kind": "fprel", "offset": address.offset.offset}
         elif isinstance(address, UnknownAddress):
-            return {
-                'kind': 'unknown'
-            }
+            return {"kind": "unknown"}
         else:  # pragma: no cover
             raise NotImplementedError(str(address))
 
@@ -510,6 +518,7 @@ def deserialize(x):
 
 class DictDeserializer:
     """ Deserialize dict data into debug information """
+
     def __init__(self):
         self.type_ids = {}
 
@@ -521,62 +530,67 @@ class DictDeserializer:
 
         # Start reading debug info:
         debug_info = DebugInfo()
-        for l in x['locations']:
-            loc = self.read_source_location(l['source'])
-            address = self.read_address(l['address'])
+        for l in x["locations"]:
+            loc = self.read_source_location(l["source"])
+            address = self.read_address(l["address"])
             dl = DebugLocation(loc, address=address)
             debug_info.add(dl)
-        for t in x['types']:
-            i = t['id']
+        for t in x["types"]:
+            i = t["id"]
             self.type_worklist[i] = t
         # print(self.type_worklist)
-        for t in x['types']:
-            dt = self.get_type(t['id'])
+        for t in x["types"]:
+            dt = self.get_type(t["id"])
             debug_info.add(dt)
-        for v in x['variables']:
+        for v in x["variables"]:
             debug_info.add(self.read_variable(v))
-        for f in x['functions']:
-            loc = self.read_source_location(f['source'])
-            return_type = self.get_type(f['return_type'])
+        for f in x["functions"]:
+            loc = self.read_source_location(f["source"])
+            return_type = self.get_type(f["return_type"])
             arguments = []
-            for fp in f['arguments']:
+            for fp in f["arguments"]:
                 arguments.append(self.read_formal_parameter(fp))
-            begin = self.read_address(f['begin'])
-            end = self.read_address(f['end'])
+            begin = self.read_address(f["begin"])
+            end = self.read_address(f["end"])
             variables = []
-            for v in f['variables']:
+            for v in f["variables"]:
                 variables.append(self.read_variable(v))
             fdi = DebugFunction(
-                f['function_name'], loc,
-                return_type, arguments,
-                begin=begin, end=end,
-                variables=variables)
+                f["function_name"],
+                loc,
+                return_type,
+                arguments,
+                begin=begin,
+                end=end,
+                variables=variables,
+            )
             debug_info.add(fdi)
         return debug_info
 
     def read_formal_parameter(self, v):
-        name = v['name']
-        typ = self.get_type(v['type'])
+        name = v["name"]
+        typ = self.get_type(v["type"])
         return DebugParameter(name, typ)
 
     def read_variable(self, v):
-        name = v['name']
-        loc = self.read_source_location(v['source'])
-        typ = self.get_type(v['type'])
-        address = self.read_address(v['address'])
+        name = v["name"]
+        loc = self.read_source_location(v["source"])
+        typ = self.get_type(v["type"])
+        address = self.read_address(v["address"])
         return DebugVariable(name, typ, loc, address=address)
 
     def read_source_location(self, x):
         return SourceLocation(
-            x['filename'], x['row'], x['column'], x['length'])
+            x["filename"], x["row"], x["column"], x["length"]
+        )
 
     def read_address(self, x):
-        kind = x['kind']
-        if kind == 'fixed':
-            return DebugAddress(x['section'], x['offset'])
-        elif kind == 'fprel':
-            return FpOffsetAddress(StackLocation(x['offset'], 1))
-        elif kind == 'unknown':
+        kind = x["kind"]
+        if kind == "fixed":
+            return DebugAddress(x["section"], x["offset"])
+        elif kind == "fprel":
+            return FpOffsetAddress(StackLocation(x["offset"], 1))
+        elif kind == "unknown":
             return UnknownAddress()
         else:  # pragma: no cover
             raise NotImplementedError(kind)
@@ -587,31 +601,31 @@ class DictDeserializer:
             return self.types[idx]
 
         t = self.type_worklist.pop(idx)
-        kind = t['kind']
-        if kind == 'base':
-            name = t['name']
-            size = t['size']
+        kind = t["kind"]
+        if kind == "base":
+            name = t["name"]
+            size = t["size"]
             dt = DebugBaseType(name, size, 1)
             self.types[idx] = dt
-        elif kind == 'struct':
+        elif kind == "struct":
             dt = DebugStructType()
 
             # Store it here, to prevent block error on recursive type:
             self.types[idx] = dt
 
             # Process fields:
-            for field in t['fields']:
-                name = field['name']
-                offset = field['offset']
-                field_typ = self.get_type(field['type'])
+            for field in t["fields"]:
+                name = field["name"]
+                offset = field["offset"]
+                field_typ = self.get_type(field["type"])
                 dt.add_field(name, field_typ, offset)
-        elif kind == 'pointer':
-            ptype = self.get_type(t['pointed_type'])
+        elif kind == "pointer":
+            ptype = self.get_type(t["pointed_type"])
             dt = DebugPointerType(ptype)
             self.types[idx] = dt
-        elif kind == 'array':
-            etype = self.get_type(t['element_type'])
-            dt = DebugArrayType(etype, t['size'])
+        elif kind == "array":
+            etype = self.get_type(t["element_type"])
+            dt = DebugArrayType(etype, t["size"])
             self.types[idx] = dt
         else:  # pragma: no cover
             raise NotImplementedError(kind)

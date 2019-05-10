@@ -19,6 +19,7 @@ class OutputStream(metaclass=abc.ABCMeta):
 
     Contains the emit function to output instruction to the stream.
     """
+
     def emit(self, item):  # pragma: no cover
         """ Encode instruction and add symbol and relocation information """
         if isinstance(item, ArtificialInstruction):
@@ -32,7 +33,7 @@ class OutputStream(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def do_emit(self, item):
         """ Actual emit implementation """
-        raise NotImplementedError('Abstract base class')
+        raise NotImplementedError("Abstract base class")
 
     def emit_all(self, items):
         """ Emit all items from an iterable """
@@ -46,6 +47,7 @@ class OutputStream(metaclass=abc.ABCMeta):
 
 class TextOutputStream(OutputStream):
     """ Output stream that writes instruction as text. """
+
     def __init__(self, printer=None, f=None, add_binary=False):
         self.output_file = f
         self.add_binary = add_binary
@@ -60,20 +62,21 @@ class TextOutputStream(OutputStream):
         txt = self.printer.print_instruction(item)
         if isinstance(item, Label):
             if self.add_binary:
-                prefix = 12 * ' '
+                prefix = 12 * " "
             else:
-                prefix = ''
+                prefix = ""
         else:
             if self.add_binary:
-                b = binascii.hexlify(item.encode()).decode('ascii')
-                prefix = '{:16}  '.format(b)
+                b = binascii.hexlify(item.encode()).decode("ascii")
+                prefix = "{:16}  ".format(b)
             else:
-                prefix = '      '
+                prefix = "      "
         print(prefix, txt, file=self.output_file)
 
 
 class BinaryOutputStream(OutputStream):
     """ Output stream that writes to object file """
+
     def __init__(self, obj_file):
         super().__init__()
         self.obj_file = obj_file
@@ -87,7 +90,8 @@ class BinaryOutputStream(OutputStream):
 
         if isinstance(item, SectionInstruction):
             self.current_section = self.obj_file.get_section(
-                item.name, create=True)
+                item.name, create=True
+            )
 
         assert self.current_section
         section = self.current_section
@@ -114,12 +118,14 @@ class BinaryOutputStream(OutputStream):
 
 class DummyOutputStream(OutputStream):
     """ Stream that does nothing """
+
     def do_emit(self, item):
         pass
 
 
 class FunctionOutputStream(OutputStream):
     """ Stream that emits a string to the given function """
+
     def __init__(self, function):
         self.function = function
 
@@ -129,15 +135,17 @@ class FunctionOutputStream(OutputStream):
 
 class LoggerOutputStream(FunctionOutputStream):
     """ Stream that emits instructions as text in the log """
+
     def __init__(self):
-        self.logger = logging.getLogger('LoggerOutputStream')
+        self.logger = logging.getLogger("LoggerOutputStream")
         super().__init__(self.logger.debug)
 
 
 class MasterOutputStream(OutputStream):
     """ Stream that emits to multiple sub streams """
+
     def __init__(self, substreams=()):
-        self.substreams = list(substreams)   # Use copy constructor!!!
+        self.substreams = list(substreams)  # Use copy constructor!!!
 
     def do_emit(self, item):
         for output_stream in self.substreams:

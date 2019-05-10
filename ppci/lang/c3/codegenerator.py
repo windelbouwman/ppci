@@ -111,9 +111,12 @@ class CodeGenerator:
                 cval = None
 
             var_name = "{}_{}".format(module.name, var.name)
+            binding = ir.Binding.GLOBAL
             size = self.context.size_of(var.typ)
             alignment = 4
-            ir_var = ir.Variable(var_name, size, alignment, value=cval)
+            ir_var = ir.Variable(
+                var_name, binding, size, alignment, value=cval
+            )
             self.context.var_map[var] = ir_var
             self.builder.module.add_variable(ir_var)
 
@@ -322,11 +325,14 @@ class CodeGenerator:
                     )
                 self.builder.module.add_external(ir_function)
             else:
+                binding = ir.Binding.GLOBAL
                 if self.context.equal_types("void", function.typ.returntype):
-                    ir_function = self.builder.new_procedure(name)
+                    ir_function = self.builder.new_procedure(name, binding)
                 else:
                     return_type = self.get_ir_type(function.typ.returntype)
-                    ir_function = self.builder.new_function(name, return_type)
+                    ir_function = self.builder.new_function(
+                        name, binding, return_type
+                    )
             self.context.function_map[function] = ir_function
         return ir_function
 

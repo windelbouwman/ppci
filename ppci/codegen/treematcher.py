@@ -1,5 +1,6 @@
 class State:
     """ State used to label tree nodes """
+
     def __init__(self):
         self.labels = {}
 
@@ -25,6 +26,7 @@ class State:
 
 class BaseMatcher:
     """ Base class for matcher objects. """
+
     def kids(self, tree, rule):
         return self.kid_functions[rule](tree)
 
@@ -39,7 +41,10 @@ class BaseMatcher:
 
     def apply_rules(self, tree, goal):
         rule = tree.state.get_rule(goal)
-        results = [self.apply_rules(kid_tree, kid_goal)
-                   for kid_tree, kid_goal in
-                   zip(self.kids(tree, rule), self.nts(rule))]
+        results = [
+            self.apply_rules(kid_tree, kid_goal)
+            for kid_tree, kid_goal in zip(
+                self.kids(tree, rule), self.nts(rule)
+            )
+        ]
         return self.pat_f[rule](tree, *results)

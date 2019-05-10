@@ -5,12 +5,13 @@ from .code import load_code
 from .marshall import read_value
 
 
-logger = logging.getLogger('ocaml')
+logger = logging.getLogger("ocaml")
 
 
 class ByteCodeReader:
     """ Reader for bytecode files.
     """
+
     MAGIC_V023 = "Caml1999X023"
 
     def __init__(self, reader):
@@ -29,18 +30,18 @@ class ByteCodeReader:
 
     def read_sections(self, sections):
         fn_map = {
-            'CODE': self.read_code_section,
-            'DATA': self.process_data_section,
+            "CODE": self.read_code_section,
+            "DATA": self.process_data_section,
         }
         result = {}
         for name, length in sections:
             data = self.reader.read_bytes(length)
             if name in fn_map:
-                logger.info('Processing: %s', name)
+                logger.info("Processing: %s", name)
                 value = fn_map[name](data)
                 result[name] = value
             else:
-                logger.error('TODO: %s', name)
+                logger.error("TODO: %s", name)
         return result
 
     def read_trailer(self):
@@ -49,23 +50,23 @@ class ByteCodeReader:
         num_sections = self.reader.read_u32()
         magic_len = len(self.MAGIC_V023)
         magic = self.reader.read_bytes(magic_len)
-        magic = magic.decode('ascii')
+        magic = magic.decode("ascii")
         if magic != self.MAGIC_V023:
-            raise ValueError('Unexpected magic value {}'.format(magic))
+            raise ValueError("Unexpected magic value {}".format(magic))
         return num_sections
 
     def read_section_descriptions(self, num_sections):
         sections = []
         for _ in range(num_sections):
-            name = self.reader.read_bytes(4).decode('ascii')
+            name = self.reader.read_bytes(4).decode("ascii")
             length = self.reader.read_u32()
-            logger.debug('section %s with %s bytes', name, length)
+            logger.debug("section %s with %s bytes", name, length)
             sections.append((name, length))
         return sections
 
     def read_code_section(self, data):
         if len(data) % 4 != 0:
-            raise ValueError('Code must be a multiple of 4 bytes')
+            raise ValueError("Code must be a multiple of 4 bytes")
         return load_code(data)
 
     def process_data_section(self, data):

@@ -42,6 +42,8 @@ All code is intended to be pep8 compliant. You can use the pep8 tool, or run:
 
 This will check the code for pep8 violations.
 
+On top of this, we use the black formatter to autoformat code.
+
 Future work includes using pylint and mypy for more static code analysis.
 
 Running the testsuite

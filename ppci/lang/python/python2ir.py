@@ -46,13 +46,11 @@ class Var:
 
 class PythonToIrCompiler:
     """ Not peer-to-peer but python to ppci :) """
-    logger = logging.getLogger('p2p')
+
+    logger = logging.getLogger("p2p")
 
     def __init__(self):
-        self.type_mapping = {
-            'int': ir.i64,
-            'float': ir.f64,
-        }
+        self.type_mapping = {"int": ir.i64, "float": ir.f64}
 
     def compile(self, f, imports=None):
         """ Convert python into IR-code.
@@ -65,7 +63,7 @@ class PythonToIrCompiler:
         """
         self.debug_db = debuginfo.DebugDb()
         src = f.read()
-        self._filename = getattr(f, 'name', None)
+        self._filename = getattr(f, "name", None)
         # Parse python code:
         x = ast.parse(src)
 
@@ -73,7 +71,7 @@ class PythonToIrCompiler:
 
         self.builder = irutils.Builder()
         self.builder.prepare()
-        self.builder.set_module(ir.Module('foo', debug_db=self.debug_db))
+        self.builder.set_module(ir.Module("foo", debug_db=self.debug_db))
 
         if imports:
             # Fill imported functions:
@@ -86,24 +84,26 @@ class PythonToIrCompiler:
                     signature = inspect.signature(signature)
                     return_type = signature.return_annotation
                     arg_types = [
-                        p.annotation for p in signature.parameters.values()]
+                        p.annotation for p in signature.parameters.values()
+                    ]
 
                 # Create external function:
                 ir_arg_types = [self.get_ty(t) for t in arg_types]
                 if return_type:
                     ir_function = ir.ExternalFunction(
-                        name, ir_arg_types, self.get_ty(ir.ptr))
+                        name, ir_arg_types, self.get_ty(ir.ptr)
+                    )
                 else:
                     ir_function = ir.ExternalProcedure(name, ir_arg_types)
 
                 self.function_map[name] = ir_function, return_type, arg_types
 
         for df in x.body:
-            self.logger.debug('Processing %s', df)
+            self.logger.debug("Processing %s", df)
             if isinstance(df, ast.FunctionDef):
                 self.gen_function(df)
             else:
-                raise NotImplementedError('Cannot do {}!'.format(df))
+                raise NotImplementedError("Cannot do {}!".format(df))
         mod = self.builder.module
         irutils.Verifier().verify(mod)
         return mod
@@ -118,22 +118,24 @@ class PythonToIrCompiler:
         if isinstance(annotation, type):
             type_name = annotation.__name__
         else:
-            if isinstance(annotation, ast.NameConstant) and \
-                    annotation.value is None:
+            if (
+                isinstance(annotation, ast.NameConstant)
+                and annotation.value is None
+            ):
                 return
             type_name = annotation.id
 
         if type_name in self.type_mapping:
             return self.type_mapping[type_name]
         else:
-            self.error(annotation, 'Unhandled type: {}'.format(type_name))
+            self.error(annotation, "Unhandled type: {}".format(type_name))
 
     def get_variable(self, name):
         if name not in self.local_map:
             # Create a variable with the given name
             # TODO: for now i64 is assumed to be the only type!
-            mem = self.emit(ir.Alloc('alloc_{}'.format(name), 8, 8))
-            addr = self.emit(ir.AddressOf(mem, 'addr_{}'.format(name)))
+            mem = self.emit(ir.Alloc("alloc_{}".format(name), 8, 8))
+            addr = self.emit(ir.AddressOf(mem, "addr_{}".format(name)))
             self.local_map[name] = Var(addr, True, ir.i64)
         return self.local_map[name]
 
@@ -142,17 +144,20 @@ class PythonToIrCompiler:
         self.local_map = {}
 
         function_name = df.name
-        dbg_int = debuginfo.DebugBaseType('int', 8, 1)
+        binding = ir.Binding.GLOBAL
+        dbg_int = debuginfo.DebugBaseType("int", 8, 1)
         return_type = self.get_ty(df.returns)
         if return_type:
-            ir_function = self.builder.new_function(function_name, return_type)
+            ir_function = self.builder.new_function(
+                function_name, binding, return_type
+            )
         else:
-            ir_function = self.builder.new_procedure(function_name)
+            ir_function = self.builder.new_procedure(function_name, binding)
         dbg_args = []
         arg_types = []
         for arg in df.args.args:
             if not arg.annotation:
-                self.error(arg, 'Need type annotation for {}'.format(arg.arg))
+                self.error(arg, "Need type annotation for {}".format(arg.arg))
             aty = self.get_ty(arg.annotation)
             arg_types.append(aty)
             arg_name = arg.arg
@@ -166,15 +171,16 @@ class PythonToIrCompiler:
         # Register function as known:
         self.function_map[function_name] = ir_function, return_type, arg_types
 
-        self.logger.debug('Created function %s', ir_function)
+        self.logger.debug("Created function %s", ir_function)
         self.builder.block_number = 0
         self.builder.set_function(ir_function)
 
         dfi = debuginfo.DebugFunction(
             ir_function.name,
-            SourceLocation('foo.py', 1, 1, 1),
+            SourceLocation("foo.py", 1, 1, 1),
             dbg_int,
-            dbg_args)
+            dbg_args,
+        )
         self.debug_db.enter(ir_function, dfi)
 
         first_block = self.builder.new_block()
@@ -235,7 +241,7 @@ class PythonToIrCompiler:
             self.builder.set_block(continue_block)
         elif isinstance(statement, ast.While):
             if statement.orelse:
-                self.error(statement, 'while-else not supported')
+                self.error(statement, "while-else not supported")
             test_block = self.builder.new_block()
             body_block = self.builder.new_block()
             continue_block = self.builder.new_block()
@@ -262,19 +268,19 @@ class PythonToIrCompiler:
         elif isinstance(statement, ast.For):
             # Check else-clause:
             if statement.orelse:
-                self.error(statement, 'for-else not supported')
+                self.error(statement, "for-else not supported")
 
             # Allow for loop with range in it:
             if not isinstance(statement.iter, ast.Call):
-                self.error(statement.iter, 'Only range supported in for loops')
+                self.error(statement.iter, "Only range supported in for loops")
 
-            if statement.iter.func.id != 'range':
-                self.error(statement.iter, 'Only range supported in for loops')
+            if statement.iter.func.id != "range":
+                self.error(statement.iter, "Only range supported in for loops")
 
             # Determine start and end values:
             ra = statement.iter.args
             if len(ra) == 1:
-                i_init = self.emit(ir.Const(0, 'i_init', ir.i64))
+                i_init = self.emit(ir.Const(0, "i_init", ir.i64))
                 n2 = self.gen_expr(ra[0])
             elif len(ra) == 2:
                 i_init = self.gen_expr(ra[0])
@@ -282,7 +288,8 @@ class PythonToIrCompiler:
             else:
                 self.error(
                     statement.iter,
-                    'Does not support {} arguments'.format(len(ra)))
+                    "Does not support {} arguments".format(len(ra)),
+                )
 
             entry_block = self.builder.block
             test_block = self.builder.new_block()
@@ -293,9 +300,9 @@ class PythonToIrCompiler:
 
             # Test block:
             self.builder.set_block(test_block)
-            i_phi = self.emit(ir.Phi('i_phi', ir.i64))
+            i_phi = self.emit(ir.Phi("i_phi", ir.i64))
             i_phi.set_incoming(entry_block, i_init)
-            self.emit(ir.CJump(i_phi, '<', n2, body_block, continue_block))
+            self.emit(ir.CJump(i_phi, "<", n2, body_block, continue_block))
 
             # Publish looping variable:
             self.local_map[statement.target.id] = Var(i_phi, False, ir.i64)
@@ -307,8 +314,8 @@ class PythonToIrCompiler:
             self.block_stack.pop()
 
             # Increment loop variable:
-            one = self.emit(ir.Const(1, 'one', ir.i64))
-            i_inc = self.emit(ir.add(i_phi, one, 'i_inc', ir.i64))
+            one = self.emit(ir.Const(1, "one", ir.i64))
+            i_inc = self.emit(ir.add(i_phi, one, "i_inc", ir.i64))
             i_phi.set_incoming(body_block, i_inc)
 
             # Jump to start again:
@@ -330,10 +337,10 @@ class PythonToIrCompiler:
             assert isinstance(name, str)
             var = self.get_variable(name)
             assert var.lvalue
-            lhs = self.emit(ir.Load(var.value, 'load', var.ty))
+            lhs = self.emit(ir.Load(var.value, "load", var.ty))
             rhs = self.gen_expr(statement.value)
             op = self.binop_map[type(statement.op)]
-            value = self.emit(ir.Binop(lhs, op, rhs, 'augassign', var.ty))
+            value = self.emit(ir.Binop(lhs, op, rhs, "augassign", var.ty))
             self.emit(ir.Store(value, var.value))
         else:  # pragma: no cover
             self.not_impl(statement)
@@ -343,10 +350,7 @@ class PythonToIrCompiler:
             # print(dir(c), c.ops, c.comparators)
             assert len(c.ops) == len(c.comparators)
             assert len(c.ops) == 1
-            op_map = {
-                ast.Gt: '>', ast.Lt: '<',
-                ast.Eq: '=', ast.NotEq: '!=',
-            }
+            op_map = {ast.Gt: ">", ast.Lt: "<", ast.Eq: "=", ast.NotEq: "!="}
 
             a = self.gen_expr(c.left)
             op = op_map[type(c.ops[0])]
@@ -355,10 +359,7 @@ class PythonToIrCompiler:
         else:  # pragma: no cover
             self.not_impl(c)
 
-    binop_map = {
-        ast.Add: '+', ast.Sub: '-',
-        ast.Mult: '*', ast.Div: '/',
-    }
+    binop_map = {ast.Add: "+", ast.Sub: "-", ast.Mult: "*", ast.Div: "/"}
 
     def gen_expr(self, expr):
         """ Generate code for a single expression """
@@ -366,30 +367,31 @@ class PythonToIrCompiler:
             a = self.gen_expr(expr.left)
             b = self.gen_expr(expr.right)
             op = self.binop_map[type(expr.op)]
-            value = self.emit(ir.Binop(a, op, b, 'add', ir.i64))
+            value = self.emit(ir.Binop(a, op, b, "add", ir.i64))
         elif isinstance(expr, ast.Name):
             var = self.local_map[expr.id]
             if var.lvalue:
-                value = self.emit(ir.Load(var.value, 'load', ir.i64))
+                value = self.emit(ir.Load(var.value, "load", ir.i64))
             else:
                 value = var.value
         elif isinstance(expr, ast.Num):
-            value = self.emit(ir.Const(expr.n, 'num', ir.i64))
+            value = self.emit(ir.Const(expr.n, "num", ir.i64))
         elif isinstance(expr, ast.Call):
             assert isinstance(expr.func, ast.Name)
             name = expr.func.id
 
             # Lookup function and check types:
             ir_function, return_type, arg_types = self.function_map[name]
-            self.logger.warning('Function arguments not type checked!')
+            self.logger.warning("Function arguments not type checked!")
 
             # Evaluate arguments:
             args = [self.gen_expr(a) for a in expr.args]
 
             # Emit call:
             if return_type:
-                value = self.emit(ir.FunctionCall(
-                    ir_function, args, 'res', return_type))
+                value = self.emit(
+                    ir.FunctionCall(ir_function, args, "res", return_type)
+                )
             else:
                 self.emit(ir.ProcedureCall(ir_function, args))
                 value = None
@@ -399,10 +401,11 @@ class PythonToIrCompiler:
 
     def not_impl(self, node):  # pragma: no cover
         print(dir(node))
-        self.error(node, 'Cannot do {}'.format(node))
+        self.error(node, "Cannot do {}".format(node))
 
     def error(self, node, message):
         """ Raise a nice error message as feedback """
         location = SourceLocation(
-            self._filename, node.lineno, node.col_offset + 1, 1)
+            self._filename, node.lineno, node.col_offset + 1, 1
+        )
         raise CompilerError(message, location)

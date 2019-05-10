@@ -16,6 +16,7 @@ Release 0.5.7 (Upcoming)
 * Add S-record format.
 * Add amiga hunk format.
 * Add OCaml bytecode file reader.
+* Use black formatter
 
 Release 0.5.6 (Aug 22, 2018)
 ----------------------------

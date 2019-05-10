@@ -376,7 +376,7 @@ class CContext:
         """ Trigger a warning at the given location """
         # TODO: figure a nice way to gather warnings.
         self.logger.warning(message)
-        self.logger.info('At: %s, hints: %s', location, hints)
+        self.logger.info("At: %s, hints: %s", location, hints)
 
     def eval_expr(self, expr):
         """ Evaluate an expression right now! (=at compile time) """

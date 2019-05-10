@@ -12,7 +12,7 @@ import io
 import logging
 from .io import FileReader
 
-logger = logging.getLogger('ocaml')
+logger = logging.getLogger("ocaml")
 
 
 class MarshallCode(enum.IntEnum):
@@ -44,12 +44,13 @@ class MarshallCode(enum.IntEnum):
     CODE_INFIXPOINTER = 0x11
 
 
-INTEXT_MAGIC_NUMBER_SMALL = 0x8495a6be
-INTEXT_MAGIC_NUMBER_BIG = 0x8495a6bf
+INTEXT_MAGIC_NUMBER_SMALL = 0x8495A6BE
+INTEXT_MAGIC_NUMBER_BIG = 0x8495A6BF
 
 
 class Header:
     """ Marshalled data header """
+
     pass
 
 
@@ -66,9 +67,9 @@ def parse_header(reader):
     else:  # pragma: no cover
         raise NotImplementedError(str(magic))
     logger.debug(
-        'Header: res len=%s, obj_counter=%s',
+        "Header: res len=%s, obj_counter=%s",
         header.res_len,
-        header.obj_counter
+        header.obj_counter,
     )
     return header
 
@@ -78,7 +79,7 @@ def read_value(reader):
         reader = FileReader(io.BytesIO(reader))
 
     if not isinstance(reader, FileReader):
-        raise TypeError('read_value requires a FileReader or bytes')
+        raise TypeError("read_value requires a FileReader or bytes")
 
     m = Marshall(reader)
     return m.read_item()
@@ -92,16 +93,16 @@ class Marshall:
     def read_item(self):
         """ Read a single item """
         code = self.reader.read_byte()
-        logger.debug('code %s', hex(code))
+        logger.debug("code %s", hex(code))
         if code >= MarshallCode.PREFIX_SMALL_BLOCK:
-            tag = code & 0xf
+            tag = code & 0xF
             size = (code >> 4) & 0x7
             value = self.read_block(tag, size)
         elif code >= MarshallCode.PREFIX_SMALL_INT:
-            value = code & 0x3f
-            logger.debug('Small int: %s', value)
+            value = code & 0x3F
+            logger.debug("Small int: %s", value)
         elif code >= MarshallCode.PREFIX_SMALL_STRING:
-            size = code & 0x1f
+            size = code & 0x1F
             value = self.read_string(size)
         elif code == MarshallCode.CODE_INT8:
             value = self.reader.read_s8()
@@ -122,7 +123,7 @@ class Marshall:
             value = self.read_shared(ofs)
         elif code == MarshallCode.CODE_BLOCK32:
             header2 = self.reader.read_u32()
-            tag = header2 & 0xff
+            tag = header2 & 0xFF
             size = header2 >> 10
             value = self.read_block(tag, size)
         elif code == MarshallCode.CODE_BLOCK64:
@@ -146,14 +147,14 @@ class Marshall:
         Offset is an index back into an already deserialized object.
         0 means the last object, 1 the preceding object, etc..
         """
-        logger.debug('Shared at offset %s', ofs)
-        return self._items[-1-ofs]
+        logger.debug("Shared at offset %s", ofs)
+        return self._items[-1 - ofs]
 
     def read_string(self, size):
         """ Read string data of length given by size """
-        logger.debug('String with size %s', size)
+        logger.debug("String with size %s", size)
         data = self.reader.read_data(size)
-        logger.debug('String raw data %s', data)
+        logger.debug("String raw data %s", data)
         # value = data.decode('ascii')
         # logger.debug('String value: "%s"', value)
         value = data
@@ -161,9 +162,9 @@ class Marshall:
 
     def read_block(self, tag, size):
         """ A series of data with a tag """
-        logger.debug('Reading block with tag %s and size %s', tag, size)
+        logger.debug("Reading block with tag %s and size %s", tag, size)
         values = []
         for _ in range(size):
             values.append(self.read_item())
-        logger.debug('Completed block %s', values)
+        logger.debug("Completed block %s", values)
         return values

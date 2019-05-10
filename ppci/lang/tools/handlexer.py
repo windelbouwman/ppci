@@ -1,10 +1,10 @@
-
 from ..common import Token
 from ...common import CompilerError
 
 
 class Char:
     """ Represents a single character with a location """
+
     def __init__(self, char, loc):
         self.char = char
         self.loc = loc
@@ -23,6 +23,7 @@ class HandLexerBase:
     And:
     https://www.youtube.com/watch?v=HxaD_trXwRE
     """
+
     def __init__(self):
         self.token_buffer = []
         self.pushed_back = []
@@ -51,7 +52,7 @@ class HandLexerBase:
             self.current_text.append(char)
 
         if not eof and char is None:
-            self.error('Expected a character, but at end of file')
+            self.error("Expected a character, but at end of file")
 
         return char
 
@@ -63,7 +64,7 @@ class HandLexerBase:
 
     def emit(self, typ):
         """ Emit the current text under scope as a token """
-        val = ''.join(c.char for c in self.current_text)
+        val = "".join(c.char for c in self.current_text)
         loc = self.current_text[0].loc
         token = Token(typ, val, loc)
         self.token_buffer.append(token)
@@ -108,4 +109,4 @@ class HandLexerBase:
 
     def expect(self, valid):
         if not self.accept(valid):
-            self.error("Expected {}".format(', '.join(valid)))
+            self.error("Expected {}".format(", ".join(valid)))

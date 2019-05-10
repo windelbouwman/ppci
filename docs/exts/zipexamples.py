@@ -1,4 +1,5 @@
 # Custom extension that zips all the examples for download.
+import logging
 from zipfile import ZipFile
 import fnmatch
 from os import path, walk
@@ -28,7 +29,7 @@ def zip_examples(app):
             pat = path.join(path.join(root_path, folder))
             for filename in my_glob(pat, ext):
                 zfn = path.relpath(filename, root_path)
-                app.info('zipping {} as {}'.format(filename, zfn))
+                logging.info('zipping {} as {}'.format(filename, zfn))
                 myzip.write(filename, zfn)
 
 

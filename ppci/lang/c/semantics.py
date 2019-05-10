@@ -180,17 +180,13 @@ class CSemantics:
         while not self._root_scope.equal_types(value.typ, target_typ):
             # If we are at a complex type, implicit descend otherwise cast:
             if target_typ.is_compound:
-                init_cursor.enter_compound(
-                    target_typ, value.location, True
-                )
+                init_cursor.enter_compound(target_typ, value.location, True)
                 target_typ = init_cursor.at_typ()
             else:
                 value = self.coerce(value, target_typ)
                 break
 
-        self.logger.debug(
-            "Storing %s at cursor %s", value, init_cursor
-        )
+        self.logger.debug("Storing %s at cursor %s", value, init_cursor)
 
         # Retrieve current value to check overwrite:
         previous_value = init_cursor.get_value()

@@ -21,7 +21,7 @@ class OptTestCase(unittest.TestCase):
         self.builder = irutils.Builder()
         self.module = ir.Module('test', debug_db=self.debug_db)
         self.builder.set_module(self.module)
-        self.function = self.builder.new_procedure('testfunction')
+        self.function = self.builder.new_procedure('testfunction', ir.Binding.GLOBAL)
         self.builder.set_function(self.function)
         entry = self.builder.new_block()
         self.function.entry = entry
@@ -170,7 +170,7 @@ class TailCallTestCase(unittest.TestCase):
         builder = irutils.Builder()
         module = ir.Module('test')
         builder.set_module(module)
-        function = builder.new_function('x', ir.i8)
+        function = builder.new_function('x', ir.Binding.GLOBAL, ir.i8)
         builder.set_function(function)
         entry = builder.new_block()
         function.entry = entry

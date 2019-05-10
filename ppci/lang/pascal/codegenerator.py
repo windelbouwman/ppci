@@ -58,7 +58,8 @@ class CodeGenerator:
             raise CompilerError("Errors occurred", None)
 
         # Generate program code:
-        ir_function = self.builder.new_procedure(unit.name + '_' + 'main')
+        function_name = unit.name + '_' + 'main'
+        ir_function = self.builder.new_procedure(function_name, ir.Binding.GLOBAL)
         self.builder.set_function(ir_function)
         first_block = self.builder.new_block()
         self.builder.set_block(first_block)
@@ -129,7 +130,7 @@ class CodeGenerator:
             size = 100  # elf.context.size_of(var.typ)
             alignment = 4
             ir_var = ir.Variable(
-                var.name, size, alignment, value=cval)
+                var.name, ir.Binding.GLOBAL, size, alignment, value=cval)
             self.context.var_map[var] = ir_var
             self.builder.module.add_variable(ir_var)
 

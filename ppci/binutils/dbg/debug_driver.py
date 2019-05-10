@@ -6,6 +6,7 @@ from .event import Events
 
 class DebugState(enum.Enum):
     """ Debug states """
+
     STOPPED = 0
     RUNNING = 1
     FINISHED = 2

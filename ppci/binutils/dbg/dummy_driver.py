@@ -3,6 +3,7 @@ from .debug_driver import DebugDriver, DebugState
 
 class DummyDebugDriver(DebugDriver):
     """ Stub implementation of the debug driver """
+
     def __init__(self):
         super().__init__()
         self.status = DebugState.STOPPED

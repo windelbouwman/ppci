@@ -1,4 +1,3 @@
-
 """ Java virtual machine (JVM).
 
 This module supports loading and saving of java bytecode.
@@ -16,7 +15,10 @@ from .printer import print_class_file
 
 
 __all__ = [
-    'class_to_ir', 'read_class_file', 'read_jar', 'load_class',
-    'print_class_file',
-    'ClassLoader',
+    "class_to_ir",
+    "read_class_file",
+    "read_jar",
+    "load_class",
+    "print_class_file",
+    "ClassLoader",
 ]

@@ -2,8 +2,8 @@ import re
 from ...common import CompilerError
 from ..common import Token, SourceLocation
 
-EOF = 'EOF'
-EPS = 'EPS'
+EOF = "EOF"
+EPS = "EPS"
 
 
 def on(pattern, flags=0, order=0):
@@ -11,23 +11,25 @@ def on(pattern, flags=0, order=0):
     prog = re.compile(pattern, flags=flags)
 
     def wrapper(f):
-        setattr(f, '$lex', (prog, order))
+        setattr(f, "$lex", (prog, order))
         return f
+
     return wrapper
 
 
 class LexMeta(type):
     """ Meta class which inspects the functions decorated with 'on' """
+
     def __new__(cls, name, bases, attrs):
         lexmap = []
         for n, value in attrs.items():
-            if n.startswith('__'):
+            if n.startswith("__"):
                 continue
-            if hasattr(value, '$lex'):
-                prog, order = getattr(value, '$lex')
+            if hasattr(value, "$lex"):
+                prog, order = getattr(value, "$lex")
                 lexmap.append((prog, order, value))
         lexmap.sort(key=lambda l: l[1])
-        attrs['lexmap'] = lexmap
+        attrs["lexmap"] = lexmap
         return type.__new__(cls, name, bases, attrs)
 
 
@@ -41,6 +43,7 @@ class SimpleLexer(Lexer, metaclass=LexMeta):
     Use this class by subclassing it and decorating handler methods
     with the 'on' function.
     """
+
     def gettok(self):
         """ Find a match at the given position """
         for prog, _, func in self.lexmap:
@@ -53,8 +56,8 @@ class SimpleLexer(Lexer, metaclass=LexMeta):
                 val = mo.group(0)
 
                 # Update row and column information:
-                if '\n' in val:
-                    self.line += val.count('\n')
+                if "\n" in val:
+                    self.line += val.count("\n")
                     # TODO: this is wrong, and must be improved:
                     self.line_start = mo.start()
 
@@ -72,8 +75,8 @@ class SimpleLexer(Lexer, metaclass=LexMeta):
         column = self.pos - self.line_start
         loc = SourceLocation(self.filename, self.line, column, 1)
         raise CompilerError(
-            'Unexpected char: {0} (0x{1:X})'.format(char, ord(char)),
-            loc=loc)
+            "Unexpected char: {0} (0x{1:X})".format(char, ord(char)), loc=loc
+        )
 
     def tokenize(self, txt, eof=False):
         """ Generator that generates lexical tokens from text.
@@ -102,9 +105,11 @@ class BaseLexer(Lexer):
     lexer. This class handles the regular expression generation and
     source position accounting.
     """
+
     def __init__(self, tok_spec):
-        tok_re = '|'.join(
-            '(?P<{}>{})'.format(pair[0], pair[1]) for pair in tok_spec)
+        tok_re = "|".join(
+            "(?P<{}>{})".format(pair[0], pair[1]) for pair in tok_spec
+        )
         self.gettok = re.compile(tok_re).match
         self.func_map = {pair[0]: pair[2] for pair in tok_spec}
         self.filename = None
@@ -146,8 +151,9 @@ class BaseLexer(Lexer):
             column = self.pos - self.line_start
             loc = SourceLocation(self.filename, self.line, column, 1)
             raise CompilerError(
-                'Unexpected char: {0} (0x{1:X})'.format(char, ord(char)),
-                loc=loc)
+                "Unexpected char: {0} (0x{1:X})".format(char, ord(char)),
+                loc=loc,
+            )
         if eof:
             loc = SourceLocation(self.filename, self.line, 0, 0)
             yield Token(EOF, EOF, loc)

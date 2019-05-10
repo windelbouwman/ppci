@@ -11,7 +11,7 @@ from ...irutils import Builder
 from ... import ir
 
 
-logger = logging.getLogger('jvm2ir')
+logger = logging.getLogger("jvm2ir")
 
 
 def class_to_ir(class_file):
@@ -43,7 +43,7 @@ class Generator:
     def initialize(self):
         """ Prepare translation. """
         self.debug_db = debuginfo.DebugDb()
-        module = ir.Module('java', debug_db=self.debug_db)
+        module = ir.Module("java", debug_db=self.debug_db)
         self._builder.set_module(module)
 
     def emit(self, instr):
@@ -52,8 +52,11 @@ class Generator:
     def get_ir_type(self, typ):
         if isinstance(typ, BaseType):
             mp = {
-                'B': ir.i8, 'S': ir.i16, 'I': ir.i32,
-                'F': ir.f32, 'D': ir.f64,
+                "B": ir.i8,
+                "S": ir.i16,
+                "I": ir.i32,
+                "F": ir.f32,
+                "D": ir.f64,
             }
             return mp[typ.typ]
         else:  # pragma: no cover
@@ -65,11 +68,11 @@ class Generator:
         else:
             if isinstance(typ, BaseType):
                 dbg_type_map = {
-                    'F': debuginfo.DebugBaseType('float', 4, 1),
-                    'D': debuginfo.DebugBaseType('double', 8, 1),
-                    'I': debuginfo.DebugBaseType('int', 4, 1),
-                    'J': debuginfo.DebugBaseType('long', 8, 1),
-                    'V': debuginfo.DebugBaseType('void', 0, 1),
+                    "F": debuginfo.DebugBaseType("float", 4, 1),
+                    "D": debuginfo.DebugBaseType("double", 8, 1),
+                    "I": debuginfo.DebugBaseType("int", 4, 1),
+                    "J": debuginfo.DebugBaseType("long", 8, 1),
+                    "V": debuginfo.DebugBaseType("void", 0, 1),
                 }
                 dbg_typ = dbg_type_map[typ.typ]
                 self.debug_db.enter(typ, dbg_typ)
@@ -81,39 +84,39 @@ class Generator:
         return self._builder.module
 
     def gen_class(self, class_file):
-        logger.warning('java class file code generate is work in progress')
+        logger.warning("java class file code generate is work in progress")
         self._functions = {}
         self.class_file = class_file
         for method in class_file.methods:
             if AccessFlag.ACC_STATIC in method.access_flags:
                 self.gen_method(method)
             else:
-                logger.warning('Skipping non-static function %s', method.name)
+                logger.warning("Skipping non-static function %s", method.name)
 
     def gen_method(self, method):
         """ Generate code for a single method. """
         logger.info(
-            'processing method %s access=%s',
-            method.name, method.access_flags
+            "processing method %s access=%s", method.name, method.access_flags
         )
 
         signature = method.descriptor
-        logger.debug('Descriptor: %s', signature)
+        logger.debug("Descriptor: %s", signature)
 
         # Construct valid function:
+        binding = ir.Binding.GLOBAL
         if signature.return_type:
             ir_typ = self.get_ir_type(signature.return_type)
-            ir_func = self._builder.new_function(method.name, ir_typ)
+            ir_func = self._builder.new_function(method.name, binding, ir_typ)
             dbg_return_type = self.get_debug_type(signature.return_type)
         else:
-            ir_func = self._builder.new_procedure(method.name)
-            dbg_return_type = debuginfo.DebugBaseType('void', 0, 1)
+            ir_func = self._builder.new_procedure(method.name, binding)
+            dbg_return_type = debuginfo.DebugBaseType("void", 0, 1)
         self._builder.set_function(ir_func)
 
         # Register function:
         if method.name in self._functions:
             # Maybe we had an external function at first?
-            raise NotImplementedError('TODO: update existing / replace?')
+            raise NotImplementedError("TODO: update existing / replace?")
         else:
             self._functions[method.name] = ir_func
 
@@ -125,39 +128,44 @@ class Generator:
         dbg_arg_types = []
         self.local_variables = []
 
-        logger.debug('Signature: %s', signature.parameter_types)
+        logger.debug("Signature: %s", signature.parameter_types)
         for index, parameter_type in enumerate(signature.parameter_types):
             ir_typ = self.get_ir_type(parameter_type)
-            parameter_name = 'param{}'.format(index)
+            parameter_name = "param{}".format(index)
             ir_parameter = ir.Parameter(parameter_name, ir_typ)
             ir_func.add_parameter(ir_parameter)
-            dbg_arg_types.append(debuginfo.DebugParameter(
-                'arg{}'.format(index), self.get_debug_type(parameter_type)))
+            dbg_arg_types.append(
+                debuginfo.DebugParameter(
+                    "arg{}".format(index), self.get_debug_type(parameter_type)
+                )
+            )
 
             # Create local variable, and store parameter:
             size = 8  # TODO: fetch this from elsewhere.
             alignment = 8
-            alloc_param = self.emit(ir.Alloc('alloc', size, alignment))
-            param_ptr = self.emit(ir.AddressOf(alloc_param, 'ptr'))
+            alloc_param = self.emit(ir.Alloc("alloc", size, alignment))
+            param_ptr = self.emit(ir.AddressOf(alloc_param, "ptr"))
             self.emit(ir.Store(ir_parameter, param_ptr))
-            logger.debug('adding local %s', param_ptr)
+            logger.debug("adding local %s", param_ptr)
             self.local_variables.append(param_ptr)
 
         # Enter correct debug info:
         db_function_info = debuginfo.DebugFunction(
             ir_func.name,
-            SourceLocation('somefile.java', 1, 1, 1),
-            dbg_return_type, dbg_arg_types)
+            SourceLocation("somefile.java", 1, 1, 1),
+            dbg_return_type,
+            dbg_arg_types,
+        )
         self.debug_db.enter(ir_func, db_function_info)
 
         for attribute in method.attributes:
             attrib_name = attribute.name
-            if attrib_name == 'Code':
+            if attrib_name == "Code":
                 # Now we found bytecode.
                 code = load_code(attribute.data)
                 self.gen_code(code)
             else:
-                logger.warning('Unhandled attribute: %s', attrib_name)
+                logger.warning("Unhandled attribute: %s", attrib_name)
 
         # Assume we returned in one way or another?
         # if signature.return_type:
@@ -168,15 +176,15 @@ class Generator:
 
     def gen_code(self, code):
         logger.debug(
-            'Max stack=%s, max locals=%s',
-            code.max_stack, code.max_locals)
+            "Max stack=%s, max locals=%s", code.max_stack, code.max_locals
+        )
 
         # print(code.attributes)
         for index in range(code.max_locals):
             size = 8  # TODO: fetch this from elsewhere.
             alignment = 8
-            alloc_local = self.emit(ir.Alloc('alloc', size, alignment))
-            local_ptr = self.emit(ir.AddressOf(alloc_local, 'ptr'))
+            alloc_local = self.emit(ir.Alloc("alloc", size, alignment))
+            local_ptr = self.emit(ir.AddressOf(alloc_local, "ptr"))
             self.local_variables.append(local_ptr)
 
         self.stack = []
@@ -189,227 +197,224 @@ class Generator:
         # op_to_name[instruction]  # .opcode
         args = instruction.args
         # [0, 1, 2, 3]  # ?
-        logger.debug('processing %s', instruction)
+        logger.debug("processing %s", instruction)
 
         # Start of a giant if-tree with all opcodes:
-        if mnemonic == 'nop':
+        if mnemonic == "nop":
             pass  # Relaxation time!
-        elif mnemonic == 'iconst_m1':
+        elif mnemonic == "iconst_m1":
             self.gen_load_const(-1, ir.i32)
-        elif mnemonic == 'iconst_0':
+        elif mnemonic == "iconst_0":
             self.gen_load_const(0, ir.i32)
-        elif mnemonic == 'iconst_1':
+        elif mnemonic == "iconst_1":
             self.gen_load_const(1, ir.i32)
-        elif mnemonic == 'iconst_2':
+        elif mnemonic == "iconst_2":
             self.gen_load_const(2, ir.i32)
-        elif mnemonic == 'iconst_3':
+        elif mnemonic == "iconst_3":
             self.gen_load_const(3, ir.i32)
-        elif mnemonic == 'iconst_4':
+        elif mnemonic == "iconst_4":
             self.gen_load_const(4, ir.i32)
-        elif mnemonic == 'iconst_5':
+        elif mnemonic == "iconst_5":
             self.gen_load_const(5, ir.i32)
-        elif mnemonic == 'lconst_0':
+        elif mnemonic == "lconst_0":
             self.gen_load_const(0, ir.i64)
-        elif mnemonic == 'lconst_1':
+        elif mnemonic == "lconst_1":
             self.gen_load_const(1, ir.i64)
-        elif mnemonic == 'fconst_0':
+        elif mnemonic == "fconst_0":
             self.gen_load_const(0, ir.f32)
-        elif mnemonic == 'fconst_1':
+        elif mnemonic == "fconst_1":
             self.gen_load_const(1, ir.f32)
-        elif mnemonic == 'fconst_2':
+        elif mnemonic == "fconst_2":
             self.gen_load_const(2, ir.f32)
-        elif mnemonic == 'dconst_0':
+        elif mnemonic == "dconst_0":
             self.gen_load_const(0, ir.f64)
-        elif mnemonic == 'dconst_1':
+        elif mnemonic == "dconst_1":
             self.gen_load_const(1, ir.f64)
-        elif mnemonic == 'bipush':
+        elif mnemonic == "bipush":
             value = args[0]
             self.gen_load_const(value, ir.i32)
-        elif mnemonic == 'sipush':
+        elif mnemonic == "sipush":
             value = args[0]
             self.gen_load_const(value, ir.i32)
-        elif mnemonic == 'ldc':
+        elif mnemonic == "ldc":
             index = args[0]
             value = self.class_file.constant_pool[index]
-            typ_map = {
-                ConstantTag.Float: ir.f32,
-                ConstantTag.Integer: ir.i32,
-            }
+            typ_map = {ConstantTag.Float: ir.f32, ConstantTag.Integer: ir.i32}
             typ = typ_map[value.tag]
             value = value.value
             self.gen_load_const(value, typ)
-        elif mnemonic == 'iload':
+        elif mnemonic == "iload":
             index = args[0]
             self.gen_load_local(index, ir.i32)
-        elif mnemonic == 'lload':
+        elif mnemonic == "lload":
             index = args[0]
             self.gen_load_local(index, ir.i64)
-        elif mnemonic == 'fload':
+        elif mnemonic == "fload":
             index = args[0]
             self.gen_load_local(index, ir.f32)
-        elif mnemonic == 'dload':
+        elif mnemonic == "dload":
             index = args[0]
             self.gen_load_local(index, ir.f64)
-        elif mnemonic == 'iload_0':
+        elif mnemonic == "iload_0":
             self.gen_load_local(0, ir.i32)
-        elif mnemonic == 'iload_1':
+        elif mnemonic == "iload_1":
             self.gen_load_local(1, ir.i32)
-        elif mnemonic == 'iload_2':
+        elif mnemonic == "iload_2":
             self.gen_load_local(2, ir.i32)
-        elif mnemonic == 'iload_3':
+        elif mnemonic == "iload_3":
             self.gen_load_local(3, ir.i32)
-        elif mnemonic == 'lload_0':
+        elif mnemonic == "lload_0":
             self.gen_load_local(0, ir.i64)
-        elif mnemonic == 'lload_1':
+        elif mnemonic == "lload_1":
             self.gen_load_local(1, ir.i64)
-        elif mnemonic == 'lload_2':
+        elif mnemonic == "lload_2":
             self.gen_load_local(2, ir.i64)
-        elif mnemonic == 'lload_3':
+        elif mnemonic == "lload_3":
             self.gen_load_local(3, ir.i64)
-        elif mnemonic == 'fload_0':
+        elif mnemonic == "fload_0":
             self.gen_load_local(0, ir.f32)
-        elif mnemonic == 'fload_1':
+        elif mnemonic == "fload_1":
             self.gen_load_local(1, ir.f32)
-        elif mnemonic == 'fload_2':
+        elif mnemonic == "fload_2":
             self.gen_load_local(2, ir.f32)
-        elif mnemonic == 'fload_3':
+        elif mnemonic == "fload_3":
             self.gen_load_local(3, ir.f32)
-        elif mnemonic == 'dload_0':
+        elif mnemonic == "dload_0":
             self.gen_load_local(0, ir.f64)
-        elif mnemonic == 'dload_1':
+        elif mnemonic == "dload_1":
             self.gen_load_local(1, ir.f64)
-        elif mnemonic == 'dload_2':
+        elif mnemonic == "dload_2":
             self.gen_load_local(2, ir.f64)
-        elif mnemonic == 'dload_3':
+        elif mnemonic == "dload_3":
             self.gen_load_local(3, ir.f64)
-        elif mnemonic == 'istore':
+        elif mnemonic == "istore":
             index = args[0]
             self.gen_store_local(index, ir.i32)
-        elif mnemonic == 'lstore':
+        elif mnemonic == "lstore":
             index = args[0]
             self.gen_store_local(index, ir.i64)
-        elif mnemonic == 'fstore':
+        elif mnemonic == "fstore":
             index = args[0]
             self.gen_store_local(index, ir.f32)
-        elif mnemonic == 'dstore':
+        elif mnemonic == "dstore":
             index = args[0]
             self.gen_store_local(index, ir.f64)
-        elif mnemonic == 'istore_0':
+        elif mnemonic == "istore_0":
             self.gen_store_local(0, ir.i32)
-        elif mnemonic == 'istore_1':
+        elif mnemonic == "istore_1":
             self.gen_store_local(1, ir.i32)
-        elif mnemonic == 'istore_2':
+        elif mnemonic == "istore_2":
             self.gen_store_local(2, ir.i32)
-        elif mnemonic == 'istore_3':
+        elif mnemonic == "istore_3":
             self.gen_store_local(3, ir.i32)
-        elif mnemonic == 'lstore_0':
+        elif mnemonic == "lstore_0":
             self.gen_store_local(0, ir.i64)
-        elif mnemonic == 'lstore_1':
+        elif mnemonic == "lstore_1":
             self.gen_store_local(1, ir.i64)
-        elif mnemonic == 'lstore_2':
+        elif mnemonic == "lstore_2":
             self.gen_store_local(2, ir.i64)
-        elif mnemonic == 'lstore_3':
+        elif mnemonic == "lstore_3":
             self.gen_store_local(3, ir.i64)
-        elif mnemonic == 'fstore_0':
+        elif mnemonic == "fstore_0":
             self.gen_store_local(0, ir.f32)
-        elif mnemonic == 'fstore_1':
+        elif mnemonic == "fstore_1":
             self.gen_store_local(1, ir.f32)
-        elif mnemonic == 'fstore_2':
+        elif mnemonic == "fstore_2":
             self.gen_store_local(2, ir.f32)
-        elif mnemonic == 'fstore_3':
+        elif mnemonic == "fstore_3":
             self.gen_store_local(3, ir.f32)
-        elif mnemonic == 'dstore_0':
+        elif mnemonic == "dstore_0":
             self.gen_store_local(0, ir.f64)
-        elif mnemonic == 'dstore_1':
+        elif mnemonic == "dstore_1":
             self.gen_store_local(1, ir.f64)
-        elif mnemonic == 'dstore_2':
+        elif mnemonic == "dstore_2":
             self.gen_store_local(2, ir.f64)
-        elif mnemonic == 'dstore_3':
+        elif mnemonic == "dstore_3":
             self.gen_store_local(3, ir.f64)
-        elif mnemonic == 'pop':
+        elif mnemonic == "pop":
             value = self.stack.pop()
-        elif mnemonic == 'dup':
+        elif mnemonic == "dup":
             value = self.stack.pop()
             self.stack.append(value)
             self.stack.append(value)
-        elif mnemonic == 'swap':
+        elif mnemonic == "swap":
             value1 = self.stack.pop()
             value2 = self.stack.pop()
             self.stack.append(value1)
             self.stack.append(value2)
-        elif mnemonic == 'iadd':
-            self.gen_binop('+', ir.i32)
-        elif mnemonic == 'ladd':
-            self.gen_binop('+', ir.i64)
-        elif mnemonic == 'fadd':
-            self.gen_binop('+', ir.f32)
-        elif mnemonic == 'dadd':
-            self.gen_binop('+', ir.f64)
-        elif mnemonic == 'isub':
-            self.gen_binop('-', ir.i32)
-        elif mnemonic == 'lsub':
-            self.gen_binop('-', ir.i64)
-        elif mnemonic == 'fsub':
-            self.gen_binop('-', ir.f32)
-        elif mnemonic == 'dsub':
-            self.gen_binop('-', ir.f64)
-        elif mnemonic == 'imul':
-            self.gen_binop('*', ir.i32)
-        elif mnemonic == 'lmul':
-            self.gen_binop('*', ir.i64)
-        elif mnemonic == 'fmul':
-            self.gen_binop('*', ir.f32)
-        elif mnemonic == 'dmul':
-            self.gen_binop('*', ir.f64)
-        elif mnemonic == 'idiv':
-            self.gen_binop('/', ir.i32)
-        elif mnemonic == 'ldiv':
-            self.gen_binop('/', ir.i64)
-        elif mnemonic == 'fdiv':
-            self.gen_binop('/', ir.f32)
-        elif mnemonic == 'ddiv':
-            self.gen_binop('/', ir.f64)
-        elif mnemonic == 'i2l':
+        elif mnemonic == "iadd":
+            self.gen_binop("+", ir.i32)
+        elif mnemonic == "ladd":
+            self.gen_binop("+", ir.i64)
+        elif mnemonic == "fadd":
+            self.gen_binop("+", ir.f32)
+        elif mnemonic == "dadd":
+            self.gen_binop("+", ir.f64)
+        elif mnemonic == "isub":
+            self.gen_binop("-", ir.i32)
+        elif mnemonic == "lsub":
+            self.gen_binop("-", ir.i64)
+        elif mnemonic == "fsub":
+            self.gen_binop("-", ir.f32)
+        elif mnemonic == "dsub":
+            self.gen_binop("-", ir.f64)
+        elif mnemonic == "imul":
+            self.gen_binop("*", ir.i32)
+        elif mnemonic == "lmul":
+            self.gen_binop("*", ir.i64)
+        elif mnemonic == "fmul":
+            self.gen_binop("*", ir.f32)
+        elif mnemonic == "dmul":
+            self.gen_binop("*", ir.f64)
+        elif mnemonic == "idiv":
+            self.gen_binop("/", ir.i32)
+        elif mnemonic == "ldiv":
+            self.gen_binop("/", ir.i64)
+        elif mnemonic == "fdiv":
+            self.gen_binop("/", ir.f32)
+        elif mnemonic == "ddiv":
+            self.gen_binop("/", ir.f64)
+        elif mnemonic == "i2l":
             self.gen_cast(ir.i32, ir.i64)
-        elif mnemonic == 'i2f':
+        elif mnemonic == "i2f":
             self.gen_cast(ir.i32, ir.f32)
-        elif mnemonic == 'i2d':
+        elif mnemonic == "i2d":
             self.gen_cast(ir.i32, ir.f64)
-        elif mnemonic == 'l2i':
+        elif mnemonic == "l2i":
             self.gen_cast(ir.i64, ir.i32)
-        elif mnemonic == 'l2f':
+        elif mnemonic == "l2f":
             self.gen_cast(ir.i64, ir.f32)
-        elif mnemonic == 'l2d':
+        elif mnemonic == "l2d":
             self.gen_cast(ir.i64, ir.f64)
-        elif mnemonic == 'f2i':
+        elif mnemonic == "f2i":
             self.gen_cast(ir.f32, ir.i32)
-        elif mnemonic == 'f2l':
+        elif mnemonic == "f2l":
             self.gen_cast(ir.f32, ir.i64)
-        elif mnemonic == 'f2d':
+        elif mnemonic == "f2d":
             self.gen_cast(ir.f32, ir.f64)
-        elif mnemonic == 'd2i':
+        elif mnemonic == "d2i":
             self.gen_cast(ir.f64, ir.i32)
-        elif mnemonic == 'd2l':
+        elif mnemonic == "d2l":
             self.gen_cast(ir.f64, ir.i64)
-        elif mnemonic == 'd2f':
+        elif mnemonic == "d2f":
             self.gen_cast(ir.f64, ir.f32)
-        elif mnemonic == 'i2b':
+        elif mnemonic == "i2b":
             self.gen_cast(ir.i32, ir.i8)
-        elif mnemonic == 'i2c':
+        elif mnemonic == "i2c":
             self.gen_cast(ir.i32, ir.i8)
-        elif mnemonic == 'i2s':
+        elif mnemonic == "i2s":
             self.gen_cast(ir.i32, ir.i16)
-        elif mnemonic == 'ireturn':
+        elif mnemonic == "ireturn":
             self.gen_return(ir.i32)
-        elif mnemonic == 'lreturn':
+        elif mnemonic == "lreturn":
             self.gen_return(ir.i64)
-        elif mnemonic == 'freturn':
+        elif mnemonic == "freturn":
             self.gen_return(ir.f32)
-        elif mnemonic == 'dreturn':
+        elif mnemonic == "dreturn":
             self.gen_return(ir.f64)
-        elif mnemonic == 'return':
+        elif mnemonic == "return":
             self.emit(ir.Exit())
-        elif mnemonic == 'invokestatic':
+        elif mnemonic == "invokestatic":
             method_index = args[0]
             method_ref = self.class_file.constant_pool[method_index]
             # print(method_ref)
@@ -419,7 +424,7 @@ class Generator:
             # print(class_index, name_and_type)
             name = self.class_file.constant_pool[name_and_type.value[0]]
             signature = self.class_file.constant_pool[name_and_type.value[1]]
-            logger.debug('calling %s with %s', name.value, signature.value)
+            logger.debug("calling %s with %s", name.value, signature.value)
             name = name.value
             signature = parse_method_descriptor(signature.value)
             self.call_sub(name, signature)
@@ -446,7 +451,8 @@ class Generator:
         else:
             typ = ir_method.return_ty
             value = self.emit(
-                ir.FunctionCall(ir_method, args, 'invokestatic', typ))
+                ir.FunctionCall(ir_method, args, "invokestatic", typ)
+            )
             self.stack.append(value)
 
     def get_method_ref(self, name, signature):
@@ -456,18 +462,18 @@ class Generator:
             # Check types?
         else:
             # Create new external method.
-            raise NotImplementedError('TODO')
+            raise NotImplementedError("TODO")
         return func
 
     def gen_load_const(self, value, typ):
         """ Generate code for loading a constant value. """
-        value = self.emit(ir.Const(value, 'const', typ))
+        value = self.emit(ir.Const(value, "const", typ))
         self.stack.append(value)
 
     def gen_load_local(self, index, typ):
         """ Generate code for loading a local variable. """
         var = self.local_variables[index]
-        value = self.emit(ir.Load(var, 'load', typ))
+        value = self.emit(ir.Load(var, "load", typ))
         assert value.ty == typ
         self.stack.append(value)
 
@@ -485,14 +491,14 @@ class Generator:
         value2 = self.stack.pop()
         assert value1.ty is typ
         assert value2.ty is typ
-        result = self.emit(ir.Binop(value1, op, value2, 'binop', typ))
+        result = self.emit(ir.Binop(value1, op, value2, "binop", typ))
         self.stack.append(result)
 
     def gen_cast(self, from_typ, to_typ):
         """ Generate code for a type cast. """
         value = self.stack.pop()
         assert value.ty is from_typ
-        result = self.emit(ir.Cast(value, 'cast', to_typ))
+        result = self.emit(ir.Cast(value, "cast", to_typ))
         self.stack.append(result)
 
     def gen_return(self, typ):

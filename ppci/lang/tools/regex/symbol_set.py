@@ -1,6 +1,6 @@
-
 class SymbolSet:
     """ Ordered series of ranges """
+
     def __init__(self, symbols):
         self._symbols = symbols
 

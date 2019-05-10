@@ -10,13 +10,13 @@ from ... import ir
 from .opcodes import Opcode
 
 
-logger = logging.getLogger('ocaml')
+logger = logging.getLogger("ocaml")
 
 
 def ocaml_to_ir(module):
     """ Transform ocaml bytecode into ir-code. """
     # Detect blocks first:
-    instructions = module['CODE']
+    instructions = module["CODE"]
 
     g = Gen()
     return g.gen(instructions)
@@ -37,10 +37,10 @@ class Gen:
 
         self.make_blocks()
 
-        self.ir_module = ir.Module('fubar')
+        self.ir_module = ir.Module("fubar")
 
         self.walk_program()
-        #for instruction in instructions:
+        # for instruction in instructions:
         #    self.gen_ins(instruction)
 
         return self.ir_module
@@ -48,19 +48,19 @@ class Gen:
     def create_block(self, label):
         # print('Create block', label)
         if label not in self.indirect:
-            raise ValueError('Invalid label targetting no instruction')
+            raise ValueError("Invalid label targetting no instruction")
 
         if label in self._blocks:
             block = self._blocks[label]
         else:
-            name = 'block{}'.format(label)
+            name = "block{}".format(label)
             block = ir.Block(name)
             self._blocks[label] = block
         return block
 
     def make_blocks(self):
         """ Determine basic blocks of instruction sequence """
-        logger.debug('Splitting bytecode into blocks')
+        logger.debug("Splitting bytecode into blocks")
 
         conditional_branches = [
             Opcode.BEQ,
@@ -72,11 +72,7 @@ class Gen:
             Opcode.BULTINT,
             Opcode.BUGEINT,
         ]
-        branches = [
-            Opcode.BRANCH,
-            Opcode.BRANCHIF,
-            Opcode.BRANCHIFNOT,
-        ]
+        branches = [Opcode.BRANCH, Opcode.BRANCHIF, Opcode.BRANCHIFNOT]
 
         # First instruction is header of a new block:
         new_block = True
@@ -113,7 +109,7 @@ class Gen:
 
     def walk_program(self):
         """ Recursively visit the whole bytecode program. """
-        logger.debug('Taking a stroll through the bytecode')
+        logger.debug("Taking a stroll through the bytecode")
         self.visited = set()
         while True:
             ins = self.fetch()
@@ -130,7 +126,7 @@ class Gen:
 
     def gen_ins(self, instruction):
         """ Generate instruction code """
-        logger.debug('%s: %s', instruction.label, instruction)
+        logger.debug("%s: %s", instruction.label, instruction)
         # label = instruction.label
         opcode = instruction.opcode
         if opcode == Opcode.ACC0:
@@ -297,19 +293,19 @@ class Gen:
             self.do_push()
             self.do_const(n)
         elif opcode == Opcode.ADDINT:
-            self.do_binop('+')
+            self.do_binop("+")
         elif opcode == Opcode.SUBINT:
-            self.do_binop('-')
+            self.do_binop("-")
         elif opcode == Opcode.MULINT:
-            self.do_binop('*')
+            self.do_binop("*")
         elif opcode == Opcode.DIVINT:
-            self.do_binop('/')
+            self.do_binop("/")
         elif opcode == Opcode.ANDINT:
-            self.do_binop('&')
+            self.do_binop("&")
         elif opcode == Opcode.ORINT:
-            self.do_binop('|')
+            self.do_binop("|")
         elif opcode == Opcode.XORINT:
-            self.do_binop('^')
+            self.do_binop("^")
         elif opcode == Opcode.STOP:
             pass
         else:  # pragma: no cover
@@ -322,7 +318,7 @@ class Gen:
         self._stack.append(self._accumulator)
 
     def do_const(self, value):
-        self._accumulator = self.emit(ir.Const(value, 'const', ir.i32))
+        self._accumulator = self.emit(ir.Const(value, "const", ir.i32))
 
     def do_makeblock(self, n, t):
         """ Create a block from accumulator and stack content """
@@ -336,7 +332,7 @@ class Gen:
     def do_binop(self, op):
         a = self._accumulator
         b = self._stack.pop()
-        self._accumulator = self.emit(ir.Binop(a, op, b, 'binop', ir.i32))
+        self._accumulator = self.emit(ir.Binop(a, op, b, "binop", ir.i32))
 
     def emit(self, inst):
         """ Emit an ir instruction """

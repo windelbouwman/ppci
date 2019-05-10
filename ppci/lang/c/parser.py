@@ -1119,7 +1119,7 @@ class CParser(RecursiveDescentParser):
                 expr = self.parse_expression()
                 self.consume(")")
         else:
-            self.error('Expected expression')
+            self.error("Expected expression")
 
         # Postfix operations (have the highest precedence):
         while self.peek in ["--", "++", "[", ".", "->", "("]:

@@ -8,48 +8,49 @@ from .bytefile import ByteCodeReader
 from .code import load_code
 
 
-logger = logging.getLogger('ocaml')
+logger = logging.getLogger("ocaml")
 
 
 def read_file(filename):
     """ Read a cmo or bytecode file.
     """
     if isinstance(filename, str):
-        logging.info('Processing %s', filename)
-        with open(filename, 'rb') as f:
+        logging.info("Processing %s", filename)
+        with open(filename, "rb") as f:
             return read_file(f)
     else:
         f = filename
         if not f.seekable():
-            raise ValueError('Can only read from seekable files')
+            raise ValueError("Can only read from seekable files")
 
         reader = CmoReader(f)
         if reader.is_cmo():
-            logger.debug('File is cmo file')
+            logger.debug("File is cmo file")
             f.seek(0)
         else:
-            logger.debug('File might be bytecode file')
+            logger.debug("File might be bytecode file")
             reader = ByteCodeReader(FileReader(f))
         return reader.read()
 
 
 compilation_unit = (
-    ('cu_name', 'string'),
-    ('cu_pos', 'int'),
-    ('cu_codesize', 'int'),
-    ('cu_reloc', 'int'),
-    ('cu_imports', 'int'),
-    ('cu_required_globals', 'int'),
-    ('cu_primitives', ('string', 'list')),
-    ('cu_force_link', 'bool'),
-    ('cu_debug', 'int'),
-    ('cu_debugsize', 'int'),
+    ("cu_name", "string"),
+    ("cu_pos", "int"),
+    ("cu_codesize", "int"),
+    ("cu_reloc", "int"),
+    ("cu_imports", "int"),
+    ("cu_required_globals", "int"),
+    ("cu_primitives", ("string", "list")),
+    ("cu_force_link", "bool"),
+    ("cu_debug", "int"),
+    ("cu_debugsize", "int"),
 )
 
 
 class CmoReader:
     """ Reader for cmo (caml object) files.
     """
+
     MAGIC_V023 = "Caml1999O023"
 
     def __init__(self, f):
@@ -78,7 +79,7 @@ class CmoReader:
         end_pos = cu_pos + cu_codesize
         assert end_pos <= offset
         if cu_codesize % 4 != 0:
-            raise ValueError('codesize must be a multiple of 4')
+            raise ValueError("codesize must be a multiple of 4")
 
         # Load code:
         self.reader.f.seek(cu_pos)
@@ -89,9 +90,9 @@ class CmoReader:
         """ Read magic header """
         magic_len = len(self.MAGIC_V023)
         magic = self.reader.read_bytes(magic_len)
-        magic = magic.decode('ascii')
+        magic = magic.decode("ascii")
         if magic != self.MAGIC_V023:
-            raise ValueError('Unexpected magic value {}'.format(magic))
+            raise ValueError("Unexpected magic value {}".format(magic))
 
     def read_value(self, typ):
         """ Read arbitrary ocaml object.

@@ -8,7 +8,7 @@ from .jarfile import JarFile
 class ClassLoader:
     def __init__(self):
         self.class_paths = []
-        self.add_class_path('/usr/lib/jvm/default/jre/lib/rt.jar')
+        self.add_class_path("/usr/lib/jvm/default/jre/lib/rt.jar")
 
     def add_class_path(self, path):
         """ Add a jar or directory to the class path. """

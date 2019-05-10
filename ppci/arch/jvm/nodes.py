@@ -27,11 +27,18 @@ class ArrayType:
 
 class ClassFile:
     def __init__(
-            self, major_version=None, minor_version=None,
-            constant_pool=None,
-            access_flags=None, this_class=None, super_class=None,
-            interfaces=None, fields=None, methods=None,
-            attributes=None):
+        self,
+        major_version=None,
+        minor_version=None,
+        constant_pool=None,
+        access_flags=None,
+        this_class=None,
+        super_class=None,
+        interfaces=None,
+        fields=None,
+        methods=None,
+        attributes=None,
+    ):
         self.major_version = major_version
         self.minor_version = minor_version
         self.constant_pool = constant_pool
@@ -55,6 +62,7 @@ class ClassFile:
 
 class ConstantPool:
     """ Constant pool. """
+
     def __init__(self):
         self._pool = [None]  # Start with a dummy at position 0.
 
@@ -76,15 +84,15 @@ class Constant:
         self.value = value
 
     def __repr__(self):
-        return 'Constant {}: {}'.format(self.tag, self.value)
+        return "Constant {}: {}".format(self.tag, self.value)
 
 
 class MethodRef:
     def __init__(self):
-        self.class_name = ''
+        self.class_name = ""
 
     def __repr__(self):
-        return 'MethodRef({})'.format(self.class_name)
+        return "MethodRef({})".format(self.class_name)
 
 
 class Method:
@@ -101,8 +109,7 @@ class Attribute:
         self.data = data
 
     def __repr__(self):
-        return 'Attribute(name={}, data={})'.format(
-            self.name, self.data)
+        return "Attribute(name={}, data={})".format(self.name, self.data)
 
 
 class CodeAttribute:
@@ -115,14 +122,16 @@ class CodeAttribute:
 
 class Instruction:
     """ A single java instruction. """
+
     def __init__(self, opcode, args):
         self.opcode = opcode
         self.mnemonic = op_to_name[opcode]
         self.args = args
 
     def __repr__(self):
-        return 'instruction(opcode={} (0x{:0X}), args={})'.format(
-            self.mnemonic, self.opcode, self.args)
+        return "instruction(opcode={} (0x{:0X}), args={})".format(
+            self.mnemonic, self.opcode, self.args
+        )
 
 
 class Manifest:

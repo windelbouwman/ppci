@@ -1,4 +1,3 @@
-
 from ...common import CompilerError
 
 
@@ -7,13 +6,14 @@ def make_comma_or(parts):
     if len(parts) > 1:
         last = parts[-1]
         first = parts[:-1]
-        return ', '.join(first) + ' or ' + last
+        return ", ".join(first) + " or " + last
     else:
-        return ''.join(parts)
+        return "".join(parts)
 
 
 class RecursiveDescentParser:
     """ Base class for recursive descent parsers """
+
     def __init__(self):
         self.token = None  # The current token under cursor
         self.tokens = None  # Iterable of tokens
@@ -58,8 +58,7 @@ class RecursiveDescentParser:
             return self.next_token()
         else:
             expected = make_comma_or(expected_types)
-            self.error(
-                'Expected {0}, got "{1}"'.format(expected, self.peek))
+            self.error('Expected {0}, got "{1}"'.format(expected, self.peek))
 
     def has_consumed(self, typ):
         """ Checks if the look-ahead token is of type typ, and if so
@@ -82,9 +81,9 @@ class RecursiveDescentParser:
 
         return tok
 
-    def not_impl(self, msg=''):  # pragma: no cover
+    def not_impl(self, msg=""):  # pragma: no cover
         """ Call this function when parsing reaches unimplemented parts """
-        raise CompilerError('Not implemented ' + msg, loc=self.token.loc)
+        raise CompilerError("Not implemented " + msg, loc=self.token.loc)
 
     @property
     def peek(self):

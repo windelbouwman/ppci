@@ -21,7 +21,7 @@ into IR-code:
     <BLANKLINE>
     variable data (30000 bytes aligned at 4)
     <BLANKLINE>
-    procedure main() {
+    global procedure main() {
       main_block0: {
         blob<4:4> ptr_alloc = alloc 4 bytes aligned at 4;
         ptr ptr_addr = &ptr_alloc;

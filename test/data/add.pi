@@ -1,14 +1,14 @@
 
 module addmod;
 
-function i32 add(i32 a, i32 b) {
+global function i32 add(i32 a, i32 b) {
   init: {
     i32 c = a + b;
     return c;
   }
 }
 
-function i32 test() {
+global function i32 test() {
   init: {
     i32 a = 2;
     i32 c1 = 3;

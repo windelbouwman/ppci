@@ -24,32 +24,35 @@ from .registerallocator import GraphColoringRegisterAllocator
 
 class CodeGenerator:
     """ Machine code generator """
-    logger = logging.getLogger('codegen')
 
-    def __init__(self, arch, optimize_for='size'):
+    logger = logging.getLogger("codegen")
+
+    def __init__(self, arch, optimize_for="size"):
         assert isinstance(arch, Architecture), arch
         self.arch = arch
         self.verifier = Verifier()
         self.sgraph_builder = SelectionGraphBuilder(arch)
         weights_map = {
-            'size': (10, 1, 1),
-            'speed': (3, 10, 1),
-            'co2': (1, 2, 10),
-            'awesome': (13, 13, 13),
+            "size": (10, 1, 1),
+            "speed": (3, 10, 1),
+            "co2": (1, 2, 10),
+            "awesome": (13, 13, 13),
         }
         if optimize_for in weights_map:
             selection_weights = weights_map[optimize_for]
         else:
             selection_weights = (1, 1, 1)
         self.instruction_selector = InstructionSelector1(
-            arch, self.sgraph_builder,
-            weights=selection_weights)
+            arch, self.sgraph_builder, weights=selection_weights
+        )
         self.instruction_scheduler = InstructionScheduler()
         self.register_allocator = GraphColoringRegisterAllocator(
-            arch, self.instruction_selector)
+            arch, self.instruction_selector
+        )
 
     def generate(
-            self, ircode: ir.Module, output_stream, reporter, debug=False):
+        self, ircode: ir.Module, output_stream, reporter, debug=False
+    ):
         """ Generate machine code from ir-code into output stream """
         assert isinstance(ircode, ir.Module)
         if ircode.debug_db:
@@ -58,20 +61,22 @@ class CodeGenerator:
             self.debug_db = DebugDb()
 
         self.logger.info(
-            'Generating %s code for module %s', str(self.arch), ircode.name)
+            "Generating %s code for module %s", str(self.arch), ircode.name
+        )
 
         # Generate code for global variables:
-        output_stream.select_section('data')
+        output_stream.select_section("data")
         for var in ircode.variables:
             self.generate_global(var, output_stream, debug)
 
         # Generate code for functions:
         # Munch program into a bunch of frames. One frame per function.
         # Each frame has a flat list of abstract instructions.
-        output_stream.select_section('code')
+        output_stream.select_section("code")
         for function in ircode.functions:
             self.generate_function(
-                function, output_stream, reporter, debug=debug)
+                function, output_stream, reporter, debug=debug
+            )
 
         # Output debug type data:
         if debug:
@@ -106,7 +111,7 @@ class CodeGenerator:
                         }
                         key = (
                             self.arch.info.get_size(part[0]),
-                            self.arch.info.endianness
+                            self.arch.info.endianness,
                         )
                         op_cls = labels_refs[key]
                         output_stream.emit(op_cls(part[1]))
@@ -123,13 +128,16 @@ class CodeGenerator:
             output_stream.emit(DebugData(dv))
 
     def generate_function(
-            self, ir_function, output_stream, reporter, debug=False):
+        self, ir_function, output_stream, reporter, debug=False
+    ):
         """ Generate code for one function into a frame """
         self.logger.info(
-            'Generating %s code for function %s',
-            str(self.arch), ir_function.name)
+            "Generating %s code for function %s",
+            str(self.arch),
+            ir_function.name,
+        )
 
-        reporter.heading(3, 'Log for {}'.format(ir_function))
+        reporter.heading(3, "Log for {}".format(ir_function))
         reporter.dump_ir(ir_function)
 
         # Split too large basic blocks in smaller chunks (for literal pools):
@@ -138,12 +146,14 @@ class CodeGenerator:
         for block in ir_function:
             max_block_len = 200
             while len(block) > max_block_len:
-                self.logger.debug('%s too large, splitting up', str(block))
-                newname = '{}_splitted_block_{}'.format(
-                    ir_function.name, split_block_nr)
+                self.logger.debug("%s too large, splitting up", str(block))
+                newname = "{}_splitted_block_{}".format(
+                    ir_function.name, split_block_nr
+                )
                 split_block_nr += 1
                 _, block = split_block(
-                    block, pos=max_block_len, newname=newname)
+                    block, pos=max_block_len, newname=newname
+                )
 
         # Create a frame for this function:
         frame_name = ir_function.name
@@ -162,15 +172,15 @@ class CodeGenerator:
         # TODO: Peep-hole here?
         # frame.instructions = [i for i in frame.instructions]
         if hasattr(self.arch, "peephole"):
-           frame.instructions = self.arch.peephole(frame)
-        
+            frame.instructions = self.arch.peephole(frame)
+
         reporter.dump_frame(frame)
 
         # Add label and return and stack adjustment:
         instruction_list = []
-        output_stream = MasterOutputStream([
-            FunctionOutputStream(instruction_list.append),
-            output_stream])
+        output_stream = MasterOutputStream(
+            [FunctionOutputStream(instruction_list.append), output_stream]
+        )
         self.emit_frame_to_stream(frame, output_stream, debug=debug)
 
         # Emit function debug info:
@@ -187,13 +197,13 @@ class CodeGenerator:
 
     def select_and_schedule(self, ir_function, frame, reporter):
         """ Perform instruction selection and scheduling """
-        self.logger.debug('Selecting instructions')
+        self.logger.debug("Selecting instructions")
 
         tree_method = True
         if tree_method:
             self.instruction_selector.select(ir_function, frame, reporter)
         else:  # pragma: no cover
-            raise NotImplementedError('TODO')
+            raise NotImplementedError("TODO")
             # Build a graph:
             # self.sgraph_builder.build(ir_function, function_info)
             # reporter.message('Selection graph')
@@ -211,7 +221,7 @@ class CodeGenerator:
         """
         # Materialize the register allocated instructions into a stream of
         # real instructions.
-        self.logger.debug('Emitting instructions')
+        self.logger.debug("Emitting instructions")
 
         debug_data = []
 
@@ -260,4 +270,3 @@ class CodeGenerator:
                 # print(tmp, di)
                 # frame.live_ranges(tmp)
                 # print('live ranges:', lr)
-

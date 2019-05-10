@@ -1,4 +1,3 @@
-
 """ This is the brain-fuck language front-end. """
 
 import logging
@@ -35,7 +34,7 @@ class BrainFuckGenerator:
         # Assembler code will call sample_start
         self.builder.module = ir.Module(module_name)
 
-        ir_func = self.builder.new_procedure(function_name)
+        ir_func = self.builder.new_procedure(function_name, ir.Binding.GLOBAL)
         self.builder.set_function(ir_func)
         block1 = self.builder.new_block()
         ir_func.entry = block1
@@ -49,7 +48,12 @@ class BrainFuckGenerator:
 
         bf_mem_size = 30000
         # Construct global array:
-        data = ir.Variable("data", bf_mem_size * self.arch.get_size(ir.i8), 4)
+        data = ir.Variable(
+            "data",
+            ir.Binding.GLOBAL,
+            bf_mem_size * self.arch.get_size(ir.i8),
+            4,
+        )
         self.builder.module.add_variable(data)
 
         # bsp puts function:

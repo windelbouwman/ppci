@@ -56,7 +56,7 @@ class MyHandler(logging.Handler):
 
     def emit(self, record):
         txt = self.format(record)
-        self._buf.text = txt + '\n' + self._buf.text
+        self._buf.text = txt + "\n" + self._buf.text
 
 
 class DisplayErrorsProcessor(Processor):
@@ -67,23 +67,32 @@ class DisplayErrorsProcessor(Processor):
         tokens = list(transformation_input.fragments)
         lineno = transformation_input.lineno + 1
         if lineno in self.errors:
-            tokens.append(('',
-                           '// {}'.format(self.errors[lineno])))
+            tokens.append(("", "// {}".format(self.errors[lineno])))
         return Transformation(tokens)
 
 
 class PpciExplorer:
     """ Ppci explorer. """
+
     def __init__(self):
-        available_archs = ['arm', 'x86_64', 'riscv', 'avr', 'or1k', 'xtensa']
+        available_archs = [
+            "arm",
+            "x86_64",
+            "riscv",
+            "avr",
+            "or1k",
+            "xtensa",
+            "microblaze",
+            "msp430",
+        ]
         # State variables:
         self.arch = available_archs[-1]
-        self.stage = 'asm'
+        self.stage = "asm"
         self.show_log = False
         self.optimize = False
 
         self.archs = cycle(available_archs)
-        self.stages = cycle(['ir', 'ast', 'asm'])
+        self.stages = cycle(["ir", "ast", "asm"])
 
         # Some key bindings:
         kb = KeyBindings()
@@ -96,8 +105,8 @@ class PpciExplorer:
         kb.add(Keys.F7, eager=True)(self.next_architecture)
         kb.add(Keys.F8, eager=True)(self.toggle_optimize)
         kb.add(Keys.F9, eager=True)(self.toggle_log)
-        kb.add('tab')(focus_next)
-        kb.add('s-tab')(focus_previous)
+        kb.add("tab")(focus_next)
+        kb.add("s-tab")(focus_previous)
 
         log_buffer = Buffer(multiline=True)
 
@@ -109,7 +118,8 @@ class PpciExplorer:
         src_lexer = PygmentsLexer(CLexer)
         code_edit = Window(
             content=BufferControl(
-                buffer=self.source_buffer, lexer=src_lexer,
+                buffer=self.source_buffer,
+                lexer=src_lexer,
                 input_processors=[self.errors_processor],
             ),
             left_margins=[NumberedMargin()],
@@ -122,23 +132,33 @@ class PpciExplorer:
             content=BufferControl(self.output_buffer),
             right_margins=[ScrollbarMargin(display_arrows=True)],
         )
-        layout = Layout(HSplit([
-            Window(FormattedTextControl(self.get_title_bar_tokens), height=1),
-            VSplit([
-                Frame(body=code_edit, title="source code"),
-                Frame(body=result_window, title='assembly output'),
-                ConditionalContainer(
-                    Window(content=BufferControl(log_buffer)),
-                    filter=show_log
-                ),
-            ]),
-            Window(
-                FormattedTextControl(text='F9=toggle log F10=exit'),
-                height=1, style='class:status'
-            ),
-        ]))
+        layout = Layout(
+            HSplit(
+                [
+                    Window(
+                        FormattedTextControl(self.get_title_bar_tokens),
+                        height=1,
+                    ),
+                    VSplit(
+                        [
+                            Frame(body=code_edit, title="source code"),
+                            Frame(body=result_window, title="assembly output"),
+                            ConditionalContainer(
+                                Window(content=BufferControl(log_buffer)),
+                                filter=show_log,
+                            ),
+                        ]
+                    ),
+                    Window(
+                        FormattedTextControl(text="F9=toggle log F10=exit"),
+                        height=1,
+                        style="class:status",
+                    ),
+                ]
+            )
+        )
 
-        style = style_from_pygments_cls(get_style_by_name('vim'))
+        style = style_from_pygments_cls(get_style_by_name("vim"))
         log_handler = MyHandler(log_buffer)
         fmt = logging.Formatter(fmt=logformat)
         log_handler.setFormatter(fmt)
@@ -149,10 +169,8 @@ class PpciExplorer:
         self.source_buffer.on_text_changed += self.on_change
 
         self.application = Application(
-            layout=layout,
-            key_bindings=kb,
-            style=style,
-            full_screen=True)
+            layout=layout, key_bindings=kb, style=style, full_screen=True
+        )
 
         self.source_buffer.text = DEMO_SOURCE
 
@@ -160,12 +178,13 @@ class PpciExplorer:
         self.do_compile()
 
     def get_title_bar_tokens(self):
-        return \
-             'Welcome to the ppci explorer {}'.format(ppci_version) + \
-             '(prompt_toolkit {})'.format(pt.__version__) + \
-             ' [Stage = {} (F6)] '.format(self.stage) + \
-             ' [Arch = {} (F7)] '.format(self.arch) + \
-             ' [Optimize = {} (F8)] '.format(self.optimize)
+        return (
+            "Welcome to the ppci explorer {}".format(ppci_version)
+            + "(prompt_toolkit {})".format(pt.__version__)
+            + " [Stage = {} (F6)] ".format(self.stage)
+            + " [Arch = {} (F7)] ".format(self.arch)
+            + " [Optimize = {} (F8)] ".format(self.optimize)
+        )
 
     def do_compile(self):
         """ Try a compilation. """
@@ -175,12 +194,12 @@ class PpciExplorer:
         except CompilerError as ex:
             if ex.loc:
                 self.errors_processor.errors[ex.loc.row] = ex.msg
-                self.output_buffer.text = 'Compiler error: {}'.format(ex)
+                self.output_buffer.text = "Compiler error: {}".format(ex)
             else:
-                self.output_buffer.text = 'Compiler error: {}'.format(ex)
+                self.output_buffer.text = "Compiler error: {}".format(ex)
         except Exception as ex:  # Catch the more hard-core exceptions.
             stderr = io.StringIO()
-            print('Other error: {} -> {}'.format(type(ex), ex), file=stderr)
+            print("Other error: {} -> {}".format(type(ex), ex), file=stderr)
             traceback.print_exc(file=stderr)
             self.output_buffer.text = stderr.getvalue()
 
@@ -188,7 +207,7 @@ class PpciExplorer:
         """ Compile the given source with current settings. """
         srcfile = io.StringIO(source)
         outfile = io.StringIO()
-        if self.stage == 'ast':
+        if self.stage == "ast":
             src_ast = create_ast(srcfile, api.get_arch(self.arch).info)
             print_ast(src_ast, file=outfile)
         else:
@@ -197,7 +216,7 @@ class PpciExplorer:
             if self.optimize:
                 api.optimize(ir_module, level=2)
 
-            if self.stage == 'ir':
+            if self.stage == "ir":
                 print_module(ir_module, file=outfile)
             else:
                 text_stream = TextOutputStream(f=outfile, add_binary=True)
@@ -248,5 +267,5 @@ int add(int a, int b) {
 """
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     ppci_explorer()

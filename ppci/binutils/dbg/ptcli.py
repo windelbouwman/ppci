@@ -34,25 +34,27 @@ class CurrentAddressMargin(Margin):
         result = []
         for lineno in window_render_info.displayed_lines:
             if lineno + 1 == self.current_line:
-                result.append(('class:text', '>>\n'))
+                result.append(("class:text", ">>\n"))
             else:
-                result.append(('class:text', '\n'))
+                result.append(("class:text", "\n"))
         return result
 
 
 class MyHandler(logging.Handler):
     """ Handle log messages by putting them into a buffer """
+
     def __init__(self, buf):
         super().__init__()
         self._buf = buf
 
     def emit(self, record):
         txt = self.format(record)
-        self._buf.text = txt + '\n' + self._buf.text
+        self._buf.text = txt + "\n" + self._buf.text
 
 
 class DisplayVariablesProcessor(Processor):
     """ Display values of local variables inline """
+
     def __init__(self):
         self.variables = {}
 
@@ -60,8 +62,9 @@ class DisplayVariablesProcessor(Processor):
         tokens = list(transformation_input.fragments)
         row = transformation_input.lineno + 1
         if row in self.variables:
-            tokens.append(('class:title',
-                           '  // {}'.format(self.variables[row])))
+            tokens.append(
+                ("class:title", "  // {}".format(self.variables[row]))
+            )
         return Transformation(tokens)
 
 
@@ -124,51 +127,57 @@ class PtDebugCli:
             content=BufferControl(
                 buffer=self.source_buffer,
                 lexer=src_lexer,
-                input_processors=[self.locals_processor]
+                input_processors=[self.locals_processor],
             ),
-            left_margins=[
-                self.current_address_margin, NumberredMargin()
-            ],
+            left_margins=[self.current_address_margin, NumberredMargin()],
             right_margins=[ScrollbarMargin(display_arrows=True)],
-            cursorline=True
+            cursorline=True,
         )
 
         register_window = Window(
-            content=BufferControl(buffer=self.register_buffer),
-            width=20
+            content=BufferControl(buffer=self.register_buffer), width=20
         )
 
-        title_text = 'Welcome to the ppci debugger version {}'.format(
+        title_text = "Welcome to the ppci debugger version {}".format(
             ppci_version
         )
 
-        help_text = 'F4=stop F5=run F6=step F7=set breakpoint' + \
-            ' F8=clear breakpoint F10=exit'
+        help_text = (
+            "F4=stop F5=run F6=step F7=set breakpoint"
+            + " F8=clear breakpoint F10=exit"
+        )
 
         # Application layout:
-        layout = HSplit([
-            Window(
-                content=FormattedTextControl(text=title_text),
-                height=1
-            ),
-            VSplit([
-                HSplit([
-                    Frame(body=source_code_window),
-                    Window(
-                        content=BufferControl(buffer=self.logs_buffer),
-                        height=2
-                    ),
-                ]),
-                Frame(body=register_window, title='registers'),
-            ]),
-            Window(
-                content=FormattedTextControl(self.get_status_tokens),
-                height=1
-            ),
-            Window(content=FormattedTextControl(help_text), height=1),
-        ])
+        layout = HSplit(
+            [
+                Window(
+                    content=FormattedTextControl(text=title_text), height=1
+                ),
+                VSplit(
+                    [
+                        HSplit(
+                            [
+                                Frame(body=source_code_window),
+                                Window(
+                                    content=BufferControl(
+                                        buffer=self.logs_buffer
+                                    ),
+                                    height=2,
+                                ),
+                            ]
+                        ),
+                        Frame(body=register_window, title="registers"),
+                    ]
+                ),
+                Window(
+                    content=FormattedTextControl(self.get_status_tokens),
+                    height=1,
+                ),
+                Window(content=FormattedTextControl(help_text), height=1),
+            ]
+        )
 
-        style = style_from_pygments(get_style_by_name('vim'))
+        style = style_from_pygments(get_style_by_name("vim"))
 
         log_handler = MyHandler(self.logs_buffer)
         fmt = logging.Formatter(fmt=logformat)
@@ -178,10 +187,7 @@ class PtDebugCli:
         logging.getLogger().addHandler(log_handler)
 
         self.application = Application(
-            layout=layout,
-            style=style,
-            key_bindings=kb,
-            full_screen=True,
+            layout=layout, style=style, key_bindings=kb, full_screen=True
         )
 
     def cmdloop(self):
@@ -189,29 +195,30 @@ class PtDebugCli:
 
     def get_status_tokens(self):
         tokens = []
-        tokens.append((
-            'class:status', 'STATUS={} '.format(self.debugger.status)
-        ))
-        tokens.append((
-            'class:status', 'PC={} '.format(self.debugger.get_pc())
-        ))
+        tokens.append(
+            ("class:status", "STATUS={} ".format(self.debugger.status))
+        )
+        tokens.append(
+            ("class:status", "PC={} ".format(self.debugger.get_pc()))
+        )
         if self.debugger.has_symbols:
             loc = self.debugger.find_pc()
             if loc:
                 filename, row = loc
-                tokens.append((
-                    'class:status',
-                    'LOCATION={}:{}'.format(filename, row)
-                ))
+                tokens.append(
+                    ("class:status", "LOCATION={}:{}".format(filename, row))
+                )
         return tokens
 
     def on_stop(self):
         """ Handle stopped event. """
+
         def callback():
             self.display_registers()
             self.highlight_source()
             self.evaluate_locals()
             self.cli.request_redraw()
+
         self._event_loop.call_from_executor(callback)
 
     def evaluate_locals(self):
@@ -220,7 +227,7 @@ class PtDebugCli:
         self.locals_processor.variables.clear()
         for name, var in localz.items():
             value = self.debugger.eval_variable(var)
-            var_text = '{} = {}'.format(name, value)
+            var_text = "{} = {}".format(name, value)
             self.locals_processor.variables[var.loc.row] = var_text
 
     def has_source(self):
@@ -247,17 +254,20 @@ class PtDebugCli:
         """ Update register buffer """
         registers = self.debugger.get_registers()
         register_values = self.debugger.get_register_values(registers)
-        lines = ['Register values:']
+        lines = ["Register values:"]
         if register_values:
             for register, value in register_values.items():
                 size = register.bitsize // 4
-                lines.append('{:>5.5s} : 0x{:0{sz}X}'.format(
-                    str(register), value, sz=size))
-        self.register_buffer.text = '\n'.join(lines)
+                lines.append(
+                    "{:>5.5s} : 0x{:0{sz}X}".format(
+                        str(register), value, sz=size
+                    )
+                )
+        self.register_buffer.text = "\n".join(lines)
 
     def get_file_source(self, filename):
         if filename not in self.sources:
-            with open(filename, 'r') as f:
+            with open(filename, "r") as f:
                 source = f.read()
             self.sources[filename] = source
         return self.sources[filename]

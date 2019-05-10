@@ -193,15 +193,16 @@ class WasmToIrCompiler:
                     name = 'unnamed{}'.format(definition.id)
 
                 # Create ir-function:
+                binding = ir.Binding.GLOBAL
                 if signature.result:
                     if len(signature.result) != 1:
                         raise ValueError(
                             'Cannot handle {} return values'.format(
                                 len(signature.result)))
                     ret_type = self.get_ir_type(signature.result[0])
-                    ppci_function = self.builder.new_function(name, ret_type)
+                    ppci_function = self.builder.new_function(name, binding, ret_type)
                 else:
-                    ppci_function = self.builder.new_procedure(name)
+                    ppci_function = self.builder.new_procedure(name, binding)
 
                 self.functions.append((ppci_function, signature))
                 gen_functions.append((ppci_function, signature, definition))
@@ -216,7 +217,7 @@ class WasmToIrCompiler:
                     max_size = definition.min
                 size = max_size * self.ptr_info.size
                 self.table_var = ir.Variable(
-                    'func_table', size, self.ptr_info.alignment)
+                    'func_table', ir.Binding.GLOBAL, size, self.ptr_info.alignment)
                 self.builder.module.add_variable(self.table_var)
                 tables.append((self.table_var, []))
 
@@ -239,7 +240,8 @@ class WasmToIrCompiler:
                 # value = struct.pack(fmt, definition.init.args[0])
                 name = 'global_{}'.format(
                     str(definition.id).replace('$', '_'))
-                g2 = ir.Variable(name, size, size)
+                binding = ir.Binding.GLOBAL
+                g2 = ir.Variable(name, binding, size, size)
                 self.builder.module.add_variable(g2)
                 self.globalz.append((ir_typ, g2))
                 global_inits.append((g2, definition.init))
@@ -257,7 +259,7 @@ class WasmToIrCompiler:
                 # Create a global pointer to the memory base address:
                 assert self.memory_base_address is None
                 self.memory_base_address = ir.Variable(
-                    'wasm_mem0_address', self.ptr_info.size,
+                    'wasm_mem0_address', ir.Binding.GLOBAL, self.ptr_info.size,
                     self.ptr_info.alignment)
                 self.builder.module.add_variable(self.memory_base_address)
 
@@ -296,7 +298,7 @@ class WasmToIrCompiler:
         - Initializes eventual function tables.
         - Calls an optionalstart procedure.
         """
-        ppci_function = self.builder.new_procedure('_run_init')
+        ppci_function = self.builder.new_procedure('_run_init', ir.Binding.GLOBAL)
         self.builder.set_function(ppci_function)
         entryblock = self.new_block()
         self.builder.set_block(entryblock)

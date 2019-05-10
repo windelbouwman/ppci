@@ -9,6 +9,4 @@ from .regex import Symbol, SymbolSet, Kleene
 from .parser import parse
 
 
-__all__ = (
-    'parse',
-    'Symbol', 'SymbolSet', 'Kleene')
+__all__ = ("parse", "Symbol", "SymbolSet", "Kleene")

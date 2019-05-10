@@ -6,6 +6,7 @@ from ..graph.digraph import DiGraph, DiNode
 class FlowGraphNode(DiNode):
     """ A node in the flow graph. A node can contain more than one
         instruction. """
+
     def __init__(self, g, ins):
         super().__init__(g)
         self.gen = set()
@@ -28,27 +29,28 @@ class FlowGraphNode(DiNode):
         self.kill = self.kill | ins.kill
 
     def __repr__(self):
-        r = 'CFG-node({})'.format(len(self.instructions))
+        r = "CFG-node({})".format(len(self.instructions))
         return r
 
     @property
     def longrepr(self):
         r = str(self)
         if self.gen:
-            r += ' gen:' + ', '.join(str(u) for u in self.gen)
+            r += " gen:" + ", ".join(str(u) for u in self.gen)
         if self.kill:
-            r += ' kill:' + ', '.join(str(d) for d in self.kill)
-        r += ' live_out={}, live_in={}'.format(self.live_out, self.live_in)
-        r += ', Succ={}, Pred={}'.format(self.successors, self.predecessors)
+            r += " kill:" + ", ".join(str(d) for d in self.kill)
+        r += " live_out={}, live_in={}".format(self.live_out, self.live_in)
+        r += ", Succ={}, Pred={}".format(self.successors, self.predecessors)
         return r
 
 
 class FlowGraph(DiGraph):
     """ A directed graph containing nodes with linear lists of instructions """
+
     def __init__(self, instrs):
         """ Create a flowgraph from a linear list of abstract instructions """
         super().__init__()
-        self.logger = logging.getLogger('flowgraph')
+        self.logger = logging.getLogger("flowgraph")
         self._map = {}
         self._live_ranges = defaultdict(list)
 
@@ -126,13 +128,15 @@ class FlowGraph(DiGraph):
                 node.live_in = node.gen | (node.live_out - node.kill)
                 if node.successors:
                     node.live_out = set.union(
-                        *(s.live_in for s in node.successors))
+                        *(s.live_in for s in node.successors)
+                    )
                 else:
                     node.live_out = set()
 
                 # Record for change:
-                change = change or (_in != node.live_in) or \
-                    (_out != node.live_out)
+                change = (
+                    change or (_in != node.live_in) or (_out != node.live_out)
+                )
             n_iterations += 1
 
         # In one pass fix all instructions:
@@ -148,10 +152,11 @@ class FlowGraph(DiGraph):
                     ins1.live_out = ins2.live_in
                     ins1.live_in = ins1.gen | (ins1.live_out - ins1.kill)
 
-                    for vreg in (ins2.live_in & ins1.live_out):
+                    for vreg in ins2.live_in & ins1.live_out:
                         self._live_ranges[vreg].append((ins1, ins2))
 
                     ins2 = ins1
 
         self.logger.debug(
-            'Iterations: %s,  nodes: %s', n_iterations, len(self))
+            "Iterations: %s,  nodes: %s", n_iterations, len(self)
+        )

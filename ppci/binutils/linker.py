@@ -9,8 +9,14 @@ from .debuginfo import SectionAdjustingReplicator, DebugInfo
 
 
 def link(
-        objects, layout=None, use_runtime=False, partial_link=False,
-        reporter=None, debug=False, extra_symbols=None):
+    objects,
+    layout=None,
+    use_runtime=False,
+    partial_link=False,
+    reporter=None,
+    debug=False,
+    extra_symbols=None,
+):
     """ Links the iterable of objects into one using the given layout.
 
     Args:
@@ -42,7 +48,7 @@ def link(
 
     objects = [get_object(obj) for obj in objects]
     if not objects:
-        raise ValueError('Please provide at least one object as input')
+        raise ValueError("Please provide at least one object as input")
 
     if layout:
         layout = get_layout(layout)
@@ -54,27 +60,38 @@ def link(
 
     linker = Linker(march, reporter)
     output_obj = linker.link(
-        objects, layout=layout, partial_link=partial_link,
-        debug=debug, extra_symbols=extra_symbols)
+        objects,
+        layout=layout,
+        partial_link=partial_link,
+        debug=debug,
+        extra_symbols=extra_symbols,
+    )
     return output_obj
 
 
 class Linker:
     """ Merges the sections of several object files and
         performs relocation """
-    logger = logging.getLogger('linker')
+
+    logger = logging.getLogger("linker")
 
     def __init__(self, arch, reporter=None):
         self.arch = arch
         self.reporter = reporter
 
-    def link(self, input_objects, layout=None, partial_link=False,
-             debug=False, extra_symbols=None):
+    def link(
+        self,
+        input_objects,
+        layout=None,
+        partial_link=False,
+        debug=False,
+        extra_symbols=None,
+    ):
         """ Link together the given object files using the layout """
         assert isinstance(input_objects, (list, tuple))
 
         if self.reporter:
-            self.reporter.heading(2, 'Linking')
+            self.reporter.heading(2, "Linking")
 
         if extra_symbols:
             self.extra_symbols = extra_symbols
@@ -100,43 +117,46 @@ class Linker:
 
         if not partial_link:
             self.do_relocations(dst)
-        
+
         for func in dst.arch.isa.postlinkopts:
             func(self, dst)
 
         if self.reporter:
             for section in dst.sections:
                 self.reporter.message(
-                    '{} at {}'.format(section, section.address))
+                    "{} at {}".format(section, section.address)
+                )
             for image in dst.images:
-                self.reporter.message(
-                    '{} at {}'.format(image, image.address))
+                self.reporter.message("{} at {}".format(image, image.address))
             symbols = [
-                (s.name, dst.get_symbol_value(s.name)) for s in dst.symbols]
+                (s.name, dst.get_symbol_value(s.name)) for s in dst.symbols
+            ]
             symbols.sort(key=lambda x: x[1])
             for name, address in symbols:
                 self.reporter.message(
-                    'Symbol {} at 0x{:X}'.format(name, address))
+                    "Symbol {} at 0x{:X}".format(name, address)
+                )
         dst.polish()
 
         if self.reporter:
-            self.reporter.message('Linking complete')
+            self.reporter.message("Linking complete")
         return dst
 
     def merge_objects(self, input_objects, dst, debug):
         """ Merge object files into a single object file """
         for input_object in input_objects:
-            self.logger.debug('Merging %s', input_object)
+            self.logger.debug("Merging %s", input_object)
             offsets = {}
             # Merge sections:
             for input_section in input_object.sections:
                 # Get or create the output section:
                 output_section = dst.get_section(
-                    input_section.name, create=True)
+                    input_section.name, create=True
+                )
 
                 # Align section:
                 while output_section.size % input_section.alignment != 0:
-                    self.logger.debug('Padding output to ensure alignment')
+                    self.logger.debug("Padding output to ensure alignment")
                     output_section.add_data(bytes([0]))
 
                 # Alter the output section alignment if required:
@@ -148,9 +168,10 @@ class Linker:
                 offsets[input_section.name] = offset
                 output_section.add_data(input_section.data)
                 self.logger.debug(
-                    'at offset 0x%x section %s',
+                    "at offset 0x%x section %s",
                     offsets[input_section.name],
-                    input_section)
+                    input_section,
+                )
 
             # Merge symbols:
             for sym in input_object.symbols:
@@ -161,8 +182,11 @@ class Linker:
             for reloc in input_object.relocations:
                 offset = offsets[reloc.section] + reloc.offset
                 new_reloc = type(reloc)(
-                    reloc.symbol_name, section=reloc.section, offset=offset,
-                    addend=reloc.addend)
+                    reloc.symbol_name,
+                    section=reloc.section,
+                    offset=offset,
+                    addend=reloc.addend,
+                )
                 dst.add_relocation(new_reloc)
 
             # Merge debug info:
@@ -179,18 +203,22 @@ class Linker:
             for memory_input in mem.inputs:
                 if isinstance(memory_input, Section):
                     section = dst.get_section(
-                        memory_input.section_name, create=True)
+                        memory_input.section_name, create=True
+                    )
                     while current_address % section.alignment != 0:
                         current_address += 1
                     section.address = current_address
                     self.logger.debug(
-                        'Memory: %s Section: %s Address: 0x%x Size: 0x%x',
-                        mem.name, section.name,
-                        section.address, section.size)
+                        "Memory: %s Section: %s Address: 0x%x Size: 0x%x",
+                        mem.name,
+                        section.name,
+                        section.address,
+                        section.size,
+                    )
                     current_address += section.size
                     image.add_section(section)
                 elif isinstance(memory_input, SectionData):
-                    section_name = '_${}_'.format(memory_input.section_name)
+                    section_name = "_${}_".format(memory_input.section_name)
                     # Each section must be unique:
                     assert not dst.has_section(section_name)
 
@@ -206,7 +234,7 @@ class Linker:
                     image.add_section(section)
                 elif isinstance(memory_input, SymbolDefinition):
                     # Create a new section, and place it at current spot:
-                    section_name = '_${}_'.format(memory_input.symbol_name)
+                    section_name = "_${}_".format(memory_input.symbol_name)
 
                     # Each section must be unique:
                     assert not dst.has_section(section_name)
@@ -225,8 +253,10 @@ class Linker:
             # Check that the memory fits!
             if image.size > mem.size:
                 raise CompilerError(
-                    'Memory exceeds size ({} > {})'
-                    .format(image.size, mem.size))
+                    "Memory exceeds size ({} > {})".format(
+                        image.size, mem.size
+                    )
+                )
             dst.add_image(image)
 
     def get_symbol_value(self, obj, name):
@@ -237,10 +267,9 @@ class Linker:
         elif name in self.extra_symbols:
             return self.extra_symbols[name]
         else:
-            raise CompilerError(
-                'Undefined reference "{}"'.format(name))
+            raise CompilerError('Undefined reference "{}"'.format(name))
 
-    def do_relocations(self, dst, opt = False):
+    def do_relocations(self, dst, opt=False):
         """ Perform the correct relocation as listed """
         for reloc in dst.relocations:
             sym_value = self.get_symbol_value(dst, reloc.symbol_name)
@@ -259,10 +288,9 @@ class Linker:
                 end = begin + size
                 data = data[0:size]
             else:
-                assert len(data) == size, \
-                'len({}) ({}-{}) != {}'.format(data, begin, end, size)
+                assert len(data) == size, "len({}) ({}-{}) != {}".format(
+                    data, begin, end, size
+                )
                 data = reloc.apply(sym_value, data, reloc_value)
             assert len(data) == size
             section.data[begin:end] = data
-            
-            

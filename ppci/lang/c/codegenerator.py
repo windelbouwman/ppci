@@ -132,9 +132,11 @@ class CCodeGenerator:
                     self.static_counter, var_decl.name
                 )
                 self.static_counter += 1
+                binding = ir.Binding.LOCAL
             else:
                 name = var_decl.name
-            ir_var = ir.Variable(name, size, alignment, value=ivalue)
+                binding = ir.Binding.GLOBAL
+            ir_var = ir.Variable(name, binding, size, alignment, value=ivalue)
             self.builder.module.add_variable(ir_var)
             self.ir_var_map[var_decl] = ir_var
 
@@ -182,20 +184,27 @@ class CCodeGenerator:
         # Save current function for later on..
         self.current_function = function
 
+        if function.storage_class == "static":
+            binding = ir.Binding.LOCAL
+        else:
+            binding = ir.Binding.GLOBAL
+
         # Create ir function:
         if function.typ.return_type.is_void:
-            ir_function = self.builder.new_procedure(function.name)
+            ir_function = self.builder.new_procedure(function.name, binding)
         elif function.typ.return_type.is_struct:
             # Pass implicit first argument to function when complex type
             # is returned.
-            ir_function = self.builder.new_procedure(function.name)
+            ir_function = self.builder.new_procedure(function.name, binding)
             self.return_value_address = ir.Parameter(
                 "return_value_address", ir.ptr
             )
             ir_function.add_parameter(self.return_value_address)
         else:
             return_type = self.get_ir_type(function.typ.return_type)
-            ir_function = self.builder.new_function(function.name, return_type)
+            ir_function = self.builder.new_function(
+                function.name, binding, return_type
+            )
         self.ir_var_map[function] = ir_function
 
         # Create entry code:
@@ -637,8 +646,7 @@ class CCodeGenerator:
             if value is None:
                 # Implicit value (a hole between other valid values.)
                 pad_inc = self.context.sizeof(typ.element_type)
-                padding = self.emit(ir.Const(
-                    pad_inc, "padding", ir.ptr))
+                padding = self.emit(ir.Const(pad_inc, "padding", ir.ptr))
                 ptr = self.emit(ir.add(ptr, padding, "iptr", ir.ptr))
                 inc2 = pad_inc
             else:
@@ -680,8 +688,9 @@ class CCodeGenerator:
                         ptr, inc2 = self.gen_local_init(ptr, field.typ, value)
                     else:
                         pad_inc = self.context.sizeof(field.typ)
-                        padding = self.emit(ir.Const(
-                            pad_inc, "padding", ir.ptr))
+                        padding = self.emit(
+                            ir.Const(pad_inc, "padding", ir.ptr)
+                        )
                         ptr = self.emit(ir.add(ptr, padding, "iptr", ir.ptr))
                         inc2 = pad_inc
                 offset += inc2
