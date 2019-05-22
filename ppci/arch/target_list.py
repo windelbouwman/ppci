@@ -29,7 +29,8 @@ target_classes = [
     RiscvArch,
     Stm8Arch,
     X86_64Arch,
-    XtensaArch]
+    XtensaArch,
+]
 
 
 target_class_map = {t.name: t for t in target_classes}

@@ -14,6 +14,7 @@ class Unreachable(RuntimeError):
     """ WASM kernel panic. Having an exception for this allows catching it
     in tests.
     """
+
     pass
 
 
@@ -113,23 +114,23 @@ def f32_demote_f64(v: ir.f64) -> ir.f32:
 
 
 def f64_reinterpret_i64(v: ir.i64) -> ir.f64:
-    x = struct.pack('<q', v)
-    return struct.unpack('<d', x)[0]
+    x = struct.pack("<q", v)
+    return struct.unpack("<d", x)[0]
 
 
 def i64_reinterpret_f64(v: ir.f64) -> ir.i64:
-    x = struct.pack('<d', v)
-    return struct.unpack('<q', x)[0]
+    x = struct.pack("<d", v)
+    return struct.unpack("<q", x)[0]
 
 
 def f32_reinterpret_i32(v: ir.i32) -> ir.f32:
-    x = struct.pack('<i', v)
-    return struct.unpack('<f', x)[0]
+    x = struct.pack("<i", v)
+    return struct.unpack("<f", x)[0]
 
 
 def i32_reinterpret_f32(v: ir.f32) -> ir.i32:
-    x = struct.pack('<f', v)
-    return struct.unpack('<i', x)[0]
+    x = struct.pack("<f", v)
+    return struct.unpack("<i", x)[0]
 
 
 def f32_copysign(x: ir.f32, y: ir.f32) -> ir.f32:
@@ -197,7 +198,7 @@ def f64_trunc(x: ir.f64) -> ir.f64:
 
 
 def unreachable() -> None:
-    raise Unreachable('WASM KERNEL panic!')
+    raise Unreachable("WASM KERNEL panic!")
 
 
 # See also:
@@ -211,49 +212,49 @@ def create_runtime():
 
     # TODO: merge with opcode table?
     runtime = {
-        'f32_sqrt': f32_sqrt,
-        'f64_sqrt': f64_sqrt,
-        'i32_rotl': i32_rotl,
-        'i64_rotl': i64_rotl,
-        'i32_rotr': i32_rotr,
-        'i64_rotr': i64_rotr,
-        'i32_clz': i32_clz,
-        'i64_clz': i64_clz,
-        'i32_ctz': i32_ctz,
-        'i64_ctz': i64_ctz,
-        'i32_popcnt': i32_popcnt,
-        'i64_popcnt': i64_popcnt,
-        'i32_trunc_s_f32': i32_trunc_s_f32,
-        'i32_trunc_u_f32': i32_trunc_u_f32,
-        'i32_trunc_s_f64': i32_trunc_s_f64,
-        'i32_trunc_u_f64': i32_trunc_u_f64,
-        'i64_trunc_s_f32': i64_trunc_s_f32,
-        'i64_trunc_u_f32': i64_trunc_u_f32,
-        'i64_trunc_s_f64': i64_trunc_s_f64,
-        'i64_trunc_u_f64': i64_trunc_u_f64,
-        'f64_promote_f32': f64_promote_f32,
-        'f32_demote_f64': f32_demote_f64,
-        'f64_reinterpret_i64': f64_reinterpret_i64,
-        'i64_reinterpret_f64': i64_reinterpret_f64,
-        'f32_reinterpret_i32': f32_reinterpret_i32,
-        'i32_reinterpret_f32': i32_reinterpret_f32,
-        'f32_copysign': f32_copysign,
-        'f64_copysign': f64_copysign,
-        'f32_min': f32_min,
-        'f32_max': f32_max,
-        'f64_min': f64_min,
-        'f64_max': f64_max,
-        'f32_abs': f32_abs,
-        'f64_abs': f64_abs,
-        'f32_floor': f32_floor,
-        'f64_floor': f64_floor,
-        'f32_nearest': f32_nearest,
-        'f64_nearest': f64_nearest,
-        'f32_ceil': f32_ceil,
-        'f64_ceil': f64_ceil,
-        'f32_trunc': f32_trunc,
-        'f64_trunc': f64_trunc,
-        'unreachable': unreachable,
+        "f32_sqrt": f32_sqrt,
+        "f64_sqrt": f64_sqrt,
+        "i32_rotl": i32_rotl,
+        "i64_rotl": i64_rotl,
+        "i32_rotr": i32_rotr,
+        "i64_rotr": i64_rotr,
+        "i32_clz": i32_clz,
+        "i64_clz": i64_clz,
+        "i32_ctz": i32_ctz,
+        "i64_ctz": i64_ctz,
+        "i32_popcnt": i32_popcnt,
+        "i64_popcnt": i64_popcnt,
+        "i32_trunc_s_f32": i32_trunc_s_f32,
+        "i32_trunc_u_f32": i32_trunc_u_f32,
+        "i32_trunc_s_f64": i32_trunc_s_f64,
+        "i32_trunc_u_f64": i32_trunc_u_f64,
+        "i64_trunc_s_f32": i64_trunc_s_f32,
+        "i64_trunc_u_f32": i64_trunc_u_f32,
+        "i64_trunc_s_f64": i64_trunc_s_f64,
+        "i64_trunc_u_f64": i64_trunc_u_f64,
+        "f64_promote_f32": f64_promote_f32,
+        "f32_demote_f64": f32_demote_f64,
+        "f64_reinterpret_i64": f64_reinterpret_i64,
+        "i64_reinterpret_f64": i64_reinterpret_f64,
+        "f32_reinterpret_i32": f32_reinterpret_i32,
+        "i32_reinterpret_f32": i32_reinterpret_f32,
+        "f32_copysign": f32_copysign,
+        "f64_copysign": f64_copysign,
+        "f32_min": f32_min,
+        "f32_max": f32_max,
+        "f64_min": f64_min,
+        "f64_max": f64_max,
+        "f32_abs": f32_abs,
+        "f64_abs": f64_abs,
+        "f32_floor": f32_floor,
+        "f64_floor": f64_floor,
+        "f32_nearest": f32_nearest,
+        "f64_nearest": f64_nearest,
+        "f32_ceil": f32_ceil,
+        "f64_ceil": f64_ceil,
+        "f32_trunc": f32_trunc,
+        "f64_trunc": f64_trunc,
+        "unreachable": unreachable,
     }
 
     return runtime

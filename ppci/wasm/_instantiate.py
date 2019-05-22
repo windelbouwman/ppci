@@ -26,14 +26,15 @@ from .wasm2ppci import create_memories
 from .util import PAGE_SIZE
 from .runtime import create_runtime
 
-__all__ = ('instantiate',)
+__all__ = ("instantiate",)
 
 
-logger = logging.getLogger('instantiate')
+logger = logging.getLogger("instantiate")
 
 
-def instantiate(module, imports, target='native', reporter=None,
-                cache_file=None):
+def instantiate(
+    module, imports, target="native", reporter=None, cache_file=None
+):
     """ Instantiate a wasm module.
 
     Args:
@@ -49,7 +50,7 @@ def instantiate(module, imports, target='native', reporter=None,
     if reporter is None:
         reporter = DummyReportGenerator()
 
-    reporter.heading(2, 'Wasm instantiation')
+    reporter.heading(2, "Wasm instantiation")
 
     # Check if all required imports are given:
     for definition in module:
@@ -57,26 +58,29 @@ def instantiate(module, imports, target='native', reporter=None,
             modname, name = definition.modname, definition.name
             if modname not in imports:
                 raise ValueError(
-                    'imported module "{}" not found'.format(modname))
+                    'imported module "{}" not found'.format(modname)
+                )
             if name not in imports[modname]:
                 raise ValueError(
                     'imported object "{}" not found in "{}"'.format(
-                        name, modname))
+                        name, modname
+                    )
+                )
 
     # Inject wasm runtime functions:
-    if 'wasm_rt' in imports:
-        raise ValueError('wasm_rt is a special import section')
+    if "wasm_rt" in imports:
+        raise ValueError("wasm_rt is a special import section")
     imports = imports.copy()  # otherwise we'd render the imports unsuable
-    imports['wasm_rt'] = create_runtime()
+    imports["wasm_rt"] = create_runtime()
 
     imports = flatten_imports(imports)
 
-    if target == 'native':
+    if target == "native":
         instance = native_instantiate(module, imports, reporter, cache_file)
-    elif target == 'python':
+    elif target == "python":
         instance = python_instantiate(module, imports, reporter, cache_file)
     else:
-        raise ValueError('Unknown instantiation target {}'.format(target))
+        raise ValueError("Unknown instantiation target {}".format(target))
 
     # Call magic function _run_init which initializes tables and optionally
     # calls start function as defined by the wasm start section.
@@ -87,30 +91,32 @@ def instantiate(module, imports, target='native', reporter=None,
 def native_instantiate(module, imports, reporter, cache_file):
     """ Load wasm module native """
     from ..api import ir_to_object, get_current_arch
-    logger.info('Instantiating wasm module as native code')
+
+    logger.info("Instantiating wasm module as native code")
     arch = get_current_arch()
     # key = (arch, module)
     # TODO: think of clever caching trickery:
     cache_file = None
     if cache_file and os.path.exists(cache_file):
-        logger.info('Using cached object from %s', cache_file)
+        logger.info("Using cached object from %s", cache_file)
         with shelve.open(cache_file) as s:
-            obj = s['obj']
-            ppci_module = s['ppci_module']
+            obj = s["obj"]
+            ppci_module = s["ppci_module"]
     else:
         # TODO: use cache here to short circuit re-compilation
         # hash(key)
         # print(hash(key))
         # hgkfdg
         ppci_module = wasm_to_ir(
-            module, arch.info.get_type_info('ptr'), reporter=reporter)
+            module, arch.info.get_type_info("ptr"), reporter=reporter
+        )
         verify_module(ppci_module)
         obj = ir_to_object([ppci_module], arch, debug=True, reporter=reporter)
         if cache_file:
-            logger.info('Saving object to %s for later use', cache_file)
+            logger.info("Saving object to %s for later use", cache_file)
             with shelve.open(cache_file) as s:
-                s['obj'] = obj
-                s['ppci_module'] = ppci_module
+                s["obj"] = obj
+                s["ppci_module"] = ppci_module
     instance = NativeModuleInstance(obj, imports)
 
     instance.load_memory(module)
@@ -118,20 +124,23 @@ def native_instantiate(module, imports, reporter, cache_file):
     # Export all exported functions
     for definition in module:
         if isinstance(definition, Export):
-            if definition.kind == 'func':
+            if definition.kind == "func":
                 exported_name = ppci_module._wasm_function_names[
-                    definition.ref.index]
-                instance.exports._function_map[definition.name] = \
-                    getattr(instance._code_module, exported_name)
-            elif definition.kind == 'global':
+                    definition.ref.index
+                ]
+                instance.exports._function_map[definition.name] = getattr(
+                    instance._code_module, exported_name
+                )
+            elif definition.kind == "global":
                 global_name = ppci_module._wasm_globals[definition.ref.index]
-                instance.exports._function_map[definition.name] = \
-                    NativeWasmGlobal(global_name, instance._code_module)
-                logger.debug('global exported')
-            elif definition.kind == 'memory':
+                instance.exports._function_map[
+                    definition.name
+                ] = NativeWasmGlobal(global_name, instance._code_module)
+                logger.debug("global exported")
+            elif definition.kind == "memory":
                 memory = instance._memories[definition.ref.index]
                 instance.exports._function_map[definition.name] = memory
-                logger.debug('memory exported')
+                logger.debug("memory exported")
             else:
                 raise NotImplementedError(definition.kind)
 
@@ -141,15 +150,16 @@ def native_instantiate(module, imports, reporter, cache_file):
 def python_instantiate(module, imports, reporter, cache_file):
     """ Load wasm module as a PythonModuleInstance """
     from ..api import ir_to_python
-    logger.info('Instantiating wasm module as python')
+
+    logger.info("Instantiating wasm module as python")
     ptr_info = TypeInfo(4, 4)
     ppci_module = wasm_to_ir(module, ptr_info, reporter=reporter)
     verify_module(ppci_module)
     f = io.StringIO()
     ir_to_python([ppci_module], f, reporter=reporter)
     pysrc = f.getvalue()
-    pycode = compile(pysrc, '<string>', 'exec')
-    _py_module = ModuleType('gen')
+    pycode = compile(pysrc, "<string>", "exec")
+    _py_module = ModuleType("gen")
     exec(pycode, _py_module.__dict__)
     instance = PythonModuleInstance(_py_module, imports)
 
@@ -162,20 +172,23 @@ def python_instantiate(module, imports, reporter, cache_file):
             pass
             # TODO: maybe validate imported functions?
         elif isinstance(definition, Export):
-            if definition.kind == 'func':
+            if definition.kind == "func":
                 exported_name = ppci_module._wasm_function_names[
-                    definition.ref.index]
-                instance.exports._function_map[definition.name] = \
-                    getattr(instance._py_module, exported_name)
-            elif definition.kind == 'global':
+                    definition.ref.index
+                ]
+                instance.exports._function_map[definition.name] = getattr(
+                    instance._py_module, exported_name
+                )
+            elif definition.kind == "global":
                 global_name = ppci_module._wasm_globals[definition.ref.index]
-                instance.exports._function_map[definition.name] = \
-                    PythonWasmGlobal(global_name, instance)
-                logger.debug('global exported')
-            elif definition.kind == 'memory':
+                instance.exports._function_map[
+                    definition.name
+                ] = PythonWasmGlobal(global_name, instance)
+                logger.debug("global exported")
+            elif definition.kind == "memory":
                 memory = instance._memories[definition.ref.index]
                 instance.exports._function_map[definition.name] = memory
-                logger.debug('memory exported')
+                logger.debug("memory exported")
             else:
                 raise NotImplementedError(definition.kind)
 
@@ -187,13 +200,15 @@ def flatten_imports(imports):
     flat_imports = {}
     for mod_name, funcs in imports.items():
         for func_name, func in funcs.items():
-            flat_imports['{}_{}'.format(mod_name, func_name)] = func
+            flat_imports["{}_{}".format(mod_name, func_name)] = func
     return flat_imports
 
 
 class ModuleInstance:
     """ Web assembly module instance """
+
     """ Instantiated module """
+
     def __init__(self):
         self.exports = Exports()
         self._memories = []
@@ -208,10 +223,11 @@ class ModuleInstance:
 
 class NativeModuleInstance(ModuleInstance):
     """ Wasm module loaded as natively compiled code """
+
     def __init__(self, obj, imports):
         super().__init__()
-        imports['wasm_rt_memory_grow'] = self.memory_grow
-        imports['wasm_rt_memory_size'] = self.memory_size
+        imports["wasm_rt_memory_grow"] = self.memory_grow
+        imports["wasm_rt_memory_size"] = self.memory_size
         self._code_module = load_obj(obj, imports=imports)
 
     def _run_init(self):
@@ -269,12 +285,12 @@ class NativeModuleInstance(ModuleInstance):
 
     def set_mem_base_ptr(self, base_addr):
         """ Set memory base address """
-        baseptr = self._code_module.get_symbol_offset('wasm_mem0_address')
+        baseptr = self._code_module.get_symbol_offset("wasm_mem0_address")
         print(baseptr)
         # TODO: major hack:
         # TODO: too many assumptions made here ...
         self._code_module._data_page.seek(baseptr)
-        self._code_module._data_page.write(struct.pack('Q', base_addr))
+        self._code_module._data_page.write(struct.pack("Q", base_addr))
 
 
 class WasmGlobal(metaclass=abc.ABCMeta):
@@ -384,6 +400,7 @@ class WasmMemory(metaclass=abc.ABCMeta):
 
 class NativeWasmMemory(WasmMemory):
     """ Native wasm memory emulation """
+
     def memory_size(self) -> int:
         """ return memory size in pages """
         return self._data_page.size // PAGE_SIZE
@@ -401,6 +418,7 @@ class NativeWasmMemory(WasmMemory):
 
 class PythonWasmMemory(WasmMemory):
     """ Python wasm memory emulation """
+
     def write(self, address, data):
         address = self._module.mem0_start + address
         self._module._py_module.write_mem(address, data)
@@ -414,14 +432,15 @@ class PythonWasmMemory(WasmMemory):
 
 class PythonModuleInstance(ModuleInstance):
     """ Wasm module loaded a generated python module """
+
     def __init__(self, module, imports):
         super().__init__()
         self._py_module = module
         self.mem_end = self._py_module.heap_top()
 
         # Magical python memory interface, add it now:
-        imports['wasm_rt_memory_grow'] = self.memory_grow
-        imports['wasm_rt_memory_size'] = self.memory_size
+        imports["wasm_rt_memory_grow"] = self.memory_grow
+        imports["wasm_rt_memory_size"] = self.memory_size
 
         # Link all imports:
         for name, f in imports.items():
@@ -473,6 +492,7 @@ class Exports:
         self._function_map = {}
 
     """ Container for exported functions """
+
     def __getitem__(self, key):
         assert isinstance(key, str)
         return self._function_map[key]

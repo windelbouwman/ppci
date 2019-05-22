@@ -27,7 +27,7 @@ def read_wat(f) -> Module:
     return Module(wat)
 
 
-def wasmify(func, target='native'):
+def wasmify(func, target="native"):
     """ Convert a Python function to a WASM function, compiled
     to native code. Assumes that all variables are floats.
     Can be used as a decorator, like Numba!
@@ -39,7 +39,7 @@ def wasmify(func, target='native'):
         print(x)
 
     wa = python_to_wasm(func)
-    imports = {'env': {'f64_print': f64_print}}
+    imports = {"env": {"f64_print": f64_print}}
     mod = instantiate(wa, imports, target=target)
     wasmfunc = getattr(mod.exports, func.__name__)
     return wasmfunc

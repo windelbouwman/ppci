@@ -7,46 +7,47 @@ from ..format.io import BaseIoReader, BaseIoWriter
 
 
 LANG_TYPES = {
-    'i32': b'\x7f',
-    'i64': b'\x7e',
-    'f32': b'\x7d',
-    'f64': b'\x7c',
-    'anyfunc': b'\x70',
-    'func': b'\x60',
-    'emptyblock': b'\x40',  # pseudo type for representing an empty block_type
-    }
+    "i32": b"\x7f",
+    "i64": b"\x7e",
+    "f32": b"\x7d",
+    "f64": b"\x7c",
+    "anyfunc": b"\x70",
+    "func": b"\x60",
+    "emptyblock": b"\x40",  # pseudo type for representing an empty block_type
+}
 LANG_TYPES_REVERSE = {v[0]: k for k, v in LANG_TYPES.items()}
 
 
 class FileWriter(BaseIoWriter):
     """ Helper class that can write bytes to a file """
+
     def write(self, bb):
         return self.f.write(bb)
 
     def write_f64(self, x):
-        self.write_fmt('<d', x)
+        self.write_fmt("<d", x)
 
     def write_f32(self, x):
-        self.write_fmt('<f', x)
+        self.write_fmt("<f", x)
 
     def write_u32(self, x):
-        self.write_fmt('<I', x)
+        self.write_fmt("<I", x)
 
     def write_str(self, x):
-        bb = x.encode('utf-8')
+        bb = x.encode("utf-8")
         self.write_vu32(len(bb))
         self.f.write(bb)
 
     def write_vs64(self, x):
         bb = signed_leb128_encode(x)
         if not len(bb) <= 10:
-            raise ValueError('Cannot pack {} into 10 bytes'.format(x))
+            raise ValueError("Cannot pack {} into 10 bytes".format(x))
         self.f.write(bb)
 
     def write_vs32(self, x):
         bb = signed_leb128_encode(x)
         if not len(bb) <= 5:  # 5 = ceil(32/7)
-            raise ValueError('Cannot pack {} into 5 bytes'.format(x))
+            raise ValueError("Cannot pack {} into 5 bytes".format(x))
         self.f.write(bb)
 
     def write_vu32(self, x):
@@ -70,10 +71,10 @@ class FileWriter(BaseIoWriter):
 
     def write_limits(self, min, max):
         if max is None:
-            self.write(b'\x00')
+            self.write(b"\x00")
             self.write_vu32(min)
         else:
-            self.write(b'\x01')
+            self.write(b"\x01")
             self.write_vu32(min)
             self.write_vu32(max)
 
@@ -83,7 +84,8 @@ class FileWriter(BaseIoWriter):
             instruction._to_writer(self)
         # Encode explicit end:
         from .components import Instruction
-        Instruction('end')._to_writer(self)
+
+        Instruction("end")._to_writer(self)
 
 
 class FileReader(BaseIoReader):
@@ -96,10 +98,10 @@ class FileReader(BaseIoReader):
 
     def read(self, amount=None):
         if amount is not None and amount < 0:
-            raise ValueError('Cannot read {} bytes'.format(amount))
+            raise ValueError("Cannot read {} bytes".format(amount))
         data = self.f.read(amount)
         if amount is not None and len(data) != amount:
-            raise EOFError('Reading beyond end of file')
+            raise EOFError("Reading beyond end of file")
         return data
 
     def read_data(self, amount):
@@ -129,13 +131,13 @@ class FileReader(BaseIoReader):
         return unsigned_leb128_decode(self)
 
     def read_f32(self) -> float:
-        return self.read_fmt('f')
+        return self.read_fmt("f")
 
     def read_f64(self) -> float:
-        return self.read_fmt('d')
+        return self.read_fmt("d")
 
     def read_u32(self) -> int:
-        return self.read_fmt('<I')
+        return self.read_fmt("<I")
 
     def read_bytes(self) -> bytes:
         """ Read raw bytes data """
@@ -145,7 +147,7 @@ class FileReader(BaseIoReader):
     def read_str(self):
         """ Read a string """
         data = self.read_bytes()
-        return data.decode('utf-8')
+        return data.decode("utf-8")
 
     def read_type(self):
         """ Read a wasm type """
@@ -169,26 +171,27 @@ class FileReader(BaseIoReader):
         blocks = 1
         i = self.read_instruction()
         # keep track of if/block/loop etc:
-        if i.opcode == 'end':
+        if i.opcode == "end":
             blocks -= 1
-        elif i.opcode in ('if', 'block', 'loop'):
+        elif i.opcode in ("if", "block", "loop"):
             blocks += 1
         expr.append(i)
         while blocks:
             i = self.read_instruction()
             # print(i)
-            if i.opcode == 'end':
+            if i.opcode == "end":
                 blocks -= 1
-            elif i.opcode in ('if', 'block', 'loop'):
+            elif i.opcode in ("if", "block", "loop"):
                 blocks += 1
             expr.append(i)
 
         # Strip of last end opcode:
-        assert expr[-1].opcode == 'end'
+        assert expr[-1].opcode == "end"
         return expr[:-1]
 
     def read_instruction(self):
         """ Read a single instruction """
         # TODO: resolve this import hack:
         from .components import Instruction
+
         return Instruction(self)

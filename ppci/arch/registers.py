@@ -1,12 +1,11 @@
-
 class Register:
     """ Baseclass of all registers types """
 
     @classmethod
     def all_registers(cls):
         """ Return all possible instances for this class """
-        if hasattr(cls, 'registers'):
-            return getattr(cls, 'registers')
+        if hasattr(cls, "registers"):
+            return getattr(cls, "registers")
         else:  # pragma: no cover
             raise NotImplementedError()
 
@@ -22,7 +21,7 @@ class Register:
             assert isinstance(num, int)
 
     def __repr__(self):
-        return '{}'.format(self.name)
+        return "{}".format(self.name)
 
     @property
     def num(self):

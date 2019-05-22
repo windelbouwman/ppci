@@ -16,7 +16,7 @@ import logging
 class RegisterSet(set):
     def __repr__(self):
         reg_names = sorted(str(r) for r in self)
-        return ', '.join(reg_names)
+        return ", ".join(reg_names)
 
 
 rvcisa = Isa()
@@ -40,6 +40,7 @@ class RiscvInstruction(Instruction):
 
 class PseudoRiscvInstruction(ArtificialInstruction):
     """ These instruction is used to switch between RV and RVC-encoding """
+
     pass
 
 
@@ -57,25 +58,24 @@ class OpcRegReg(RiscvcInstruction):
 
 
 def makec_regreg(mnemonic, func):
-    rd = Operand('rd', RiscvRegister, write=True)
-    rn = Operand('rn', RiscvRegister, read=True)
-    syntax = Syntax(['c', '.', mnemonic, ' ', rd, ',', ' ', rn])
-    members = {
-        'syntax': syntax, 'rd': rd, 'rn': rn, 'func': func}
-    return type('c' + mnemonic + '_ins', (OpcRegReg,), members)
+    rd = Operand("rd", RiscvRegister, write=True)
+    rn = Operand("rn", RiscvRegister, read=True)
+    syntax = Syntax(["c", ".", mnemonic, " ", rd, ",", " ", rn])
+    members = {"syntax": syntax, "rd": rd, "rn": rn, "func": func}
+    return type("c" + mnemonic + "_ins", (OpcRegReg,), members)
 
 
-CSub = makec_regreg('sub', 0b00)
-CXor = makec_regreg('xor', 0b01)
-COr = makec_regreg('or', 0b10)
-CAnd = makec_regreg('and', 0b11)
+CSub = makec_regreg("sub", 0b00)
+CXor = makec_regreg("xor", 0b01)
+COr = makec_regreg("or", 0b10)
+CAnd = makec_regreg("and", 0b11)
 
 
 class CSlli(RiscvcInstruction):
-    rd = Operand('rd', RiscvRegister, write=True)
-    rs = Operand('rs', RiscvRegister, read=True)
-    imm = Operand('imm', int)
-    syntax = Syntax(['c', '.', 'slli', ' ', rd, ',', ' ', rs, ',', ' ', imm])
+    rd = Operand("rd", RiscvRegister, write=True)
+    rs = Operand("rs", RiscvRegister, read=True)
+    imm = Operand("imm", int)
+    syntax = Syntax(["c", ".", "slli", " ", rd, ",", " ", rs, ",", " ", imm])
 
     def encode(self):
         tokens = self.get_tokens()
@@ -98,23 +98,23 @@ class CiBase(RiscvcInstruction):
 
 
 def makec_i(mnemonic, func):
-    rd = Operand('rd', RiscvRegister, write=True)
-    rs = Operand('rs', RiscvRegister, read=True)
-    imm = Operand('imm', int)
-    syntax = Syntax(['c', '.', mnemonic, ' ', rd, ',', ' ', rs, ',', ' ', imm])
-    members = {'syntax': syntax, 'func': func, 'rd': rd, 'rs': rs, 'imm': imm}
-    return type('c_' + mnemonic + '_ins', (CiBase,), members)
+    rd = Operand("rd", RiscvRegister, write=True)
+    rs = Operand("rs", RiscvRegister, read=True)
+    imm = Operand("imm", int)
+    syntax = Syntax(["c", ".", mnemonic, " ", rd, ",", " ", rs, ",", " ", imm])
+    members = {"syntax": syntax, "func": func, "rd": rd, "rs": rs, "imm": imm}
+    return type("c_" + mnemonic + "_ins", (CiBase,), members)
 
 
-CSrli = makec_i('srli', 0b00)
-CSrai = makec_i('srai', 0b01)
-CAndi = makec_i('andi', 0b10)
+CSrli = makec_i("srli", 0b00)
+CSrai = makec_i("srai", 0b01)
+CAndi = makec_i("andi", 0b10)
 
 
 class CAddi(RiscvcInstruction):
-    rd = Operand('rd', RiscvRegister, write=True)
-    imm = Operand('imm', int)
-    syntax = Syntax(['c', '.', 'addi', ' ', rd, ',', ' ', rd, ',', ' ', imm])
+    rd = Operand("rd", RiscvRegister, write=True)
+    imm = Operand("imm", int)
+    syntax = Syntax(["c", ".", "addi", " ", rd, ",", " ", rd, ",", " ", imm])
 
     def encode(self):
         tokens = self.get_tokens()
@@ -126,7 +126,7 @@ class CAddi(RiscvcInstruction):
 
 
 class CNop(RiscvcInstruction):
-    syntax = Syntax(['c', '.', 'nop'])
+    syntax = Syntax(["c", ".", "nop"])
 
     def encode(self):
         tokens = self.get_tokens()
@@ -136,7 +136,7 @@ class CNop(RiscvcInstruction):
 
 
 class CEbreak(RiscvcInstruction):
-    syntax = Syntax(['c', '.', 'ebreak'])
+    syntax = Syntax(["c", ".", "ebreak"])
 
     def encode(self):
         tokens = self.get_tokens()
@@ -145,9 +145,9 @@ class CEbreak(RiscvcInstruction):
 
 
 class CMovr(RiscvcInstruction):
-    rd = Operand('rd', RiscvRegister, write=True)
-    rm = Operand('rm', RiscvRegister, read=True)
-    syntax = Syntax(['c', '.', 'mv', ' ', rd, ',', ' ', rm])
+    rd = Operand("rd", RiscvRegister, write=True)
+    rm = Operand("rm", RiscvRegister, read=True)
+    syntax = Syntax(["c", ".", "mv", " ", rd, ",", " ", rm])
 
     def encode(self):
         tokens = self.get_tokens()
@@ -159,9 +159,9 @@ class CMovr(RiscvcInstruction):
 
 
 class CBl(RiscvInstruction):
-    target = Operand('target', str)
-    rd = Operand('rd', RiscvRegister, write=True)
-    syntax = Syntax(['jal', ' ', rd, ',', ' ', target])
+    target = Operand("target", str)
+    rd = Operand("rd", RiscvRegister, write=True)
+    syntax = Syntax(["jal", " ", rd, ",", " ", target])
 
     def encode(self):
         tokens = self.get_tokens()
@@ -174,8 +174,8 @@ class CBl(RiscvInstruction):
 
 
 class CJal(RiscvcInstruction):
-    target = Operand('target', str)
-    syntax = Syntax(['c', '.', 'jal', ' ', target])
+    target = Operand("target", str)
+    syntax = Syntax(["c", ".", "jal", " ", target])
 
     def encode(self):
         tokens = self.get_tokens()
@@ -188,8 +188,8 @@ class CJal(RiscvcInstruction):
 
 
 class CB(RiscvInstruction):
-    target = Operand('target', str)
-    syntax = Syntax(['j', ' ', target])
+    target = Operand("target", str)
+    syntax = Syntax(["j", " ", target])
 
     def encode(self):
         tokens = self.get_tokens()
@@ -202,8 +202,8 @@ class CB(RiscvInstruction):
 
 
 class CJ(RiscvcInstruction):
-    target = Operand('target', str)
-    syntax = Syntax(['c', '.', 'j', ' ', target])
+    target = Operand("target", str)
+    syntax = Syntax(["c", ".", "j", " ", target])
 
     def encode(self):
         tokens = self.get_tokens()
@@ -216,8 +216,8 @@ class CJ(RiscvcInstruction):
 
 
 class CJr(RiscvcInstruction):
-    rs1 = Operand('rs1', RiscvRegister, read=True)
-    syntax = Syntax(['c', '.', 'jr', ' ', rs1])
+    rs1 = Operand("rs1", RiscvRegister, read=True)
+    syntax = Syntax(["c", ".", "jr", " ", rs1])
 
     def encode(self):
         tokens = self.get_tokens()
@@ -228,10 +228,10 @@ class CJr(RiscvcInstruction):
 
 
 class CBlr(PseudoRiscvInstruction):
-    rd = Operand('rd', RiscvRegister, write=True)
-    rs1 = Operand('rs1', RiscvRegister, read=True)
-    offset = Operand('offset', int)
-    syntax = Syntax(['jalr', ' ', rd, ',', rs1, ',', ' ', offset])
+    rd = Operand("rd", RiscvRegister, write=True)
+    rs1 = Operand("rs1", RiscvRegister, read=True)
+    offset = Operand("offset", int)
+    syntax = Syntax(["jalr", " ", rd, ",", rs1, ",", " ", offset])
 
     def render(self):
         if self.rd.num == 1 and not self.offset:
@@ -241,8 +241,8 @@ class CBlr(PseudoRiscvInstruction):
 
 
 class CJalr(RiscvcInstruction):
-    rs1 = Operand('rs1', RiscvRegister, read=True)
-    syntax = Syntax(['c', '.', 'jalr', ' ', rs1])
+    rs1 = Operand("rs1", RiscvRegister, read=True)
+    syntax = Syntax(["c", ".", "jalr", " ", rs1])
 
     def encode(self):
         tokens = self.get_tokens()
@@ -253,10 +253,10 @@ class CJalr(RiscvcInstruction):
 
 
 class CBeqz(RiscvcInstruction):
-    rn = Operand('rn', RiscvRegister, read=True)
-    target = Operand('target', str)
-    syntax = Syntax(['c', '.', 'beqz', ' ', rn, ',', ' ', target])
-    patterns = {'op': 0b01, 'funct3': 0b110}
+    rn = Operand("rn", RiscvRegister, read=True)
+    target = Operand("target", str)
+    syntax = Syntax(["c", ".", "beqz", " ", rn, ",", " ", target])
+    patterns = {"op": 0b01, "funct3": 0b110}
 
     def encode(self):
         tokens = self.get_tokens()
@@ -269,10 +269,10 @@ class CBeqz(RiscvcInstruction):
 
 
 class CBnez(RiscvcInstruction):
-    rn = Operand('rn', RiscvRegister, read=True)
-    target = Operand('target', str)
-    syntax = Syntax(['c', '.', 'bneqz', ' ', rn, ',', ' ', target])
-    patterns = {'op': 0b01, 'funct3': 0b111}
+    rn = Operand("rn", RiscvRegister, read=True)
+    target = Operand("target", str)
+    syntax = Syntax(["c", ".", "bneqz", " ", rn, ",", " ", target])
+    patterns = {"op": 0b01, "funct3": 0b111}
 
     def encode(self):
         tokens = self.get_tokens()
@@ -285,10 +285,10 @@ class CBnez(RiscvcInstruction):
 
 
 class CLw(RiscvcInstruction):
-    rd = Operand('rd', RiscvRegister, write=True)
-    rs1 = Operand('rs1', RiscvRegister, read=True)
-    offset = Operand('offset', int)
-    syntax = Syntax(['c', '.', 'lw', ' ', rd, ',', ' ', offset, '(', rs1, ')'])
+    rd = Operand("rd", RiscvRegister, write=True)
+    rs1 = Operand("rs1", RiscvRegister, read=True)
+    offset = Operand("offset", int)
+    syntax = Syntax(["c", ".", "lw", " ", rd, ",", " ", offset, "(", rs1, ")"])
 
     def encode(self):
         tokens = self.get_tokens()
@@ -303,11 +303,12 @@ class CLw(RiscvcInstruction):
 
 
 class CSw(RiscvcInstruction):
-    rs2 = Operand('rs2', RiscvRegister, read=True)
-    rs1 = Operand('rs1', RiscvRegister, read=True)
-    offset = Operand('offset', int)
+    rs2 = Operand("rs2", RiscvRegister, read=True)
+    rs1 = Operand("rs1", RiscvRegister, read=True)
+    offset = Operand("offset", int)
     syntax = Syntax(
-        ['c', '.', 'sw', ' ', rs2, ',', ' ', offset, '(', rs1, ')'])
+        ["c", ".", "sw", " ", rs2, ",", " ", offset, "(", rs1, ")"]
+    )
     tokens = [RiscvcToken]
 
     def encode(self):
@@ -323,10 +324,10 @@ class CSw(RiscvcInstruction):
 
 
 class CLwsp(RiscvcInstruction):
-    rd = Operand('rd', RiscvRegister, write=True)
-    offset = Operand('offset', int)
+    rd = Operand("rd", RiscvRegister, write=True)
+    offset = Operand("offset", int)
     # rs1 = Operand('rs1', RiscvRegister, read=True)
-    syntax = Syntax(['c', '.', 'lwsp', ' ', rd, ',', offset, '(', 'x2', ')'])
+    syntax = Syntax(["c", ".", "lwsp", " ", rd, ",", offset, "(", "x2", ")"])
 
     def encode(self):
         tokens = self.get_tokens()
@@ -340,9 +341,9 @@ class CLwsp(RiscvcInstruction):
 
 
 class CAddi4spn(RiscvcInstruction):
-    rd = Operand('rd', RiscvRegister, write=True)
-    imm = Operand('imm', int)
-    syntax = Syntax(['c', '.', 'addi4spn', ' ', rd,  ' ', imm])
+    rd = Operand("rd", RiscvRegister, write=True)
+    imm = Operand("imm", int)
+    syntax = Syntax(["c", ".", "addi4spn", " ", rd, " ", imm])
 
     def encode(self):
         tokens = self.get_tokens()
@@ -350,15 +351,15 @@ class CAddi4spn(RiscvcInstruction):
         tokens[0][2:5] = self.rd.num - 8
         tokens[0][5:6] = self.imm >> 3 & 1
         tokens[0][6:7] = self.imm >> 2 & 1
-        tokens[0][7:11] = self.imm >> 6 & 0xf
+        tokens[0][7:11] = self.imm >> 6 & 0xF
         tokens[0][11:13] = self.imm >> 4 & 0x3
         tokens[0][13:16] = 0b000
         return tokens[0].encode()
 
 
 class CAddi16sp(RiscvcInstruction):
-    imm = Operand('imm', int)
-    syntax = Syntax(['c', '.', 'addi16sp', ' ', imm])
+    imm = Operand("imm", int)
+    syntax = Syntax(["c", ".", "addi16sp", " ", imm])
 
     def encode(self):
         tokens = self.get_tokens()
@@ -374,10 +375,10 @@ class CAddi16sp(RiscvcInstruction):
 
 
 class CSwsp(RiscvcInstruction):
-    rs2 = Operand('rs2', RiscvRegister, read=True)
-    offset = Operand('offset', int)
+    rs2 = Operand("rs2", RiscvRegister, read=True)
+    offset = Operand("offset", int)
     # rs1 = Operand('rs1', RiscvRegister, read=True)
-    syntax = Syntax(['c', '.', 'swsp', ' ', rs2, ',', offset, '(', 'x2', ')'])
+    syntax = Syntax(["c", ".", "swsp", " ", rs2, ",", offset, "(", "x2", ")"])
 
     def encode(self):
         tokens = self.get_tokens()
@@ -390,19 +391,19 @@ class CSwsp(RiscvcInstruction):
 
 
 class CLi(RiscvcInstruction):
-    rd = Operand('rd', RiscvRegister, write=True)
-    imm = Operand('imm', int)
-    syntax = Syntax(['c', '.', 'li', ' ', rd, ',', ' ', imm])
-    patterns = {'op': 0b01, 'imm': imm, 'rd': rd, 'funct3': 0b010}
+    rd = Operand("rd", RiscvRegister, write=True)
+    imm = Operand("imm", int)
+    syntax = Syntax(["c", ".", "li", " ", rd, ",", " ", imm])
+    patterns = {"op": 0b01, "imm": imm, "rd": rd, "funct3": 0b010}
 
 
 class CLui(RiscvcInstruction):
-    rd = Operand('rd', RiscvRegister, write=True)
-    imm = Operand('imm', int)
-    syntax = Syntax(['c', '.', 'lui', ' ', rd, ',', ' ', imm])
+    rd = Operand("rd", RiscvRegister, write=True)
+    imm = Operand("imm", int)
+    syntax = Syntax(["c", ".", "lui", " ", rd, ",", " ", imm])
 
     def encode(self):
-        imm6 = self.imm & 0x3f
+        imm6 = self.imm & 0x3F
         tokens = self.get_tokens()
         tokens[0].op = 0b01
         tokens[0][2:7] = imm6 & 0x1F
@@ -413,15 +414,18 @@ class CLui(RiscvcInstruction):
 
 
 class Andv(PseudoRiscvInstruction):
-    rd = Operand('rd', RiscvRegister, write=True)
-    rn = Operand('rn', RiscvRegister, read=True)
-    rm = Operand('rm', RiscvRegister, read=True)
-    syntax = Syntax(['and', ' ', rd, ',', ' ', rn, ',', ' ', rm])
+    rd = Operand("rd", RiscvRegister, write=True)
+    rn = Operand("rn", RiscvRegister, read=True)
+    rm = Operand("rm", RiscvRegister, read=True)
+    syntax = Syntax(["and", " ", rd, ",", " ", rn, ",", " ", rm])
 
     def render(self):
-        if self.rd.num in range(8, 16) and self.rn.num in range(8, 16) and \
-                        self.rm.num in range(8, 16) and \
-                (self.rd.num == self.rn.num or self.rd.num == self.rm.num):
+        if (
+            self.rd.num in range(8, 16)
+            and self.rn.num in range(8, 16)
+            and self.rm.num in range(8, 16)
+            and (self.rd.num == self.rn.num or self.rd.num == self.rm.num)
+        ):
             if self.rd.num == self.rn.num:
                 yield CAnd(self.rd, self.rm)
             else:
@@ -431,33 +435,39 @@ class Andv(PseudoRiscvInstruction):
 
 
 class Orv(PseudoRiscvInstruction):
-    rd = Operand('rd', RiscvRegister, write=True)
-    rn = Operand('rn', RiscvRegister, read=True)
-    rm = Operand('rm', RiscvRegister, read=True)
-    syntax = Syntax(['or', ' ', rd, ',', ' ', rn, ',', ' ', rm])
+    rd = Operand("rd", RiscvRegister, write=True)
+    rn = Operand("rn", RiscvRegister, read=True)
+    rm = Operand("rm", RiscvRegister, read=True)
+    syntax = Syntax(["or", " ", rd, ",", " ", rn, ",", " ", rm])
 
     def render(self):
-        if self.rd.num in range(8, 16) and self.rn.num in range(8, 16) and \
-                        self.rm.num in range(8, 16) and \
-                (self.rd.num == self.rn.num or self.rd.num == self.rm.num):
-                if self.rd.num == self.rn.num:
-                    yield COr(self.rd, self.rm)
-                else:
-                    yield COr(self.rd, self.rn)
+        if (
+            self.rd.num in range(8, 16)
+            and self.rn.num in range(8, 16)
+            and self.rm.num in range(8, 16)
+            and (self.rd.num == self.rn.num or self.rd.num == self.rm.num)
+        ):
+            if self.rd.num == self.rn.num:
+                yield COr(self.rd, self.rm)
+            else:
+                yield COr(self.rd, self.rn)
         else:
             yield Orr(self.rd, self.rn, self.rm)
 
 
 class Xorv(PseudoRiscvInstruction):
-    rd = Operand('rd', RiscvRegister, write=True)
-    rn = Operand('rn', RiscvRegister, read=True)
-    rm = Operand('rm', RiscvRegister, read=True)
-    syntax = Syntax(['xor', ' ', rd, ',', ' ', rn, ',', ' ', rm])
+    rd = Operand("rd", RiscvRegister, write=True)
+    rn = Operand("rn", RiscvRegister, read=True)
+    rm = Operand("rm", RiscvRegister, read=True)
+    syntax = Syntax(["xor", " ", rd, ",", " ", rn, ",", " ", rm])
 
     def render(self):
-        if self.rd.num in range(8, 16) and self.rn.num in range(8, 16) and \
-                        self.rm.num in range(8, 16) and \
-                (self.rd.num == self.rn.num or self.rd.num == self.rm.num):
+        if (
+            self.rd.num in range(8, 16)
+            and self.rn.num in range(8, 16)
+            and self.rm.num in range(8, 16)
+            and (self.rd.num == self.rn.num or self.rd.num == self.rm.num)
+        ):
             if self.rd.num == self.rn.num:
                 yield CXor(self.rd, self.rm)
             else:
@@ -467,25 +477,28 @@ class Xorv(PseudoRiscvInstruction):
 
 
 class Subv(PseudoRiscvInstruction):
-    rd = Operand('rd', RiscvRegister, write=True)
-    rn = Operand('rn', RiscvRegister, read=True)
-    rm = Operand('rm', RiscvRegister, read=True)
-    syntax = Syntax(['sub', ' ', rd, ',', ' ', rn, ',', ' ', rm])
+    rd = Operand("rd", RiscvRegister, write=True)
+    rn = Operand("rn", RiscvRegister, read=True)
+    rm = Operand("rm", RiscvRegister, read=True)
+    syntax = Syntax(["sub", " ", rd, ",", " ", rn, ",", " ", rm])
 
     def render(self):
-        if self.rd.num in range(8, 16) and self.rn.num in range(8, 16) and \
-                        self.rm.num in range(8, 16) and \
-                (self.rd.num == self.rn.num):
+        if (
+            self.rd.num in range(8, 16)
+            and self.rn.num in range(8, 16)
+            and self.rm.num in range(8, 16)
+            and (self.rd.num == self.rn.num)
+        ):
             yield CSub(self.rd, self.rm)
         else:
             yield Subr(self.rd, self.rn, self.rm)
 
 
 class Addiv(PseudoRiscvInstruction):
-    rd = Operand('rd', RiscvRegister, write=True)
-    rs1 = Operand('rs1', RiscvRegister, read=True)
-    imm = Operand('imm', int)
-    syntax = Syntax(['addi', ' ', rd, ',', ' ', rs1, ',', ' ', imm])
+    rd = Operand("rd", RiscvRegister, write=True)
+    rs1 = Operand("rs1", RiscvRegister, read=True)
+    imm = Operand("imm", int)
+    syntax = Syntax(["addi", " ", rd, ",", " ", rs1, ",", " ", imm])
 
     def render(self):
         if self.rd.num == self.rs1.num and self.imm in range(-32, 32):
@@ -495,10 +508,10 @@ class Addiv(PseudoRiscvInstruction):
 
 
 class Slliv(PseudoRiscvInstruction):
-    rd = Operand('rd', RiscvRegister, write=True)
-    rs1 = Operand('rs1', RiscvRegister, read=True)
-    imm = Operand('imm', int)
-    syntax = Syntax(['slli', ' ', rd, ',', ' ', rs1, ',', ' ', imm])
+    rd = Operand("rd", RiscvRegister, write=True)
+    rs1 = Operand("rs1", RiscvRegister, read=True)
+    imm = Operand("imm", int)
+    syntax = Syntax(["slli", " ", rd, ",", " ", rs1, ",", " ", imm])
 
     def render(self):
         if self.rd.num == self.rs1.num and self.imm < 16:
@@ -508,29 +521,35 @@ class Slliv(PseudoRiscvInstruction):
 
 
 class Srliv(PseudoRiscvInstruction):
-    rd = Operand('rd', RiscvRegister, write=True)
-    rs1 = Operand('rs1', RiscvRegister, read=True)
-    imm = Operand('imm', int)
-    syntax = Syntax(['srli', ' ', rd, ',', ' ', rs1, ',', ' ', imm])
+    rd = Operand("rd", RiscvRegister, write=True)
+    rs1 = Operand("rs1", RiscvRegister, read=True)
+    imm = Operand("imm", int)
+    syntax = Syntax(["srli", " ", rd, ",", " ", rs1, ",", " ", imm])
 
     def render(self):
-        if self.rd.num == self.rs1.num and self.rd.num in range(8, 16) and \
-                        self.imm < 16:
+        if (
+            self.rd.num == self.rs1.num
+            and self.rd.num in range(8, 16)
+            and self.imm < 16
+        ):
             yield CSrli(self.rd, self.rs1, self.imm)
         else:
             yield Srli(self.rd, self.rs1, self.imm)
 
 
 class Lwv(PseudoRiscvInstruction):
-    rd = Operand('rd', RiscvRegister, write=True)
-    offset = Operand('offset', int)
-    rs1 = Operand('rs1', RiscvRegister, read=True)
-    syntax = Syntax(['lw', ' ', rd, ',', ' ', offset, '(', rs1, ')'])
+    rd = Operand("rd", RiscvRegister, write=True)
+    offset = Operand("offset", int)
+    rs1 = Operand("rs1", RiscvRegister, read=True)
+    syntax = Syntax(["lw", " ", rd, ",", " ", offset, "(", rs1, ")"])
     fprel = False
 
     def render(self):
-        if self.rd.num in range(8, 16) and self.rs1.num in range(8, 16) and \
-                        self.offset in range(0, 128):
+        if (
+            self.rd.num in range(8, 16)
+            and self.rs1.num in range(8, 16)
+            and self.offset in range(0, 128)
+        ):
             yield CLw(self.rd, self.offset, self.rs1)
         elif self.rs1.num == 2 and self.offset >= 0 and self.offset < 256:
             yield CLwsp(self.rd, self.offset, self.rs1)
@@ -539,16 +558,21 @@ class Lwv(PseudoRiscvInstruction):
 
 
 class Swv(PseudoRiscvInstruction):
-    rs2 = Operand('rs2', RiscvRegister, read=True)
-    offset = Operand('offset', int)
-    rs1 = Operand('rs1', RiscvRegister, read=True)
+    rs2 = Operand("rs2", RiscvRegister, read=True)
+    offset = Operand("offset", int)
+    rs1 = Operand("rs1", RiscvRegister, read=True)
     fprel = False
-    syntax = Syntax(['sw', ' ', rs2, ',', ' ', offset, '(', rs1, ')'])
+    syntax = Syntax(["sw", " ", rs2, ",", " ", offset, "(", rs1, ")"])
 
     def render(self):
-        if (self.rs2.num <= 15) and (self.rs2.num >= 8) and \
-                (self.rs1.num <= 15) and (self.rs1.num >= 8) and \
-                (self.offset >= 0) and (self.offset < 128):
+        if (
+            (self.rs2.num <= 15)
+            and (self.rs2.num >= 8)
+            and (self.rs1.num <= 15)
+            and (self.rs1.num >= 8)
+            and (self.offset >= 0)
+            and (self.offset < 128)
+        ):
             yield CSw(self.rs2, self.offset, self.rs1)
         elif self.rs1.num == 2 and self.offset >= 0 and self.offset < 256:
             yield CSwsp(self.rs2, self.offset, self.rs1)
@@ -557,10 +581,10 @@ class Swv(PseudoRiscvInstruction):
 
 
 class Beqv(PseudoRiscvInstruction):
-    rn = Operand('rn', RiscvRegister, read=True)
-    rm = Operand('rm', RiscvRegister, read=True)
-    target = Operand('target', str)
-    syntax = Syntax(['beq', ' ', rn, ',', ' ', rm, ' ', target])
+    rn = Operand("rn", RiscvRegister, read=True)
+    rm = Operand("rm", RiscvRegister, read=True)
+    target = Operand("target", str)
+    syntax = Syntax(["beq", " ", rn, ",", " ", rm, " ", target])
 
     def render(self):
         if self.rn.num in range(8, 16):
@@ -570,10 +594,10 @@ class Beqv(PseudoRiscvInstruction):
 
 
 class Bnev(PseudoRiscvInstruction):
-    rn = Operand('rn', RiscvRegister, read=True)
-    rm = Operand('rm', RiscvRegister, read=True)
-    target = Operand('target', str)
-    syntax = Syntax(['bneq', ' ', rn, ',', ' ', rm, ' ', target])
+    rn = Operand("rn", RiscvRegister, read=True)
+    rm = Operand("rm", RiscvRegister, read=True)
+    target = Operand("target", str)
+    syntax = Syntax(["bneq", " ", rn, ",", " ", rm, " ", target])
 
     def render(self):
         if self.rn.num in range(8, 16):
@@ -584,8 +608,8 @@ class Bnev(PseudoRiscvInstruction):
 
 # Instruction selection patterns:
 @rvcisa.pattern(
-    'reg', 'CONSTI32', size=1,
-    condition=lambda t: t.value in range(-32, 32))
+    "reg", "CONSTI32", size=1, condition=lambda t: t.value in range(-32, 32)
+)
 def pattern_consti32(context, tree):
     d = context.new_reg(RiscvRegister)
     c0 = tree.value
@@ -596,39 +620,40 @@ def pattern_consti32(context, tree):
 
 
 @rvcisa.pattern(
-    'reg', 'CONSTI32', size=3, condition=lambda t: t.value < 0x20000)
+    "reg", "CONSTI32", size=3, condition=lambda t: t.value < 0x20000
+)
 def pattern_consti32_2(context, tree):
     d = context.new_reg(RiscvRegister)
     c0 = tree.value
     if (c0 & 0x800) != 0:
         c0 += 0x1000
     context.emit(CLui(d, c0 >> 12))
-    context.emit(Addi(d, d, c0 & 0xfff))
+    context.emit(Addi(d, d, c0 & 0xFFF))
     return d
 
 
-@rvcisa.pattern('reg', 'ANDI32(reg, reg)', size=1)
+@rvcisa.pattern("reg", "ANDI32(reg, reg)", size=1)
 def pattern_andi32(context, tree, c0, c1):
     d = context.new_reg(RiscvRegister)
     context.emit(Andv(d, c0, c1))
     return d
 
 
-@rvcisa.pattern('reg', 'ORI32(reg, reg)', size=1)
+@rvcisa.pattern("reg", "ORI32(reg, reg)", size=1)
 def pattern_ori32(context, tree, c0, c1):
     d = context.new_reg(RiscvRegister)
     context.emit(Orv(d, c0, c1))
     return d
 
 
-@rvcisa.pattern('reg', 'XORI32(reg, reg)', size=1)
+@rvcisa.pattern("reg", "XORI32(reg, reg)", size=1)
 def pattern_xori32(context, tree, c0, c1):
     d = context.new_reg(RiscvRegister)
     context.emit(Xorv(d, c0, c1))
     return d
 
 
-@rvcisa.pattern('reg', 'SUBI32(reg, reg)', size=1)
+@rvcisa.pattern("reg", "SUBI32(reg, reg)", size=1)
 def pattern_subi32(context, tree, c0, c1):
     d = context.new_reg(RiscvRegister)
     context.emit(Subv(d, c0, c1))
@@ -636,8 +661,11 @@ def pattern_subi32(context, tree, c0, c1):
 
 
 @rvcisa.pattern(
-    'reg', 'ADDI32(reg, CONSTI32)', size=1,
-    condition=lambda t: t.children[1].value < 256)
+    "reg",
+    "ADDI32(reg, CONSTI32)",
+    size=1,
+    condition=lambda t: t.children[1].value < 256,
+)
 def pattern_addi32_1(context, tree, c0):
     d = context.new_reg(RiscvRegister)
     c1 = tree.children[1].value
@@ -646,8 +674,11 @@ def pattern_addi32_1(context, tree, c0):
 
 
 @rvcisa.pattern(
-    'reg', 'ADDI32(CONSTI32, reg)', size=1,
-    condition=lambda t: t.children[0].value < 256)
+    "reg",
+    "ADDI32(CONSTI32, reg)",
+    size=1,
+    condition=lambda t: t.children[0].value < 256,
+)
 def pattern_addi32_2(context, tree, c0):
     d = context.new_reg(RiscvRegister)
     c1 = tree.children[0].value
@@ -656,8 +687,11 @@ def pattern_addi32_2(context, tree, c0):
 
 
 @rvcisa.pattern(
-    'reg', 'SHLI32(reg, CONSTI32)', size=1,
-    condition=lambda t: t.children[1].value < 16)
+    "reg",
+    "SHLI32(reg, CONSTI32)",
+    size=1,
+    condition=lambda t: t.children[1].value < 16,
+)
 def pattern_shli32_1_(context, tree, c0):
     d = context.new_reg(RiscvRegister)
     c1 = tree.children[1].value
@@ -666,8 +700,11 @@ def pattern_shli32_1_(context, tree, c0):
 
 
 @rvcisa.pattern(
-    'reg', 'SHLI32(CONSTI32, reg)', size=1,
-    condition=lambda t: t.children[0].value < 16)
+    "reg",
+    "SHLI32(CONSTI32, reg)",
+    size=1,
+    condition=lambda t: t.children[0].value < 16,
+)
 def pattern_shli32_2(context, tree, c0):
     d = context.new_reg(RiscvRegister)
     c1 = tree.children[0].value
@@ -676,8 +713,11 @@ def pattern_shli32_2(context, tree, c0):
 
 
 @rvcisa.pattern(
-    'reg', 'SHRI32(reg, CONSTI32)', size=1,
-    condition=lambda t: t.children[1].value < 16)
+    "reg",
+    "SHRI32(reg, CONSTI32)",
+    size=1,
+    condition=lambda t: t.children[1].value < 16,
+)
 def pattern_shri32(context, tree, c0):
     d = context.new_reg(RiscvRegister)
     c1 = tree.children[1].value
@@ -686,8 +726,11 @@ def pattern_shri32(context, tree, c0):
 
 
 @rvcisa.pattern(
-    'reg', 'SHRI32(CONSTI32, reg)', size=1,
-    condition=lambda t: t.children[0].value < 16)
+    "reg",
+    "SHRI32(CONSTI32, reg)",
+    size=1,
+    condition=lambda t: t.children[0].value < 16,
+)
 def pattern_stri32_const(context, tree, c0):
     d = context.new_reg(RiscvRegister)
     c1 = tree.children[0].value
@@ -695,38 +738,41 @@ def pattern_stri32_const(context, tree, c0):
     return d
 
 
-@rvcisa.pattern('reg', 'LDRU32(mem)', size=1)
-@rvcisa.pattern('reg', 'LDRI32(mem)', size=1)
+@rvcisa.pattern("reg", "LDRU32(mem)", size=1)
+@rvcisa.pattern("reg", "LDRI32(mem)", size=1)
 def pattern_ldri32(context, tree, c0):
     d = context.new_reg(RiscvRegister)
     base_reg, offset = c0
     Code = Lwv(d, offset, base_reg)
-    Code.fprel = True 
+    Code.fprel = True
     context.emit(Code)
     return d
 
 
-@rvcisa.pattern('reg', 'LDRI32(ADDI32(reg, CONSTI32))', size=1)
+@rvcisa.pattern("reg", "LDRI32(ADDI32(reg, CONSTI32))", size=1)
 def pattern_ldri32_addi32(context, tree, c0):
     d = context.new_reg(RiscvRegister)
     c1 = tree.children[0].children[1].value
     assert isinstance(c1, int)
-    context.emit(Lwv(d, c1, c0)) 
+    context.emit(Lwv(d, c1, c0))
     return d
 
 
-@rvcisa.pattern('stm', 'STRU32(mem, reg)', size=1)
-@rvcisa.pattern('stm', 'STRI32(mem, reg)', size=1)
+@rvcisa.pattern("stm", "STRU32(mem, reg)", size=1)
+@rvcisa.pattern("stm", "STRI32(mem, reg)", size=1)
 def pattern_stri32(self, tree, c0, c1):
     base_reg, offset = c0
     Code = Swv(c1, offset, base_reg)
-    Code.fprel = True 
+    Code.fprel = True
     self.emit(Code)
 
 
 @rvcisa.pattern(
-    'stm', 'STRI32(ADDI32(reg, CONSTI32), reg)', size=1,
-    condition=lambda t: t.children[0].children[1].value < 256)
+    "stm",
+    "STRI32(ADDI32(reg, CONSTI32), reg)",
+    size=1,
+    condition=lambda t: t.children[0].children[1].value < 256,
+)
 def pattern_stri32_addi32(context, tree, c0, c1):
     # TODO: something strange here: when enabeling this rule, programs
     # compile correctly...
@@ -734,9 +780,9 @@ def pattern_stri32_addi32(context, tree, c0, c1):
     context.emit(Swv(c1, offset, c0))
 
 
-@rvcisa.pattern('stm', 'CJMPI32(reg, reg)', size=2)
-@rvcisa.pattern('stm', 'CJMPI16(reg, reg)', size=2)
-@rvcisa.pattern('stm', 'CJMPI8(reg, reg)', size=2)
+@rvcisa.pattern("stm", "CJMPI32(reg, reg)", size=2)
+@rvcisa.pattern("stm", "CJMPI16(reg, reg)", size=2)
+@rvcisa.pattern("stm", "CJMPI8(reg, reg)", size=2)
 def pattern_cjmp(context, tree, c0, c1):
     op, yes_label, no_label = tree.value
     opnames = {"<": Blt, ">": Bgt, "==": Beq, "!=": Bne, ">=": Bge, "<=": Ble}
@@ -746,13 +792,18 @@ def pattern_cjmp(context, tree, c0, c1):
     context.emit(jmp_ins)
 
 
-@rvcisa.pattern('stm', 'CJMPU8(reg, reg)', size=2)
-@rvcisa.pattern('stm', 'CJMPU16(reg, reg)', size=2)
-@rvcisa.pattern('stm', 'CJMPU32(reg, reg)', size=2)
+@rvcisa.pattern("stm", "CJMPU8(reg, reg)", size=2)
+@rvcisa.pattern("stm", "CJMPU16(reg, reg)", size=2)
+@rvcisa.pattern("stm", "CJMPU32(reg, reg)", size=2)
 def pattern_cjmpu(context, tree, c0, c1):
     op, yes_label, no_label = tree.value
     opnames = {
-        "<": Bltu, ">": Bgtu, "==": Beq, "!=": Bne, ">=": Bgeu, "<=": Bleu
+        "<": Bltu,
+        ">": Bgtu,
+        "==": Beq,
+        "!=": Bne,
+        ">=": Bgeu,
+        "<=": Bleu,
     }
     Bop = opnames[op]
     jmp_ins = CB(no_label.name, jumps=[no_label])
@@ -760,7 +811,7 @@ def pattern_cjmpu(context, tree, c0, c1):
     context.emit(jmp_ins)
 
 
-@rvcisa.pattern('stm', 'JMP', size=2)
+@rvcisa.pattern("stm", "JMP", size=2)
 def pattern_jmp(context, tree):
     tgt = tree.value
     context.emit(CB(tgt.name, jumps=[tgt]))
@@ -768,10 +819,10 @@ def pattern_jmp(context, tree):
 
 @rvcisa.postlink
 def opt(cls, dst):
-    logger = logging.getLogger('linker')
-    lst = dst.arch.isa.relocation_map['c_base'].l
-    s = ", ".join(format(x, '08x') for x in lst)
-    logger.debug('Relocation list: %s\n' % s)
+    logger = logging.getLogger("linker")
+    lst = dst.arch.isa.relocation_map["c_base"].l
+    s = ", ".join(format(x, "08x") for x in lst)
+    logger.debug("Relocation list: %s\n" % s)
     lst.append(-1)
 
     def countdiff(adrdst, adrofs):
@@ -784,11 +835,13 @@ def opt(cls, dst):
         return inddst - indofs
 
     def getsection(adr, image):
-        if adr >= imageadr and adr <= imageadr+imagesize:
+        if adr >= imageadr and adr <= imageadr + imagesize:
             for section in image.sections:
-                if adr >= sectionadr[section.name] and \
-                        adr <= sectionadr[section.name] + \
-                        sectionsize[section.name]:
+                if (
+                    adr >= sectionadr[section.name]
+                    and adr
+                    <= sectionadr[section.name] + sectionsize[section.name]
+                ):
                     return section
         else:
             return False
@@ -821,33 +874,45 @@ def opt(cls, dst):
         for se in image.sections:
             delta = countdiff(se.address, image.address)
             logger.debug(
-                'RVC-sectororchanging %s at %08x with -%08x to %08x',
-                se.name, se.address, 2 * delta, se.address - 2 * delta)
-            se.address -= 2*delta
+                "RVC-sectororchanging %s at %08x with -%08x to %08x",
+                se.name,
+                se.address,
+                2 * delta,
+                se.address - 2 * delta,
+            )
+            se.address -= 2 * delta
 
         for s in symbols:
             sym = s[0]
             delta = countdiff(s[1], sectionadr[sym.section])
             logger.debug(
-                'RVC-symbolchanging %s at %08x with -%08x to %08x',
-                sym.name, sym.value, 2*delta, sym.value-2*delta)
-            sym.value -= 2*delta
+                "RVC-symbolchanging %s at %08x with -%08x to %08x",
+                sym.name,
+                sym.value,
+                2 * delta,
+                sym.value - 2 * delta,
+            )
+            sym.value -= 2 * delta
 
         for r in relocs:
             reloc = r[0]
             delta = countdiff(r[1], sectionadr[reloc.section])
             logger.debug(
-                'RVC-relocationchanging %s at %08x with -%08x to %08x',
-                reloc.symbol_name, r[1], 2*delta, r[1]-2*delta)
-            reloc.offset -= delta*2
+                "RVC-relocationchanging %s at %08x with -%08x to %08x",
+                reloc.symbol_name,
+                r[1],
+                2 * delta,
+                r[1] - 2 * delta,
+            )
+            reloc.offset -= delta * 2
 
         lst2 = lst[:-1]
         for (i, absadr) in enumerate(lst2):
             section = getsection(absadr, image)
             if section:
-                adr = absadr - section.address + 2 - i*2
+                adr = absadr - section.address + 2 - i * 2
                 section.data.pop(adr)
                 section.data.pop(adr)
 
     cls.do_relocations(opt=True)
-    dst.arch.isa.relocation_map['c_base'].l = []
+    dst.arch.isa.relocation_map["c_base"].l = []

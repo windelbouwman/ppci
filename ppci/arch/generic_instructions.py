@@ -9,7 +9,7 @@ class VirtualInstruction(Instruction):
     """
 
     def encode(self):  # pragma: no cover
-        raise RuntimeError('Cannot encode virtual {}'.format(self))
+        raise RuntimeError("Cannot encode virtual {}".format(self))
 
 
 class ArtificialInstruction(VirtualInstruction):
@@ -40,6 +40,7 @@ class PseudoInstruction(Instruction):
 
 class RelocationHolder(Instruction):
     """ This instruction encodes no data, but encodes a relocation """
+
     def __init__(self, reloc):
         super().__init__()
         self._reloc = reloc
@@ -58,7 +59,7 @@ class Nop(Instruction):
         return bytes()
 
     def __repr__(self):
-        return 'NOP'
+        return "NOP"
 
 
 class RegisterUseDef(VirtualInstruction):
@@ -70,7 +71,7 @@ class RegisterUseDef(VirtualInstruction):
         self.add_defs(defs)
 
     def __repr__(self):
-        return 'VUseDef'
+        return "VUseDef"
 
     def add_use(self, reg):
         self.extra_uses.append(reg)
@@ -95,7 +96,7 @@ class Comment(PseudoInstruction):
         self.comment = comment
 
     def __repr__(self):
-        return '; {}'.format(self.comment)
+        return "; {}".format(self.comment)
 
 
 class Label(PseudoInstruction):
@@ -106,7 +107,7 @@ class Label(PseudoInstruction):
         self.name = name
 
     def __repr__(self):
-        return '{}:'.format(self.name)
+        return "{}:".format(self.name)
 
     def symbols(self):
         return [self.name]
@@ -120,7 +121,7 @@ class Global(PseudoInstruction):
         self.name = name
 
     def __repr__(self):
-        return 'global {}'.format(self.name)
+        return "global {}".format(self.name)
 
 
 class Alignment(PseudoInstruction):
@@ -139,7 +140,7 @@ class Alignment(PseudoInstruction):
         if self.rep:
             return self.rep
         else:
-            return 'ALIGN({})'.format(self.align)
+            return "ALIGN({})".format(self.align)
 
 
 class SectionInstruction(PseudoInstruction):
@@ -154,7 +155,7 @@ class SectionInstruction(PseudoInstruction):
         if self.rep:
             return self.rep
         else:
-            return 'section {}'.format(self.name)
+            return "section {}".format(self.name)
 
 
 class DebugData(PseudoInstruction):
@@ -165,4 +166,4 @@ class DebugData(PseudoInstruction):
         self.data = data
 
     def __repr__(self):
-        return '.debug_data( {} )'.format(self.data)
+        return ".debug_data( {} )".format(self.data)

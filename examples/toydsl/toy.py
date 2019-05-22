@@ -32,7 +32,9 @@ class TcfCompiler:
 
         # Prepare the module:
         ir_module = ir.Module('toy')
-        ir_function = ir.Procedure('toy')
+        self.io_print2 = ir.ExternalProcedure('io_print2', [ir.ptr, self.int_type])
+        ir_module.add_external(self.io_print2)
+        ir_function = ir.Procedure('toy_toy', ir.Binding.GLOBAL)
         ir_module.add_function(ir_function)
         self.ir_block = ir.Block('entry')
         ir_function.entry = self.ir_block
@@ -57,7 +59,8 @@ class TcfCompiler:
         value = self.load_var(name)
         label_data = pack_string('{} :'.format(name))
         label = self.emit(ir.LiteralData(label_data, 'label'))
-        self.emit(ir.ProcedureCall('io_print2', [label, value]))
+        label_ptr = self.emit(ir.AddressOf(label, 'label_ptr'))
+        self.emit(ir.ProcedureCall(self.io_print2, [label_ptr, value]))
 
     def handle_assignment(self, assignment):
         self.logger.debug(
@@ -67,8 +70,10 @@ class TcfCompiler:
 
         # Create the variable on stack, if not already present:
         if name not in self.variables:
-            self.variables[name] = self.emit(
-                ir.Alloc(name, self.int_size, self.int_size))
+            alloc = self.emit(
+                ir.Alloc(name + '_alloc', self.int_size, self.int_size))
+            addr = self.emit(ir.AddressOf(alloc, name + '_addr'))
+            self.variables[name] = addr
         mem_loc = self.variables[name]
         value = assignment.expr.ir_value
         self.emit(ir.Store(value, mem_loc))

@@ -7,25 +7,25 @@ import logging
 class CRel(Relocation):
     l = []
 
-    name = 'c_base'
+    name = "c_base"
 
     @classmethod
     def isinsrange(cls, bits, val):
-        msb = 1 << (bits-1)
+        msb = 1 << (bits - 1)
         ll = -msb
-        if (val <= (msb-1) and (val >= ll)):
+        if val <= (msb - 1) and (val >= ll):
             return True
         else:
             return False
 
 
 class CBImm11Relocation(CRel):
-    name = 'cb_imm11'
+    name = "cb_imm11"
     token = RiscvToken
     changesize = False
 
     def apply(self, sym_value, data, reloc_value, opt=False):
-        logger = logging.getLogger('linker')
+        logger = logging.getLogger("linker")
         assert sym_value % 2 == 0
         assert reloc_value % 2 == 0
         offset = sym_value - reloc_value
@@ -48,12 +48,20 @@ class CBImm11Relocation(CRel):
             bv[16:32] = 0x1
             rsize = 2
             logger.debug(
-                'CBRel inrange: symval:%08x,relocval:%08x,diff:%08x,%s',
-                sym_value, reloc_value, offset, self.changesize)
+                "CBRel inrange: symval:%08x,relocval:%08x,diff:%08x,%s",
+                sym_value,
+                reloc_value,
+                offset,
+                self.changesize,
+            )
         else:
             logger.debug(
-                'CBRel not in range: symval:%08x,relocval:%08x,diff:%08x,%s',
-                sym_value, reloc_value, offset, self.changesize)
+                "CBRel not in range: symval:%08x,relocval:%08x,diff:%08x,%s",
+                sym_value,
+                reloc_value,
+                offset,
+                self.changesize,
+            )
             rel20 = wrap_negative(offset >> 1, 20)
             bv[21:31] = rel20 & 0x3FF
             bv[20:21] = rel20 >> 10 & 0x1
@@ -67,12 +75,12 @@ class CBImm11Relocation(CRel):
 
 
 class CBlImm11Relocation(CRel):
-    name = 'cbl_imm11'
+    name = "cbl_imm11"
     token = RiscvToken
     changesize = False
 
     def apply(self, sym_value, data, reloc_value, opt=False):
-        logger = logging.getLogger('linker')
+        logger = logging.getLogger("linker")
         assert sym_value % 2 == 0
         assert reloc_value % 2 == 0
         offset = sym_value - reloc_value
@@ -95,12 +103,20 @@ class CBlImm11Relocation(CRel):
             bv[16:32] = 0x1
             rsize = 2
             logger.debug(
-                'CRel in range: symval:%08x,relocval:%08x,diff:%08x,%s',
-                sym_value, reloc_value, offset, self.changesize)
+                "CRel in range: symval:%08x,relocval:%08x,diff:%08x,%s",
+                sym_value,
+                reloc_value,
+                offset,
+                self.changesize,
+            )
         else:
             logger.debug(
-                'CRel not in range: symval:%08x,relocval:%08x,diff:%08x,%s',
-                sym_value, reloc_value, offset, self.changesize)
+                "CRel not in range: symval:%08x,relocval:%08x,diff:%08x,%s",
+                sym_value,
+                reloc_value,
+                offset,
+                self.changesize,
+            )
             rel20 = wrap_negative(offset >> 1, 20)
             bv[21:31] = rel20 & 0x3FF
             bv[20:21] = rel20 >> 10 & 0x1
@@ -114,7 +130,7 @@ class CBlImm11Relocation(CRel):
 
 
 class BcImm11Relocation(CRel):
-    name = 'bc_imm11'
+    name = "bc_imm11"
     token = RiscvcToken
 
     def apply(self, sym_value, data, reloc_value, opt=False):
@@ -138,7 +154,7 @@ class BcImm11Relocation(CRel):
 
 
 class BcImm8Relocation(CRel):
-    name = 'bc_imm8'
+    name = "bc_imm8"
     token = RiscvcToken
 
     def apply(self, sym_value, data, reloc_value, opt=False):

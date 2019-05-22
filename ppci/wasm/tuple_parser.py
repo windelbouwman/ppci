@@ -7,6 +7,7 @@ import enum
 
 class TupleParser:
     """ Helper class to parse tuple structures. """
+
     # match helper section:
     def _feed(self, t):
         self._nxt_func = self._tuple_generator(t)
@@ -40,8 +41,7 @@ class TupleParser:
         for arg in args:
             actual = self.take()
             if actual != arg:
-                raise ValueError('Expected {} but have {}'.format(
-                    arg, actual))
+                raise ValueError("Expected {} but have {}".format(arg, actual))
 
     def munch(self, *args):
         """ Match and eat tokens """

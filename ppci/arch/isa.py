@@ -9,8 +9,9 @@ from .encoding import Relocation
 
 
 Pattern = namedtuple(
-    'Pattern',
-    ['non_term', 'tree', 'size', 'cycles', 'energy', 'condition', 'method'])
+    "Pattern",
+    ["non_term", "tree", "size", "cycles", "energy", "condition", "method"],
+)
 
 
 class Isa:
@@ -23,6 +24,7 @@ class Isa:
     For example the arm without FPU can be combined with the FPU isa
     to expand the supported functions.
     """
+
     def __init__(self):
         self.instructions = []
         self.relocation_map = {}
@@ -67,8 +69,8 @@ class Isa:
         return function
 
     def pattern(
-            self, non_term, tree, condition=None,
-            size=1, cycles=1, energy=1):
+        self, non_term, tree, condition=None, size=1, cycles=1, energy=1
+    ):
         """
             Decorator function that adds a pattern.
         """
@@ -81,7 +83,9 @@ class Isa:
         def wrapper(function):
             """ Wrapper that add the function with the paramaters """
             pat = Pattern(
-                non_term, tree, size, cycles, energy, condition, function)
+                non_term, tree, size, cycles, energy, condition, function
+            )
             self.register_pattern(pat)
             return function
+
         return wrapper

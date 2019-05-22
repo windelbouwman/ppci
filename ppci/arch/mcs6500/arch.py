@@ -10,7 +10,8 @@ from . import registers, instructions
 
 class Mcs6500Arch(Architecture):
     """ 6502 architectur """
-    name = 'mcs6500'
+
+    name = "mcs6500"
 
     def __init__(self, options=None):
         super().__init__(options=options)
@@ -19,10 +20,15 @@ class Mcs6500Arch(Architecture):
         self.assembler.gen_asm_parser(self.isa)
         self.info = ArchInfo(
             type_infos={
-                ir.i8: TypeInfo(1, 1), ir.u8: TypeInfo(1, 1),
-                ir.i16: TypeInfo(2, 2), ir.u16: TypeInfo(2, 2),
-                'int': ir.i16, 'ptr': ir.u16
-            }, register_classes=registers.register_classes)
+                ir.i8: TypeInfo(1, 1),
+                ir.u8: TypeInfo(1, 1),
+                ir.i16: TypeInfo(2, 2),
+                ir.u16: TypeInfo(2, 2),
+                "int": ir.i16,
+                "ptr": ir.u16,
+            },
+            register_classes=registers.register_classes,
+        )
 
     def gen_prologue(self, frame):
         # Label indication function:

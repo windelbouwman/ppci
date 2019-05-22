@@ -4,9 +4,9 @@ from .tokens import RiscvToken, RiscvIToken, RiscvSBToken
 
 
 class BImm12Relocation(Relocation):
-    name = 'b_imm12'
+    name = "b_imm12"
     token = RiscvSBToken
-    field = 'imm'
+    field = "imm"
 
     def calc(self, sym_value, reloc_value):
         assert sym_value % 2 == 0
@@ -31,7 +31,7 @@ class BImm12Relocation(Relocation):
 
 
 class BImm20Relocation(Relocation):
-    name = 'b_imm20'
+    name = "b_imm20"
     token = RiscvToken
 
     def apply(self, sym_value, data, reloc_value, opt=False):
@@ -51,17 +51,17 @@ class BImm20Relocation(Relocation):
 
 
 class Abs32Imm20Relocation(Relocation):
-    name = 'abs32_imm20'
+    name = "abs32_imm20"
     token = RiscvToken
 
     def apply(self, sym_value, data, reloc_value, opt=False):
         assert sym_value % 2 == 0
         bv = BitView(data, 0, 4)
-        if (sym_value & 0x800 == 0):
-            bv[12:32] = (sym_value >> 12) & 0xfffff
+        if sym_value & 0x800 == 0:
+            bv[12:32] = (sym_value >> 12) & 0xFFFFF
         else:
             sym_value -= 0xFFFFF000
-            bv[12:32] = (sym_value >> 12) & 0xfffff
+            bv[12:32] = (sym_value >> 12) & 0xFFFFF
         if opt:
             return data, 4
         else:
@@ -69,7 +69,7 @@ class Abs32Imm20Relocation(Relocation):
 
 
 class RelImm20Relocation(Relocation):
-    name = 'rel_imm20'
+    name = "rel_imm20"
     token = RiscvToken
 
     def apply(self, sym_value, data, reloc_value, opt=False):
@@ -77,11 +77,11 @@ class RelImm20Relocation(Relocation):
         assert reloc_value % 2 == 0
         offset = sym_value - reloc_value
         bv = BitView(data, 0, 4)
-        if(offset & 0x800 == 0):
-            bv[12:32] = (offset >> 12) & 0xfffff
+        if offset & 0x800 == 0:
+            bv[12:32] = (offset >> 12) & 0xFFFFF
         else:
             offset -= 0xFFFFF000
-            bv[12:32] = (offset >> 12) & 0xfffff
+            bv[12:32] = (offset >> 12) & 0xFFFFF
         if opt:
             return data, 4
         else:
@@ -89,13 +89,13 @@ class RelImm20Relocation(Relocation):
 
 
 class Abs32Imm12Relocation(Relocation):
-    name = 'abs32_imm12'
+    name = "abs32_imm12"
     token = RiscvIToken
-    field = 'imm'
+    field = "imm"
 
     def calc(self, sym_value, reloc_value):
         assert sym_value % 2 == 0
-        return sym_value & 0xfff
+        return sym_value & 0xFFF
 
     def apply(self, sym_value, data, reloc_value, opt=False):
         """ Apply this relocation type given some parameters.
@@ -114,15 +114,15 @@ class Abs32Imm12Relocation(Relocation):
 
 
 class RelImm12Relocation(Relocation):
-    name = 'rel_imm12'
+    name = "rel_imm12"
     token = RiscvIToken
-    field = 'imm'
+    field = "imm"
 
     def calc(self, sym_value, reloc_value):
         assert sym_value % 2 == 0
         assert reloc_value % 2 == 0
         offset = sym_value - reloc_value + 4
-        return offset & 0xfff
+        return offset & 0xFFF
 
     def apply(self, sym_value, data, reloc_value, opt=False):
         """ Apply this relocation type given some parameters.
@@ -141,7 +141,7 @@ class RelImm12Relocation(Relocation):
 
 
 class AbsAddr32Relocation(Relocation):
-    name = 'absaddr32'
+    name = "absaddr32"
     token = RiscvToken
 
     def apply(self, sym_value, data, reloc_value, opt=False):
