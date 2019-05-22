@@ -2,7 +2,7 @@
 
 from ..encoding import Instruction, Operand, Syntax, Constructor, Transform
 from ..generic_instructions import ArtificialInstruction
-from ..generic_instructions import RegisterUseDef
+from ..generic_instructions import RegisterUseDef, Global
 from ..isa import Relocation, Isa
 from ..token import Token, bit_range, bit
 from .registers import Msp430Register, r2, r3, r12, r13, SP, PC
@@ -587,6 +587,7 @@ def call_intrinsic(context, label, args, clobbers=()):
     context.move(r12, c0)
     context.move(r13, c1)
     context.emit(RegisterUseDef(uses=(r12, r13)))
+    context.emit(Global(label))
     context.emit(call(label, clobbers=clobbers))
     context.emit(RegisterUseDef(defs=(r12,)))
     d = context.new_reg(Msp430Register)

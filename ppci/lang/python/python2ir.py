@@ -96,6 +96,7 @@ class PythonToIrCompiler:
                 else:
                     ir_function = ir.ExternalProcedure(name, ir_arg_types)
 
+                self.builder.module.add_external(ir_function)
                 self.function_map[name] = ir_function, return_type, arg_types
 
         for df in x.body:

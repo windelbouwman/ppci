@@ -19,6 +19,9 @@ class TestSamplesOnX86Linux(unittest.TestCase):
     startercode = """
     section reset
 
+    global bsp_putc
+    global main_main
+
     start:
         call main_main
         call bsp_exit

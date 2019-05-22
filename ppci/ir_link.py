@@ -26,6 +26,7 @@ def ir_link(ir_modules, name='linked') -> ir.Module:
     for module in ir_modules:
         for variable in module.variables:
             mod0.add_variable(variable)
+
         for p in module.functions:
             mod0.add_function(p)
 

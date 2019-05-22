@@ -7,7 +7,7 @@ import logging
 from .. import ir
 from ..irutils import Verifier, split_block
 from ..arch.arch import Architecture
-from ..arch.generic_instructions import Label, Comment, DebugData
+from ..arch.generic_instructions import Label, Comment, Global, DebugData
 from ..arch.generic_instructions import RegisterUseDef, VirtualInstruction
 from ..arch.generic_instructions import ArtificialInstruction, Alignment
 from ..arch.encoding import Instruction
@@ -38,10 +38,7 @@ class CodeGenerator:
             "co2": (1, 2, 10),
             "awesome": (13, 13, 13),
         }
-        if optimize_for in weights_map:
-            selection_weights = weights_map[optimize_for]
-        else:
-            selection_weights = (1, 1, 1)
+        selection_weights = weights_map.get(optimize_for, (1, 1, 1))
         self.instruction_selector = InstructionSelector1(
             arch, self.sgraph_builder, weights=selection_weights
         )
@@ -63,6 +60,11 @@ class CodeGenerator:
         self.logger.info(
             "Generating %s code for module %s", str(self.arch), ircode.name
         )
+
+        # Declare externals:
+        output_stream.select_section("data")
+        for external in ircode.externals:
+            self._mark_global(output_stream, external)
 
         # Generate code for global variables:
         output_stream.select_section("data")
@@ -89,6 +91,7 @@ class CodeGenerator:
         """ Generate code for a global variable """
         alignment = Alignment(var.alignment)
         output_stream.emit(alignment)
+        self._mark_global(output_stream, var)
         label = Label(var.name)
         output_stream.emit(label)
         if var.amount == 0 and var.value is None and not var.used_by:
@@ -154,6 +157,8 @@ class CodeGenerator:
                 _, block = split_block(
                     block, pos=max_block_len, newname=newname
                 )
+
+        self._mark_global(output_stream, ir_function)
 
         # Create a frame for this function:
         frame_name = ir_function.name
@@ -270,3 +275,10 @@ class CodeGenerator:
                 # print(tmp, di)
                 # frame.live_ranges(tmp)
                 # print('live ranges:', lr)
+
+    def _mark_global(self, output_stream, value):
+        # Indicate static or global variable.
+        assert isinstance(value, ir.GlobalValue)
+
+        if value.binding == ir.Binding.GLOBAL:
+            output_stream.emit(Global(value.name))

@@ -9,22 +9,12 @@ from ..utils.hexdump import chunks
 
 
 class SRecord:
-    address_byte_sizes = {
-        0: 2,
-        1: 2,
-        2: 3,
-        3: 4,
-        5: 2,
-        6: 3,
-        7: 4,
-        8: 3,
-        9: 2,
-    }
+    address_byte_sizes = {0: 2, 1: 2, 2: 3, 3: 4, 5: 2, 6: 3, 7: 4, 8: 3, 9: 2}
 
     def __init__(self, typ, address, data):
         self.typ = typ
         if typ not in self.address_byte_sizes:
-            raise ValueError('Invalid s-record type {}'.format(typ))
+            raise ValueError("Invalid s-record type {}".format(typ))
         self.address = address
         self.data = data
 
@@ -39,17 +29,17 @@ class SRecord:
 
         # Add crc:
         crc = sum(data)
-        crc = (~crc) & 0xff
+        crc = (~crc) & 0xFF
         data += bytes([crc])
-        txt_data = binascii.hexlify(data).decode('ascii').upper()
-        line = 'S{}{}'.format(self.typ, txt_data)
+        txt_data = binascii.hexlify(data).decode("ascii").upper()
+        line = "S{}{}".format(self.typ, txt_data)
         return line
 
 
 def write_srecord(obj, f):
     """ Write object to srecord """
-    data = obj.get_section('code').data
-    record = SRecord(1, 0, b'HDR')
+    data = obj.get_section("code").data
+    record = SRecord(1, 0, b"HDR")
     print(record.to_line(), file=f)
     address = 0
     for chunk in chunks(data):

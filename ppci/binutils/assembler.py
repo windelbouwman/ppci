@@ -10,7 +10,7 @@ from ..lang.tools.earley import EarleyParser
 from ..lang.tools.baselex import BaseLexer, EPS, EOF
 from ..common import make_num
 from ..arch.generic_instructions import Label, Alignment, SectionInstruction
-from ..arch.generic_instructions import DebugData
+from ..arch.generic_instructions import DebugData, Global
 from ..arch.encoding import Operand, Syntax, Register
 from ..common import CompilerError, SourceLocation
 from .debuginfo import DebugLocation, DebugDb
@@ -125,6 +125,9 @@ class BaseAssembler:
         )
         self.add_instruction(
             ["section", self.str_id], lambda rhs: SectionInstruction(rhs[1])
+        )
+        self.add_instruction(
+            ["global", self.str_id], lambda rhs: Global(rhs[1])
         )
         self.add_rule("directive", ["repeat", self.int_id], self.p_repeat)
         self.add_rule("directive", ["endrepeat"], self.p_endrepeat)

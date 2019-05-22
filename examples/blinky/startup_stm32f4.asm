@@ -1,4 +1,6 @@
 
+global burn2_main
+global burn2_systick
 
 dd 0x20000678  ; Setup stack pointer
 dd 0x08000009  ; Reset vector, jump to address 8

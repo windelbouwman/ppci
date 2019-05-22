@@ -579,29 +579,27 @@ class Relocation:
     token = None
     field = None
 
-    def __init__(self, symbol_name, offset=0, addend=0, section=None):
+    def __init__(self, symbol_name, offset=0, addend=0):
         self.symbol_name = symbol_name
         self.addend = addend
-        self.section = section
         self.offset = offset
 
     def __repr__(self):
         return 'Reloc[{} offset={}]'.format(self.name, self.offset)
 
     def __eq__(self, other):
-        s = (
-            self.symbol_name, self.offset, type(self),
-            self.section, self.addend)
-        o = (
-            other.symbol_name, other.offset, type(other),
-            other.section, other.addend)
-        return s == o
+        return (
+            (self.symbol_name == other.symbol_name) and
+            (self.offset == other.offset) and
+            (type(self) == type(other)) and
+            (self.addend == other.addend)
+        )
 
     def shifted(self, offset):
         """ Create a shifted copy of this relocation """
         return type(self)(
             self.symbol_name, offset=self.offset+offset,
-            addend=self.addend, section=self.section)
+            addend=self.addend)
 
     @classmethod
     def size(cls):

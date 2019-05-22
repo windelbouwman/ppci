@@ -320,8 +320,6 @@ def ir_to_object(
             opt=opt,
         )
 
-    # TODO: refactor polishing?
-    obj.polish()
     reporter.message("All modules generated!")
     reporter.dump_instructions(instruction_list, march)
     return obj
@@ -571,7 +569,7 @@ def write_ldb(obj, output_file):
 
     def fx(address):
         assert isinstance(address, DebugAddress)
-        return obj.get_section(address.section).address + address.offset
+        return obj.get_symbol_id_value(address.symbol_id)
 
     debug_info = obj.debug_info
     for debug_location in debug_info.locations:

@@ -13,7 +13,7 @@ from .headers import SectionHeaderType, SectionHeaderFlag
 from .headers import SymbolTableBinding, SymbolTableType
 
 
-logger = logging.getLogger('elf')
+logger = logging.getLogger("elf")
 
 
 class ElfSection:
@@ -29,7 +29,7 @@ class ElfSection:
     def get_str(self, offset):
         """ Get a string indicated by numeric value """
         end = self.data.find(0, offset)
-        return self.data[offset:end].decode('utf8')
+        return self.data[offset:end].decode("utf8")
 
 
 SHN_UNDEF = 0
@@ -43,18 +43,18 @@ class StringTable:
     def get_name(self, name):
         if name not in self.names:
             self.names[name] = len(self.strtab)
-            self.strtab += name.encode('ascii') + bytes([0])
+            self.strtab += name.encode("ascii") + bytes([0])
         return self.names[name]
 
 
 def write_elf(obj, f):
     """ Save object as an ELF file """
     mapping = {
-        'arm': (32, Endianness.LITTLE),
-        'microblaze': (32, Endianness.BIG),
-        'x86_64': (64, Endianness.LITTLE),
-        'xtensa': (32, Endianness.LITTLE),
-        'riscv': (32, Endianness.LITTLE),
+        "arm": (32, Endianness.LITTLE),
+        "microblaze": (32, Endianness.BIG),
+        "x86_64": (64, Endianness.LITTLE),
+        "xtensa": (32, Endianness.LITTLE),
+        "riscv": (32, Endianness.LITTLE),
     }
     bits, endianity = mapping[obj.arch.name]
     elf_file = ElfFile(bits=bits, endianness=endianity)
@@ -65,6 +65,7 @@ class ElfFile:
     """
         This class can load and save a elf file.
     """
+
     e_version = 1
 
     def __init__(self, bits=64, endianness=Endianness.LITTLE):
@@ -75,21 +76,15 @@ class ElfFile:
 
     @staticmethod
     def load(f):
-        logger.debug('Loading ELF file')
+        logger.debug("Loading ELF file")
         # Read header
         e_ident = f.read(16)
-        if e_ident[0:4] != b'\x7FELF':
-            raise ValueError('Not a valid ELF file')
+        if e_ident[0:4] != b"\x7FELF":
+            raise ValueError("Not a valid ELF file")
 
-        bits_map = {
-            1: 32,
-            2: 64
-        }
+        bits_map = {1: 32, 2: 64}
         bits = bits_map[e_ident[4]]
-        endianity_map = {
-            1: Endianness.LITTLE,
-            2: Endianness.BIG,
-        }
+        endianity_map = {1: Endianness.LITTLE, 2: Endianness.BIG}
         endianity = endianity_map[e_ident[5]]
         elf_file = ElfFile(bits=bits, endianness=endianity)
         elf_file.e_ident = e_ident
@@ -105,15 +100,15 @@ class ElfFile:
             elf_file.program_headers.append(ph)
 
         # Read section headers:
-        f.seek(elf_file.elf_header['e_shoff'])
-        for _ in range(elf_file.elf_header['e_shnum']):
+        f.seek(elf_file.elf_header["e_shoff"])
+        for _ in range(elf_file.elf_header["e_shnum"]):
             sh = elf_file.header_types.SectionHeader.read(f)
             elf_file.sections.append(ElfSection(sh))
 
         elf_file.read_strtab(f)
         for section in elf_file.sections:
             section.read_data(f)
-            section.name = elf_file.get_str(section.header['sh_name'])
+            section.name = elf_file.get_str(section.header["sh_name"])
         return elf_file
 
     def read_strtab(self, f):
@@ -122,8 +117,9 @@ class ElfFile:
     def read_symbol_table(self, sym_section):
         table = []
         f = io.BytesIO(sym_section.data)
-        count = len(sym_section.data) // \
-            self.header_types.SymbolTableEntry.size
+        count = (
+            len(sym_section.data) // self.header_types.SymbolTableEntry.size
+        )
         for _ in range(count):
             entry = self.header_types.SymbolTableEntry.read(f)
             table.append(entry)
@@ -132,7 +128,7 @@ class ElfFile:
     def get_str(self, offset):
         """ Get a string indicated by numeric value """
         end = self.strtab.find(0, offset)
-        return self.strtab[offset:end].decode('utf8')
+        return self.strtab[offset:end].decode("utf8")
 
     def has_section(self, name):
         for section in self.sections:
@@ -149,31 +145,26 @@ class ElfFile:
     def save(self, f, obj):
         bits = self.header_types.bits
         endianness = self.header_types.endianness
-        bit_map = {
-            32: 1, 64: 2
-        }
-        endianity_map = {
-            Endianness.LITTLE: 1,
-            Endianness.BIG: 2
-        }
+        bit_map = {32: 1, 64: 2}
+        endianity_map = {Endianness.LITTLE: 1, Endianness.BIG: 2}
         machine_map = {
-            'arm': ElfMachine.ARM,
-            'microblaze': ElfMachine.MICROBLAZE,
-            'x86_64': ElfMachine.X86_64,
-            'xtensa': ElfMachine.XTENSA,
-            'riscv': ElfMachine.RISCV,
+            "arm": ElfMachine.ARM,
+            "microblaze": ElfMachine.MICROBLAZE,
+            "x86_64": ElfMachine.X86_64,
+            "xtensa": ElfMachine.XTENSA,
+            "riscv": ElfMachine.RISCV,
         }
         self.e_machine = machine_map[obj.arch.name]
 
         # Write identification:
-        e_ident = bytearray([0x7F, ord('E'), ord('L'), ord('F')] + [0]*12)
+        e_ident = bytearray([0x7F, ord("E"), ord("L"), ord("F")] + [0] * 12)
         e_ident[4] = bit_map[bits]  # 1=32 bit, 2=64 bit
         e_ident[5] = endianity_map[endianness]  # 1=little endian, 2=big endian
         e_ident[6] = 1  # elf version = 1
         e_ident[7] = 0  # os abi (3 =linux), 0=system V
         f.write(e_ident)
 
-        logger.debug('Saving %s bits ELF file', bits)
+        logger.debug("Saving %s bits ELF file", bits)
 
         elf_header = self.header_types.ElfHeader()
         # size of 1 program header:
@@ -205,8 +196,8 @@ class ElfFile:
         for i, section in enumerate(obj.sections):
             string_table.get_name(section.name)
             section_numbers[section.name] = i + 1
-        string_table.get_name('.symtab')
-        string_table.get_name('.strtab')
+        string_table.get_name(".symtab")
+        string_table.get_name(".strtab")
 
         # Create symbol table:
         symtab_offset = tmp_offset
@@ -243,13 +234,17 @@ class ElfFile:
 
         # Program headers:
         for image in obj.images:
-            if image.name == 'code':
+            if image.name == "code":
                 p_flags = 5
             else:
                 p_flags = 6
             self.write_program_header(
-                f, f_offset=offsets[image], vaddr=image.address,
-                size=image.size, p_flags=p_flags)
+                f,
+                f_offset=offsets[image],
+                vaddr=image.address,
+                size=image.size,
+                p_flags=p_flags,
+            )
 
         # Write actually program data:
         for image in obj.images:
@@ -266,7 +261,8 @@ class ElfFile:
             st_shndx = section_numbers[symbol.section]
             st_value = symbol.value + obj.get_section(symbol.section).address
             self.write_symbol_table_entry(
-                f, st_name, st_info, 0, st_shndx, st_value)
+                f, st_name, st_info, 0, st_shndx, st_value
+            )
 
         # String table:
         f.write(string_table.strtab)
@@ -275,26 +271,37 @@ class ElfFile:
         f.write(bytes(elf_header.e_shentsize))  # Null section all zeros
         for section in obj.sections:
             self.write_section_header(
-                f, offsets[section], vaddr=section.address,
-                sh_size=section.size, sh_type=SectionHeaderType.PROGBITS,
+                f,
+                offsets[section],
+                vaddr=section.address,
+                sh_size=section.size,
+                sh_type=SectionHeaderType.PROGBITS,
                 name=string_table.get_name(section.name),
-                sh_flags=SectionHeaderFlag.EXECINSTR | SectionHeaderFlag.ALLOC)
+                sh_flags=SectionHeaderFlag.EXECINSTR | SectionHeaderFlag.ALLOC,
+            )
         assert strtab_size == len(string_table.strtab)
         self.write_section_header(
-            f, strtab_offset, sh_size=strtab_size,
+            f,
+            strtab_offset,
+            sh_size=strtab_size,
             sh_type=SectionHeaderType.STRTAB,
             sh_flags=SectionHeaderFlag.ALLOC,
-            name=string_table.get_name('.strtab'))
+            name=string_table.get_name(".strtab"),
+        )
         self.write_section_header(
-            f, symtab_offset, sh_size=symtab_size,
+            f,
+            symtab_offset,
+            sh_size=symtab_size,
             sh_type=SectionHeaderType.SYMTAB,
-            sh_entsize=symtab_entsize, sh_flags=SectionHeaderFlag.ALLOC,
+            sh_entsize=symtab_entsize,
+            sh_flags=SectionHeaderFlag.ALLOC,
             sh_link=elf_header.e_shstrndx,
-            name=string_table.get_name('.symtab'))
+            name=string_table.get_name(".symtab"),
+        )
 
     def write_symbol_table_entry(
-            self, f, st_name, st_info, st_other,
-            st_shndx, st_value, st_size=0):
+        self, f, st_name, st_info, st_other, st_shndx, st_value, st_size=0
+    ):
         symbol_table_entry = self.header_types.SymbolTableEntry()
         symbol_table_entry.st_name = st_name
         symbol_table_entry.st_info = st_info
@@ -317,9 +324,17 @@ class ElfFile:
         program_header.write(f)
 
     def write_section_header(
-            self, f, offset, vaddr=0, sh_size=0,
-            sh_type=SectionHeaderType.NULL,
-            name=0, sh_flags=0, sh_entsize=0, sh_link=0):
+        self,
+        f,
+        offset,
+        vaddr=0,
+        sh_size=0,
+        sh_type=SectionHeaderType.NULL,
+        name=0,
+        sh_flags=0,
+        sh_entsize=0,
+        sh_link=0,
+    ):
         section_header = self.header_types.SectionHeader()
         section_header.sh_name = name  # Index into string table
         section_header.sh_type = sh_type.value

@@ -149,22 +149,24 @@ class Mod:
         self._data_page = MemoryPage(size)
 
         # Create callback pointers if any:
+        imports = imports or {}
         self._import_symbols = []
-        if imports:
-            for name, function in imports.items():
-                signature = inspect.signature(function)
-                if signature.return_annotation is inspect._empty:
-                    raise ValueError(
-                        '"{}" requires return type annotations'.format(name))
-                return_type = signature.return_annotation
-                argument_types = [
-                    p.annotation for p in signature.parameters.values()]
-                restype = get_ctypes_type(return_type)
-                argtypes = [get_ctypes_type(a) for a in argument_types]
-                ftype = ctypes.CFUNCTYPE(restype, *argtypes)
-                cb = ftype(function)
-                logger.debug('Import name %s', name)
-                self._import_symbols.append((name, cb, ftype))
+        extra_symbols = {}
+        for name, function in imports.items():
+            signature = inspect.signature(function)
+            if signature.return_annotation is inspect._empty:
+                raise ValueError(
+                    '"{}" requires return type annotations'.format(name))
+            return_type = signature.return_annotation
+            argument_types = [
+                p.annotation for p in signature.parameters.values()]
+            restype = get_ctypes_type(return_type)
+            argtypes = [get_ctypes_type(a) for a in argument_types]
+            ftype = ctypes.CFUNCTYPE(restype, *argtypes)
+            callback = ftype(function)
+            logger.debug('Import name %s', name)
+            self._import_symbols.append((name, callback, ftype))
+            extra_symbols[name] = ctypes.cast(callback, ctypes.c_void_p).value
 
         # Link to e.g. apply offset to global literals
         layout2 = layout.Layout()
@@ -180,9 +182,6 @@ class Mod:
         layout2.add_memory(layout_data_mem)
 
         # Link the object into memory:
-        extra_symbols = {
-            name: ctypes.cast(cb, ctypes.c_void_p).value
-            for name, cb, _ in self._import_symbols}
         obj = link(
             [obj], layout=layout2, debug=True, extra_symbols=extra_symbols)
         assert obj.byte_size == size
@@ -205,7 +204,8 @@ class Mod:
             ftype = ctypes.CFUNCTYPE(restype, *argtypes)
 
             # Create a function pointer:
-            fpointer = ftype(self._code_page.addr + function.begin.offset)
+            vaddress = obj.get_symbol_id_value(function.begin.symbol_id)
+            fpointer = ftype(vaddress)
 
             # Set the attribute:
             setattr(self, function_name, fpointer)
@@ -213,8 +213,9 @@ class Mod:
         # Get a variable pointers
         for variable in obj.debug_info.variables:
             variable_name = variable.name
-            assert variable.address.section == 'data'
-            vaddress = self._data_page.addr + variable.address.offset
+            assert isinstance(variable, debuginfo.DebugVariable)
+            assert isinstance(variable.address, debuginfo.DebugAddress)
+            vaddress = obj.get_symbol_id_value(variable.address.symbol_id)
             var_ctyp = ctypes.POINTER(get_ctypes_type(variable.typ))
             vpointer = ctypes.cast(vaddress, var_ctyp)
 

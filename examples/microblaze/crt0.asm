@@ -34,17 +34,23 @@ addik  r1, r0, __data_start
 ;or r0,r0,r0  ; fill delay slot
 
 ; Copy .data from ROM to RAM:
+global __data_load_start
+global __data_start
+global __data_end
 addik r5, r0, __data_start
 addik r6, r0, __data_load_start
 addik r7, r0, __data_end
+global bsp_memcpy
 brlid r15, bsp_memcpy
 rsub r7, r5, r7  ; Note that this instruction is in the delay slot, so it is actually executed before the memcpy branch
 
 ;; call main:
+global main_main
 brlid r15, main_main
 or r0,r0,r0  ;  fill delay slot
 
 ; Call bsp exit:
+global bsp_exit
 brlid r15, bsp_exit
 or r0,r0,r0  ;  fill delay slot
 

@@ -14,10 +14,12 @@ def load_py(f, imports=None, reporter=None):
     from ... import api
     from ...utils.codepage import load_obj
 
-    mod = python_to_ir(f, imports=imports)
+    ir_module = python_to_ir(f, imports=imports)
+    if reporter:
+        reporter.dump_ir(ir_module)
 
     arch = api.get_current_arch()
-    obj = api.ir_to_object([mod], arch, debug=True, reporter=reporter)
+    obj = api.ir_to_object([ir_module], arch, debug=True, reporter=reporter)
     m2 = load_obj(obj, imports=imports)
     return m2
 

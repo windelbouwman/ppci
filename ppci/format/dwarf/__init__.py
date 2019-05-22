@@ -6,7 +6,7 @@ See also: http://dwarfstd.org/
 # TODO: implement
 
 TAG_ARRAY_TYPE = 0x1
-TAG_POINTER_TYPE = 0xf
+TAG_POINTER_TYPE = 0xF
 TAG_COMPILE_UNIT = 0x11
 TAG_BASE_TYPE = 0x24
 TAG_VARIABLE = 0x34
@@ -29,4 +29,4 @@ class DwarfReader:
     pass
 
 
-__all__ = ('SubProgram', )
+__all__ = ("SubProgram",)

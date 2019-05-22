@@ -71,14 +71,17 @@ class DebugInfo:
         self.variables = []
 
     def all_items(self):
-        for l in self.locations:
-            yield l
-        for l in self.functions:
-            yield l
-        for l in self.types:
-            yield l
-        for l in self.variables:
-            yield l
+        for location in self.locations:
+            yield location
+
+        for function in self.functions:
+            yield function
+
+        for typ in self.types:
+            yield typ
+
+        for variable in self.variables:
+            yield variable
 
     def add(self, di):
         if isinstance(di, DebugLocation):
@@ -89,7 +92,7 @@ class DebugInfo:
             self.add_variable(di)
         elif isinstance(di, DebugFunction):
             self.add_function(di)
-        else:
+        else:  # pragma: no cover
             raise NotImplementedError(str(di))
 
     def add_location(self, l):
@@ -242,9 +245,10 @@ class DebugFunction(DebugBaseInfo):
 class DebugAddress:
     """ A single point into the code at some place """
 
-    def __init__(self, section, offset):
-        self.section = section
-        self.offset = offset
+    def __init__(self, symbol_id):
+        if not isinstance(symbol_id, int):
+            raise ValueError("symbol_id must be int")
+        self.symbol_id = symbol_id
 
 
 class FpOffsetAddress:
@@ -322,10 +326,13 @@ class DebugInfoReplicator:
         """ Replicate debug info from one object into the other """
         for location in debug_info_in.locations:
             debug_info_out.add(self.do_location(location))
+
         for function in debug_info_in.functions:
             debug_info_out.add(self.do_function(function))
+
         for typ in debug_info_in.types:
             debug_info_out.add(self.do_type(typ))
+
         for variable in debug_info_in.variables:
             debug_info_out.add(self.do_variable(variable))
 
@@ -363,7 +370,7 @@ class DebugInfoReplicator:
     def do_address(self, address):
         """ Replicate an address """
         if isinstance(address, DebugAddress):
-            return DebugAddress(address.section, address.offset)
+            return DebugAddress(address.symbol_id)
         elif isinstance(address, FpOffsetAddress):
             return FpOffsetAddress(address.offset)
         elif isinstance(address, UnknownAddress):
@@ -372,17 +379,18 @@ class DebugInfoReplicator:
             raise NotImplementedError(str(address))
 
 
-class SectionAdjustingReplicator(DebugInfoReplicator):
-    """ Replicate debug information, but shift offsets in sections by
-        the amount given in the offsets dictionary """
+class SymbolIdAdjustingReplicator(DebugInfoReplicator):
+    """ Replicate debug information, but map symbol id's given by mapping.
+    """
 
-    def __init__(self, offsets):
-        self.offsets = offsets
+    def __init__(self, mapping):
+        self.mapping = mapping
 
     def do_address(self, address):
         if isinstance(address, DebugAddress):
-            offset = address.offset + self.offsets[address.section]
-            return DebugAddress(address.section, offset)
+            # symbol_id = self.mapping.get(addess.symbol_id, addess.symbol_id)
+            symbol_id = self.mapping[address.symbol_id]
+            return DebugAddress(symbol_id)
         else:
             return super().do_address(address)
 
@@ -493,11 +501,7 @@ class DictSerializer:
     def write_address(self, address):
         """ Generate an address into a dict """
         if isinstance(address, DebugAddress):
-            return {
-                "kind": "fixed",
-                "section": address.section,
-                "offset": address.offset,
-            }
+            return {"kind": "fixed", "symbol_id": address.symbol_id}
         elif isinstance(address, FpOffsetAddress):
             return {"kind": "fprel", "offset": address.offset.offset}
         elif isinstance(address, UnknownAddress):
@@ -587,7 +591,7 @@ class DictDeserializer:
     def read_address(self, x):
         kind = x["kind"]
         if kind == "fixed":
-            return DebugAddress(x["section"], x["offset"])
+            return DebugAddress(x["symbol_id"])
         elif kind == "fprel":
             return FpOffsetAddress(StackLocation(x["offset"], 1))
         elif kind == "unknown":

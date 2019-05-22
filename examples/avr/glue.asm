@@ -19,6 +19,10 @@ rjmp unhandled
 unhandled:
 reti
 
+global bsp_init
+global bsp_putc
+global main_main
+
 reset:
 ldi r16, 0x8
 out 0x3e, r16  ; Setup stack pointer (SPH)
@@ -44,6 +48,10 @@ rjmp endless
 section init2
 
 ; load data section from program memory to RAM:
+global __data_end
+global __data_start
+global __data_load_start
+
 __do_copy_data:
     ldi r16, low(__data_end)
     ldi r17, high(__data_end)

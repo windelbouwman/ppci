@@ -387,9 +387,7 @@ class CCodeGenerator:
         test_value = self.gen_expr(stmt.expression, rvalue=True)
         switch_ir_typ = self.get_ir_type(stmt.expression.typ)
         for option, target_block in self.switch_options.items():
-            if option == "default":
-                pass
-            else:
+            if option != "default":
                 option = self.emit(ir.Const(option, "case", switch_ir_typ))
                 next_test_block = self.builder.new_block()
                 self.emit(
@@ -400,10 +398,8 @@ class CCodeGenerator:
                 self.builder.set_block(next_test_block)
 
         # If all else fails, jump to the default case if we have it.
-        if "default" in self.switch_options:
-            self.emit(ir.Jump(self.switch_options["default"]))
-        else:
-            self.emit(ir.Jump(final_block))
+        target_block = self.switch_options.get("default", final_block)
+        self.emit(ir.Jump(target_block))
 
         # Set continuation point:
         self.builder.set_block(final_block)

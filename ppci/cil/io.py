@@ -9,4 +9,3 @@ def read_cil():
 def write_cil():
     """ Write CIL code. """
     raise NotImplementedError()
-

@@ -177,12 +177,12 @@ class Debugger:
     def calc_address(self, address):
         """ Calculate the actual address based on section and offset """
         if isinstance(address, DebugAddress):
-            section = self.obj.get_section(address.section)
-            return section.address + address.offset
+            address = self.obj.get_symbol_id_value(address.symbol_id)
         elif isinstance(address, FpOffsetAddress):
-            return self.get_fp() + address.offset.offset
+            address = self.get_fp() + address.offset.offset
         else:  # pragma: no cover
             raise NotImplementedError(str(address))
+        return address
 
     def find_pc(self):
         """ Given the current program counter (pc) determine the source """

@@ -486,6 +486,7 @@ def round_up(s):
 
 
 ARM_ASM_RT = """
+global __sdiv
 __sdiv:
    ; Divide r1 by r2
    ; R4 is a work register.

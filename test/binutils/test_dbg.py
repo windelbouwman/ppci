@@ -304,16 +304,18 @@ class LinkWithDebugTestCase(unittest.TestCase):
         obj1.get_section('code', create=True).add_data(bytes(59))
         obj2 = ObjectFile(arch)
         obj2.get_section('code', create=True).add_data(bytes(59))
+        obj2.add_symbol(1, 'x', 'local', 5, 'code')
         obj2.debug_info = debuginfo.DebugInfo()
         loc = SourceLocation('a.txt', 1, 1, 22)
         obj2.debug_info.add(
             debuginfo.DebugLocation(
                 loc,
-                address=debuginfo.DebugAddress('code', 5)))
+                address=debuginfo.DebugAddress(1)))
         obj = link([obj1, obj2], debug=True)
 
         # Take into account alignment! So 60 + 5 = 65.
-        self.assertEqual(65, obj.debug_info.locations[0].address.offset)
+        self.assertEqual(0, obj.debug_info.locations[0].address.symbol_id)
+        self.assertEqual(65, obj.get_symbol_id_value(0))
 
 
 if __name__ == '__main__':

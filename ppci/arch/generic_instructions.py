@@ -112,6 +112,17 @@ class Label(PseudoInstruction):
         return [self.name]
 
 
+class Global(PseudoInstruction):
+    """ Global name declaration """
+
+    def __init__(self, name):
+        super().__init__()
+        self.name = name
+
+    def __repr__(self):
+        return 'global {}'.format(self.name)
+
+
 class Alignment(PseudoInstruction):
     """ Instruction to indicate alignment.
 

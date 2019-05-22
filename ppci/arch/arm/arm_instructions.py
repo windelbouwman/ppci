@@ -4,7 +4,7 @@
 
 from .isa import arm_isa, ArmToken, ArmImmToken, Isa
 from ..encoding import Instruction, Constructor, Syntax, Operand, Transform
-from ..generic_instructions import RegisterUseDef
+from ..generic_instructions import RegisterUseDef, Global
 from ...utils.bitfun import encode_imm32
 from ...utils.tree import Tree
 from .registers import ArmRegister, Coreg, Coproc, RegisterSet, R11
@@ -1359,6 +1359,7 @@ def call_internal2(context, name, a, b):
     context.move(R1, a)
     context.move(R2, b)
     context.emit(RegisterUseDef(uses=(R1, R2)))
+    context.emit(Global(name))
     context.emit(Bl(name))
     context.emit(RegisterUseDef(defs=(R0,)))
     context.move(d, R0)

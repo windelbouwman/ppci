@@ -11,4 +11,4 @@ from .reader import read_hunk
 from .writer import write_hunk
 
 
-__all__ = ['read_hunk', 'write_hunk']
+__all__ = ["read_hunk", "write_hunk"]

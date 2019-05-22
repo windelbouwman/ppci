@@ -849,5 +849,5 @@ def opt(cls, dst):
                 section.data.pop(adr)
                 section.data.pop(adr)
 
-    cls.do_relocations(dst, opt=True)
+    cls.do_relocations(opt=True)
     dst.arch.isa.relocation_map['c_base'].l = []

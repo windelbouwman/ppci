@@ -66,7 +66,10 @@ like this:
 
     >>> print(api.ir_to_assembly([module], arch))
            section data
+           global trace
+           section data
            section code
+           global my_add
      my_add:
            push LR, R11
            mov R11, SP

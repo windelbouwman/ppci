@@ -241,6 +241,7 @@ RT_ASM_SRC = """
     __shl_a:
       add.w r12, r12 ; shift 1 bit left
       sub.w #1, r13  ; decrement counter
+    global __shl
     __shl:           ; Shift r12 left by r13 bits
       cmp.w #0, r13
       jne __shl_a
@@ -251,6 +252,7 @@ RT_ASM_SRC = """
       clrc           ; clear carry
       rrc r12        ; shift 1 bit right through carry
       sub.w #1, r13  ; decrement counter
+    global __shr
     __shr:           ; Shift r12 right by r13 bits
       cmp.w #0, r13
       jne __shr_a

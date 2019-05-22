@@ -52,6 +52,10 @@ wait:
   jmp main
 
 
+global main_on
+global main_off
+global main_delay
+
 main_on:
   ret
 

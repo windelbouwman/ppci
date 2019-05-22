@@ -4,7 +4,7 @@ See also: https://en.wikipedia.org/wiki/MIPS_architecture
 """
 
 from ..encoding import Instruction, Operand, Syntax
-from ..generic_instructions import ArtificialInstruction
+from ..generic_instructions import ArtificialInstruction, Global
 from ..isa import Relocation, Isa
 from ..token import Token, bit_range
 from .registers import MipsRegister
@@ -296,6 +296,7 @@ def call_internal(context, name, a, b):
     d = context.new_reg(MipsRegister)
     context.move(registers.a0, a)
     context.move(registers.a1, b)
+    context.emit(Global(name))
     context.emit(Jal(name, clobbers=()))
     context.emit(Nop())
     context.move(d, registers.v0)
