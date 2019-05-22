@@ -7,6 +7,7 @@ class Scope:
 
     It also has a parent scope,
     when looking for a symbol, also the parent scopes are checked. """
+
     def __init__(self, parent=None):
         self.symbols = {}
         self.parent = parent
@@ -14,7 +15,8 @@ class Scope:
     def __iter__(self):
         # Iterate in a deterministic manner:
         return itertools.chain(
-            self.types, self.constants, self.variables, self.functions)
+            self.types, self.constants, self.variables, self.functions
+        )
 
     @property
     def syms(self):
@@ -71,4 +73,4 @@ class Scope:
         self.symbols[sym.name] = sym
 
     def __repr__(self):
-        return 'Scope with {} symbols'.format(len(self.symbols))
+        return "Scope with {} symbols".format(len(self.symbols))

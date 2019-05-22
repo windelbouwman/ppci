@@ -1,9 +1,9 @@
-
 """ LLVM-ir nodes """
 
 
 class Module:
     """ Holds all information related to a module """
+
     def __init__(self, context):
         self.context = context
         self.data_layout = DataLayout()
@@ -18,6 +18,7 @@ class Module:
 
 class Value:
     """ Root of most nodes """
+
     def __init__(self, ty):
         self.ty = ty
 
@@ -46,6 +47,7 @@ class Value:
 
 class OwnedList(list):
     """ Special list that sets the parent attribute upon append """
+
     def __init__(self, owner):
         super().__init__()
         self.owner = owner
@@ -57,6 +59,7 @@ class OwnedList(list):
 
 class BasicBlock(Value):
     """ A sequence of non-interrupted instructions """
+
     def __init__(self, context, label, function):
         super().__init__(context.label_ty)
         self.label = label
@@ -74,6 +77,7 @@ class Argument(Value):
 
 class UndefValue(Value):
     """ An undefined value """
+
     @classmethod
     def get(cls, ty):
         return UndefValue(ty)
@@ -275,6 +279,7 @@ class InsertElementInst(Instruction):
 
     Returns a new vector with element at index replaced.
     """
+
     def __init__(self, vec, elt, index):
         super().__init__(vec.ty)
         self.vec = vec
@@ -385,6 +390,7 @@ vector_ty_id = 16
 
 class Type:
     """ The type class """
+
     def __init__(self, context, type_id):
         self.context = context
         self.type_id = type_id
@@ -445,6 +451,7 @@ class CompositeType(Type):
 
 class StructType(CompositeType):
     """ Structure type """
+
     def __init__(self, context):
         super().__init__(context, struct_ty_id)
 
@@ -480,7 +487,7 @@ class PointerType(SequentialType):
     @classmethod
     def get(cls, ty, address_space):
         context = ty.context
-        key = ('pointer', id(ty))
+        key = ("pointer", id(ty))
         if key not in context.type_map:
             context.type_map[key] = PointerType(ty, address_space)
         return context.type_map[key]
@@ -498,7 +505,7 @@ class ArrayType(SequentialType):
     @staticmethod
     def get(elmty, num):
         context = elmty.context
-        key = ('array', num, id(elmty))
+        key = ("array", num, id(elmty))
         if key not in context.type_map:
             context.type_map[key] = ArrayType(elmty, num)
         return context.type_map[key]
@@ -512,7 +519,7 @@ class VectorType(SequentialType):
     @staticmethod
     def get(elmty, num):
         context = elmty.context
-        key = ('vector', num, id(elmty))
+        key = ("vector", num, id(elmty))
         if key not in context.type_map:
             context.type_map[key] = VectorType(elmty, num)
         return context.type_map[key]
@@ -520,6 +527,7 @@ class VectorType(SequentialType):
 
 class Context:
     """ LLVM context """
+
     def __init__(self):
         self.void_ty = Type(self, void_ty_id)
         self.half_ty = Type(self, half_ty_id)
@@ -575,27 +583,27 @@ class DataLayout:
         self.parse_specifier(layout_description)
 
     def parse_specifier(self, desc):
-        for part in desc.split('-'):
-            toks = part.split(':')
+        for part in desc.split("-"):
+            toks = part.split(":")
             specifier = toks[0][0]
-            if specifier == 'e':
+            if specifier == "e":
                 self.big_endian = False
-            elif specifier == 'E':
+            elif specifier == "E":
                 self.big_endian = True
-            elif specifier == 'm':
-                if toks[1] == 'e':
-                    self.mangling = 'ELF'
+            elif specifier == "m":
+                if toks[1] == "e":
+                    self.mangling = "ELF"
                 else:
                     raise NotImplementedError(toks[1])
-            elif specifier in 'ivfa':
+            elif specifier in "ivfa":
                 abi_align = int(toks[1])
                 print(abi_align)
                 # pref_align = int(toks[2])
-            elif specifier == 'n':
+            elif specifier == "n":
                 # Native integer types
                 legal_int_widths = [int(p) for p in toks[1:]]
                 print(legal_int_widths)
-            elif specifier == 'S':
+            elif specifier == "S":
                 pass
                 # TODO: what is this?
             else:

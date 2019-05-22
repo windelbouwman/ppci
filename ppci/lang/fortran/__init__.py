@@ -26,4 +26,4 @@ def fortran_to_ir(source):
     return ir_modules
 
 
-__all__ = ['fortran_to_ir', 'FortranParser', 'Visitor', 'Printer']
+__all__ = ["fortran_to_ir", "FortranParser", "Visitor", "Printer"]

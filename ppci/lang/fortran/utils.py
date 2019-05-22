@@ -3,6 +3,7 @@ from . import nodes
 
 class Visitor:
     """ Visit ast nodes """
+
     def visit(self, node):
         if isinstance(node, nodes.Program):
             for variable in node.variables:
@@ -16,7 +17,7 @@ class Visitor:
         elif isinstance(node, (nodes.Print, nodes.Read, nodes.Write)):
             for a in node.args:
                 self.visit(a)
-        elif isinstance(node, (nodes.Format, )):
+        elif isinstance(node, (nodes.Format,)):
             pass
         elif isinstance(node, nodes.Assignment):
             self.visit(node.var)
@@ -36,7 +37,7 @@ class Visitor:
             for c in node.clist:
                 self.visit(c)
         else:
-            raise NotImplementedError('VISIT:{} {}'.format(node, type(node)))
+            raise NotImplementedError("VISIT:{} {}".format(node, type(node)))
 
 
 class Printer(Visitor):
@@ -49,7 +50,7 @@ class Printer(Visitor):
         self.visit(node)
 
     def visit(self, node):
-        print(' '*self.indent + str(node))
+        print(" " * self.indent + str(node))
         self.indent += 2
         super().visit(node)
         self.indent -= 2

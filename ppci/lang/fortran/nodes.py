@@ -10,6 +10,7 @@ class Node:
 
 class Program(Node):
     """ A fortran program """
+
     def __init__(self, name, variables, statements, loc):
         super().__init__(loc)
         self.name = name
@@ -17,7 +18,7 @@ class Program(Node):
         self.statements = statements
 
     def __repr__(self):
-        return 'PROGRAM {}'.format(self.name)
+        return "PROGRAM {}".format(self.name)
 
 
 class Variable(Node):
@@ -27,11 +28,12 @@ class Variable(Node):
         self.name = name
 
     def __repr__(self):
-        return 'VAR {} {}'.format(self.typ, self.name)
+        return "VAR {} {}".format(self.typ, self.name)
 
 
 class Statement(Node):
     """ A single fortran statement """
+
     pass
 
 
@@ -42,30 +44,33 @@ class Assignment(Statement):
         self.expr = expr
 
     def __repr__(self):
-        return '{} = {}'.format(self.var, self.expr)
+        return "{} = {}".format(self.var, self.expr)
 
 
 class Continue(Statement):
     """ Continue statement """
+
     def __repr__(self):
-        return 'CONTINUE'
+        return "CONTINUE"
 
 
 class Data(Statement):
     """ Data statement """
+
     def __init__(self, nlist, clist, loc):
         super().__init__(loc)
         self.nlist = nlist
         self.clist = clist
 
     def __repr__(self):
-        return 'Data {} = {}'.format(self.nlist, self.clist)
+        return "Data {} = {}".format(self.nlist, self.clist)
 
 
 class Format(Statement):
     """ Format statement """
+
     def __repr__(self):
-        return 'FORMAT (...)'
+        return "FORMAT (...)"
 
 
 class GoTo(Statement):
@@ -74,11 +79,12 @@ class GoTo(Statement):
         self.x = x
 
     def __repr__(self):
-        return 'GO TO {}'.format(self.x)
+        return "GO TO {}".format(self.x)
 
 
 class IfArith(Statement):
     """ Arithmatic if """
+
     def __init__(self, expr, s1, s2, s3, loc):
         super().__init__(loc)
         self.expr = expr
@@ -87,7 +93,7 @@ class IfArith(Statement):
         self.s3 = s3
 
     def __repr__(self):
-        return 'IF (a,b,c)'
+        return "IF (a,b,c)"
 
 
 class Print(Statement):
@@ -97,8 +103,8 @@ class Print(Statement):
         self.args = args
 
     def __repr__(self):
-        args2 = ', '.join(map(str, self.args))
-        return 'PRINT {}, {}'.format(self.fmt, args2)
+        args2 = ", ".join(map(str, self.args))
+        return "PRINT {}, {}".format(self.fmt, args2)
 
 
 class Read(Statement):
@@ -108,18 +114,19 @@ class Read(Statement):
         self.args = args
 
     def __repr__(self):
-        args2 = ', '.join(map(str, self.args))
-        return 'READ {}, {}'.format(self.fmt, args2)
+        args2 = ", ".join(map(str, self.args))
+        return "READ {}, {}".format(self.fmt, args2)
 
 
 class Stop(Statement):
     """ Stop statement """
+
     def __init__(self, msg, loc):
         super().__init__(loc)
         self.msg = msg
 
     def __repr__(self):
-        return 'STOP'
+        return "STOP"
 
 
 class Write(Statement):
@@ -129,8 +136,8 @@ class Write(Statement):
         self.args = args
 
     def __repr__(self):
-        args2 = ', '.join(map(str, self.args))
-        return 'WRITE {}, {}'.format(self.fmt, args2)
+        args2 = ", ".join(map(str, self.args))
+        return "WRITE {}, {}".format(self.fmt, args2)
 
 
 class For(Statement):
@@ -143,6 +150,7 @@ class Expression(Node):
 
 class Binop(Expression):
     """ Binary operation """
+
     def __init__(self, a, op, b, loc):
         super().__init__(loc)
         self.a = a
@@ -150,7 +158,7 @@ class Binop(Expression):
         self.b = b
 
     def __repr__(self):
-        return '({} {} {})'.format(self.a, self.op, self.b)
+        return "({} {} {})".format(self.a, self.op, self.b)
 
 
 class Unop(Expression):
@@ -160,7 +168,7 @@ class Unop(Expression):
         self.a = a
 
     def __repr__(self):
-        return '({} {})'.format(self.op, self.a)
+        return "({} {})".format(self.op, self.a)
 
 
 class VarRef(Expression):
@@ -179,4 +187,4 @@ class Const(Expression):
         self.typ = typ
 
     def __repr__(self):
-        return '{}<{}>'.format(self.typ, self.val)
+        return "{}<{}>".format(self.typ, self.val)

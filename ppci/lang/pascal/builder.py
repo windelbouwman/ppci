@@ -1,4 +1,3 @@
-
 import logging
 from ...irutils import Verifier
 from ...common import DiagnosticsManager
@@ -17,7 +16,8 @@ def pascal_to_ir(sources, march):
 
 class PascalBuilder:
     """ Generates IR-code from pascal source. """
-    logger = logging.getLogger('pascal-builder')
+
+    logger = logging.getLogger("pascal-builder")
 
     def __init__(self, diag, arch_info):
         self.arch_info = arch_info
@@ -33,7 +33,7 @@ class PascalBuilder:
         Raises compiler error when something goes wrong.
         """
         assert isinstance(sources, (tuple, list))
-        self.logger.debug('Building %d sources', len(sources))
+        self.logger.debug("Building %d sources", len(sources))
 
         # Create a context where the modules can live:
         context = Context(self.arch_info)
@@ -51,7 +51,7 @@ class PascalBuilder:
         for ir_module in ir_modules:
             self.verifier.verify(ir_module)
 
-        self.logger.debug('build complete!')
+        self.logger.debug("build complete!")
         return ir_modules
 
     def do_parse(self, src, context):

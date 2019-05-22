@@ -11,7 +11,8 @@ class Context:
     This is a replacement for the otherwise global variables during
     the processing of pascal code.
     """
-    logger = logging.getLogger('pascal.context')
+
+    logger = logging.getLogger("pascal.context")
 
     def __init__(self, arch_info):
         self.root_scope = create_top_scope(arch_info)
@@ -51,8 +52,10 @@ class Context:
             elif isinstance(a, nodes.StructureType):
                 if len(a.fields) != len(b.fields):
                     return False
-                return all(self.equal_types(am.typ, bm.typ) for am, bm in
-                           zip(a.fields, b.fields))
+                return all(
+                    self.equal_types(am.typ, bm.typ)
+                    for am, bm in zip(a.fields, b.fields)
+                )
             elif isinstance(a, nodes.ArrayType):
                 return self.equal_types(a.element_type, b.element_type)
             else:
@@ -70,8 +73,8 @@ class Context:
             byte + byte -> byte
             pointer to x + int -> pointer to x
         """
-        intType = self.get_type('integer')
-        charType = self.get_type('char')
+        intType = self.get_type("integer")
+        charType = self.get_type("char")
         table = {
             (intType, intType): intType,
             (intType, charType): intType,
@@ -85,31 +88,38 @@ class Context:
         if self.equal_types(typ_a, typ_b):
             return typ_a
         # Handle pointers:
-        if isinstance(typ_a, nodes.PointerType) and \
-                self.equal_types(typ_b, 'integer'):
+        if isinstance(typ_a, nodes.PointerType) and self.equal_types(
+            typ_b, "integer"
+        ):
             return typ_a
 
         # Handle non-pointers:
         key = (typ_a, typ_b)
         if key not in table:
             raise CompilerError(
-                "Types {} and {} do not commute".format(typ_a, typ_b), loc)
+                "Types {} and {} do not commute".format(typ_a, typ_b), loc
+            )
         return table[(typ_a, typ_b)]
 
     def pack_string(self, txt):
         """ Pack a string an int as length followed by text data """
         length = self.pack_int(len(txt))
-        data = txt.encode('ascii')
+        data = txt.encode("ascii")
         return length + data
 
     def pack_int(self, v, bits=None, signed=True):
         if bits is None:
-            bits = self.get_type('integer').byte_size * 8
+            bits = self.get_type("integer").byte_size * 8
         mapping = {
-            (8, False): '<B', (8, True): '<b',
-            (16, False): '<H', (16, True): '<h',
-            (32, False): '<I', (32, True): '<i',
-            (64, False): '<Q', (64, True): '<q'}
+            (8, False): "<B",
+            (8, True): "<b",
+            (16, False): "<H",
+            (16, True): "<h",
+            (32, False): "<I",
+            (32, True): "<i",
+            (64, False): "<Q",
+            (64, True): "<q",
+        }
         fmt = mapping[(bits, signed)]
         return struct.pack(fmt, v)
 
@@ -122,20 +132,20 @@ def create_top_scope(arch_info):
     scope = Scope()
 
     # buildin types:
-    int_type = nodes.SignedIntegerType('integer', arch_info.get_size('int'))
+    int_type = nodes.SignedIntegerType("integer", arch_info.get_size("int"))
     scope.add_symbol(int_type)
 
-    char_type = nodes.SignedIntegerType('char', 1)
+    char_type = nodes.SignedIntegerType("char", 1)
     scope.add_symbol(char_type)
 
-    bool_type = nodes.SignedIntegerType('bool', arch_info.get_size('int'))
+    bool_type = nodes.SignedIntegerType("bool", arch_info.get_size("int"))
     scope.add_symbol(bool_type)
 
     # Construct string type from others:
-    len_field = nodes.StructField('len', int_type)
-    txt = nodes.StructField('txt', nodes.ArrayType(char_type, 0))
+    len_field = nodes.StructField("len", int_type)
+    txt = nodes.StructField("txt", nodes.ArrayType(char_type, 0))
     string_type = nodes.PointerType(nodes.StructureType([len_field, txt]))
-    string_def_type = nodes.DefinedType('string', string_type, True, None)
+    string_def_type = nodes.DefinedType("string", string_type, True, None)
     scope.add_symbol(string_def_type)
 
     return scope

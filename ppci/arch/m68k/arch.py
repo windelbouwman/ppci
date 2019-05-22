@@ -18,7 +18,7 @@ from . import registers, instructions
 
 
 class M68kArch(Architecture):
-    name = 'm68k'
+    name = "m68k"
 
     def __init__(self, options=None):
         super().__init__(options=options)
@@ -27,14 +27,19 @@ class M68kArch(Architecture):
         self.assembler.gen_asm_parser(self.isa)
         self.info = ArchInfo(
             type_infos={
-                ir.i8: TypeInfo(1, 1), ir.u8: TypeInfo(1, 1),
-                ir.i16: TypeInfo(2, 2), ir.u16: TypeInfo(2, 2),
-                ir.i32: TypeInfo(4, 4), ir.u32: TypeInfo(4, 4),
-                ir.f32: TypeInfo(4, 4), ir.f64: TypeInfo(8, 8),
-                'int': ir.i32, 'ptr': ir.u32,
+                ir.i8: TypeInfo(1, 1),
+                ir.u8: TypeInfo(1, 1),
+                ir.i16: TypeInfo(2, 2),
+                ir.u16: TypeInfo(2, 2),
+                ir.i32: TypeInfo(4, 4),
+                ir.u32: TypeInfo(4, 4),
+                ir.f32: TypeInfo(4, 4),
+                ir.f64: TypeInfo(8, 8),
+                "int": ir.i32,
+                "ptr": ir.u32,
             },
             endianness=Endianness.BIG,
-            register_classes=registers.register_classes
+            register_classes=registers.register_classes,
         )
 
     def gen_prologue(self, frame):
@@ -70,7 +75,7 @@ class M68kArch(Architecture):
             if isinstance(arg_loc, StackLocation):
                 yield self.move(arg, arg_loc)
             else:  # pragma: no cover
-                raise NotImplementedError('Parameters in memory not impl')
+                raise NotImplementedError("Parameters in memory not impl")
 
     def gen_function_exit(self, rv):
         live_out = set()
@@ -91,7 +96,7 @@ class M68kArch(Architecture):
                 arg_regs.append(arg_loc)
                 yield self.move(arg_loc, arg)
             else:  # pragma: no cover
-                raise NotImplementedError('Parameters in memory not impl')
+                raise NotImplementedError("Parameters in memory not impl")
 
         if isinstance(label, registers.AddressRegister):
             yield instructions.Jalr(label, clobbers=registers.caller_save)
@@ -109,8 +114,7 @@ class M68kArch(Architecture):
         if isinstance(dst, registers.DataRegister):
             if isinstance(src, registers.DataRegister):
                 return instructions.Movel(
-                    instructions.DataRegEa(src),
-                    instructions.DataRegDstEa(dst),
+                    instructions.DataRegEa(src), instructions.DataRegDstEa(dst)
                 )
             elif isinstance(src, StackLocation):
                 if src.size == 4:
