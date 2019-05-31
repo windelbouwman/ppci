@@ -15,6 +15,8 @@ class TestSamplesOnRiscv(unittest.TestCase):
     maxDiff = None
     march = "riscv"
     startercode = """
+    global main_main 
+    global bsp_exit 
     LUI sp, 0x1F        ; setup stack pointer
     JAL ra, main_main    ; Branch to sample start LR
     JAL ra, bsp_exit     ; do exit stuff LR

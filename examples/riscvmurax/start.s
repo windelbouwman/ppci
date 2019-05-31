@@ -1,3 +1,4 @@
+global boot
 boot:
     li x31, 0x1800
     csrw mstatus, x31
@@ -54,7 +55,7 @@ init_bss:
     li	x12, 0x0
     jal	x1, fill_block
     init_stack:
-
+    global main
     jal x1, main
 
 ;/* When trap is an interrupt, this function is called */
@@ -67,6 +68,7 @@ interrupt:
 	addi	x2, x2, 4
 
 ;	/* Interupt is timer interrupt */
+	global  TIMER_CMP_ISR
 	jal		x0, TIMER_CMP_ISR
 	mret
 

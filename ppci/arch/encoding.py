@@ -633,7 +633,7 @@ class Relocation:
         assert cls.token.Info.size % 8 == 0
         return cls.token.Info.size // 8
 
-    def apply(self, sym_value, data, reloc_value):
+    def apply(self, sym_value, data, reloc_value, opt=False):
         """ Apply this relocation type given some parameters.
 
         This is the default implementation which stores the outcome of
@@ -643,8 +643,12 @@ class Relocation:
         assert self.field is not None
         assert hasattr(token, self.field)
         setattr(token, self.field, self.calc(sym_value, reloc_value))
-        return token.encode()
-
+        data = token.encode()
+        if opt:
+            return data, 4
+        else:
+            return data
+            
     def calc(self, sym_value, reloc_value):  # pragma: no cover
         """ Calculate the relocation """
         raise NotImplementedError()

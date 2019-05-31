@@ -1,4 +1,5 @@
 .align  4 
+global enable_interrupts 
 enable_interrupts:
     sw x15, -4(x2)
     li x15, 0x80
@@ -10,18 +11,21 @@ enable_interrupts:
 
 
 .align  4 
+global entercritical
 entercritical:
     csrci mstatus, 8
     jalr x0, x1, 0 
     
 
 .align  4 
+global leavecritical
 leavecritical:
     csrsi mstatus, 8
     jalr x0, x1, 0 
     
 
 .align  4 
+global nOS_SwitchContextHandler
 nOS_SwitchContextHandler:
         ;/* Push all registers to running thread stack */
         addi x2, x2, -128
@@ -59,11 +63,13 @@ nOS_SwitchContextHandler:
        
         
         ;/* Save stack pointer to running thread structure */
-        lw     x12, nOS_runningThread
+        global nOS_runningThread
+		lw     x12, nOS_runningThread
         sw     x2, 0(x12)
         ;/* Copy nOS_highPrioThread to nOS_runningThread */
-        lw      x12, nOS_highPrioThread
-        la      x11, nOS_runningThread
+        global  nOS_highPrioThread
+		lw      x12, nOS_highPrioThread 
+		la      x11, nOS_runningThread
         sw      x12, 0(x11)
         ;/* Restore stack pointer from high prio thread structure */
         lw      x2, 0(x12)
@@ -106,6 +112,7 @@ nOS_SwitchContextHandler:
         
 
 .align  4 
+global TIMER_CMP_ISR
 TIMER_CMP_ISR:
         
         addi x2, x2, -128
@@ -144,14 +151,16 @@ TIMER_CMP_ISR:
         
         ;/* Switch to isr stack if isr nesting counter is zero */                \
         mv         x12,x2
+		global	   nOS_EnterIsr
         jal        x1, nOS_EnterIsr
         mv         x2, x10
-        
+        global     Isr
         jal        x1, Isr
         
         ;/* Switch to high prio thread stack if isr nesting counter reach zero */\
         mv         x12, x2
-        jal         x1, nOS_LeaveIsr
+        global     nOS_LeaveIsr
+		jal        x1, nOS_LeaveIsr
         ;/* Pop all registers from high prio thread stack */                     \
         mv         x2, x10
         li         x5, 0x1880

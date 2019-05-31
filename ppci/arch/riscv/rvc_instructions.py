@@ -899,12 +899,15 @@ def opt(cls, dst):
             delta = countdiff(r[1], sectionadr[reloc.section])
             logger.debug(
                 "RVC-relocationchanging %s at %08x with -%08x to %08x",
-                reloc.symbol_name,
+                reloc.symbol_id,
                 r[1],
                 2 * delta,
                 r[1] - 2 * delta,
             )
+            if r[1] in lst:
+                dst.arch.isa.relocation_map["c_base"].lnew.append(reloc.offset - delta * 2)
             reloc.offset -= delta * 2
+            
 
         lst2 = lst[:-1]
         for (i, absadr) in enumerate(lst2):
@@ -914,5 +917,10 @@ def opt(cls, dst):
                 section.data.pop(adr)
                 section.data.pop(adr)
 
+
+    lstnew = dst.arch.isa.relocation_map["c_base"].lnew
+    s = ", ".join(format(x, "08x") for x in lstnew)
+    logger.debug("Relocation listnew: %s\n" % s)
     cls.do_relocations(opt=True)
     dst.arch.isa.relocation_map["c_base"].l = []
+    dst.arch.isa.relocation_map["c_base"].lnew = []

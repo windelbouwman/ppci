@@ -114,7 +114,6 @@ class U32DataRelocation(Relocation):
     field = "value"
 
     def calc(self, sym_value, reloc_value):
-        assert sym_value % 4 == 0
         assert reloc_value % 4 == 0
         return sym_value
 

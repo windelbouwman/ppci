@@ -122,5 +122,6 @@ mv x28, x0
 mv x29, x0
 mv x30, x0
 mv x31, x0
+global main_main
 jal ra, main_main
 ebreak
