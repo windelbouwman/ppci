@@ -18,9 +18,10 @@ class LoadAfterStorePass(BlockPass):
             [x] = a
             c = a + 2
     """
+
     def find_store_backwards(
-            self, i, ty,
-            stop_on=(ir.FunctionCall, ir.ProcedureCall, ir.Store)):
+        self, i, ty, stop_on=(ir.FunctionCall, ir.ProcedureCall, ir.Store)
+    ):
         """ Go back from this instruction to beginning """
         block = i.block
         instructions = block.instructions
@@ -45,8 +46,10 @@ class LoadAfterStorePass(BlockPass):
     def replace_load_after_store(self, block):
         """ Replace load after store with the value of the store """
         load_instructions = [
-            ins for ins in block if isinstance(ins, ir.Load) and
-            not ins.volatile]
+            ins
+            for ins in block
+            if isinstance(ins, ir.Load) and not ins.volatile
+        ]
 
         # Replace loads after store of same address by the stored value:
         count = 0
@@ -61,22 +64,25 @@ class LoadAfterStorePass(BlockPass):
                 # TODO: after one try, the instructions are different
                 # reload of instructions required?
         if count > 0:
-            self.logger.debug('Replaced %s loads after store', count)
+            self.logger.debug("Replaced %s loads after store", count)
 
     def remove_redundant_stores(self, block):
         """ From two stores to the same address remove the previous one """
         store_instructions = [
-            i for i in block if isinstance(i, ir.Store) and not i.volatile]
+            i for i in block if isinstance(i, ir.Store) and not i.volatile
+        ]
 
         count = 0
         # TODO: assume volatile memory stores always!
         # Replace stores to the same location:
         for store in store_instructions:
             store_prev = self.find_store_backwards(
-                store, store.value.ty,
-                stop_on=(ir.FunctionCall, ir.ProcedureCall, ir.Store, ir.Load))
+                store,
+                store.value.ty,
+                stop_on=(ir.FunctionCall, ir.ProcedureCall, ir.Store, ir.Load),
+            )
             if store_prev is not None and not store_prev.volatile:
                 store_prev.remove_from_block()
 
         if count > 0:
-            self.logger.debug('Replaced %s redundant stores', count)
+            self.logger.debug("Replaced %s redundant stores", count)

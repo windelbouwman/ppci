@@ -15,6 +15,7 @@ from collections import OrderedDict
 
 class OrderedSet(MutableSet):
     """ Set which retains order of elements """
+
     def __init__(self, iterable=None):
         end = []
         end += [None, end, end]
@@ -63,15 +64,15 @@ class OrderedSet(MutableSet):
             curr = curr[1]
 
     def __repr__(self):
-        return '%s(%r)' % (self.__class__.__name__, list(self))
+        return "%s(%r)" % (self.__class__.__name__, list(self))
 
 
-__all__ = ('OrderedSet', 'OrderedDict')
+__all__ = ("OrderedSet", "OrderedDict")
 
 
-if __name__ == '__main__':
-    s = OrderedSet('abracadabra')
-    t = OrderedSet('simsalabim')
+if __name__ == "__main__":
+    s = OrderedSet("abracadabra")
+    t = OrderedSet("simsalabim")
     print(s | t)
     print(s & t)
     print(s - t)

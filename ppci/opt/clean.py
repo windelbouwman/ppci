@@ -1,4 +1,3 @@
-
 from .transform import FunctionPass
 from .. import ir
 
@@ -24,6 +23,7 @@ class CleanPass(FunctionPass):
             B:
 
     """
+
     def on_function(self, function):
         self.remove_empty_blocks(function)
         self.remove_one_preds(function)
@@ -63,7 +63,7 @@ class CleanPass(FunctionPass):
             function.remove_block(block)
             stat += 1
         if stat > 0:
-            self.logger.debug('Removed %s empty blocks', stat)
+            self.logger.debug("Removed %s empty blocks", stat)
 
     def find_single_predecessor_block(self, function):
         """ Find a block with a single predecessor """
@@ -98,7 +98,8 @@ class CleanPass(FunctionPass):
     def glue_blocks(self, block1, block2):
         """ Glue two blocks together into the first block """
         self.logger.debug(
-            'Inserting %s at the end of %s', block2.name, block1.name)
+            "Inserting %s at the end of %s", block2.name, block1.name
+        )
 
         # Remove the last jump:
         last_jump = block1.last_instruction

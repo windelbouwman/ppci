@@ -9,12 +9,15 @@ from .transform import ModulePass, FunctionPass, BlockPass, InstructionPass
 
 
 __all__ = [
-    'ModulePass', 'FunctionPass', 'BlockPass', 'InstructionPass',
-    'CleanPass',
-    'CommonSubexpressionEliminationPass',
-    'ConstantFolder',
-    'DeleteUnusedInstructionsPass',
-    'LoadAfterStorePass',
-    'Mem2RegPromotor',
-    'RemoveAddZeroPass'
-    ]
+    "ModulePass",
+    "FunctionPass",
+    "BlockPass",
+    "InstructionPass",
+    "CleanPass",
+    "CommonSubexpressionEliminationPass",
+    "ConstantFolder",
+    "DeleteUnusedInstructionsPass",
+    "LoadAfterStorePass",
+    "Mem2RegPromotor",
+    "RemoveAddZeroPass",
+]

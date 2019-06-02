@@ -6,7 +6,7 @@ from .collections import OrderedSet
 class Node:
     def __init__(self):
         self.nid = id(self)
-        self.label = ''
+        self.label = ""
         self.color = None
         self.width = 0
         self.height = 0
@@ -28,8 +28,8 @@ class Edge:
         assert isinstance(dst, Node)
         self.src = src
         self.dst = dst
-        self.label = ''
-        self.color = 'blue'
+        self.label = ""
+        self.color = "blue"
 
     def set_label(self, label):
         self.label = label
@@ -63,7 +63,7 @@ class Graph:
         self.nodes.remove(node)
         self.node_map.pop(node.nid)
 
-    def create_node(self, label=''):
+    def create_node(self, label=""):
         node = Node()
         node.set_label(label)
         self.add_node(node)
@@ -120,7 +120,8 @@ class Graph:
             'markerUnits="strokeWidth" markerWidth="4" markerHeight="5" '
             'orient="auto">'
             '<path d="M 0 0 L 10 5 L 0 10 z"/>'
-            '</marker>')
+            "</marker>"
+        )
         self.print('<rect width="{}" height="{}"'.format(width, height))
         self.print(' x="0" y="0" style="fill:green;opacity:0.1" />')
 
@@ -143,14 +144,14 @@ class Graph:
         for edge in self.edges:
             self.draw_path(edge)
 
-        self.print('</svg>')
+        self.print("</svg>")
 
     def draw_path(self, edge):
         src, dst = edge.src, edge.dst
         x1, y1 = src.x + src.width // 2, src.y + src.height
         x2, y2 = dst.x + dst.width // 2, dst.y
         path = [Point(x1, y1)] + edge.path + [Point(x2, y2)]
-        point_string = ' '.join('{},{}'.format(p.x, p.y) for p in path)
+        point_string = " ".join("{},{}".format(p.x, p.y) for p in path)
         self.print('<polyline points="{}"'.format(point_string))
         self.print(' stroke="{}" stroke-width="3"'.format(edge.color))
         self.print(' fill="none"')
@@ -165,16 +166,17 @@ class Point:
 
 class Path:
     """ A sequence of points """
+
     def __init__(self, points=()):
         self.points = list(points)
         if not all(isinstance(p, Point) for p in points):
-            raise TypeError('All elements must be points in {}'.format(points))
+            raise TypeError("All elements must be points in {}".format(points))
 
     def __radd__(self, other):
         if isinstance(other, list):
             return Path(other + self.points)
         else:
-            raise TypeError('Cannot radd {} to this Path object'.format(other))
+            raise TypeError("Cannot radd {} to this Path object".format(other))
 
     def __add__(self, other):
         if isinstance(other, Path):
@@ -182,7 +184,7 @@ class Path:
         elif isinstance(other, list):
             return Path(self.points + other)
         else:
-            raise TypeError('Cannot add {} to this Path object'.format(other))
+            raise TypeError("Cannot add {} to this Path object".format(other))
 
     def __iter__(self):
         return iter(self.points)
@@ -197,6 +199,7 @@ class LayeredLayout:
     2. Layer assignment
     3. Crossing reduction
     """
+
     def __init__(self):
         pass
 
@@ -258,7 +261,7 @@ class LayeredLayout:
         """ Minimize the amount of crossings in the graph """
         # def count_crossings(l1, l2):
         #    for n in l2:
-        #        for 
+        #        for
         layer_pairs = list(zip(layers[:-1], layers[1:]))
         for _ in range(9):
             # Forwards (keep layer 1 fixed):
@@ -294,8 +297,8 @@ class LayeredLayout:
             e1 = graph.get_edge(dummy.parents[0], dummy)
             e2 = graph.get_edge(dummy, dummy.children[0])
             point = Point(
-                dummy.x + dummy.width // 2,
-                dummy.y + dummy.height // 2)
+                dummy.x + dummy.width // 2, dummy.y + dummy.height // 2
+            )
             path = Path([point])
             edge = graph.create_edge(dummy.parents[0], dummy.children[0])
             edge.path = e1.path + path + e2.path

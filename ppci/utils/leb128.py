@@ -43,10 +43,10 @@ def unsigned_leb128_encode(value: int) -> bytes:
         b'*'
     """
     if not isinstance(value, int):
-        raise TypeError('Expected int but got {}'.format(type(value)))
+        raise TypeError("Expected int but got {}".format(type(value)))
 
     if value < 0:
-        raise ValueError('Cannot encode negative number as unsigned leb128')
+        raise ValueError("Cannot encode negative number as unsigned leb128")
 
     data = []  # ints, really
     while True:
@@ -74,7 +74,7 @@ def signed_leb128_decode(data) -> int:
     shift = 0
     while True:
         byte = next(data)
-        result |= (byte & 0x7f) << shift
+        result |= (byte & 0x7F) << shift
         shift += 7
         # Detect last byte:
         if byte & 0x80 == 0:
@@ -102,7 +102,7 @@ def unsigned_leb128_decode(data) -> int:
     shift = 0
     while True:
         byte = next(data)
-        result |= ((byte & 0x7f) << shift)
+        result |= (byte & 0x7F) << shift
         # Detect last byte:
         if byte & 0x80 == 0:
             break
