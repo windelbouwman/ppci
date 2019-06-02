@@ -1,6 +1,5 @@
-
-environment:
-  TOXENV: py36
+init:
+  - set PATH=C:\Python36-x64;C:\Python36-x64\Scripts;%PATH%
 
 build: off
 
