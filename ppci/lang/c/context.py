@@ -408,14 +408,18 @@ class CContext:
             else:  # pragma: no cover
                 raise NotImplementedError(str(expr))
         elif isinstance(expr, expressions.VariableAccess):
-            if isinstance(expr.variable, declarations.EnumConstantDeclaration):
-                value = self.get_enum_value(expr.variable.typ, expr.variable)
-            elif isinstance(expr.variable, declarations.VariableDeclaration):
+            declaration = expr.variable.last_declaration
+            if isinstance(declaration, declarations.EnumConstantDeclaration):
+                value = self.get_enum_value(declaration.typ, declaration)
+            elif isinstance(
+                declaration,
+                (
+                    declarations.VariableDeclaration,
+                    declarations.FunctionDeclaration,
+                ),
+            ):
                 # emit reference to global symbol
-                value = (ir.ptr, expr.variable.name)
-            elif isinstance(expr.variable, declarations.FunctionDeclaration):
-                # emit reference to global symbol
-                value = (ir.ptr, expr.variable.name)
+                value = (ir.ptr, declaration.name)
             else:
                 raise NotImplementedError(str(expr.variable))
         elif isinstance(expr, expressions.NumericLiteral):

@@ -70,27 +70,37 @@ class CCodeGenerator:
         self.debug_db = debuginfo.DebugDb()
         ir_mod = ir.Module("main", debug_db=self.debug_db)
         self.builder.module = ir_mod
-        for declaration in compile_unit.declarations:
-            self.gen_object(declaration)
-        self.logger.info("Finished IR-code generation")
-        return ir_mod
 
-    def gen_object(self, declaration):
-        """ Generate code for a single object """
-        assert isinstance(declaration, declarations.CDeclaration)
+        # Split declaration into functions and variables:
+        functions = []
+        variables = []
+        for declaration in compile_unit.declarations:
+            assert isinstance(declaration, declarations.CDeclaration)
+
+            if isinstance(
+                declaration,
+                (declarations.Typedef, declarations.EnumConstantDeclaration),
+            ):
+                pass
+            elif isinstance(declaration, declarations.FunctionDeclaration):
+                functions.append(declaration)
+            elif isinstance(declaration, declarations.VariableDeclaration):
+                variables.append(declaration)
+            else:  # pragma: no cover
+                raise NotImplementedError(str(declaration))
 
         # Generate code:
-        if isinstance(declaration, declarations.Typedef):
-            pass
-            # self.type_scope.insert(declaration)
-        elif isinstance(declaration, declarations.FunctionDeclaration):
-            self.gen_function(declaration)
-        elif isinstance(declaration, declarations.VariableDeclaration):
-            self.gen_global_variable(declaration)
-        elif isinstance(declaration, declarations.EnumConstantDeclaration):
-            pass
-        else:  # pragma: no cover
-            raise NotImplementedError(str(declaration))
+        for variable in variables:
+            self.gen_global_variable(variable)
+
+        for function in functions:
+            self.create_function(function)
+
+        for function in functions:
+            self.gen_function(function)
+
+        self.logger.info("Finished IR-code generation")
+        return ir_mod
 
     def emit(self, instruction, location=None):
         """ Helper function to emit a single instruction """
@@ -127,14 +137,10 @@ class CCodeGenerator:
                 ivalue = None
             size = self.context.sizeof(var_decl.typ)
             alignment = self.context.alignment(var_decl.typ)
+            name = var_decl.name
             if var_decl.storage_class == "static":
-                name = "__static_{}_{}".format(
-                    self.static_counter, var_decl.name
-                )
-                self.static_counter += 1
                 binding = ir.Binding.LOCAL
             else:
-                name = var_decl.name
                 binding = ir.Binding.GLOBAL
             ir_var = ir.Variable(name, binding, size, alignment, value=ivalue)
             self.builder.module.add_variable(ir_var)
@@ -144,33 +150,57 @@ class CCodeGenerator:
         """ Generate code for a function """
         if function.body:
             self.gen_function_def(function)
+
+    def create_function(self, function):
+        """ Create code for a function """
+        if function.body:
+            self.create_function_internal(function)
         else:
-            # TODO: when to put a function declaration as extern?
-            # For now just ignore extern keyword?
-            if True:  # function.storage_class == 'extern':
-                ftyp = function.typ
-                argument_types = [
-                    self.get_ir_type(a.typ) for a in ftyp.arguments
-                ]
+            self.create_function_external(function)
 
-                if ftyp.is_vararg:
-                    argument_types.append(ir.ptr)
+    def create_function_internal(self, function):
+        """ Create the function and put it into the var_map """
+        if function.storage_class == "static":
+            binding = ir.Binding.LOCAL
+        else:
+            binding = ir.Binding.GLOBAL
 
-                if ftyp.return_type.is_void:
-                    external_function = ir.ExternalProcedure(
-                        function.name, argument_types
-                    )
-                else:
-                    return_type = self.get_ir_type(ftyp.return_type)
-                    external_function = ir.ExternalFunction(
-                        function.name, argument_types, return_type
-                    )
+        # Create ir function:
+        if function.typ.return_type.is_void:
+            ir_function = self.builder.new_procedure(function.name, binding)
+        elif function.typ.return_type.is_struct:
+            # Pass implicit first argument to function when complex type
+            # is returned.
+            ir_function = self.builder.new_procedure(function.name, binding)
+            return_value_address = ir.Parameter("return_value_address", ir.ptr)
+            ir_function.add_parameter(return_value_address)
+        else:
+            return_type = self.get_ir_type(function.typ.return_type)
+            ir_function = self.builder.new_function(
+                function.name, binding, return_type
+            )
+        self.ir_var_map[function] = ir_function
 
-                self.builder.module.add_external(external_function)
-                self.ir_var_map[function] = external_function
-            else:
-                # Okay, a declaration, no body, what now?
-                pass
+    def create_function_external(self, function):
+        """ Create external function reference. """
+        ftyp = function.typ
+        argument_types = [self.get_ir_type(a.typ) for a in ftyp.arguments]
+
+        if ftyp.is_vararg:
+            argument_types.append(ir.ptr)
+
+        if ftyp.return_type.is_void:
+            external_function = ir.ExternalProcedure(
+                function.name, argument_types
+            )
+        else:
+            return_type = self.get_ir_type(ftyp.return_type)
+            external_function = ir.ExternalFunction(
+                function.name, argument_types, return_type
+            )
+
+        self.builder.module.add_external(external_function)
+        self.ir_var_map[function] = external_function
 
     def gen_function_def(self, function):
         """ Generate code for a function definition """
@@ -184,28 +214,7 @@ class CCodeGenerator:
         # Save current function for later on..
         self.current_function = function
 
-        if function.storage_class == "static":
-            binding = ir.Binding.LOCAL
-        else:
-            binding = ir.Binding.GLOBAL
-
-        # Create ir function:
-        if function.typ.return_type.is_void:
-            ir_function = self.builder.new_procedure(function.name, binding)
-        elif function.typ.return_type.is_struct:
-            # Pass implicit first argument to function when complex type
-            # is returned.
-            ir_function = self.builder.new_procedure(function.name, binding)
-            self.return_value_address = ir.Parameter(
-                "return_value_address", ir.ptr
-            )
-            ir_function.add_parameter(self.return_value_address)
-        else:
-            return_type = self.get_ir_type(function.typ.return_type)
-            ir_function = self.builder.new_function(
-                function.name, binding, return_type
-            )
-        self.ir_var_map[function] = ir_function
+        ir_function = self.ir_var_map[function]
 
         # Create entry code:
         self.builder.set_function(ir_function)
@@ -533,7 +542,9 @@ class CCodeGenerator:
                 # Complex types are copied to pointer passed as
                 # first argument.
                 value = self.gen_expr(stmt.value, rvalue=True)
-                self.emit(ir.Store(value, self.return_value_address))
+                return_value_address = self.builder.function.arguments[0]
+                assert return_value_address.name == "return_value_address"
+                self.emit(ir.Store(value, return_value_address))
                 # self.emit(ir.CopyBlob(self.return_value_address))
                 self.emit(ir.Exit())
             else:
@@ -759,27 +770,26 @@ class CCodeGenerator:
         elif isinstance(expr, expressions.TernaryOperator):
             value = self.gen_ternop(expr)
         elif isinstance(expr, expressions.VariableAccess):
-            variable = expr.variable
+            declaration = expr.variable.last_declaration
             if isinstance(
-                variable,
+                declaration,
                 (
                     declarations.VariableDeclaration,
                     declarations.ParameterDeclaration,
                     declarations.ConstantDeclaration,
+                    declarations.FunctionDeclaration,
                 ),
             ):
-                value = self.ir_var_map[variable]
-            elif isinstance(variable, declarations.EnumConstantDeclaration):
+                value = self.ir_var_map[declaration]
+            elif isinstance(declaration, declarations.EnumConstantDeclaration):
                 # Enum value declaration!
                 constant_value = self.context.get_enum_value(
-                    variable.typ, variable
+                    declaration.typ, declaration
                 )
                 ir_typ = self.get_ir_type(expr.typ)
                 value = self.emit(
-                    ir.Const(constant_value, variable.name, ir_typ)
+                    ir.Const(constant_value, declaration.name, ir_typ)
                 )
-            elif isinstance(variable, declarations.FunctionDeclaration):
-                value = self.ir_var_map[variable]
             else:  # pragma: no cover
                 raise NotImplementedError(str(variable))
         elif isinstance(expr, expressions.FunctionCall):
@@ -1216,7 +1226,9 @@ class CCodeGenerator:
         # Get function pointer or label:
         if isinstance(expr.callee.typ, types.FunctionType):
             # Normal call, get global value:
-            ir_function = self.ir_var_map[expr.callee.variable]
+            ir_function = self.ir_var_map[
+                expr.callee.variable.last_declaration
+            ]
         elif isinstance(expr.callee.typ, types.PointerType) and isinstance(
             expr.callee.typ.element_type, types.FunctionType
         ):

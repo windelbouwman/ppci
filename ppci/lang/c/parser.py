@@ -169,9 +169,7 @@ class CParser(RecursiveDescentParser):
         """ Top level start of parsing """
         self.semantics.begin()
         while not self.at_end:
-            for declaration in self.parse_declarations():
-                # print('decl', declaration)
-                self.semantics.add_global_declaration(declaration)
+            self.parse_declarations()
         return self.semantics.finish_compilation_unit()
 
     # Declarations part:
@@ -179,11 +177,8 @@ class CParser(RecursiveDescentParser):
         """ Parse normal declarations """
         decl_spec = self.parse_decl_specifiers()
         # TODO: perhaps not parse functions here?
-        if self.has_consumed(";"):
-            declarations = []
-        else:
-            declarations = self.parse_decl_group(decl_spec)
-        return declarations
+        if not self.has_consumed(";"):
+            self.parse_decl_group(decl_spec)
 
     def parse_decl_specifiers(self, allow_storage_class=True):
         """ Parse declaration specifiers.
@@ -435,64 +430,61 @@ class CParser(RecursiveDescentParser):
         variables. At least it will probably contain some sort of
         identifier and an optional pointer stuff.
         """
-        declarations = []
-        d = self.parse_declarator()
+        declarator = self.parse_declarator()
         if decl_spec.storage_class == "typedef":
-            declarations.append(self.parse_typedef(decl_spec, d))
+            self.parse_typedef(decl_spec, declarator)
             while self.has_consumed(","):
-                d = self.parse_declarator()
-                declarations.append(self.parse_typedef(decl_spec, d))
+                declarator = self.parse_declarator()
+                self.parse_typedef(decl_spec, declarator)
             self.consume(";")
         elif self.peek == "{":
             # if function, parse implementation.
             # func_def = None
-            declarations.append(self.parse_function_declaration(decl_spec, d))
+            self.parse_function_declaration(decl_spec, declarator)
         else:
             # We have variables here
-            declarations.append(self.parse_variable_declaration(decl_spec, d))
+            self.parse_variable_declaration(decl_spec, declarator)
             while self.has_consumed(","):
-                d = self.parse_declarator()
-                declarations.append(
-                    self.parse_variable_declaration(decl_spec, d)
-                )
+                declarator = self.parse_declarator()
+                self.parse_variable_declaration(decl_spec, declarator)
             self.consume(";")
-        return declarations
 
-    def parse_function_declaration(self, decl_spec, d):
+    def parse_function_declaration(self, decl_spec, declarator):
         """ Parse a function declaration with implementation """
         function = self.semantics.on_function_declaration(
             decl_spec.storage_class,
             decl_spec.typ,
-            d.name,
-            d.type_modifiers,
-            d.location,
+            declarator.name,
+            declarator.type_modifiers,
+            declarator.location,
         )
         self.semantics.enter_function(function)
         body = self.parse_compound_statement()
         self.semantics.end_function(body)
-        return function
 
-    def parse_variable_declaration(self, decl_spec, d):
+    def parse_variable_declaration(self, decl_spec, declarator):
         # Create the variable:
         variable = self.semantics.on_variable_declaration(
             decl_spec.storage_class,
             decl_spec.typ,
-            d.name,
-            d.type_modifiers,
-            d.location,
+            declarator.name,
+            declarator.type_modifiers,
+            declarator.location,
         )
 
         # Handle the initial value:
         if self.has_consumed("="):
             initializer = self.parse_initializer(variable.typ)
             self.semantics.on_variable_initialization(variable, initializer)
-        return variable
 
-    def parse_typedef(self, decl_spec, d):
+    def parse_typedef(self, decl_spec, declarator):
         """ Process typedefs """
-        self.typedefs.add(d.name)
-        return self.semantics.on_typedef(
-            decl_spec.typ, d.name, d.type_modifiers, d.location
+        self.typedefs.add(declarator.name)
+        self.semantics.on_typedef(
+            decl_spec.typ,
+            declarator.name,
+            declarator.type_modifiers,
+            declarator.location,
         )
 
     def parse_declarator(self, abstract=False):
@@ -781,17 +773,9 @@ class CParser(RecursiveDescentParser):
         """
 
         if self.is_declaration_statement():
-            # TODO: do not use current location member.
-            location = self.current_location
-            statement_list = []
-            for declaration in self.parse_declarations():
-                statement = self.semantics.on_declaration_statement(
-                    declaration, location
-                )
-                statement_list.append(statement)
+            self.parse_declarations()
         else:
-            statement_list = [self.parse_statement()]
-        return statement_list
+            self.semantics.add_statement(self.parse_statement())
 
     def is_declaration_statement(self):
         """ Determine whether we are facing a declaration or not """
@@ -851,13 +835,12 @@ class CParser(RecursiveDescentParser):
 
     def parse_compound_statement(self):
         """ Parse a series of statements surrounded by '{' and '}' """
-        statement_list = []
         location = self.consume("{").loc
         self.semantics.enter_compound_statement(location)
         while self.peek != "}":
-            statement_list.extend(self.parse_statement_or_declaration())
+            self.parse_statement_or_declaration()
         self.consume("}")
-        return self.semantics.on_compound_statement(statement_list, location)
+        return self.semantics.on_compound_statement(location)
 
     def parse_if_statement(self):
         """ Parse an if statement """

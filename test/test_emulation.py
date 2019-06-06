@@ -2,7 +2,7 @@ import unittest
 import os
 
 from ppci.api import construct
-from util import relpath, has_qemu, run_qemu, do_long_tests
+from helper_util import relpath, has_qemu, run_qemu, do_long_tests
 
 
 EXAMPLE_DIR = relpath('..', 'examples')

@@ -1,7 +1,7 @@
 """ C scoping functions """
-from .nodes.declarations import CDeclaration
 from .nodes.types import BasicType
 from .nodes import types, expressions, declarations
+from ...utils.collections import OrderedDict
 
 
 def type_tuple(*args):
@@ -121,7 +121,7 @@ class RootScope:
         elif isinstance(expr, expressions.Cast):
             return self.is_const_expr(expr.expr)
         elif isinstance(expr, expressions.VariableAccess):
-            return self.is_const_expr(expr.variable)
+            return self.is_const_expr(expr.variable.last_declaration)
         else:
             return False
 
@@ -132,7 +132,7 @@ class Scope:
     def __init__(self, parent=None):
         self.parent = parent
         # Different namespaces in this scope:
-        self.var_map = {}
+        self.var_map = OrderedDict()
         self.tags = {}
         self.labels = {}
 
@@ -146,7 +146,7 @@ class Scope:
             scope = scope.parent
         return defined_names
 
-    def is_defined(self, name, all_scopes=True):
+    def is_defined(self, name: str, all_scopes=True):
         """ Check if the name is defined """
         if name in self.var_map:
             return True
@@ -155,36 +155,50 @@ class Scope:
         else:
             return False
 
-    def insert(self, declaration: CDeclaration):
+    def insert(self, declaration: declarations.CDeclaration):
         """ Insert a variable into the current scope """
-        assert isinstance(declaration, CDeclaration)
+        assert isinstance(declaration, declarations.CDeclaration)
         assert declaration.name not in self.var_map
-        self.var_map[declaration.name] = declaration
+        symbol = Symbol(declaration.name)
+        self.var_map[declaration.name] = symbol
+        symbol.add_declaration(declaration)
 
-    def update(self, declaration: CDeclaration):
+    def update(self, declaration: declarations.CDeclaration):
         """ Update an existing name to a new declaration """
-        assert isinstance(declaration, CDeclaration)
+        assert isinstance(declaration, declarations.CDeclaration)
         assert declaration.name in self.var_map
-        self.var_map[declaration.name] = declaration
+        self.var_map[declaration.name].add_declaration(declaration)
 
-    def has_tag(self, name):
+    def get_declarations(self):
+        r = []
+        for s in self.var_map.values():
+            d = s.last_declaration
+            if isinstance(
+                d, (declarations.EnumConstantDeclaration, declarations.Typedef)
+            ):
+                continue
+            r.append(d)
+        return r
+        # return [s.last_declaration for s in self.var_map.values() if not isinstance(s.]
+
+    def has_tag(self, name: str):
         if self.parent:
             # TODO: make tags a flat space?
             return self.parent.has_tag(name)
         return name in self.tags
 
-    def get_tag(self, name):
+    def get_tag(self, name: str):
         """ Get a struct by tag """
         if self.parent:
             return self.parent.get_tag(name)
         return self.tags[name]
 
-    def add_tag(self, name, o):
+    def add_tag(self, name: str, o):
         if self.parent:
             return self.parent.add_tag(name, o)
         self.tags[name] = o
 
-    def get(self, name):
+    def get(self, name: str):
         """ Get the symbol with the given name """
         if name in self.var_map:
             return self.var_map[name]
@@ -192,3 +206,31 @@ class Scope:
             return self.parent.get(name)
         else:
             raise KeyError(name)
+
+
+class Symbol:
+    """ Intermediate layer inserted into the scope. """
+
+    def __init__(self, name):
+        self.name = name
+        self.declarations = []
+
+    @property
+    def last_declaration(self):
+        return self.declarations[-1]
+
+    @property
+    def typ(self):
+        return self.last_declaration.typ
+
+    @property
+    def location(self):
+        return self.last_declaration.location
+
+    def add_declaration(self, declaration):
+        """ Append latest greatest declaration of this symbol. """
+        self.declarations.append(declaration)
+
+    def add_redeclaration(self, declaration):
+        """ Append latest greatest declaration of this symbol. """
+        self.declarations.append(declaration)

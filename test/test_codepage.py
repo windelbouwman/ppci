@@ -2,7 +2,7 @@
 import unittest
 import io
 import ctypes
-from util import make_filename
+from helper_util import make_filename
 from ppci.api import cc, get_current_arch, is_platform_supported
 from ppci.utils.codepage import load_code_as_module
 from ppci.utils.codepage import load_obj

@@ -2,8 +2,8 @@ import unittest
 import io
 
 from sample_helpers import add_samples
-from util import relpath, run_python
-from util import do_long_tests, make_filename
+from helper_util import relpath, run_python
+from helper_util import do_long_tests, make_filename
 
 from ppci.api import c3_to_ir, bf_to_ir, ir_to_python, optimize, c_to_ir
 from ppci.utils.reporting import HtmlReportGenerator

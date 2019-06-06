@@ -44,16 +44,19 @@ class CSemantics:
         self.intptr_type = types.PointerType(self.int_type)
 
         # Working variables:
+        self.compounds = []
         self.switch_stack = []  # switch case levels
 
     def begin(self):
+        """ Enter a new file / compilation unit. """
         self.scope = Scope()
-        self.declarations = []
 
     def finish_compilation_unit(self):
-        cu = nodes.CompilationUnit(self.declarations)
-        assert not self.switch_stack
-        return cu
+        """ Called at the end of a file / compilation unit. """
+        assert self.scope.parent is None  # Must be the topscope now.
+        declarations = self.scope.get_declarations()
+        compilation_unit = nodes.CompilationUnit(declarations)
+        return compilation_unit
 
     def enter_function(self, function):
         self.logger.debug(
@@ -63,9 +66,11 @@ class CSemantics:
             function.location.row,
         )
         # Nice clean slate:
+        assert not self.switch_stack
         self.current_function = function
         self.scope = Scope(self.scope)
 
+        # Define function parameters:
         for argument in function.typ.arguments:
             if argument.name:
                 if self.scope.is_defined(argument.name, all_scopes=False):
@@ -77,6 +82,7 @@ class CSemantics:
         self.scope = self.scope.parent
         self.current_function.body = body
         self.current_function = None
+        assert not self.switch_stack
 
     def apply_type_modifiers(self, type_modifiers, typ):
         """ Apply the set of type modifiers to the given type """
@@ -129,14 +135,47 @@ class CSemantics:
         """ Given a declaration, and a declarator, create the proper object """
         typ = self.apply_type_modifiers(modifiers, typ)
         if isinstance(typ, types.FunctionType):
-            declaration = declarations.FunctionDeclaration(
-                storage_class, typ, name, location
+            declaration = self.on_function_declaration(
+                storage_class, typ, name, [], location
             )
         else:
             declaration = declarations.VariableDeclaration(
                 storage_class, typ, name, None, location
             )
-        self.add_declaration(declaration)
+
+            # Check if the declared name is already defined:
+            if self.scope.is_defined(declaration.name, all_scopes=False):
+                # Get the already declared name and figure out what now!
+                sym = self.scope.get(declaration.name)
+
+                self.check_redeclaration_type(sym, declaration)
+
+                # re-declarations are only allowed on top level
+                if self.in_compound:
+                    self.invalid_redeclaration(sym, declaration)
+
+                if not isinstance(
+                    sym.last_declaration, declarations.VariableDeclaration
+                ):
+                    self.invalid_redeclaration(sym, declaration)
+
+                if sym.last_declaration.storage_class != "extern":
+                    self.invalid_redeclaration(sym, declaration)
+
+                # Redefine previous extern is OK!
+                sym.add_redeclaration(declaration)
+            else:
+                # Insert into the current scope:
+                self.scope.insert(declaration)
+
+            if self.in_compound:
+                statement = statements.DeclarationStatement(
+                    declaration, declaration.location
+                )
+                self.add_statement(statement)
+
+            return declaration
+
         return declaration
 
     # Variable initialization!
@@ -238,8 +277,16 @@ class CSemantics:
         """ Handle typedef declaration """
         typ = self.apply_type_modifiers(modifiers, typ)
         declaration = declarations.Typedef(typ, name, location)
-        self.add_declaration(declaration)
-        return declaration
+        if self.scope.is_defined(name, all_scopes=False):
+            sym = self.scope.get(name)
+            self.check_redeclaration_type(sym, declaration)
+            sym.add_redeclaration(declaration)
+        else:
+            self.scope.insert(declaration)
+
+    @property
+    def in_compound(self):
+        return bool(self.compounds)
 
     def on_function_declaration(
         self, storage_class, typ, name, modifiers, location
@@ -249,56 +296,50 @@ class CSemantics:
         declaration = declarations.FunctionDeclaration(
             storage_class, typ, name, location
         )
-        # d.arguments = args
-        self.add_declaration(declaration)
-        return declaration
 
-    def add_global_declaration(self, declaration):
-        self.declarations.append(declaration)
+        # We cannot define a function within a function:
+        if self.in_compound:
+            self.error(
+                "Cannot define function within block.", declaration.location
+            )
 
-    def add_declaration(self, declaration):
-        """ Add the given declaration to current scope """
+        # Insert into scope:
+        if self.scope.is_defined(name, all_scopes=False):
+            sym = self.scope.get(name)
 
-        # Check if the declared name is already defined:
-        if self.scope.is_defined(declaration.name, all_scopes=False):
-            # Get the already declared name and figure out what now!
-            sym = self.scope.get(declaration.name)
-            # The type should match in any case:
-            if not self._root_scope.equal_types(sym.typ, declaration.typ):
-                hint = "First defined here %s" % sym.location
-                self.logger.info(hint)
-                self.error(
-                    "Invalid redefinition", declaration.location, hints=[hint]
+            self.check_redeclaration_type(sym, declaration)
+
+            if not isinstance(
+                sym.last_declaration, declarations.FunctionDeclaration
+            ):
+                self.invalid_redeclaration(sym, declaration)
+
+            if sym.last_declaration.body:
+                self.invalid_redeclaration(
+                    sym, declaration, message="Cannot redefine function"
                 )
 
-            # The symbol might be a forward declared function:
-            if isinstance(declaration, declarations.FunctionDeclaration):
-                if not isinstance(sym, declarations.FunctionDeclaration):
-                    self.error("Invalid re-declaration", declaration.location)
-
-                if sym.body:
-                    self.error(
-                        "Cannot redefine function", declaration.location
-                    )
-                self.logger.debug(
-                    "okay, forward declaration for %s implemented",
-                    declaration.name,
-                )
-                self.scope.update(declaration)
-            elif isinstance(declaration, declarations.VariableDeclaration):
-                if not isinstance(sym, declarations.VariableDeclaration):
-                    self.error("Invalid re-declaration", declaration.location)
-
-                if sym.storage_class != "extern":
-                    self.error("Invalid redefinition", declaration.location)
-
-                # Redefine previous extern is OK!
-                self.scope.update(declaration)
-            else:
-                raise NotImplementedError(str(declaration))
+            self.logger.debug(
+                "okay, forward declaration for %s implemented", name
+            )
+            sym.add_redeclaration(declaration)
         else:
             # Insert into the current scope:
             self.scope.insert(declaration)
+        return declaration
+
+    def check_redeclaration_type(self, sym, declaration):
+        # The type should match in any case:
+        if not self._root_scope.equal_types(sym.typ, declaration.typ):
+            self.invalid_redeclaration(sym, declaration)
+
+    def invalid_redeclaration(
+        self, sym, declaration, message="Invalid redefinition"
+    ):
+        """ Raise an invalid redeclaration error. """
+        hint = "First defined here %s" % sym.location
+        self.logger.info(hint)
+        self.error(message, declaration.location, hints=[hint])
 
     # Types!
     def on_basic_type(self, type_specifiers, location):
@@ -312,7 +353,7 @@ class CSemantics:
     def on_typename(self, name, location):
         """ Handle the case when a typedef is refered """
         # Lookup typedef
-        typedef = self.scope.get(name)
+        typedef = self.scope.get(name).last_declaration
         assert isinstance(typedef, declarations.Typedef)
         ctyp = typedef.typ
         return ctyp  # types.IdentifierType(name, ctyp)
@@ -385,11 +426,16 @@ class CSemantics:
         if value:
             if not self._root_scope.is_const_expr(value):
                 self.error("Enum value must be constant value", value.location)
-        new_value = declarations.EnumConstantDeclaration(
+        declaration = declarations.EnumConstantDeclaration(
             ctyp, name, value, location
         )
-        self.add_declaration(new_value)
-        return new_value
+
+        if self.scope.is_defined(name, all_scopes=False):
+            sym = self.scope.get(declaration.name)
+            self.invalid_redeclaration(sym, declaration)
+        else:
+            self.scope.insert(declaration)
+        return declaration
 
     def exit_enum_values(self, ctyp, constants, location):
         if len(constants) == 0:
@@ -409,10 +455,6 @@ class CSemantics:
 
     # Statements!
     @staticmethod
-    def on_declaration_statement(declaration, location):
-        return statements.DeclarationStatement(declaration, location)
-
-    @staticmethod
     def on_expression_statement(expression):
         return statements.ExpressionStatement(expression)
 
@@ -422,10 +464,16 @@ class CSemantics:
 
     def enter_compound_statement(self, location):
         self.scope = Scope(self.scope)
+        self.compounds.append([])
 
-    def on_compound_statement(self, inner_statements, location):
+    def on_compound_statement(self, location):
         self.scope = self.scope.parent
+        inner_statements = self.compounds.pop()
         return statements.Compound(inner_statements, location)
+
+    def add_statement(self, statement):
+        """ Helper to emit a statement into the current block. """
+        self.compounds[-1].append(statement)
 
     def on_if(self, condition, then_statement, no, location):
         """ Check if statement """
@@ -592,7 +640,7 @@ class CSemantics:
             expr = expressions.UnaryOperator(op, a, typ, True, location)
         elif op == "&":
             if isinstance(a, expressions.VariableAccess) and isinstance(
-                a.variable, declarations.FunctionDeclaration
+                a.variable.last_declaration, declarations.FunctionDeclaration
             ):
                 # Function pointer:
                 expr = a
@@ -794,27 +842,25 @@ class CSemantics:
                     )
                 )
             self.error('Who is this "{}"?'.format(name), location, hints=hints)
-        variable = self.scope.get(name)
+        symbol = self.scope.get(name)
+        declaration = symbol.last_declaration
+        typ = declaration.typ
 
         # Determine lvalue and type:
-        if isinstance(variable, declarations.VariableDeclaration):
-            typ = variable.typ
+        if isinstance(declaration, declarations.VariableDeclaration):
             lvalue = True
-        elif isinstance(variable, declarations.EnumConstantDeclaration):
-            typ = variable.typ
+        elif isinstance(declaration, declarations.EnumConstantDeclaration):
             lvalue = False
-        elif isinstance(variable, declarations.ParameterDeclaration):
-            typ = variable.typ
+        elif isinstance(declaration, declarations.ParameterDeclaration):
             lvalue = True
-        elif isinstance(variable, declarations.FunctionDeclaration):
+        elif isinstance(declaration, declarations.FunctionDeclaration):
             # Function pointer:
-            typ = variable.typ
             # expr.typ = types.PointerType(variable.typ)
             lvalue = False
         else:  # pragma: no cover
             self.not_impl("Access to {}".format(variable), location)
 
-        expr = expressions.VariableAccess(variable, typ, lvalue, location)
+        expr = expressions.VariableAccess(symbol, typ, lvalue, location)
         return expr
 
     # Helpers!

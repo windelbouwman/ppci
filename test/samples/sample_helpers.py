@@ -1,6 +1,6 @@
 import io
 import os
-from util import relpath, source_files
+from helper_util import relpath, source_files
 from ppci.api import asm, c3c, link, objcopy, bfcompile, cc
 from ppci.utils.reporting import HtmlReportGenerator
 from ppci.lang.c import COptions

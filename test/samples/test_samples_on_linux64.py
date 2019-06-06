@@ -6,7 +6,7 @@ import subprocess
 from tempfile import mkstemp
 
 from sample_helpers import add_samples, build
-from util import do_long_tests, make_filename
+from helper_util import do_long_tests, make_filename
 
 from ppci.api import asm, link, objcopy
 
