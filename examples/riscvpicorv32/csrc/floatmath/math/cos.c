@@ -24,12 +24,12 @@
 #if	defined(__IEEE_SP_FP__)
 
 /* Hart table COS 3841, p. 210; precision 10.10, order 2 2. */
-static double P2[] = {
+static double P[] = {
 	 0.29711957557904981e+4,
 	-0.8358601134548263e+3,
 	 0.232683849892453e+2
 };
-static double Q2[] = {
+static double Q[] = {
 	 0.29711957560278108e+4,
 	 0.805313349644432e+2,
 	 1.0
@@ -38,13 +38,13 @@ static double Q2[] = {
 #else	/* !defined(__IEEE_SP_FP__) */
 
 /* Hart table COS 3843, p. 210; precision 16.18, order 3 3. */
-static double P2[] = {
+static double P[] = {
 	 0.12905394659037374438e+7,
 	-0.37456703915723204710e+6,
 	 0.13432300986539084285e+5,
 	-0.11231450823340933092e+3
 };
-static double Q2[] = {
+static double Q[] = {
 	 0.12905394659037373590e+7,
 	 0.23467773107245835052e+5,
 	 0.20969518196726306286e+3,
@@ -53,8 +53,8 @@ static double Q2[] = {
 
 #endif	/* !defined(__IEEE_SP_FP__) */
 
-#define	ORDERP	((int)(sizeof(P2) / sizeof(P2[0])) - 1)
-#define	ORDERQ	((int)(sizeof(Q2) / sizeof(Q2[0])) - 1)
+#define	ORDERP	((int)(sizeof(P) / sizeof(P[0])) - 1)
+#define	ORDERQ	((int)(sizeof(Q) / sizeof(Q[0])) - 1)
 
 double
 cos(double x)
@@ -89,7 +89,7 @@ cos(double x)
 	else if (x < COS_MIN && x > -COS_MIN)
 		return sqrt(1.0 - (x * x));
 	y = x / FOURTHPI;
-	return _poly(ORDERP, P2, y * y) / _poly(ORDERQ, Q2, y * y);
+	return _poly(ORDERP, P, y * y) / _poly(ORDERQ, Q, y * y);
 }
 
 /* end of libc/math/cos.c */

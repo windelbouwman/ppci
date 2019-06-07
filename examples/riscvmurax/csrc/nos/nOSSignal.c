@@ -16,9 +16,9 @@ extern "C" {
 #if (NOS_CONFIG_SIGNAL_ENABLE > 0)
 #if (NOS_CONFIG_SIGNAL_THREAD_ENABLE > 0)
  #if (NOS_CONFIG_THREAD_JOIN_ENABLE > 0)
-  static int _Threads (void *arg);
+  static int _Thread (void *arg);
  #else
-  static void _Threads (void *arg);
+  static void _Thread (void *arg);
  #endif
 #endif
 
@@ -34,11 +34,11 @@ extern "C" {
  static nOS_List                _list;
 #endif
 #if (NOS_CONFIG_SIGNAL_THREAD_ENABLE > 0)
- static nOS_Thread              _threadS;
+ static nOS_Thread              _thread;
  #ifdef NOS_SIMULATED_STACK
-  static nOS_Stack              _stackS;
+  static nOS_Stack              _stack;
  #else
-  static nOS_Stack              _stackS[NOS_CONFIG_SIGNAL_THREAD_STACK_SIZE];
+  static nOS_Stack              _stack[NOS_CONFIG_SIGNAL_THREAD_STACK_SIZE];
  #endif
 #endif
 
@@ -88,9 +88,9 @@ extern "C" {
 
 #if (NOS_CONFIG_SIGNAL_THREAD_ENABLE > 0)
 #if (NOS_CONFIG_THREAD_JOIN_ENABLE > 0)
-static int _Threads (void *arg)
+static int _Thread (void *arg)
 #else
-static void _Threads (void *arg)
+static void _Thread (void *arg)
 #endif
 {
     nOS_StatusReg   sr;
@@ -133,13 +133,13 @@ void nOS_InitSignal (void)
     nOS_InitList(&_list);
 #endif
 #if (NOS_CONFIG_SIGNAL_THREAD_ENABLE > 0)
-    nOS_ThreadCreate(&_threadS,
-                     _Threads,
+    nOS_ThreadCreate(&_thread,
+                     _Thread,
                      NULL
  #ifdef NOS_SIMULATED_STACK
-                    ,&_stackS
+                    ,&_stack
  #else
-                    ,_stackS
+                    ,_stack
  #endif
                     ,NOS_CONFIG_SIGNAL_THREAD_STACK_SIZE
  #ifdef NOS_USE_SEPARATE_CALL_STACK
@@ -288,8 +288,8 @@ nOS_Error nOS_SignalSend (nOS_Signal *signal, void *arg)
             _AppendToList(signal);
 
 #if (NOS_CONFIG_SIGNAL_THREAD_ENABLE > 0)
-            if (_threadS.state == (NOS_THREAD_READY | NOS_THREAD_ON_HOLD)) {
-                nOS_WakeUpThread(&_threadS, NOS_OK);
+            if (_thread.state == (NOS_THREAD_READY | NOS_THREAD_ON_HOLD)) {
+                nOS_WakeUpThread(&_thread, NOS_OK);
             }
 #endif
             err = NOS_OK;

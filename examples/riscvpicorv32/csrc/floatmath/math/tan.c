@@ -20,11 +20,11 @@
 #if	defined(__IEEE_SP_FP__)
 
 /* Hart table TAN 4242, p. 218; precision 8.20, order 1 2. */
-static double P6[] = {
+static double P[] = {
 	 0.211849369664121e+3,
 	-0.125288887278448e+2
 };
-static double Q6[] = {
+static double Q[] = {
 	 0.2697350131214121e+3,
 	-0.714145309347748e+2, 
 	 1.0
@@ -33,13 +33,13 @@ static double Q6[] = {
 #else	/* defined(__IEEE_SP_FP__) */
 
 /* Hart table TAN 4245, p. 216; precision 17.08, order 3 3. */
-static double P6[] = {
+static double P[] = {
 	-0.16045331195592187943926861e+5, 
 	 0.1269754837658082883786072e+4,
 	-0.17135185514886110932101e+2,
 	 0.282087729716551031514e-1
 };
-static double Q6[] = {
+static double Q[] = {
 	-0.20429550186600697853114142e+5,
 	 0.5817359955465568673903419e+4,
 	-0.181493103540890459934575e+3,
@@ -48,8 +48,8 @@ static double Q6[] = {
 
 #endif	/* defined(__IEEE_SP_FP__) */
 
-#define	ORDERP	((int)(sizeof(P6) / sizeof(P6[0])) - 1)
-#define	ORDERQ	((int)(sizeof(Q6) / sizeof(Q6[0])) - 1)
+#define	ORDERP	((int)(sizeof(P) / sizeof(P[0])) - 1)
+#define	ORDERQ	((int)(sizeof(Q) / sizeof(Q[0])) - 1)
 
 double
 tan(double x)
@@ -84,7 +84,7 @@ tan(double x)
 
 	/* Approximate result using polynomials from Hart. */
 	xsq = x * x;
-	r = x * _poly(ORDERP, P6, xsq) / _poly(ORDERQ, Q6, xsq);
+	r = x * _poly(ORDERP, P, xsq) / _poly(ORDERQ, Q, xsq);
 
 	/* Adjust result and return. */
 	if (invert) {

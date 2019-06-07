@@ -22,11 +22,11 @@ double
 ldexp(double x, int exp)
 {
 	DOUBLE u;
-	int olde;	
+	int olde;
 	
 	/* NaN, [+-]Infinity: domain error, return x. */
 	if (_isNaN(x)) {
-		errno = EDOM;		
+		errno = EDOM;
 		return x;		/* NaN: domain error, return NaN */
 	} else if (_isInfinity(x))
 		return x;		/* [+-]Infinity: no error, return [+-]Infinity */
