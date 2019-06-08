@@ -319,6 +319,21 @@ class CSemantics:
                     sym, declaration, message="Cannot redefine function"
                 )
 
+            # Check storage class:
+            if declaration.storage_class:
+                if (
+                    sym.last_declaration.storage_class
+                    != declaration.storage_class
+                ):
+                    self.invalid_redeclaration(
+                        sym, declaration, "mismatch in storage class."
+                    )
+            else:
+                if sym.last_declaration.storage_class:
+                    declaration.storage_class = (
+                        sym.last_declaration.storage_class
+                    )
+
             self.logger.debug(
                 "okay, forward declaration for %s implemented", name
             )

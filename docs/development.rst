@@ -108,8 +108,8 @@ pyprof2calltree.
     $ pip install pyprof2calltree
     $ pyprof2calltree -i profiled.out -k
 
-Debugging
-~~~~~~~~~
+Debugging dynamic code
+~~~~~~~~~~~~~~~~~~~~~~
 
 Sometimes, the python interpreter might crash due to playing with dynamically
 injected code. To debug this, we can use gdb for example.
@@ -126,6 +126,16 @@ Once the program crashes, one can disassemble and print info:
     (gdb) bt
     (gdb) disassemble /r 0x7fff000, 0x7fff200
     (gdb) info registers
+
+Debugging python code
+~~~~~~~~~~~~~~~~~~~~~
+
+Alternatively, when facing a python exception, one might want to try the pudb
+debugger like this:
+
+.. code:: bash
+
+    python -m pudb crashing_script.py
 
 3rd party test suites
 ~~~~~~~~~~~~~~~~~~~~~
@@ -170,6 +180,22 @@ Directory structure
 
 - ppci : source code of the ppci library
 
+  - arch : different machine support
+
+    - arm : arm support
+    - avr : avr support
+    - microblaze
+    - mips
+    - msp430 : msp430 support
+    - riscv
+    - stm8
+    - x86_64
+    - xtensa : xtensa support
+
+  - binutils : assembler and linker
+  - cli : command line interface utilities
+  - codegen : code generation
+  - format : various file formats
   - lang : human readable languages
 
     - c : c frontend
@@ -177,16 +203,7 @@ Directory structure
     - python : python compilation code
     - tools : language tools
 
-  - arch : different machine support
-
-    - arm : arm support
-    - avr : avr support
-    - mips
-    - msp430 : msp430 support
-    - stm8
-    - xtensa : xtensa support
-
-  - cli : command line interface utilities
+  - opt : IR-code optimization
   - util : utilities
 
 - docs : documentation

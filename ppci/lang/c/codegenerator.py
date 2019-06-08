@@ -337,11 +337,29 @@ class CCodeGenerator:
         declaration = statement.declaration
         if isinstance(declaration, declarations.VariableDeclaration):
             if declaration.storage_class == "static":
-                self.gen_global_variable(declaration)
+                self.gen_local_static_variable(declaration)
             else:
                 self.gen_local_variable(declaration)
         else:
             raise NotImplementedError(str(declaration))
+
+    def gen_local_static_variable(self, var_decl):
+        """ Generate code for a local static variable. """
+        if var_decl.initial_value:
+            ivalue = self.context.gen_global_ival(
+                var_decl.typ, var_decl.initial_value
+            )
+        else:
+            ivalue = None
+        size = self.context.sizeof(var_decl.typ)
+        alignment = self.context.alignment(var_decl.typ)
+        name = "{}_{}".format(var_decl.name, self.static_counter)
+        self.static_counter += 1
+
+        binding = ir.Binding.LOCAL
+        ir_var = ir.Variable(name, binding, size, alignment, value=ivalue)
+        self.builder.module.add_variable(ir_var)
+        self.ir_var_map[var_decl] = ir_var
 
     def gen_expression_statement(self, statement):
         """ Generate code for an expression statement """

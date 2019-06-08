@@ -136,7 +136,7 @@ class Constructor:
     def __init__(self, *args, **kwargs):
         # Generate constructor from args:
         if self.syntax:
-            formal_args = self.syntax.get_formal_arguments()
+            formal_args = self.syntax.formal_arguments
 
             # Set parameters:
             if len(args) != len(formal_args):
@@ -213,7 +213,7 @@ class Constructor:
                 raise NotImplementedError(pattern)
 
         # Create constructors:
-        fargs = cls.syntax.get_formal_arguments()
+        fargs = cls.syntax.formal_arguments
         for farg in fargs:
             if isinstance(farg._cls, tuple):
                 options = farg._cls
@@ -235,7 +235,7 @@ class Constructor:
         """ Return all properties available into this syntax """
         if not self.syntax:
             return []
-        return self.syntax.get_formal_arguments()
+        return self.syntax.formal_arguments
 
     @property
     def leaves(self):
@@ -513,6 +513,13 @@ class Syntax:
         self.syntax = syntax
         self.priority = priority
 
+        # Pre-calculate format arguments:
+        formal_args = []
+        for element in self.syntax:
+            if isinstance(element, Operand):
+                formal_args.append(element)
+        self.formal_arguments = formal_args
+
     def __add__(self, other):
         assert isinstance(other, Syntax)
         assert self.priority == 0
@@ -522,14 +529,6 @@ class Syntax:
 
     def __repr__(self):
         return "{}".format(self.syntax)
-
-    def get_formal_arguments(self):
-        """ Get the sequence of properties that must be passed in """
-        formal_args = []
-        for syntax_element in self.syntax:
-            if isinstance(syntax_element, Operand):
-                formal_args.append(syntax_element)
-        return formal_args
 
     def get_args(self):
         """ Return all non-whitespace elements """

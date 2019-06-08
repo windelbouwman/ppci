@@ -26,75 +26,81 @@ from ppci.lang.c import COptions
 from ppci.common import CompilerError, logformat
 from ppci.utils.reporting import HtmlReportGenerator
 
-libmad_folder = os.environ['LIBMAD_FOLDER']
-this_dir = os.path.abspath(os.path.dirname(__file__))
-report_filename = os.path.join(this_dir, 'report_libmad.html')
-libc_includes = os.path.join(this_dir, '..', 'librt', 'libc')
-arch = 'x86_64'
 
-
-def do_compile(filename, reporter):
+def do_compile(filename, include_paths, arch, reporter):
     coptions = COptions()
-    include_paths = [
-        libc_includes,
-        libmad_folder,
-        ]
     coptions.add_include_paths(include_paths)
-    coptions.add_define('FPM_DEFAULT', '1')
-    with open(filename, 'r') as f:
+    coptions.add_define("FPM_DEFAULT", "1")
+    with open(filename, "r") as f:
         obj = cc(f, arch, coptions=coptions, reporter=reporter)
     return obj
 
 
 def main():
+    environment_variable = "LIBMAD_FOLDER"
+    if environment_variable in os.environ:
+        libmad_folder = os.environ[environment_variable]
+    else:
+        logging.error(
+            "Please define %s to point to the libmad source folder",
+            environment_variable,
+        )
+        return
+
+    this_dir = os.path.abspath(os.path.dirname(__file__))
+    report_filename = os.path.join(this_dir, "report_libmad.html")
+    libc_includes = os.path.join(this_dir, "..", "librt", "libc")
+    include_paths = [libc_includes, libmad_folder]
+    arch = "x86_64"
+
     t1 = time.time()
     failed = 0
     passed = 0
     sources = [
-        'version.c',
-        'fixed.c',
-        'bit.c',
-        'timer.c',
-        'stream.c',
-        'frame.c',
-        'synth.c',
-        'decoder.c',
-        'layer12.c',
-        'layer3.c',
-        'huffman.c',
+        "layer3.c",
+        "version.c",
+        "fixed.c",
+        "bit.c",
+        "timer.c",
+        "stream.c",
+        "frame.c",
+        "synth.c",
+        "decoder.c",
+        "layer12.c",
+        "huffman.c",
     ]
     objs = []
-    with open(report_filename, 'w') as f, HtmlReportGenerator(f) as reporter:
+    with open(report_filename, "w") as f, HtmlReportGenerator(f) as reporter:
         for filename in sources:
             filename = os.path.join(libmad_folder, filename)
-            print('      ======================')
-            print('    ========================')
-            print('  ==> Compiling', filename)
+            print("      ======================")
+            print("    ========================")
+            print("  ==> Compiling", filename)
             try:
-                obj = do_compile(filename, reporter)
+                obj = do_compile(filename, include_paths, arch, reporter)
                 objs.append(obj)
             except CompilerError as ex:
-                print('Error:', ex.msg, ex.loc)
+                print("Error:", ex.msg, ex.loc)
                 ex.print()
                 print_exc()
                 failed += 1
-            except Exception as ex:
-                print('General exception:', ex)
-                print_exc()
-                failed += 1
+            # except Exception as ex:
+            #    print("General exception:", ex)
+            #    print_exc()
+            #    failed += 1
             else:
-                print('Great success!')
+                print("Great success!")
                 passed += 1
 
     t2 = time.time()
     elapsed = t2 - t1
-    print('Passed:', passed, 'failed:', failed, 'in', elapsed, 'seconds')
+    print("Passed:", passed, "failed:", failed, "in", elapsed, "seconds")
     obj = link(objs)
     print(obj)
 
 
-if __name__ == '__main__':
-    verbose = '-v' in sys.argv
+if __name__ == "__main__":
+    verbose = "-v" in sys.argv
     if verbose:
         level = logging.DEBUG
     else:

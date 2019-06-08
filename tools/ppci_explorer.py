@@ -250,6 +250,9 @@ def ppci_explorer():
 
 
 DEMO_SOURCE = """
+
+static int add(int, int);
+
 int g=23;
 struct X {
   int a;
