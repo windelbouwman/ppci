@@ -64,7 +64,7 @@ Let review what we have just done:
 Example projects
 ----------------
 
-Download and unzip :download:`examples.zip` to checkout some demo projects
+The `examples folder in the ppci sourcecode <https://bitbucket.org/windel/ppci/src/default/examples/>`_ contains some demo projects
 that can be build using ppci.
 
 

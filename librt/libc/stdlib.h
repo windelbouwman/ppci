@@ -12,4 +12,7 @@ void abort(void);
 
 #define NULL 0
 
+void* alloca(size_t size);
+#define alloca alloca
+
 #endif

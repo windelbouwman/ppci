@@ -10,4 +10,6 @@ typedef int size_t;
 
 #define NULL 0
 
+typedef int ptrdiff_t;
+
 #endif

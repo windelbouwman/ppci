@@ -33,7 +33,6 @@ extensions = [
     'sphinx.ext.doctest',
     'sphinx.ext.graphviz',
     'sphinxcontrib.autoprogram',
-    'zipexamples',
     'gen_programs',
 ]
 if not sys.platform.startswith('win'):
