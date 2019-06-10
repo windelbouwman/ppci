@@ -632,7 +632,7 @@ class Relocation:
         assert cls.token.Info.size % 8 == 0
         return cls.token.Info.size // 8
 
-    def apply(self, sym_value, data, reloc_value, opt=False):
+    def apply(self, sym_value, data, reloc_value):
         """ Apply this relocation type given some parameters.
 
         This is the default implementation which stores the outcome of
@@ -643,11 +643,16 @@ class Relocation:
         assert hasattr(token, self.field)
         setattr(token, self.field, self.calc(sym_value, reloc_value))
         data = token.encode()
-        if opt:
-            return data, 4
-        else:
-            return data
+        return data
             
+    def can_shrink(self, sym_value, reloc_value):
+        """ Test if this relocation can shrink during the relaxation phase.
+
+        Override this method to enable linker relaxation the relocation
+        subtype.
+        """
+        return False
+
     def calc(self, sym_value, reloc_value):  # pragma: no cover
         """ Calculate the relocation """
         raise NotImplementedError()

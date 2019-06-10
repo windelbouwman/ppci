@@ -30,7 +30,6 @@ class Isa:
         self.relocation_map = {}
         self.patterns = []
         self.peepholes = []
-        self.postlinkopts = []
 
     def __add__(self, other):
         assert isinstance(other, Isa)
@@ -39,7 +38,6 @@ class Isa:
         isa3.patterns = self.patterns + other.patterns
         isa3.relocation_map = self.relocation_map.copy()
         isa3.relocation_map.update(other.relocation_map)
-        isa3.postlinkopts = self.postlinkopts + other.postlinkopts
         return isa3
 
     def add_instruction(self, instruction):
@@ -61,11 +59,6 @@ class Isa:
     def peephole(self, function):
         """ Add a peephole optimization function """
         self.peepholes.append(function)
-        return function
-
-    def postlink(self, function):
-        """ Add a peephole optimization function """
-        self.postlinkopts.append(function)
         return function
 
     def pattern(

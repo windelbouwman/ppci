@@ -1,6 +1,7 @@
 """ Linker utility. """
 
 import logging
+from collections import defaultdict
 from .objectfile import ObjectFile, Image, get_object, RelocationEntry
 from ..common import CompilerError
 from .layout import Layout, Section, SectionData, SymbolDefinition, Align
@@ -120,9 +121,6 @@ class Linker:
 
         if not partial_link:
             self.do_relocations()
-
-        for func in dst.arch.isa.postlinkopts:
-            func(self, dst)
 
         if self.reporter:
             for section in dst.sections:
@@ -316,19 +314,207 @@ class Linker:
                 )
             self.dst.add_image(image)
 
-    def get_symbol_value(self, obj, symbol_id):
+    def get_symbol_value(self, symbol_id):
         """ Get value of a symbol from object or fallback """
         # Lookup symbol:
-        return obj.get_symbol_id_value(symbol_id)
+        return self.dst.get_symbol_id_value(symbol_id)
         #    raise CompilerError('Undefined reference "{}"'.format(name))
 
-    def do_relocations(self, opt=False):
+    def do_relaxations(self):
+        """ Linker relaxation. Just relax ;).
+
+        Linker relaxation is the process of finding shorted opcodes for
+        jumps to addresses nearby.
+
+        For example, an instruction set might
+        define two jump operations. One with a 32 bits offset, and one with
+        an 8 bits offset. Most likely the compiler will generate conservative
+        code, so always 32 bits branches. During the relaxation phase, the
+        code is scanned for possible replacements of the 32 bits jump by an
+        8 bit jump.
+
+        Possible issues that might occur during this phase:
+        - alignment of code. Code that was previously aligned might be
+          shifted.
+        - Linker relaxations might cause the opposite effect on jumps whose
+          distance increases due to relaxation. This occurs when jumping over
+          a memory whole between sections.
+        """
+
+        self.logger.debug("Doing linker relaxations")
+
+        # TODO: general note. Alignment must still be taken into account.
+        # A wrong situation occurs, when reducing the image by small amount
+        # of bytes. Locations that were aligned before, might become unaligned.
+
+        # First, determine the list of possible optimizations!
+        lst = []
+        for relocation in self.dst.relocations:
+            sym_value = self.get_symbol_value(relocation.symbol_id)
+            reloc_section = self.dst.get_section(relocation.section)
+            reloc_value = reloc_section.address + relocation.offset
+            rcls = self.dst.arch.isa.relocation_map[relocation.reloc_type]
+            reloc = rcls(
+                None, offset=relocation.offset, addend=relocation.addend
+            )
+            if reloc.can_shrink(sym_value, reloc_value):
+                # Apply code patching:
+                begin = relocation.offset
+                size = reloc.size()
+                end = begin + size
+                data = reloc_section.data[begin:end]
+                assert len(data) == size, "len({}) ({}-{}) != {}".format(
+                    data, begin, end, size
+                )
+
+                # Apply code patch:
+                self.logger.debug("Applying patch for %s", reloc)
+                data, new_relocs = reloc.do_shrink(
+                    sym_value, data, reloc_value
+                )
+                new_size = len(data)
+                diff = size - new_size
+                assert 0 <= diff <= size
+                # assert len(data) == size
+                new_end = begin + new_size
+                assert new_end + new_size == end
+                # Do not shrink the data here, we will do this later on.
+                reloc_section.data[begin:new_end] = data
+
+                # Define new memory hole, starting after instruction
+                hole = (new_end, diff)
+
+                # Record this reduction occurence:
+                lst.append((hole, relocation, reloc, new_relocs))
+
+        if not lst:
+            self.logger.debug("No linker relaxations found")
+            return
+
+        s = ", ".join(str(x) for x in lst)
+        self.logger.debug("Relaxable relocations: %s\n" % s)
+
+        # Define a map with the byte holes:
+        holes_map = defaultdict(list)  # section name to list of holes.
+
+        # Remove old relocations by new ones.
+        for hole, relocation, reloc, new_relocs in lst:
+            # Remove old relocation which is superceeded:
+            self.dst.relocations.remove(relocation)
+
+            # Inject new relocations:
+            for new_reloc in new_relocs:
+                # TODO: maybe deal with somewhat shifted new relocations?
+
+                # Create fresh relocation entry for patched code.
+                new_relocation = RelocationEntry(
+                    new_reloc.name,
+                    relocation.symbol_id,
+                    relocation.section,
+                    relocation.offset,
+                    relocation.addend,
+                )
+                self.dst.add_relocation(new_relocation)
+
+            # Register hole:
+            assert relocation.section
+            holes_map[relocation.section].append(hole)
+
+        for holes in holes_map.values():
+            holes.sort(key=lambda x: x[0])
+
+        # TODO: at this point, there can be the situation that we have two
+        # sections which become further apart (due to them being in different
+        # memory images. In this case, some relative jumps can become
+        # unreachable. What should be do in this case?
+
+        # Code has been patched here. Now update all relocations, symbols and
+        # section addresses.
+        self._apply_relaxation_holes(holes_map)
+
+    def _apply_relaxation_holes(self, hole_map):
+        """ Punch holes in the destination object file.
+
+        Do adjustments to section addresses, symbol offsets
+        and relocation offsets.
+        """
+
+        def count_holes(offset, holes):
+            """ Count how much holes we have until the given offset. """
+            diff = 0
+            for hole_offset, hole_size in holes:
+                if hole_offset < offset:
+                    diff += hole_size
+                else:
+                    break
+            return diff
+
+        # Update symbols which are located in sections.
+        for symbol in self.dst.symbols:
+            # Ignore global section-less symbols.
+            if symbol.section is None:
+                continue
+            holes = hole_map[symbol.section]
+            delta = count_holes(symbol.value, holes)
+            self.logger.debug(
+                "symbol changing %s (id=%s) at %08x with -%08x",
+                symbol.name,
+                symbol.id,
+                symbol.value,
+                delta,
+            )
+            symbol.value -= delta
+
+        # Update relocations (which are always located in a section)
+        for relocation in self.dst.relocations:
+            assert relocation.section
+            holes = hole_map[relocation.section]
+            delta = count_holes(relocation.offset, holes)
+            self.logger.debug(
+                "relocation changing %s at offset %08x with -%08x",
+                relocation.symbol_id,
+                relocation.offset,
+                delta,
+            )
+            relocation.offset -= delta
+
+        # Update section data:
+        for section in self.dst.sections:
+            # Loop over holes in reverse, since earlier holes influence later
+            # holes.
+            holes = hole_map[section.name]
+            for hole_offset, hole_size in reversed(holes):
+                for _ in range(hole_size):
+                    section.data.pop(hole_offset)
+
+        # Calculate total change per section
+        section_changes = {
+            name: sum(h[1] for h in holes) for name, holes in hole_map.items()
+        }
+
+        # Update layout of section in images
+        for image in self.dst.images:
+            delta = 0
+            for section in image.sections:
+                self.logger.debug(
+                    "sectororchanging %s at %08x with -%08x to %08x",
+                    section.name,
+                    section.address,
+                    delta,
+                )
+                # TODO: tricky stuff might go wrong here with alignment
+                # requirements of sections.
+                # Idea: re-do the layout phase?
+                section.address -= delta
+                delta += section_changes[section.name]
+
+    def do_relocations(self):
         """ Perform the correct relocation as listed """
-        # Check undefined symbols:
         self._check_undefined_symbols()
+        self.do_relaxations()
 
         for reloc in self.dst.relocations:
-            self._do_relocation(reloc, opt=opt)
+            self._do_relocation(reloc)
 
     def _check_undefined_symbols(self):
         undefined_symbols = []
@@ -344,9 +530,10 @@ class Linker:
                 )
             )
 
-    def _do_relocation(self, relocation, opt=False):
+    def _do_relocation(self, relocation):
         """ Perform a single relocation. """
-        sym_value = self.get_symbol_value(self.dst, relocation.symbol_id)
+        self.logger.debug("Performing linker relaxation")
+        sym_value = self.get_symbol_value(relocation.symbol_id)
         section = self.dst.get_section(relocation.section)
 
         # Determine address in memory of reloc patchup position:
@@ -361,14 +548,9 @@ class Linker:
         size = reloc.size()
         end = begin + size
         data = section.data[begin:end]
-        if opt:
-            data, size = reloc.apply(sym_value, data, reloc_value, opt)
-            end = begin + size
-            data = data[0:size]
-        else:
-            assert len(data) == size, "len({}) ({}-{}) != {}".format(
-                data, begin, end, size
-            )
-            data = reloc.apply(sym_value, data, reloc_value)
+        assert len(data) == size, "len({}) ({}-{}) != {}".format(
+            data, begin, end, size
+        )
+        data = reloc.apply(sym_value, data, reloc_value)
         assert len(data) == size
         section.data[begin:end] = data

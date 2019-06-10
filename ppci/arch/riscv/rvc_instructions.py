@@ -5,7 +5,7 @@ from ..encoding import Instruction, Syntax, Operand
 from .registers import RiscvRegister
 from .tokens import RiscvToken, RiscvcToken
 from .rvc_relocations import BcImm11Relocation, BcImm8Relocation
-from .rvc_relocations import CBImm11Relocation, CBlImm11Relocation, CRel
+from .rvc_relocations import CBImm11Relocation, CBlImm11Relocation
 from ..generic_instructions import ArtificialInstruction
 from .instructions import Andr, Orr, Xorr, Subr, Addi, Slli, Srli
 from .instructions import Lw, Sw, Blt, Bgt, Bge, Beq, Bne, Ble, Blr
@@ -21,7 +21,6 @@ class RegisterSet(set):
 
 rvcisa = Isa()
 
-rvcisa.register_relocation(CRel)
 rvcisa.register_relocation(BcImm11Relocation)
 rvcisa.register_relocation(BcImm8Relocation)
 rvcisa.register_relocation(CBImm11Relocation)
@@ -159,6 +158,7 @@ class CMovr(RiscvcInstruction):
 
 
 class CBl(RiscvInstruction):
+    """ jal instruction (32-bits) """
     target = Operand("target", str)
     rd = Operand("rd", RiscvRegister, write=True)
     syntax = Syntax(["jal", " ", rd, ",", " ", target])
@@ -174,6 +174,7 @@ class CBl(RiscvInstruction):
 
 
 class CJal(RiscvcInstruction):
+    """ c.jal instruction. """
     target = Operand("target", str)
     syntax = Syntax(["c", ".", "jal", " ", target])
 
@@ -188,6 +189,7 @@ class CJal(RiscvcInstruction):
 
 
 class CB(RiscvInstruction):
+    """ Full 32-bit `J` instruction. """
     target = Operand("target", str)
     syntax = Syntax(["j", " ", target])
 
@@ -202,6 +204,7 @@ class CB(RiscvInstruction):
 
 
 class CJ(RiscvcInstruction):
+    """ C.J instruction. """
     target = Operand("target", str)
     syntax = Syntax(["c", ".", "j", " ", target])
 
@@ -815,112 +818,3 @@ def pattern_cjmpu(context, tree, c0, c1):
 def pattern_jmp(context, tree):
     tgt = tree.value
     context.emit(CB(tgt.name, jumps=[tgt]))
-
-
-@rvcisa.postlink
-def opt(cls, dst):
-    logger = logging.getLogger("linker")
-    lst = dst.arch.isa.relocation_map["c_base"].l
-    s = ", ".join(format(x, "08x") for x in lst)
-    logger.debug("Relocation list: %s\n" % s)
-    lst.append(-1)
-
-    def countdiff(adrdst, adrofs):
-        indofs = 0
-        while lst[indofs] >= 0 and adrofs > lst[indofs]:
-            indofs += 1
-        inddst = 0
-        while lst[inddst] >= 0 and adrdst > lst[inddst]:
-            inddst += 1
-        return inddst - indofs
-
-    def getsection(adr, image):
-        if adr >= imageadr and adr <= imageadr + imagesize:
-            for section in image.sections:
-                if (
-                    adr >= sectionadr[section.name]
-                    and adr
-                    <= sectionadr[section.name] + sectionsize[section.name]
-                ):
-                    return section
-        else:
-            return False
-
-    for image in dst.images:
-        sectionnames = []
-        sectionadr = {}
-        sectionsize = {}
-        imagesize = image.size
-        imageadr = image.address
-        for s in image.sections:
-            sectionnames.append(s.name)
-            sectionadr[s.name] = s.address
-            sectionsize[s.name] = s.size
-        symbols = []
-        relocs = []
-
-        for s in dst.symbols:
-            if s.section in sectionnames:
-                section = dst.get_section(s.section)
-                symbols.append((s, s.value + section.address))
-        symbols.sort(key=lambda x: x[1])
-
-        for r in dst.relocations:
-            if r.section in sectionnames:
-                section = dst.get_section(r.section)
-                relocs.append((r, r.offset + section.address))
-        relocs.sort(key=lambda x: x[1])
-
-        for se in image.sections:
-            delta = countdiff(se.address, image.address)
-            logger.debug(
-                "RVC-sectororchanging %s at %08x with -%08x to %08x",
-                se.name,
-                se.address,
-                2 * delta,
-                se.address - 2 * delta,
-            )
-            se.address -= 2 * delta
-
-        for s in symbols:
-            sym = s[0]
-            delta = countdiff(s[1], sectionadr[sym.section])
-            logger.debug(
-                "RVC-symbolchanging %s at %08x with -%08x to %08x",
-                sym.name,
-                sym.value,
-                2 * delta,
-                sym.value - 2 * delta,
-            )
-            sym.value -= 2 * delta
-
-        for r in relocs:
-            reloc = r[0]
-            delta = countdiff(r[1], sectionadr[reloc.section])
-            logger.debug(
-                "RVC-relocationchanging %s at %08x with -%08x to %08x",
-                reloc.symbol_id,
-                r[1],
-                2 * delta,
-                r[1] - 2 * delta,
-            )
-            if r[1] in lst:
-                dst.arch.isa.relocation_map["c_base"].lnew.append(reloc.offset - delta * 2)
-            reloc.offset -= delta * 2
-            
-
-        lst2 = lst[:-1]
-        for (i, absadr) in enumerate(lst2):
-            section = getsection(absadr, image)
-            if section:
-                adr = absadr - section.address + 2 - i * 2
-                section.data.pop(adr)
-                section.data.pop(adr)
-
-
-    lstnew = dst.arch.isa.relocation_map["c_base"].lnew
-    s = ", ".join(format(x, "08x") for x in lstnew)
-    logger.debug("Relocation listnew: %s\n" % s)
-    cls.do_relocations(opt=True)
-    dst.arch.isa.relocation_map["c_base"].l = []
-    dst.arch.isa.relocation_map["c_base"].lnew = []
