@@ -17,6 +17,7 @@ setup(
     package_data={'': ['*.grammar', "*.rst", 'template.js', 'template.html']},
     entry_points={
         'console_scripts': [
+            'ppci-archive = ppci.cli.archive:archive',
             'ppci-asm = ppci.cli.asm:asm',
             'ppci-build = ppci.cli.build:build',
             'ppci-c3c = ppci.cli.c3c:c3c',

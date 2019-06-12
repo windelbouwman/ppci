@@ -18,6 +18,14 @@ parser.add_argument(
     "obj", type=argparse.FileType("r"), nargs="+", help="the object to link"
 )
 parser.add_argument(
+    "--library",
+    help="Add library to use when searching for symbols.",
+    type=argparse.FileType("r"),
+    action='append',
+    default=[],
+    metavar="library-filename",
+)
+parser.add_argument(
     "--layout",
     "-L",
     help="memory layout",
@@ -31,9 +39,10 @@ parser.add_argument(
 
 
 def link(args=None):
-    """ Run asm from command line """
+    """ Run linker from command line """
     args = parser.parse_args(args)
     with LogSetup(args):
+        print(args.library)
         obj = api.link(args.obj, layout=args.layout, debug=args.g)
         with open(args.output, "w") as output:
             obj.save(output)

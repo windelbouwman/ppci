@@ -228,22 +228,13 @@ class Msp430Arch(Architecture):
         from ...api import asm, c3c, link
 
         march = "msp430"
-        # TODO: without the below layout, things go wrong, but why?
-        # Layout should not be required here!
-        layout = io.StringIO(
-            """
-            MEMORY flash LOCATION=0xf000 SIZE=0xfe0 { SECTION(code) }
-            MEMORY vector16 LOCATION=0xffe0 SIZE=0x20 { SECTION(reset_vector) }
-            MEMORY ram LOCATION=0x200 SIZE=0x800 { SECTION(data) }
-        """
-        )
         c3_sources = get_runtime_files(["divsi3", "mulsi3"])
         # report_generator = HtmlReportGenerator(
         # open('msp430.html', 'wt', encoding='utf8'))
         with DummyReportGenerator() as reporter:
             obj1 = asm(io.StringIO(RT_ASM_SRC), march)
             obj2 = c3c(c3_sources, [], march, reporter=reporter)
-            obj = link([obj1, obj2], layout, partial_link=True)
+            obj = link([obj1, obj2], partial_link=True)
         return obj
 
 

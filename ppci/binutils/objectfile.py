@@ -313,9 +313,14 @@ class ObjectFile:
             and (self.images == other.images)
         )
 
+    def serialize(self):
+        """ Serialize the object into a dictionary structure suitable for json.
+        """
+        return serialize(self)
+
     def save(self, output_file):
         """ Save object file to a file like object """
-        json.dump(serialize(self), output_file, indent=2, sort_keys=True)
+        json.dump(self.serialize(), output_file, indent=2, sort_keys=True)
         print(file=output_file)
 
     @staticmethod

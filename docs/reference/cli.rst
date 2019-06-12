@@ -37,6 +37,9 @@ activated stand alone.
 .. autoprogram:: ppci.cli.build:parser
     :prog: ppci-build
 
+.. autoprogram:: ppci.cli.archive:parser
+    :prog: ppci-archive
+
 .. _ppci-asm:
 .. autoprogram:: ppci.cli.asm:parser
     :prog: ppci-asm

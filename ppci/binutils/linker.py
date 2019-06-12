@@ -7,6 +7,7 @@ from ..common import CompilerError
 from .layout import Layout, Section, SectionData, SymbolDefinition, Align
 from .layout import get_layout
 from .debuginfo import SymbolIdAdjustingReplicator, DebugInfo
+from .archive import get_archive
 
 
 def link(
@@ -17,6 +18,7 @@ def link(
     reporter=None,
     debug=False,
     extra_symbols=None,
+    libraries=None,
 ):
     """ Links the iterable of objects into one using the given layout.
 
@@ -30,6 +32,7 @@ def link(
             this debug information from the result.
         extra_symbols: a dict of extra symbols which can be used during
             linking.
+        libraries: a list of libraries to use when searching for symbols.
 
     Returns:
         The linked object file
@@ -47,7 +50,7 @@ def link(
         CodeObject of 8 bytes
     """
 
-    objects = [get_object(obj) for obj in objects]
+    objects = list(map(get_object, objects))
     if not objects:
         raise ValueError("Please provide at least one object as input")
 
@@ -59,6 +62,8 @@ def link(
     if use_runtime:
         objects.append(march.runtime)
 
+    libraries = list(map(get_archive, libraries)) if libraries else []
+
     linker = Linker(march, reporter)
     output_obj = linker.link(
         objects,
@@ -66,6 +71,7 @@ def link(
         partial_link=partial_link,
         debug=debug,
         extra_symbols=extra_symbols,
+        libraries=libraries,
     )
     return output_obj
 
@@ -88,6 +94,7 @@ class Linker:
         partial_link=False,
         debug=False,
         extra_symbols=None,
+        libraries=None,
     ):
         """ Link together the given object files using the layout """
         assert isinstance(input_objects, (list, tuple))
@@ -100,10 +107,9 @@ class Linker:
             assert input_object.arch == self.arch
 
         # Create new object file to store output:
-        dst = ObjectFile(self.arch)
-        self.dst = dst
+        self.dst = ObjectFile(self.arch)
         if debug:
-            dst.debug_info = DebugInfo()
+            self.dst.debug_info = DebugInfo()
 
         # Define extra symbols:
         extra_symbols = extra_symbols or {}
@@ -114,109 +120,126 @@ class Linker:
         # First merge all sections into output sections:
         self.merge_objects(input_objects, debug)
 
-        # Apply layout rules:
-        if layout:
-            assert isinstance(layout, Layout)
-            self.layout_sections(layout)
+        if partial_link:
+            if layout:
+                # Layout makes only sense in the final binary.
+                raise ValueError("Can only apply layout in non-partial links")
+        else:
+            if libraries:
+                # Find missing symbols in libraries:
+                self.add_missing_symbols_from_libraries(libraries)
 
-        if not partial_link:
+            # Apply layout rules:
+            if layout:
+                assert isinstance(layout, Layout)
+                self.layout_sections(layout)
+
+            self.check_undefined_symbols()
+
+            self.do_relaxations()
             self.do_relocations()
 
         if self.reporter:
-            for section in dst.sections:
-                self.reporter.message(
-                    "{} at {}".format(section, section.address)
+            self.report_link_result()
+
+        return self.dst
+
+    def report_link_result(self):
+        """ After linking is complete, this function can be used to dump
+        information to a reporter.
+        """
+        for section in self.dst.sections:
+            self.reporter.message("{} at {}".format(section, section.address))
+
+        for image in self.dst.images:
+            self.reporter.message("{} at {}".format(image, image.address))
+
+        symbols = [
+            (s, self.dst.get_symbol_id_value(s.id) if s.defined else -1)
+            for s in self.dst.symbols
+        ]
+        symbols.sort(key=lambda x: x[1])
+        for symbol, address in symbols:
+            self.reporter.message(
+                "Symbol {} {} at 0x{:X}".format(
+                    symbol.binding, symbol.name, address
                 )
+            )
 
-            for image in dst.images:
-                self.reporter.message("{} at {}".format(image, image.address))
-
-            symbols = [
-                (s, dst.get_symbol_id_value(s.id) if s.defined else -1)
-                for s in dst.symbols
-            ]
-            symbols.sort(key=lambda x: x[1])
-            for symbol, address in symbols:
-                self.reporter.message(
-                    "Symbol {} {} at 0x{:X}".format(
-                        symbol.binding, symbol.name, address
-                    )
-                )
-
-        if self.reporter:
-            self.reporter.message("Linking complete")
-        return dst
+        self.reporter.message("Linking complete")
 
     def merge_objects(self, input_objects, debug):
         """ Merge object files into a single object file """
 
         for input_object in input_objects:
-            self.logger.debug("Merging %s", input_object)
-            section_offsets = {}
+            self.inject_object(input_object, debug)
 
-            for input_section in input_object.sections:
-                # Get or create the output section:
-                output_section = self.dst.get_section(
-                    input_section.name, create=True
+    def inject_object(self, obj, debug):
+        """ Paste object into destination object. """
+        self.logger.debug("Merging %s", obj)
+        section_offsets = {}
+
+        for input_section in obj.sections:
+            # Get or create the output section:
+            output_section = self.dst.get_section(
+                input_section.name, create=True
+            )
+
+            # Alter the minimum section alignment if required:
+            if input_section.alignment > output_section.alignment:
+                output_section.alignment = input_section.alignment
+
+            # Align section:
+            while output_section.size % input_section.alignment != 0:
+                self.logger.debug("Padding output to ensure alignment")
+                output_section.add_data(bytes([0]))
+
+            # Add new section:
+            offset = output_section.size
+            section_offsets[input_section.name] = offset
+            output_section.add_data(input_section.data)
+            self.logger.debug(
+                "at offset 0x%x section %s",
+                section_offsets[input_section.name],
+                input_section,
+            )
+
+        symbol_id_mapping = {}
+        for symbol in obj.symbols:
+            # Shift symbol value if required:
+            if symbol.defined:
+                value = section_offsets[symbol.section] + symbol.value
+                section = symbol.section
+            else:
+                value = section = None
+
+            if symbol.binding == "global":
+                new_symbol = self.merge_global_symbol(
+                    symbol.name, section, value
+                )
+            else:
+                new_symbol = self.inject_symbol(
+                    symbol.name, symbol.binding, section, value
                 )
 
-                # Alter the minimum section alignment if required:
-                if input_section.alignment > output_section.alignment:
-                    output_section.alignment = input_section.alignment
+            symbol_id_mapping[symbol.id] = new_symbol.id
 
-                # Align section:
-                while output_section.size % input_section.alignment != 0:
-                    self.logger.debug("Padding output to ensure alignment")
-                    output_section.add_data(bytes([0]))
+        for reloc in obj.relocations:
+            offset = section_offsets[reloc.section] + reloc.offset
+            symbol_id = symbol_id_mapping[reloc.symbol_id]
+            new_reloc = RelocationEntry(
+                reloc.reloc_type,
+                symbol_id,
+                reloc.section,
+                offset,
+                reloc.addend,
+            )
+            self.dst.add_relocation(new_reloc)
 
-                # Add new section:
-                offset = output_section.size
-                section_offsets[input_section.name] = offset
-                output_section.add_data(input_section.data)
-                self.logger.debug(
-                    "at offset 0x%x section %s",
-                    section_offsets[input_section.name],
-                    input_section,
-                )
-
-            symbol_id_mapping = {}
-            for symbol in input_object.symbols:
-                # Shift symbol value if required:
-                if symbol.defined:
-                    value = section_offsets[symbol.section] + symbol.value
-                    section = symbol.section
-                else:
-                    value = section = None
-
-                if symbol.binding == "global":
-                    new_symbol = self.merge_global_symbol(
-                        symbol.name, section, value
-                    )
-                else:
-                    new_symbol = self.inject_symbol(
-                        symbol.name, symbol.binding, section, value
-                    )
-
-                symbol_id_mapping[symbol.id] = new_symbol.id
-
-            for reloc in input_object.relocations:
-                offset = section_offsets[reloc.section] + reloc.offset
-                symbol_id = symbol_id_mapping[reloc.symbol_id]
-                new_reloc = RelocationEntry(
-                    reloc.reloc_type,
-                    symbol_id,
-                    reloc.section,
-                    offset,
-                    reloc.addend,
-                )
-                self.dst.add_relocation(new_reloc)
-
-            # Merge debug info:
-            if debug and input_object.debug_info:
-                replicator = SymbolIdAdjustingReplicator(symbol_id_mapping)
-                replicator.replicate(
-                    input_object.debug_info, self.dst.debug_info
-                )
+        # Merge debug info:
+        if debug and obj.debug_info:
+            replicator = SymbolIdAdjustingReplicator(symbol_id_mapping)
+            replicator.replicate(obj.debug_info, self.dst.debug_info)
 
     def merge_global_symbol(self, name, section, value):
         """ Insert or merge a global name. """
@@ -320,6 +343,51 @@ class Linker:
         return self.dst.get_symbol_id_value(symbol_id)
         #    raise CompilerError('Undefined reference "{}"'.format(name))
 
+    def add_missing_symbols_from_libraries(self, libraries):
+        """ Try to fetch extra code from libraries to resolve symbols.
+
+        Note that this can be a rabbit hole, since libraries can have undefined
+        symbols as well.
+        """
+        undefined_symbols = self.get_undefined_symbols()
+        if not undefined_symbols:
+            self.logger.debug(
+                "No undefined symbols, not need to check libraries"
+            )
+            return
+
+        for library in libraries:
+            self.logger.debug("scanning library for symbols %s", library)
+            for obj in library:
+                has_sym = any(map(obj.has_symbol, undefined_symbols))
+                if has_sym:
+                    self.logger.debug("Using object file %s from library", obj)
+                    self.inject_object(obj)
+        # TODO: Add this point, we might need to re-loop, since newly added
+        # code objects might introduce new undefined references.
+
+    def get_undefined_symbols(self):
+        """ Get a list of currently undefined symbols.
+        """
+        undefined_symbols = []
+        for symbol in self.dst.symbols:
+            if symbol.undefined:
+                self.logger.error("Undefined reference: %s", symbol.name)
+                undefined_symbols.append(symbol.name)
+        return undefined_symbols
+
+    def check_undefined_symbols(self):
+        """ Find undefined symbols.
+        """
+        undefined_symbols = self.get_undefined_symbols()
+
+        if undefined_symbols:
+            raise CompilerError(
+                "Undefined references: {}".format(
+                    ", ".join(str(s) for s in undefined_symbols)
+                )
+            )
+
     def do_relaxations(self):
         """ Linker relaxation. Just relax ;).
 
@@ -334,11 +402,14 @@ class Linker:
         8 bit jump.
 
         Possible issues that might occur during this phase:
+
         - alignment of code. Code that was previously aligned might be
           shifted.
+
         - Linker relaxations might cause the opposite effect on jumps whose
           distance increases due to relaxation. This occurs when jumping over
           a memory whole between sections.
+
         """
 
         self.logger.debug("Doing linker relaxations")
@@ -392,7 +463,7 @@ class Linker:
             return
 
         s = ", ".join(str(x) for x in lst)
-        self.logger.debug("Relaxable relocations: %s\n" % s)
+        self.logger.debug("Relaxable relocations: %s", s)
 
         # Define a map with the byte holes:
         holes_map = defaultdict(list)  # section name to list of holes.
@@ -510,28 +581,15 @@ class Linker:
 
     def do_relocations(self):
         """ Perform the correct relocation as listed """
-        self._check_undefined_symbols()
-        self.do_relaxations()
-
         for reloc in self.dst.relocations:
             self._do_relocation(reloc)
 
-    def _check_undefined_symbols(self):
-        undefined_symbols = []
-        for symbol in self.dst.symbols:
-            if symbol.undefined:
-                self.logger.error("Undefined reference: %s", symbol.name)
-                undefined_symbols.append(symbol.name)
-
-        if undefined_symbols:
-            raise CompilerError(
-                "Undefined references: {}".format(
-                    ", ".join(str(s) for s in undefined_symbols)
-                )
-            )
-
     def _do_relocation(self, relocation):
-        """ Perform a single relocation. """
+        """ Perform a single relocation.
+
+        This involves hammering some specific bits in the section data
+        according to symbol location and relocation location in the file.
+        """
         self.logger.debug("Performing linker relaxation")
         sym_value = self.get_symbol_value(relocation.symbol_id)
         section = self.dst.get_section(relocation.section)

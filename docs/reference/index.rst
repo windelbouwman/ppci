@@ -8,6 +8,7 @@ Reference
     programs
     cli
     lang/index
+    binutils/index
     buildxml
     ir
     irutils
@@ -16,7 +17,6 @@ Reference
     debug
     backends/index
     format/index
-    objectformat
     wasm
     utils/index
     graph/index

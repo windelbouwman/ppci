@@ -25,7 +25,7 @@ project, the api can be used as follows:
     >>> march = "msp430"
     >>> o1 = asm('examples/msp430/blinky/boot.asm', march)
     >>> o2 = c3c(['examples/msp430/blinky/blinky.c3'], [], march)
-    >>> o3 = link([o2, o1], 'examples/msp430/blinky/msp430.mmap', march)
+    >>> o3 = link([o2, o1], layout='examples/msp430/blinky/msp430.mmap')
     >>> objcopy(o3, 'flash', 'hex', 'blinky_msp430.hex')
 
 Instead of using the api, a set of :doc:`commandline tools<cli>` are also

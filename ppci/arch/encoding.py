@@ -644,7 +644,7 @@ class Relocation:
         setattr(token, self.field, self.calc(sym_value, reloc_value))
         data = token.encode()
         return data
-            
+
     def can_shrink(self, sym_value, reloc_value):
         """ Test if this relocation can shrink during the relaxation phase.
 

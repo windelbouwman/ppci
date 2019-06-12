@@ -10,7 +10,8 @@ class CRel(Relocation):
 
 class CBImm11Relocation(CRel):
     """ 32-bit relocation for `J` instruction """
-    name = 'cb_imm11'
+
+    name = "cb_imm11"
     token = RiscvToken
 
     def apply(self, sym_value, data, reloc_value):
@@ -52,7 +53,8 @@ class CBImm11Relocation(CRel):
 
 class CBlImm11Relocation(CRel):
     """ 32 bit relocation for `jal` instruction. """
-    name = 'cbl_imm11'
+
+    name = "cbl_imm11"
     token = RiscvToken
 
     def apply(self, sym_value, data, reloc_value):
@@ -86,7 +88,7 @@ class CBlImm11Relocation(CRel):
 
 
 class BcImm11Relocation(CRel):
-    name = 'bc_imm11'
+    name = "bc_imm11"
     token = RiscvcToken
 
     def apply(self, sym_value, data, reloc_value):
@@ -100,7 +102,7 @@ class BcImm11Relocation(CRel):
 
 
 class BcImm8Relocation(CRel):
-    name = 'bc_imm8'
+    name = "bc_imm8"
     token = RiscvcToken
 
     def apply(self, sym_value, data, reloc_value):
@@ -131,6 +133,6 @@ def apply_cool_mapping(bv, rel11):
 
 def isinsrange(bits, val):
     """ Helper function to test if value is withing range. """
-    msb = 1 << (bits-1)
+    msb = 1 << (bits - 1)
     ll = -msb
-    return (val <= (msb-1) and (val >= ll))
+    return val <= (msb - 1) and (val >= ll)

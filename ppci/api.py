@@ -30,6 +30,7 @@ from .opt.cjmp import CJumpPass
 from .opt.tailcall import TailCallOptimization
 from .codegen import CodeGenerator
 from .binutils.linker import link
+from .binutils.archive import archive
 from .binutils.outstream import BinaryOutputStream, TextOutputStream
 from .binutils.outstream import MasterOutputStream, FunctionOutputStream
 from .binutils.objectfile import ObjectFile, get_object
@@ -47,6 +48,7 @@ from .arch import get_arch, get_current_arch
 # When using 'from ppci.api import *' include the following:
 __all__ = [
     "asm",
+    'archive',
     "c3c",
     "cc",
     "link",

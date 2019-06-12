@@ -159,6 +159,7 @@ class CMovr(RiscvcInstruction):
 
 class CBl(RiscvInstruction):
     """ jal instruction (32-bits) """
+
     target = Operand("target", str)
     rd = Operand("rd", RiscvRegister, write=True)
     syntax = Syntax(["jal", " ", rd, ",", " ", target])
@@ -175,6 +176,7 @@ class CBl(RiscvInstruction):
 
 class CJal(RiscvcInstruction):
     """ c.jal instruction. """
+
     target = Operand("target", str)
     syntax = Syntax(["c", ".", "jal", " ", target])
 
@@ -190,6 +192,7 @@ class CJal(RiscvcInstruction):
 
 class CB(RiscvInstruction):
     """ Full 32-bit `J` instruction. """
+
     target = Operand("target", str)
     syntax = Syntax(["j", " ", target])
 
@@ -205,6 +208,7 @@ class CB(RiscvInstruction):
 
 class CJ(RiscvcInstruction):
     """ C.J instruction. """
+
     target = Operand("target", str)
     syntax = Syntax(["c", ".", "j", " ", target])
 
