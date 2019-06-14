@@ -1,4 +1,5 @@
 from .encoding import Instruction
+from . import effects
 
 
 class VirtualInstruction(Instruction):
@@ -111,6 +112,9 @@ class Label(PseudoInstruction):
 
     def symbols(self):
         return [self.name]
+
+    def effect(self):
+        return [effects.Set(effects.PC, self.name)]
 
 
 class Global(PseudoInstruction):

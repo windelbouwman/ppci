@@ -56,5 +56,6 @@ point is introduced here.
     codegen
     instructionselection
     registerallocator
+    peephole
     outstream
     dagsplit

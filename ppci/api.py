@@ -353,7 +353,7 @@ def cc(
         >>> source_file = io.StringIO("void main() { int a; }")
         >>> obj = cc(source_file, 'x86_64')
         >>> print(obj)
-        CodeObject of 25 bytes
+        CodeObject of 20 bytes
 
     """
     if not reporter:  # pragma: no cover

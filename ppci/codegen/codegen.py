@@ -20,6 +20,7 @@ from .irdag import SelectionGraphBuilder
 from .instructionselector import InstructionSelector1
 from .instructionscheduler import InstructionScheduler
 from .registerallocator import GraphColoringRegisterAllocator
+from .peephole import PeepHoleStream
 
 
 class CodeGenerator:
@@ -186,7 +187,9 @@ class CodeGenerator:
         output_stream = MasterOutputStream(
             [FunctionOutputStream(instruction_list.append), output_stream]
         )
-        self.emit_frame_to_stream(frame, output_stream, debug=debug)
+        peep_hole_stream = PeepHoleStream(output_stream)
+        self.emit_frame_to_stream(frame, peep_hole_stream, debug=debug)
+        peep_hole_stream.flush()
 
         # Emit function debug info:
         if self.debug_db.contains(frame) and debug:

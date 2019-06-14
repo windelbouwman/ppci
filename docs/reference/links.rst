@@ -137,6 +137,11 @@ Citations
     1998,
     Cristina Cifuentes and Doug Simon and Antoine Fraboulet.
 
+.. [Davidson1980]
+    "The Design and Application of a Retargetable Peephole Optimizer",
+    1980,
+    Jack W. Davidson and Christopher W. Fraser.
+
 .. [Baker1977]
     "An Algorithm for Structuring Flowgraphs",
     1977,

@@ -6,6 +6,7 @@ See for a reference: http://ref.x86asm.net/coder64.html
 from ..generic_instructions import Label, RegisterUseDef
 from ..isa import Isa
 from ..encoding import Instruction, Operand, Syntax, Constructor, Relocation
+from .. import effects
 from ...utils.bitfun import wrap_negative
 from ..token import Token, u8, u16, u32, u64, bit_range, bit
 from .registers import rcx, al, cl, rax, rdx, rbp, eax, edx, ecx, cx, dx
@@ -196,6 +197,9 @@ class NearJump(X86Instruction):
 
     def relocations(self):
         return [Rel32JmpRelocation(self.target, offset=1)]
+
+    def effect(self):
+        return [effects.Assign(effects.PC, self.target)]
 
 
 class ConditionalJump(X86Instruction):
