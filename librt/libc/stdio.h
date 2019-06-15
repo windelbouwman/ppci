@@ -14,6 +14,7 @@ typedef int FILE;
 FILE* fopen(const char* filename, const char* mode);
 int fflush(FILE* stream);
 int fclose(FILE* stream);
+int feof(FILE* stream);
 
 // Formatted output:
 int fprintf(FILE*stream, const char* format, ...);
@@ -27,6 +28,23 @@ int vsprintf(char* str, const char*, va_list arg);
 extern FILE *stdin;
 extern FILE *stdout;
 extern FILE *stderr;
+
+// File IO:
+int fgetc(FILE* stream);
+#define getc fgetc
+int fputc(int character, FILE* stream);
+#define putc fputc
+int fputs(const char* str, FILE* stream);
+size_t fread(void * ptr, size_t size, size_t count, FILE* stream);
+size_t fwrite(const void* ptr, size_t size, size_t count, FILE* stream);
+int fseek(FILE* stream, long int offset, int origin);
+
+#define EOF (-1)
+
+// Low level functions:
+
+int putchar(int character);
+int getchar(void);
 
 #endif
 

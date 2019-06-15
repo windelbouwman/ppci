@@ -34,12 +34,13 @@ from .binutils.archive import archive
 from .binutils.outstream import BinaryOutputStream, TextOutputStream
 from .binutils.outstream import MasterOutputStream, FunctionOutputStream
 from .binutils.objectfile import ObjectFile, get_object
-from .binutils.debuginfo import DebugAddress, DebugInfo
+from .binutils.debuginfo import DebugInfo
 from .binutils.disasm import Disassembler
 from .format.hexfile import HexFile
 from .format.elf import write_elf
 from .format.exefile import ExeWriter
 from .format import uboot_image
+from .format.ldb import write_ldb
 from .build.tasks import TaskError, TaskRunner
 from .build.recipe import RecipeLoader
 from .common import CompilerError, DiagnosticsManager, get_file
@@ -48,7 +49,7 @@ from .arch import get_arch, get_current_arch
 # When using 'from ppci.api import *' include the following:
 __all__ = [
     "asm",
-    'archive',
+    "archive",
     "c3c",
     "cc",
     "link",
@@ -559,39 +560,3 @@ def objcopy(obj: ObjectFile, image_name: str, fmt: str, output_filename):
             writer.write(obj, output_file)
     else:  # pragma: no cover
         raise NotImplementedError("output format not implemented")
-
-
-def write_ldb(obj, output_file):
-    """ Export debug info from object to ldb format.
-
-    See for example:
-    - https://github.com/embedded-systems/qr/blob/master/in4073_xufo/
-      x32-debug/ex2.dbg
-    """
-
-    def fx(address):
-        assert isinstance(address, DebugAddress)
-        return obj.get_symbol_id_value(address.symbol_id)
-
-    debug_info = obj.debug_info
-    for debug_location in debug_info.locations:
-        filename = debug_location.loc.filename
-        row = debug_location.loc.row
-        address = fx(debug_location.address)
-        print(
-            'line: "{}":{} @ 0x{:08X}'.format(filename, row, address),
-            file=output_file,
-        )
-    for func in debug_info.functions:
-        name = func.name
-        address = fx(func.begin)
-        print(
-            "function: {} <0> @ 0x{:08X}".format(name, address),
-            file=output_file,
-        )
-    for var in debug_info.variables:
-        name = var.name
-        address = fx(var.address)
-        print(
-            "global: {} <0> @ 0x{:08X}".format(name, address), file=output_file
-        )

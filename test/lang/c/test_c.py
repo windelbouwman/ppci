@@ -4,7 +4,7 @@ import operator
 import io
 from ppci.common import CompilerError
 from ppci.lang.c import CBuilder, render_ast, CContext
-from ppci.lang.c import CSynthesizer, parse_type, print_ast
+from ppci.lang.c import parse_type, print_ast
 from ppci.lang.c.options import COptions
 from ppci.lang.c.utils import replace_escape_codes
 from ppci.arch.example import ExampleArch
@@ -564,6 +564,15 @@ class CFrontendTestCase(unittest.TestCase):
         """
         self.do(src)
 
+    @unittest.skip('todo')
+    def test_afterwards_declaration(self):
+        """ Test redeclaration """
+        src = """
+        char a = 2;
+        extern char a;
+        """
+        self.do(src)
+
     def test_softfloat_bug(self):
         """ Bug encountered in softfloat library """
         src = """
@@ -681,27 +690,19 @@ class CFrontendTestCase(unittest.TestCase):
         """
         self.do(src)
 
-
-class CSynthesizerTestCase(unittest.TestCase):
     # @unittest.skip('todo')
-    def test_hello(self):
-        """ Convert C to Ir, and then this IR to C """
-        src = r"""
-        void printf(char*);
-        void main(int b) {
-          printf("Hello" "world\n");
-        }
+    def test_array_of_strings(self):
+        """ Test array's of strings """
+        src = """
+        char *msg[] = {
+          "Hi",
+          "Bonjour"
+        };
         """
-        arch = ExampleArch()
-        builder = CBuilder(arch.info, COptions())
-        f = io.StringIO(src)
-        ir_module = builder.build(f, None)
-        assert isinstance(ir_module, ir.Module)
-        Verifier().verify(ir_module)
-        synthesizer = CSynthesizer()
-        synthesizer.syn_module(ir_module)
+        self.do(src)
 
 
+@unittest.skip('fixme')
 class CTypeInitializerTestCase(unittest.TestCase):
     """ Test if C-types are correctly initialized """
     def setUp(self):

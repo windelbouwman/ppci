@@ -6,7 +6,6 @@
 import logging
 import struct
 from ...common import CompilerError
-from ...utils.bitfun import value_to_bits, bits_to_bytes
 from ...arch.arch_info import Endianness
 from ... import ir
 from .nodes.types import BasicType
@@ -97,7 +96,7 @@ class CContext:
         elif isinstance(typ, types.StructType):
             if not typ.complete:
                 self.error("Storage size unknown", typ.location)
-            return self._get_field_offsets(typ)[0]
+            return self.get_field_offsets(typ)[0]
         elif isinstance(typ, types.UnionType):
             if not typ.complete:
                 self.error("Type is incomplete, size unknown", typ)
@@ -164,7 +163,7 @@ class CContext:
         offset //= 8
         return offset, offsets
 
-    def _get_field_offsets(self, typ):
+    def get_field_offsets(self, typ):
         """ Get a dictionary with offset of fields """
         if typ not in self._field_offsets:
             kind = "struct" if isinstance(typ, types.StructType) else "union"
@@ -174,7 +173,7 @@ class CContext:
 
     def offsetof(self, typ, field):
         """ Returns the offset of a field in a struct/union in bytes """
-        field_offset = self._get_field_offsets(typ)[1][field]
+        field_offset = self.get_field_offsets(typ)[1][field]
         # Note that below assert will not always hold.
         # It is also used to create debug types.
         # assert field_offset % 8 == 0
@@ -244,129 +243,6 @@ class CContext:
             ival = expressions.NumericLiteral(ival, int_type, None)
         return ival
 
-    def gen_global_ival(self, typ, ival):
-        """ Create memory image for initial value of global variable """
-        # Handle arguments:
-        ival = self._make_ival(typ, ival)
-
-        # Check initial value type:
-        if not isinstance(ival, expressions.Expression):
-            raise TypeError("ival must be an Expression")
-
-        if isinstance(typ, types.ArrayType):
-            mem = self._initialize_array(typ, ival)
-        elif isinstance(typ, types.StructType):
-            mem = self._initialize_struct(typ, ival)
-        elif isinstance(typ, types.UnionType):
-            mem = self._initialize_union(typ, ival)
-        elif isinstance(typ, (types.BasicType, types.PointerType)):
-            cval = self.eval_expr(ival)
-            if isinstance(cval, tuple):
-                assert cval[0] is ir.ptr and len(cval) == 2
-                mem = (cval,)
-            else:
-                mem = (self.pack(typ, cval),)
-        else:  # pragma: no cover
-            raise NotImplementedError(str(typ))
-        assert isinstance(mem, tuple)
-        return mem
-
-    def _initialize_array(self, typ, ival):
-        """ Properly fill an array with initial values """
-        assert isinstance(ival, expressions.ArrayInitializer)
-        assert ival.typ is typ
-
-        element_size = self.sizeof(typ.element_type)
-        implicit_value = tuple([bytes([0] * element_size)])
-
-        mem = tuple()
-        for value in ival.values:
-            # TODO: handle alignment
-            if value is None:
-                element_mem = implicit_value
-            else:
-                element_mem = self.gen_global_ival(typ.element_type, value)
-            mem = mem + element_mem
-
-        array_size = self.eval_expr(typ.size)
-
-        if len(ival.values) < array_size:
-            extra_implicit = array_size - len(ival.values)
-            mem = mem + implicit_value * extra_implicit
-        return mem
-
-    def _initialize_union(self, typ, ival):
-        """ Initialize a union type """
-        assert isinstance(ival, expressions.UnionInitializer)
-        assert ival.typ is typ
-        mem = tuple()
-        # Initialize the first field!
-        field = ival.field
-        mem = mem + self.gen_global_ival(field.typ, ival.value)
-        size = self.sizeof(typ)
-        filling = size - len(mem)
-        assert filling >= 0
-        mem = mem + (bytes([0] * filling),)
-        return mem
-
-    def _initialize_struct(self, typ, ival):
-        """ Properly fill global struct variable with content """
-        assert isinstance(ival, expressions.StructInitializer)
-        assert ival.typ is typ
-        mem = tuple()
-        bits = []  # A working list of bytes
-
-        field_offsets = self._get_field_offsets(typ)[1]
-        for field in typ.fields:
-            if field.is_bitfield:
-                # Special case for bitfields
-                if field in ival.values:
-                    value = ival.values[field]
-                    cval = self.eval_expr(value)
-                else:
-                    cval = 0
-                bitsize = self.eval_expr(field.bitsize)
-                new_bits = value_to_bits(cval, bitsize)
-                bits.extend(new_bits)
-            else:
-                # Flush bits:
-                if bits:
-                    mem = mem + (bits_to_bytes(bits),)
-                    bits.clear()
-                # Apply some padding:
-                field_offset = field_offsets[field] // 8
-                # TODO: how to handle bit fields?
-                mem_len = self.mem_len(mem)
-                if mem_len < field_offset:
-                    padding_count = field_offset - mem_len
-                    mem = mem + (bytes([0] * padding_count),)
-
-                # Add field data, if any:
-                if field in ival.values:
-                    value = ival.values[field]
-                    mem = mem + self.gen_global_ival(field.typ, value)
-                else:
-                    field_size = self.sizeof(field.typ)
-                    mem = mem + (bytes([0] * field_size),)
-
-        # Purge last remaining bits:
-        if bits:
-            mem = mem + (bits_to_bytes(bits),)
-            bits.clear()
-        return mem
-
-    def mem_len(self, mem):
-        """ Determine the bytesize of a memory slab """
-        size = 0
-        for part in mem:
-            if isinstance(part, bytes):
-                size += len(part)
-            elif isinstance(part, tuple) and part[0] is ir.ptr:
-                size += self.arch_info.get_size(part[0])
-            else:  # pragma: no cover
-                raise NotImplementedError(repr(part))
-        return size
-
     @staticmethod
     def error(message, location, hints=None):
         """ Trigger an error at the given location """
@@ -411,15 +287,6 @@ class CContext:
             declaration = expr.variable.last_declaration
             if isinstance(declaration, declarations.EnumConstantDeclaration):
                 value = self.get_enum_value(declaration.typ, declaration)
-            elif isinstance(
-                declaration,
-                (
-                    declarations.VariableDeclaration,
-                    declarations.FunctionDeclaration,
-                ),
-            ):
-                # emit reference to global symbol
-                value = (ir.ptr, declaration.name)
             else:
                 raise NotImplementedError(str(expr.variable))
         elif isinstance(expr, expressions.NumericLiteral):

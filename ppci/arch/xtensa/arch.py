@@ -36,6 +36,7 @@ class XtensaArch(Architecture):
                 ir.f64: TypeInfo(8, 8),
                 "int": ir.i32,
                 "ptr": ir.u32,
+                ir.ptr: ir.u32,
             },
             register_classes=register_classes,
         )

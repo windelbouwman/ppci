@@ -10,6 +10,16 @@ void free(void* ptr);
 
 void abort(void);
 
+void exit(int status);
+#define EXIT_FAILURE 1
+#define EXIT_SUCCESS 1
+
+void qsort(void* base, size_t num, size_t size, int(*compar)(const void*, const void*));
+
+int atoi(const char * str);
+long int atol(const char * str);
+double atof(const char * str);
+
 #define NULL 0
 
 void* alloca(size_t size);

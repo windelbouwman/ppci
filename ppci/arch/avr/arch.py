@@ -95,6 +95,7 @@ class AvrArch(Architecture):
                 ir.f64: TypeInfo(8, 8),
                 "int": ir.i16,
                 "ptr": ir.u16,
+                ir.ptr: ir.u16,
             },
             register_classes=register_classes,
         )

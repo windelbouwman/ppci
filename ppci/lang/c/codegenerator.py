@@ -14,6 +14,7 @@ from .nodes import types, declarations, statements, expressions
 from .utils import required_padding
 from .nodes.types import BasicType
 from .scope import RootScope
+from ...utils.bitfun import value_to_bits, bits_to_bytes
 
 
 class CCodeGenerator:
@@ -51,6 +52,7 @@ class CCodeGenerator:
             BasicType.ULONGLONG: (ir.u64, 8),
             BasicType.FLOAT: (ir.f32, 4),
             BasicType.DOUBLE: (ir.f64, 8),
+            BasicType.LONGDOUBLE: (ir.f64, 8),  # TODO: is this correct?
         }
 
     def get_label_block(self, name):
@@ -130,7 +132,7 @@ class CCodeGenerator:
         else:
             # if typ is array, use initializer to determine size
             if var_decl.initial_value:
-                ivalue = self.context.gen_global_ival(
+                ivalue = self.gen_global_ival(
                     var_decl.typ, var_decl.initial_value
                 )
             else:
@@ -145,6 +147,167 @@ class CCodeGenerator:
             ir_var = ir.Variable(name, binding, size, alignment, value=ivalue)
             self.builder.module.add_variable(ir_var)
             self.ir_var_map[var_decl] = ir_var
+
+    def gen_global_ival(self, typ, ival):
+        """ Create memory image for initial value of global variable """
+        # Handle arguments:
+        # ival = self._make_ival(typ, ival)
+
+        # Check initial value type:
+        if not isinstance(ival, expressions.Expression):
+            raise TypeError("ival must be an Expression")
+
+        if isinstance(typ, types.ArrayType):
+            mem = self.gen_global_initialize_array(typ, ival)
+        elif isinstance(typ, types.StructType):
+            mem = self.gen_global_initialize_struct(typ, ival)
+        elif isinstance(typ, types.UnionType):
+            mem = self.gen_global_initialize_union(typ, ival)
+        elif isinstance(typ, (types.BasicType, types.PointerType)):
+            mem = self.gen_global_initialize_expression(typ, ival)
+        else:  # pragma: no cover
+            raise NotImplementedError(str(typ))
+        assert isinstance(mem, tuple)
+        return mem
+
+    def gen_global_initialize_expression(self, typ, expr):
+        """ Generate memory slab for global expression. """
+        # First check for string literals and variable / function references
+        if isinstance(expr, expressions.VariableAccess):
+            declaration = expr.variable.last_declaration
+            if isinstance(
+                declaration,
+                (
+                    declarations.VariableDeclaration,
+                    declarations.FunctionDeclaration,
+                ),
+            ):
+                # emit reference to global symbol
+                cval = (ir.ptr, declaration.name)
+            else:
+                cval = self.context.eval_expr(expr)
+        elif isinstance(expr, expressions.StringLiteral):
+            # Now emit new global variable, and return pointer to it.
+            text_var = self.gen_global_string_constant(expr)
+            cval = (ir.ptr, text_var.name)
+        else:
+            cval = self.context.eval_expr(expr)
+
+        if isinstance(cval, tuple):
+            assert cval[0] is ir.ptr and len(cval) == 2
+            mem = (cval,)
+        else:
+            mem = (self.context.pack(typ, cval),)
+        return mem
+
+    def gen_global_string_constant(self, expr):
+        """ Create a new global variable holding string literal data. """
+        value_data = expr.to_bytes()
+        amount = len(value_data)
+        alignment = 1
+        name = "__txt_const_{}".format(self.static_counter)
+        self.static_counter += 1
+        text_var = ir.Variable(
+            name, ir.Binding.LOCAL, amount, alignment, value=value_data
+        )
+        self.builder.module.add_variable(text_var)
+        return text_var
+
+    def gen_global_initialize_array(self, typ, ival):
+        """ Properly fill an array with initial values """
+        assert isinstance(ival, expressions.ArrayInitializer)
+        assert ival.typ is typ
+
+        element_size = self.context.sizeof(typ.element_type)
+        implicit_value = tuple([bytes([0] * element_size)])
+
+        mem = tuple()
+        for value in ival.values:
+            # TODO: handle alignment
+            if value is None:
+                element_mem = implicit_value
+            else:
+                element_mem = self.gen_global_ival(typ.element_type, value)
+            mem = mem + element_mem
+
+        array_size = self.context.eval_expr(typ.size)
+
+        if len(ival.values) < array_size:
+            extra_implicit = array_size - len(ival.values)
+            mem = mem + implicit_value * extra_implicit
+        return mem
+
+    def gen_global_initialize_union(self, typ, ival):
+        """ Initialize a union type """
+        assert isinstance(ival, expressions.UnionInitializer)
+        assert ival.typ is typ
+        mem = tuple()
+        # Initialize the first field!
+        field = ival.field
+        mem = mem + self.gen_global_ival(field.typ, ival.value)
+        size = self.context.sizeof(typ)
+        filling = size - len(mem)
+        assert filling >= 0
+        mem = mem + (bytes([0] * filling),)
+        return mem
+
+    def gen_global_initialize_struct(self, typ, ival):
+        """ Properly fill global struct variable with content """
+        assert isinstance(ival, expressions.StructInitializer)
+        assert ival.typ is typ
+        mem = tuple()
+        bits = []  # A working list of bytes
+
+        field_offsets = self.context.get_field_offsets(typ)[1]
+        for field in typ.fields:
+            if field.is_bitfield:
+                # Special case for bitfields
+                if field in ival.values:
+                    value = ival.values[field]
+                    cval = self.eval_expr(value)
+                else:
+                    cval = 0
+                bitsize = self.eval_expr(field.bitsize)
+                new_bits = value_to_bits(cval, bitsize)
+                bits.extend(new_bits)
+            else:
+                # Flush bits:
+                if bits:
+                    mem = mem + (bits_to_bytes(bits),)
+                    bits.clear()
+                # Apply some padding:
+                field_offset = field_offsets[field] // 8
+                # TODO: how to handle bit fields?
+                mem_len = self.mem_len(mem)
+                if mem_len < field_offset:
+                    padding_count = field_offset - mem_len
+                    mem = mem + (bytes([0] * padding_count),)
+
+                # Add field data, if any:
+                if field in ival.values:
+                    value = ival.values[field]
+                    mem = mem + self.gen_global_ival(field.typ, value)
+                else:
+                    field_size = self.context.sizeof(field.typ)
+                    mem = mem + (bytes([0] * field_size),)
+
+        # Purge last remaining bits:
+        if bits:
+            mem = mem + (bits_to_bytes(bits),)
+            bits.clear()
+        return mem
+
+    def mem_len(self, mem):
+        """ Determine the bytesize of a memory slab """
+        size = 0
+        for part in mem:
+            if isinstance(part, bytes):
+                size += len(part)
+            elif isinstance(part, tuple) and part[0] is ir.ptr:
+                size += self.context.arch_info.get_size(part[0])
+            else:  # pragma: no cover
+                raise NotImplementedError(repr(part))
+        return size
 
     def gen_function(self, function):
         """ Generate code for a function """
@@ -346,9 +509,7 @@ class CCodeGenerator:
     def gen_local_static_variable(self, var_decl):
         """ Generate code for a local static variable. """
         if var_decl.initial_value:
-            ivalue = self.context.gen_global_ival(
-                var_decl.typ, var_decl.initial_value
-            )
+            ivalue = self.gen_global_ival(var_decl.typ, var_decl.initial_value)
         else:
             ivalue = None
         size = self.context.sizeof(var_decl.typ)
@@ -639,17 +800,17 @@ class CCodeGenerator:
             size = self.emit(ir.Const(inc, "size", ir.ptr))
             ptr = self.emit(ir.add(ptr, size, "iptr", ir.ptr))
         elif isinstance(typ, types.ArrayType):
-            ptr, inc = self._init_array(ptr, typ, expr)
+            ptr, inc = self.gen_local_init_array(ptr, typ, expr)
         elif isinstance(typ, types.StructType):
-            ptr, inc = self._init_struct(ptr, typ, expr)
+            ptr, inc = self.gen_local_init_struct(ptr, typ, expr)
         elif isinstance(typ, types.UnionType):
-            ptr, inc = self._init_union(ptr, typ, expr)
+            ptr, inc = self.gen_local_init_union(ptr, typ, expr)
         else:  # pragma: no cover
             raise NotImplementedError(str(typ))
         return ptr, inc
 
-    def _init_union(self, ptr, typ, expr):
-        """ Initialize a union type """
+    def gen_local_init_union(self, ptr, typ, expr):
+        """ Initialize a union type local variable """
         assert isinstance(expr, expressions.UnionInitializer)
         assert expr.typ is typ
 
@@ -663,7 +824,9 @@ class CCodeGenerator:
         # ptr = self.emit(ir.add(ptr, size, 'iptr', ir.ptr))
         return ptr, inc
 
-    def _init_array(self, ptr, typ, expr: expressions.ArrayInitializer):
+    def gen_local_init_array(
+        self, ptr, typ, expr: expressions.ArrayInitializer
+    ):
         assert isinstance(expr, expressions.ArrayInitializer)
         inc = 0
         for value in expr.values:
@@ -679,12 +842,12 @@ class CCodeGenerator:
             inc += inc2
         return ptr, inc
 
-    def _init_struct(self, ptr, typ, expr):
+    def gen_local_init_struct(self, ptr, typ, expr):
         """ Fill structure with initializer (at runtime) """
         if isinstance(expr, expressions.StructInitializer):
             # Initializing with initialization values
             assert expr.typ is typ
-            size, field_offsets = self.context._get_field_offsets(typ)
+            size, field_offsets = self.context.get_field_offsets(typ)
             offset = 0
             for field in typ.fields:
                 # Move further in struct by whole bytes:
@@ -809,7 +972,7 @@ class CCodeGenerator:
                     ir.Const(constant_value, declaration.name, ir_typ)
                 )
             else:  # pragma: no cover
-                raise NotImplementedError(str(variable))
+                raise NotImplementedError(str(declaration))
         elif isinstance(expr, expressions.FunctionCall):
             value = self.gen_call(expr)
         elif isinstance(expr, expressions.StringLiteral):
@@ -848,7 +1011,7 @@ class CCodeGenerator:
             value = self.gen_sizeof(expr)
         elif isinstance(expr, expressions.FieldSelect):
             base = self.gen_expr(expr.base, rvalue=False)
-            _, field_offsets = self.context._get_field_offsets(expr.base.typ)
+            field_offsets = self.context.get_field_offsets(expr.base.typ)[1]
             offset = field_offsets[expr.field]
             if expr.field.is_bitfield:
                 offset, bitshift = offset // 8, offset % 8

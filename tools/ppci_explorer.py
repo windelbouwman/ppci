@@ -250,19 +250,11 @@ def ppci_explorer():
 
 
 DEMO_SOURCE = """
-
-static int add(int, int);
-
-int g=23;
-struct X {
-  int a;
-  int b;
+static char *msg[] = {
+  "Hi", "bonjour"
 };
 
-struct X x = { 1, 2 };
-
-int A[][2] = {1,2,3,4,5,6,7,8,9};
-int B[] = {1,2,3};
+int g=23;
 
 int add(int a, int b) {
   return a + b - g;

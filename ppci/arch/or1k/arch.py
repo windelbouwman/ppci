@@ -50,6 +50,7 @@ class Or1kArch(Architecture):
                 ir.f64: TypeInfo(8, 8),
                 "int": ir.i32,
                 "ptr": ir.u32,
+                ir.ptr: ir.u32,
             },
             endianness=Endianness.BIG,
             register_classes=registers.register_classes,

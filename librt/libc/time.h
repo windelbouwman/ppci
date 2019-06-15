@@ -6,6 +6,7 @@ typedef int time_t;
 
 time_t time(time_t* timer);
 double difftime(time_t end, time_t beginning);
+char* ctime(const time_t * timer);
 
 #endif
 

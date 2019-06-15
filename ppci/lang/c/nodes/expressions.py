@@ -223,6 +223,12 @@ class StringLiteral(Literal):
     def __repr__(self):
         return "String literal {}".format(self.value)
 
+    def to_bytes(self):
+        """ Convert this string literal to zero terminated byte string. """
+        encoding = "latin1"
+        data = self.value[1:-1].encode(encoding) + bytes([0])
+        return data
+
 
 class CompoundLiteral(CExpression):
     """ Compound literal available since C99.

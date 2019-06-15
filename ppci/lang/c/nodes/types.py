@@ -245,7 +245,11 @@ class StructType(StructOrUnionType):
     """ Structure type """
 
     def __repr__(self):
-        return "Structured-type field_names={}".format(self.get_field_names())
+        if self.complete:
+            field_names = self.get_field_names()
+            return "Structured-type field_names={}".format(field_names)
+        else:
+            return "Incomplete structured"
 
 
 class Field:
@@ -299,6 +303,10 @@ class BasicType(CType):
     UNSIGNED_INTEGER_TYPES = {UCHAR, USHORT, UINT, ULONG, ULONGLONG}
 
     INTEGER_TYPES = SIGNED_INTEGER_TYPES | UNSIGNED_INTEGER_TYPES
+
+    FLOAT_TYPES = {FLOAT, DOUBLE, LONGDOUBLE}
+
+    NUMERIC_TYPES = INTEGER_TYPES | FLOAT_TYPES
 
     def __init__(self, type_id):
         super().__init__()
