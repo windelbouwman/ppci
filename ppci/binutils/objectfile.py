@@ -51,6 +51,10 @@ class Symbol:
     def defined(self):
         return not self.undefined
 
+    @property
+    def is_global(self):
+        return self.binding == "global"
+
     def __repr__(self):
         return "Symbol({}, binding={}, val={} section={})".format(
             self.name, self.binding, self.value, self.section
@@ -264,6 +268,20 @@ class ObjectFile:
         sym = self.symbol_map.pop(name)
         self.symbols.remove(sym)
 
+    def get_undefined_symbols(self):
+        """ Get a list of undefined symbols. """
+        undefined_symbols = [
+            s.name for s in self.symbols if (s.undefined and s.is_global)
+        ]
+        return undefined_symbols
+
+    def get_defined_symbols(self):
+        """ Get a list of defined symbols. """
+        defined_symbols = [
+            s.name for s in self.symbols if (s.defined and s.is_global)
+        ]
+        return defined_symbols
+
     def add_relocation(self, reloc):
         """ Add a relocation entry """
         assert isinstance(reloc, RelocationEntry)
@@ -290,6 +308,14 @@ class ObjectFile:
         if (not self.has_section(name)) and create:
             self.add_section(Section(name))
         return self.section_map[name]
+
+    def create_section(self, name):
+        """ Create and add a section with the given name. """
+        if name in self.section_map:
+            raise ValueError("section {} already exists!".format(name))
+        section = Section(name)
+        self.add_section(section)
+        return section
 
     def get_image(self, name):
         """ Get a memory image """

@@ -121,7 +121,7 @@ class RootScope:
         elif isinstance(expr, expressions.Cast):
             return self.is_const_expr(expr.expr)
         elif isinstance(expr, expressions.VariableAccess):
-            return self.is_const_expr(expr.variable.last_declaration)
+            return self.is_const_expr(expr.variable.declaration)
         else:
             return False
 
@@ -155,6 +155,14 @@ class Scope:
         else:
             return False
 
+    def is_definition(self, name: str):
+        """ Check if this name is a definition. """
+        if self.is_defined(name, all_scopes=False):
+            sym = self.get(name)
+            return sym.declaration.is_definition()
+        else:
+            return False
+
     def insert(self, declaration: declarations.CDeclaration):
         """ Insert a variable into the current scope """
         assert isinstance(declaration, declarations.CDeclaration)
@@ -172,14 +180,13 @@ class Scope:
     def get_declarations(self):
         r = []
         for s in self.var_map.values():
-            d = s.last_declaration
+            d = s.declaration
             if isinstance(
                 d, (declarations.EnumConstantDeclaration, declarations.Typedef)
             ):
                 continue
             r.append(d)
         return r
-        # return [s.last_declaration for s in self.var_map.values() if not isinstance(s.]
 
     def has_tag(self, name: str):
         if self.parent:
@@ -216,16 +223,21 @@ class Symbol:
         self.declarations = []
 
     @property
-    def last_declaration(self):
+    def declaration(self):
+        """ Return the best and most complete declaration for this symbol. """
         return self.declarations[-1]
+
+    def is_definition(self):
+        """ Test if this symbol is a definition. """
+        return self.declaration.is_definition()
 
     @property
     def typ(self):
-        return self.last_declaration.typ
+        return self.declaration.typ
 
     @property
     def location(self):
-        return self.last_declaration.location
+        return self.declaration.location
 
     def add_declaration(self, declaration):
         """ Append latest greatest declaration of this symbol. """
@@ -233,4 +245,8 @@ class Symbol:
 
     def add_redeclaration(self, declaration):
         """ Append latest greatest declaration of this symbol. """
-        self.declarations.append(declaration)
+        if self.declaration.is_definition():
+            assert not declaration.is_definition()
+            self.declarations.insert(0, declaration)
+        else:
+            self.declarations.append(declaration)

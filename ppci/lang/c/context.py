@@ -284,7 +284,7 @@ class CContext:
             else:  # pragma: no cover
                 raise NotImplementedError(str(expr))
         elif isinstance(expr, expressions.VariableAccess):
-            declaration = expr.variable.last_declaration
+            declaration = expr.variable.declaration
             if isinstance(declaration, declarations.EnumConstantDeclaration):
                 value = self.get_enum_value(declaration.typ, declaration)
             else:

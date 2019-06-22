@@ -25,8 +25,6 @@ from .scope import Scope, RootScope
 from .printer import expr_to_str
 
 
-# TODO: should semantics be architecture independent?
-# Can we postpone sizeof(int) stuff until code generation time?
 class CSemantics:
     """ This class handles the C semantics """
 
@@ -79,9 +77,14 @@ class CSemantics:
 
     def end_function(self, body):
         """ Called at the end of a function """
+        # Pop scope and function
         self.scope = self.scope.parent
-        self.current_function.body = body
+        function = self.current_function
         self.current_function = None
+
+        if self.scope.is_definition(function.name):
+            self.error('invalid redefinition', function.location)
+        function.body = body
         assert not self.switch_stack
 
     def apply_type_modifiers(self, type_modifiers, typ):
@@ -143,39 +146,6 @@ class CSemantics:
                 storage_class, typ, name, None, location
             )
 
-            # Check if the declared name is already defined:
-            if self.scope.is_defined(declaration.name, all_scopes=False):
-                # Get the already declared name and figure out what now!
-                sym = self.scope.get(declaration.name)
-
-                self.check_redeclaration_type(sym, declaration)
-
-                # re-declarations are only allowed on top level
-                if self.in_compound:
-                    self.invalid_redeclaration(sym, declaration)
-
-                if not isinstance(
-                    sym.last_declaration, declarations.VariableDeclaration
-                ):
-                    self.invalid_redeclaration(sym, declaration)
-
-                if sym.last_declaration.storage_class != "extern":
-                    self.invalid_redeclaration(sym, declaration)
-
-                # Redefine previous extern is OK!
-                sym.add_redeclaration(declaration)
-            else:
-                # Insert into the current scope:
-                self.scope.insert(declaration)
-
-            if self.in_compound:
-                statement = statements.DeclarationStatement(
-                    declaration, declaration.location
-                )
-                self.add_statement(statement)
-
-            return declaration
-
         return declaration
 
     # Variable initialization!
@@ -183,7 +153,12 @@ class CSemantics:
         """ Handle a variable initialized to some value """
         # This is a good point to determine array size and check
         # initial values
-        # expression = self._sub_init(variable.typ, expression, top_level=True)
+        assert isinstance(variable, declarations.VariableDeclaration)
+
+        # Check double initializations
+        if self.scope.is_definition(variable.name):
+            self.error('Invalid redefinition.', variable.location)
+
         variable.initial_value = expression
 
         # Fill array size from elements!
@@ -297,56 +272,68 @@ class CSemantics:
             storage_class, typ, name, location
         )
 
-        # We cannot define a function within a function:
-        if self.in_compound:
-            self.error(
-                "Cannot define function within block.", declaration.location
-            )
+        return declaration
 
-        # Insert into scope:
-        if self.scope.is_defined(name, all_scopes=False):
-            sym = self.scope.get(name)
-
+    # declaration insertion into symbol table.
+    def register_declaration(self, declaration):
+        """ Register declaration into the scope. """
+        # Check if the declared name is already defined:
+        if self.scope.is_defined(declaration.name, all_scopes=False):
+            # Get the already declared name and figure out what now!
+            sym = self.scope.get(declaration.name)
             self.check_redeclaration_type(sym, declaration)
 
-            if not isinstance(
-                sym.last_declaration, declarations.FunctionDeclaration
-            ):
+            # re-declarations are only allowed on top level
+            if self.in_compound:
                 self.invalid_redeclaration(sym, declaration)
 
-            if sym.last_declaration.body:
-                self.invalid_redeclaration(
-                    sym, declaration, message="Cannot redefine function"
-                )
+            self.check_redeclaration_storage_class(sym, declaration)
 
-            # Check storage class:
-            if declaration.storage_class:
-                if (
-                    sym.last_declaration.storage_class
-                    != declaration.storage_class
-                ):
-                    self.invalid_redeclaration(
-                        sym, declaration, "mismatch in storage class."
-                    )
-            else:
-                if sym.last_declaration.storage_class:
-                    declaration.storage_class = (
-                        sym.last_declaration.storage_class
-                    )
+            assert not declaration.is_definition()
 
-            self.logger.debug(
-                "okay, forward declaration for %s implemented", name
-            )
+            # Check initial value?
+
+            # Redefine previous extern is OK!
             sym.add_redeclaration(declaration)
         else:
             # Insert into the current scope:
             self.scope.insert(declaration)
-        return declaration
+
+        if self.in_compound:
+            statement = statements.DeclarationStatement(
+                declaration, declaration.location
+            )
+            self.add_statement(statement)
 
     def check_redeclaration_type(self, sym, declaration):
         # The type should match in any case:
         if not self._root_scope.equal_types(sym.typ, declaration.typ):
             self.invalid_redeclaration(sym, declaration)
+
+        if not isinstance(declaration, type(sym.declaration)):
+            self.invalid_redeclaration(sym, declaration)
+
+    def check_redeclaration_storage_class(self, sym, declaration):
+        """ Test if we specified an invalid combo of storage class. """
+        old_storage_class = sym.declaration.storage_class
+        new_storage_class = declaration.storage_class
+        # None == automatic storage class.
+        invalid_combos = [
+            (None, 'static'),
+            ('extern', 'static'),
+        ]
+        combo = (old_storage_class, new_storage_class)
+        if combo in invalid_combos:
+            message = 'Invalid redefine of storage class. Was {}, but now {}'.format(old_storage_class, new_storage_class)
+            self.invalid_redeclaration(
+                sym, declaration, message,
+            )
+
+        if not declaration.storage_class:
+            if sym.declaration.storage_class:
+                declaration.storage_class = (
+                    sym.declaration.storage_class
+                )
 
     def invalid_redeclaration(
         self, sym, declaration, message="Invalid redefinition"
@@ -368,7 +355,7 @@ class CSemantics:
     def on_typename(self, name, location):
         """ Handle the case when a typedef is refered """
         # Lookup typedef
-        typedef = self.scope.get(name).last_declaration
+        typedef = self.scope.get(name).declaration
         assert isinstance(typedef, declarations.Typedef)
         ctyp = typedef.typ
         return ctyp  # types.IdentifierType(name, ctyp)
@@ -655,7 +642,7 @@ class CSemantics:
             expr = expressions.UnaryOperator(op, a, typ, True, location)
         elif op == "&":
             if isinstance(a, expressions.VariableAccess) and isinstance(
-                a.variable.last_declaration, declarations.FunctionDeclaration
+                a.variable.declaration, declarations.FunctionDeclaration
             ):
                 # Function pointer:
                 expr = a
@@ -858,7 +845,7 @@ class CSemantics:
                 )
             self.error('Who is this "{}"?'.format(name), location, hints=hints)
         symbol = self.scope.get(name)
-        declaration = symbol.last_declaration
+        declaration = symbol.declaration
         typ = declaration.typ
 
         # Determine lvalue and type:

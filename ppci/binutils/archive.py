@@ -13,6 +13,9 @@ def archive(objs):
 
 def get_archive(filename):
     """ Load an archive from file. """
+    if isinstance(filename, Archive):
+        return filename
+
     return Archive.load(filename)
 
 

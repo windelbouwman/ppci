@@ -124,6 +124,7 @@ class CCodeGenerator:
 
     def gen_global_variable(self, var_decl):
         """ Generate code for a global variable """
+        assert isinstance(var_decl, declarations.VariableDeclaration)
         if var_decl.storage_class == "extern":
             # create an external variable:
             ir_var = ir.ExternalVariable(var_decl.name)
@@ -174,7 +175,7 @@ class CCodeGenerator:
         """ Generate memory slab for global expression. """
         # First check for string literals and variable / function references
         if isinstance(expr, expressions.VariableAccess):
-            declaration = expr.variable.last_declaration
+            declaration = expr.variable.declaration
             if isinstance(
                 declaration,
                 (
@@ -264,10 +265,10 @@ class CCodeGenerator:
                 # Special case for bitfields
                 if field in ival.values:
                     value = ival.values[field]
-                    cval = self.eval_expr(value)
+                    cval = self.context.eval_expr(value)
                 else:
                     cval = 0
-                bitsize = self.eval_expr(field.bitsize)
+                bitsize = self.context.eval_expr(field.bitsize)
                 new_bits = value_to_bits(cval, bitsize)
                 bits.extend(new_bits)
             else:
@@ -951,7 +952,7 @@ class CCodeGenerator:
         elif isinstance(expr, expressions.TernaryOperator):
             value = self.gen_ternop(expr)
         elif isinstance(expr, expressions.VariableAccess):
-            declaration = expr.variable.last_declaration
+            declaration = expr.variable.declaration
             if isinstance(
                 declaration,
                 (
@@ -1408,7 +1409,7 @@ class CCodeGenerator:
         if isinstance(expr.callee.typ, types.FunctionType):
             # Normal call, get global value:
             ir_function = self.ir_var_map[
-                expr.callee.variable.last_declaration
+                expr.callee.variable.declaration
             ]
         elif isinstance(expr.callee.typ, types.PointerType) and isinstance(
             expr.callee.typ.element_type, types.FunctionType

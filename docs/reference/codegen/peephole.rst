@@ -29,16 +29,15 @@ like this:
 
     my_label:
 
-Another example is this code:
+Another example is this code for the msp430 architecture:
 
 .. code-block:: asm
 
     mov.w @r3, r2    ; load from address pointed to by r3 into r2
     add.w #2, r3  ; increment r3 by 2.
 
-There might be architectures where these two instructions
-can be combined into one instruction which has post
-increment:
+These two instructions can be combined into one instruction which has the
+same effect:
 
 .. code-block:: asm
 
@@ -66,7 +65,8 @@ per instructions the effects of the instruction must
 be defined. After this, all instructions with effects
 can be potentially combined. This reduces the amount
 of work to define peephole optimization patterns from
-N * N to N.
+N * N to N. Namely, not all instruction combinations must be described, but
+only the effects per instruction.
 
 Module reference
 ----------------

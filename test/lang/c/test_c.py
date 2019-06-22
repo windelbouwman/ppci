@@ -564,14 +564,42 @@ class CFrontendTestCase(unittest.TestCase):
         """
         self.do(src)
 
-    @unittest.skip('todo')
     def test_afterwards_declaration(self):
         """ Test redeclaration """
         src = """
         char a = 2;
-        extern char a;
+        extern char a;  // this is fine too!
+        char a;  // this is fine
+
+        int add(int a, int b);
+        int add(int a, int b); // fine!
+        int add(int a, int b) {
+          return a + b;
+        }
+        int add(int a, int b); // fine!
+
         """
         self.do(src)
+
+    def test_variable_double_definition(self):
+        """ Test double definition raises an error. """
+        src = """
+        char a = 2;
+        char a = 3; // Not cool!
+        """
+        self.expect_errors(src, [(3, 'Invalid redefinition')])
+
+    def test_function_double_definition(self):
+        """ Test double definition raises an error. """
+        src = """
+        int add(int a, int b) {
+          return a + b;
+        }
+        int add(int a, int b) { // Not cool!
+          return a + b;
+        }
+        """
+        self.expect_errors(src, [(5, 'invalid redefinition')])
 
     def test_softfloat_bug(self):
         """ Bug encountered in softfloat library """
@@ -690,7 +718,6 @@ class CFrontendTestCase(unittest.TestCase):
         """
         self.do(src)
 
-    # @unittest.skip('todo')
     def test_array_of_strings(self):
         """ Test array's of strings """
         src = """

@@ -17,7 +17,7 @@ Sources of inspiration:
 
 import logging
 from ..tools.recursivedescent import RecursiveDescentParser
-from .nodes import statements, expressions, types
+from .nodes import statements, expressions
 
 
 LEFT_ASSOCIATIVE = "left-associative"
@@ -458,11 +458,13 @@ class CParser(RecursiveDescentParser):
             declarator.type_modifiers,
             declarator.location,
         )
+        self.semantics.register_declaration(function)
         self.semantics.enter_function(function)
         body = self.parse_compound_statement()
         self.semantics.end_function(body)
 
     def parse_variable_declaration(self, decl_spec, declarator):
+        """ Parse variable declaration optionally followed by initializer. """
         # Create the variable:
         variable = self.semantics.on_variable_declaration(
             decl_spec.storage_class,
@@ -471,6 +473,8 @@ class CParser(RecursiveDescentParser):
             declarator.type_modifiers,
             declarator.location,
         )
+
+        self.semantics.register_declaration(variable)
 
         # Handle the initial value:
         if self.has_consumed("="):

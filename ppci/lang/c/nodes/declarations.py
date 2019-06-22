@@ -9,7 +9,7 @@ from .types import CType
 class CDeclaration:
     """ A single declaration """
 
-    def __init__(self, storage_class, typ: CType, name, location):
+    def __init__(self, storage_class, typ: CType, name: str, location):
         assert isinstance(typ, CType)
         assert isinstance(name, str) or name is None
         self.name = name
@@ -20,6 +20,18 @@ class CDeclaration:
     @property
     def is_function(self):
         return isinstance(self, FunctionDeclaration)
+
+    def is_definition(self):
+        """ Tests if this declaration defines a variable / function. """
+        return False
+
+
+class StorageClass:
+    """ Sort of enum with all options for storage classes. """
+    AUTO = 'auto'
+    EXTERN = 'extern'
+    REGISTER = 'register'
+    STATIC = 'static'
 
 
 class Typedef(CDeclaration):
@@ -38,6 +50,9 @@ class VariableDeclaration(CDeclaration):
     def __init__(self, storage_class, typ, name, initial_value, location):
         super().__init__(storage_class, typ, name, location)
         self.initial_value = initial_value
+
+    def is_definition(self):
+        return self.initial_value is not None
 
     def __repr__(self):
         return "Variable [storage={} typ={} name={}]".format(
@@ -93,3 +108,6 @@ class FunctionDeclaration(CDeclaration):
         return "Function storage={} typ={} name={}".format(
             self.storage_class, self.typ, self.name
         )
+
+    def is_definition(self):
+        return self.body is not None

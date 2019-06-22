@@ -352,41 +352,41 @@ class Linker:
         undefined_symbols = self.get_undefined_symbols()
         if not undefined_symbols:
             self.logger.debug(
-                "No undefined symbols, not need to check libraries"
+                "No undefined symbols, no need to check libraries"
             )
             return
 
-        for library in libraries:
-            self.logger.debug("scanning library for symbols %s", library)
-            for obj in library:
-                has_sym = any(map(obj.has_symbol, undefined_symbols))
-                if has_sym:
-                    self.logger.debug("Using object file %s from library", obj)
-                    self.inject_object(obj)
-        # TODO: Add this point, we might need to re-loop, since newly added
-        # code objects might introduce new undefined references.
+        # Keep adding objects while we have undefined symbols.
+        reloop = True
+        while reloop:
+            reloop = False
+            for library in libraries:
+                self.logger.debug("scanning library for symbols %s", library)
+                for obj in library:
+                    has_sym = any(map(obj.has_symbol, undefined_symbols))
+                    if has_sym:
+                        self.logger.debug(
+                            "Using object file %s from library", obj
+                        )
+                        self.inject_object(obj, False)
+                        undefined_symbols = self.get_undefined_symbols()
+                        reloop = True
 
     def get_undefined_symbols(self):
         """ Get a list of currently undefined symbols.
         """
-        undefined_symbols = []
-        for symbol in self.dst.symbols:
-            if symbol.undefined:
-                self.logger.error("Undefined reference: %s", symbol.name)
-                undefined_symbols.append(symbol.name)
-        return undefined_symbols
+        return self.dst.get_undefined_symbols()
 
     def check_undefined_symbols(self):
         """ Find undefined symbols.
         """
         undefined_symbols = self.get_undefined_symbols()
+        for symbol in undefined_symbols:
+            self.logger.error("Undefined reference: %s", symbol)
 
         if undefined_symbols:
-            raise CompilerError(
-                "Undefined references: {}".format(
-                    ", ".join(str(s) for s in undefined_symbols)
-                )
-            )
+            undefined = ", ".join(undefined_symbols)
+            raise CompilerError("Undefined references: {}".format(undefined))
 
     def do_relaxations(self):
         """ Linker relaxation. Just relax ;).
