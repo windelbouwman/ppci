@@ -71,6 +71,11 @@ class CType:
         return is_void(self)
 
     @property
+    def is_pointer(self):
+        """ Test if this type is of pointer type. """
+        return isinstance(self, PointerType)
+
+    @property
     def is_float(self):
         """ See if this type is float """
         return is_float(self)

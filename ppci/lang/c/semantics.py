@@ -38,7 +38,6 @@ class CSemantics:
         # Define the type for a string:
         self.int_type = self.get_type(["int"])
         self.char_type = self.get_type(["char"])
-        self.cstr_type = types.PointerType(self.char_type)
         self.intptr_type = types.PointerType(self.int_type)
 
         # Working variables:
@@ -83,7 +82,7 @@ class CSemantics:
         self.current_function = None
 
         if self.scope.is_definition(function.name):
-            self.error('invalid redefinition', function.location)
+            self.error("invalid redefinition", function.location)
         function.body = body
         assert not self.switch_stack
 
@@ -157,7 +156,7 @@ class CSemantics:
 
         # Check double initializations
         if self.scope.is_definition(variable.name):
-            self.error('Invalid redefinition.', variable.location)
+            self.error("Invalid redefinition.", variable.location)
 
         variable.initial_value = expression
 
@@ -318,22 +317,17 @@ class CSemantics:
         old_storage_class = sym.declaration.storage_class
         new_storage_class = declaration.storage_class
         # None == automatic storage class.
-        invalid_combos = [
-            (None, 'static'),
-            ('extern', 'static'),
-        ]
+        invalid_combos = [(None, "static"), ("extern", "static")]
         combo = (old_storage_class, new_storage_class)
         if combo in invalid_combos:
-            message = 'Invalid redefine of storage class. Was {}, but now {}'.format(old_storage_class, new_storage_class)
-            self.invalid_redeclaration(
-                sym, declaration, message,
+            message = "Invalid redefine of storage class. Was {}, but now {}".format(
+                old_storage_class, new_storage_class
             )
+            self.invalid_redeclaration(sym, declaration, message)
 
         if not declaration.storage_class:
             if sym.declaration.storage_class:
-                declaration.storage_class = (
-                    sym.declaration.storage_class
-                )
+                declaration.storage_class = sym.declaration.storage_class
 
     def invalid_redeclaration(
         self, sym, declaration, message="Invalid redefinition"
@@ -538,7 +532,9 @@ class CSemantics:
     # Expressions!
     def on_string(self, value, location):
         """ React on string literal """
-        return expressions.StringLiteral(value, self.cstr_type, location)
+        value = value[1:-1]  # Strip of " chars.
+        cstr_type = types.ArrayType(self.char_type, len(value) + 1)
+        return expressions.StringLiteral(value, cstr_type, location)
 
     def on_number(self, value, location):
         """ React on numeric literal """

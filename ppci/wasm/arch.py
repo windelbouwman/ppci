@@ -24,6 +24,7 @@ class F64Register(Register):
     bitsize = 64
 
 
+# TODO: Note: having u64 in an i64 register might be wrong..
 register_classes = [
     RegisterClass(
         "i32",
@@ -31,7 +32,7 @@ register_classes = [
         I32Register,
         None,
     ),
-    RegisterClass("i64", [ir.u32, ir.i64], I64Register, None),
+    RegisterClass("i64", [ir.u32, ir.i64, ir.u64], I64Register, None),
     RegisterClass("f32", [ir.f32], F32Register, None),
     RegisterClass("f64", [ir.f64], F64Register, None),
 ]

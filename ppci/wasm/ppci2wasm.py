@@ -126,6 +126,9 @@ class IrToWasmCompiler:
                             (type_ref,),
                         )
                     )
+            elif isinstance(ir_external, ir.ExternalVariable):
+                if ir_external.is_used:
+                    raise NotImplementedError(str(ir_external))
             else:
                 raise NotImplementedError(str(ir_external))
 
@@ -481,6 +484,7 @@ class IrToWasmCompiler:
         "STRI32": "i32.store",
         "STRU32": "i64.store32",  # TODO
         "STRI64": "i64.store",
+        "STRU64": "i64.store",  # Dubious, is this correct?
         "STRF32": "f32.store",
         "STRF64": "f64.store",
     }
@@ -493,6 +497,7 @@ class IrToWasmCompiler:
         "LDRI32": "i32.load",
         "LDRU32": "i64.load32_u",
         "LDRI64": "i64.load",
+        "LDRU64": "i64.load",
         "LDRF32": "f32.load",
         "LDRF64": "f64.load",
     }
@@ -511,6 +516,17 @@ class IrToWasmCompiler:
     }
 
     cast_operators = {
+        # 64 -- 64
+        "I64TOI64",
+        "I64TOU64",
+        "U64TOI64",
+        "U64TOU64",
+        # 32 -- 64
+        "U32TOI64",
+        "U32TOU64",
+        # 64 -- 32
+        "U64TOU32",
+        "I64TOU32",
         # 32 --- 32
         "I32TOI32",
         "U32TOU32",
@@ -548,8 +564,12 @@ class IrToWasmCompiler:
         # float to float:
         "F64TOF32": ["f32.demote/f64"],
         "F32TOF64": ["f64.promote/f32"],
-        # i64
-        # 'I64TOI32':
+        # 32 -- 64
+        "I32TOI64": ['i64.extend_s/i32'],
+        "I32TOU64": ['i64.extend_u/i32'],
+        # i64 -- 32
+        "U64TOI32": ["i32.wrap/i64"],
+        "I64TOI32": ["i32.wrap/i64"],
         # Store u32 in i64 type:
         "I32TOU32": ["i64.extend_s/i32"],
         "U32TOI32": ["i32.wrap/i64"],
@@ -573,7 +593,7 @@ class IrToWasmCompiler:
         "REGI32",
         "REGU32",
         "REGI64",
-        "REGU32",
+        "REGU64",
         "REGF32",
         "REGF64",
     }

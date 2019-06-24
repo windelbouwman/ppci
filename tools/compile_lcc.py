@@ -50,15 +50,13 @@ def main():
     this_dir = os.path.abspath(os.path.dirname(__file__))
     report_filename = os.path.join(this_dir, "report_lcc.html")
     libc_includes = os.path.join(this_dir, "..", "librt", "libc")
-    include_paths = [
-        libc_includes
-    ]
+    include_paths = [libc_includes]
     arch = "x86_64"
 
     t1 = time.time()
     failed = 0
     passed = 0
-    sources = glob.glob(os.path.join(lcc_folder, 'src', '*.c'))
+    sources = glob.glob(os.path.join(lcc_folder, "src", "*.c"))
     objs = []
     with open(report_filename, "w") as f, HtmlReportGenerator(f) as reporter:
         for filename in sources:

@@ -28,10 +28,11 @@ class CDeclaration:
 
 class StorageClass:
     """ Sort of enum with all options for storage classes. """
-    AUTO = 'auto'
-    EXTERN = 'extern'
-    REGISTER = 'register'
-    STATIC = 'static'
+
+    AUTO = "auto"
+    EXTERN = "extern"
+    REGISTER = "register"
+    STATIC = "static"
 
 
 class Typedef(CDeclaration):

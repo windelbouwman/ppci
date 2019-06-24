@@ -177,6 +177,16 @@ class CFrontendTestCase(unittest.TestCase):
         """
         self.do(src)
 
+    def test_comma_operator(self):
+        """ Test comma operator """
+        src = """
+        void main() {
+          int a,b,c,d;
+          a = 2, b=3;
+        }
+        """
+        self.do(src)
+
     def test_4(self):
         """ Test expressions """
         src = """
@@ -408,6 +418,7 @@ class CFrontendTestCase(unittest.TestCase):
          i = 10l;
          s = "Hello!" "World!";
          c = ' ';
+         s = &"bla"[2]; // This is fine!
         }
         """
         self.do(src)
@@ -704,6 +715,9 @@ class CFrontendTestCase(unittest.TestCase):
 
         void main() {
           register_callback(callback);
+          callback(); // direct call
+          cb();  // via function pointer
+          // TODO: (*cb)();  // again via function pointer
         }
         """
         self.do(src)

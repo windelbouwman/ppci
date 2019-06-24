@@ -22,7 +22,16 @@ docs/_build
 docs/examples.zip
 examples/linux64/hello/hello
 examples/linux64/snake/snake
+examples/linux64/fib/main
+examples/linux64/algos/main
+examples/linux64/wasm_fac/wasm_fact
+examples/m68k/demo
+examples/microblaze/hello/trace.txt
+examples/python/generated_python_structs.py
+examples/python/python_snake2.py
+examples/riscvpicorv32/picorv
 examples/toydsl/dslenv
+examples/toydsl/example
 .pytest_cache/
 test/.coverage
 test/listings
@@ -31,6 +40,8 @@ test/FORTRAN
 .mypy_cache
 *report.html
 tools/report*.html
+tools/ppci_explorer_source.txt
+tools/arch_info.html
 .cache
 .coverage
 htmlcov

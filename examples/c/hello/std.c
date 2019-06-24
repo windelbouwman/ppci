@@ -1,6 +1,6 @@
 
 #include "std.h"
 
-void printf()
+void printf(char* x)
 {
 }

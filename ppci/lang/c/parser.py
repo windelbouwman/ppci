@@ -110,6 +110,8 @@ class CParser(RecursiveDescentParser):
         self.keywords |= self.type_specifiers
 
         # Define a priority map for operators:
+        # See also:
+        # https://en.cppreference.com/w/cpp/language/operator_precedence
         self.prio_map = {
             ",": (LEFT_ASSOCIATIVE, 3),
             "=": (RIGHT_ASSOCIATIVE, 10),

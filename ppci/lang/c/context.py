@@ -9,8 +9,9 @@ from ...common import CompilerError
 from ...arch.arch_info import Endianness
 from ... import ir
 from .nodes.types import BasicType
-from .nodes import types, expressions, declarations
+from .nodes import types, expressions
 from .utils import required_padding
+from .eval import ConstantExpressionEvaluator
 
 
 class CContext:
@@ -21,6 +22,7 @@ class CContext:
     def __init__(self, coptions, arch_info):
         self.coptions = coptions
         self.arch_info = arch_info
+        self._expression_evaluator = ConstantExpressionEvaluator(self)
 
         self._field_offsets = {}
         self._enum_values = {}
@@ -256,60 +258,4 @@ class CContext:
 
     def eval_expr(self, expr):
         """ Evaluate an expression right now! (=at compile time) """
-        if isinstance(expr, expressions.BinaryOperator):
-            lhs = self.eval_expr(expr.a)
-            rhs = self.eval_expr(expr.b)
-            op = expr.op
-
-            op_map = {
-                "+": lambda x, y: x + y,
-                "-": lambda x, y: x - y,
-                "*": lambda x, y: x * y,
-            }
-
-            # Ensure division is integer division:
-            if expr.typ.is_integer:
-                op_map["/"] = lambda x, y: x // y
-                op_map[">>"] = lambda x, y: x >> y
-                op_map["<<"] = lambda x, y: x << y
-            else:
-                op_map["/"] = lambda x, y: x / y
-
-            value = op_map[op](lhs, rhs)
-        elif isinstance(expr, expressions.UnaryOperator):
-            if expr.op in ["-"]:
-                a = self.eval_expr(expr.a)
-                op_map = {"-": lambda x: -x}
-                value = op_map[expr.op](a)
-            else:  # pragma: no cover
-                raise NotImplementedError(str(expr))
-        elif isinstance(expr, expressions.VariableAccess):
-            declaration = expr.variable.declaration
-            if isinstance(declaration, declarations.EnumConstantDeclaration):
-                value = self.get_enum_value(declaration.typ, declaration)
-            else:
-                raise NotImplementedError(str(expr.variable))
-        elif isinstance(expr, expressions.NumericLiteral):
-            value = expr.value
-        elif isinstance(expr, expressions.CharLiteral):
-            value = expr.value
-        elif isinstance(expr, expressions.Cast):
-            value = self.eval_expr(expr.expr)
-
-            # do some real casting:
-            if expr.typ.is_integer:
-                value = int(value)
-            elif expr.typ.is_float or expr.typ.is_double:
-                value = float(value)
-            else:
-                pass
-        elif isinstance(expr, expressions.Sizeof):
-            if isinstance(expr.sizeof_typ, types.CType):
-                value = self.sizeof(expr.sizeof_typ)
-            else:
-                value = self.sizeof(expr.sizeof_typ.typ)
-        elif isinstance(expr, int):
-            value = expr
-        else:  # pragma: no cover
-            raise NotImplementedError(str(expr))
-        return value
+        return self._expression_evaluator.eval_expr(expr)

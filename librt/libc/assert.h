@@ -1,6 +1,7 @@
 #ifndef ASSERT_H
 #define ASSERT_H
 
-#define assert(x)
+// do nothing for now..
+#define assert(x) (0)
 
 #endif

@@ -1,2 +1,2 @@
 
-void printf();
+void printf(char*);

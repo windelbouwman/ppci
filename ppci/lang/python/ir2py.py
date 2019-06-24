@@ -22,6 +22,8 @@ def ir_to_python(ir_modules, f, reporter=None):
     generator = IrToPythonCompiler(f, reporter)
     generator.header()
     for ir_module in ir_modules:
+        if not isinstance(ir_module, ir.Module):
+            raise TypeError('ir_modules must be list of ir.Module')
         generator.generate(ir_module)
 
     if reporter:

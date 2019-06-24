@@ -5,6 +5,7 @@ class Visitor:
     """ Recursively visit all nodes """
 
     def visit(self, node):
+        """ Recursively visit node's child nodes. """
         if isinstance(node, nodes.CompilationUnit):
             for d in node.declarations:
                 self.visit(d)
@@ -30,10 +31,12 @@ class Visitor:
         elif isinstance(node, expressions.BinaryOperator):
             self.visit(node.a)
             self.visit(node.b)
+            self.visit(node.typ)
         elif isinstance(node, expressions.UnaryOperator):
             self.visit(node.a)
+            self.visit(node.typ)
         elif isinstance(node, expressions.Literal):
-            pass
+            self.visit(node.typ)
         elif isinstance(node, expressions.InitializerList):
             for element in node.elements:
                 self.visit(element)
@@ -45,6 +48,7 @@ class Visitor:
         elif isinstance(node, expressions.ArrayIndex):
             self.visit(node.base)
             self.visit(node.index)
+            self.visit(node.typ)
         elif isinstance(node, expressions.FieldSelect):
             self.visit(node.base)
         elif isinstance(node, expressions.FunctionCall):
@@ -136,3 +140,6 @@ class Visitor:
                 self.visit(node.value)
         else:  # pragma: no cover
             raise NotImplementedError(str(type(node)))
+
+    def visit_type(self, node):
+        raise NotImplementedError("todo: to reduce visit function size")

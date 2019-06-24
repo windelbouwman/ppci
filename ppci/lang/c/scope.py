@@ -89,7 +89,9 @@ class RootScope:
                     )
                 )
         elif isinstance(typ1, types.IndexableType):
-            if isinstance(typ2, types.IndexableType):
+            if isinstance(typ2, types.IndexableType) and type(typ1) is type(
+                typ2
+            ):
                 return self.equal_types(typ1.element_type, typ2.element_type)
         elif isinstance(typ1, types.UnionType):
             if isinstance(typ2, types.UnionType):

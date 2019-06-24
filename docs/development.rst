@@ -108,6 +108,17 @@ pyprof2calltree.
     $ pip install pyprof2calltree
     $ pyprof2calltree -i profiled.out -k
 
+Debugging tests
+~~~~~~~~~~~~~~~
+
+To debug test cases, a handy trick is to use pudb (when not using fancy ide
+like vscode or pycharm). To do this, specify the debugger to use with pytest
+like this:
+
+.. code:: bash
+
+    $ pytest -v --pdb --pdbcls pudb.debugger:Debugger --capture=no
+
 Debugging dynamic code
 ~~~~~~~~~~~~~~~~~~~~~~
 

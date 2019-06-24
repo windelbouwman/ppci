@@ -16,6 +16,7 @@ Idea:
 
 import io
 import logging
+import os
 from itertools import cycle
 import traceback
 
@@ -74,6 +75,8 @@ class DisplayErrorsProcessor(Processor):
 class PpciExplorer:
     """ Ppci explorer. """
 
+    cache_filename = "ppci_explorer_source.txt"
+
     def __init__(self):
         available_archs = [
             "arm",
@@ -99,6 +102,8 @@ class PpciExplorer:
 
         @kb.add(Keys.F10, eager=True)
         def quit_(event):
+            with open(self.cache_filename, "w") as f:
+                f.write(self.source_buffer.text)
             event.app.exit()
 
         kb.add(Keys.F6, eager=True)(self.cycle_stage)
@@ -172,7 +177,12 @@ class PpciExplorer:
             layout=layout, key_bindings=kb, style=style, full_screen=True
         )
 
-        self.source_buffer.text = DEMO_SOURCE
+        if os.path.exists(self.cache_filename):
+            with open(self.cache_filename, "r") as f:
+                src = f.read()
+        else:
+            src = DEMO_SOURCE
+        self.source_buffer.text = src
 
     def on_change(self, source_buffer):
         self.do_compile()
@@ -250,14 +260,8 @@ def ppci_explorer():
 
 
 DEMO_SOURCE = """
-static char *msg[] = {
-  "Hi", "bonjour"
-};
-
-int g=23;
-
 int add(int a, int b) {
-  return a + b - g;
+    return a + b;
 }
 """
 

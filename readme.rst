@@ -13,6 +13,7 @@ The project contains the following:
 - Language front-ends: Brainfuck, c3, C, WASM
 - Backends: 6500, arm, avr, m68k, microblaze, msp430, openrisc, risc-v, stm8,
   x86_64, xtensa
+- Other backends: wasm, python
 
 .. warning::
 

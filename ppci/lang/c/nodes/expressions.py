@@ -138,6 +138,10 @@ class Cast(CExpression):
     def __repr__(self):
         return "Cast {}".format(self.to_typ)
 
+    def is_array_decay(self):
+        """ Test if this cast is a pointer decay. """
+        return self.to_typ.is_pointer and self.expr.typ.is_array
+
 
 class ImplicitCast(Cast):
     """ An implicit cast """
@@ -195,10 +199,6 @@ class VariableAccess(CExpression):
 class Literal(CExpression):
     """ Literal value such as 'h' or 1.22 """
 
-    def __init__(self, value, typ, location):
-        super().__init__(typ, False, location)
-        self.value = value
-
     def __repr__(self):
         return "Literal {} <{}>".format(self.value, self.typ)
 
@@ -206,12 +206,20 @@ class Literal(CExpression):
 class CharLiteral(Literal):
     """ A character literal """
 
+    def __init__(self, value, typ, location):
+        super().__init__(typ, False, location)
+        self.value = value
+
     def __repr__(self):
-        return "Char literal {}".format(self.value)
+        return "Char literal '{}'".format(self.value)
 
 
 class NumericLiteral(Literal):
     """ A numeric literal """
+
+    def __init__(self, value, typ, location):
+        super().__init__(typ, False, location)
+        self.value = value
 
     def __repr__(self):
         return "Numeric literal {} <{}>".format(self.value, self.typ)
@@ -220,13 +228,17 @@ class NumericLiteral(Literal):
 class StringLiteral(Literal):
     """ A string literal """
 
+    def __init__(self, value, typ, location):
+        super().__init__(typ, True, location)
+        self.value = value
+
     def __repr__(self):
-        return "String literal {}".format(self.value)
+        return 'String literal "{}"'.format(self.value)
 
     def to_bytes(self):
         """ Convert this string literal to zero terminated byte string. """
         encoding = "latin1"
-        data = self.value[1:-1].encode(encoding) + bytes([0])
+        data = self.value.encode(encoding) + bytes([0])
         return data
 
 
