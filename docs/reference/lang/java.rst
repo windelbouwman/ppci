@@ -8,15 +8,17 @@ Java
 
     This module is a work in progress.
 
-Java a perhaps the most used programming language in the world.
+Java is perhaps the most used programming language in the world.
 
-There are some functions to deal with jar-files.
+PPCI offers some functions to deal with compiled Java bytecode (known as
+.class files) and archives of multiple .class files (.jar files).
 
 
-Compile java ahead of time
+Compile Java ahead of time
 --------------------------
 
-One could do this. Say, we have some java code:
+It's possible to compile a subset of Java into machine code. Say, we have
+some Java code:
 
 .. code:: java
 
@@ -26,7 +28,7 @@ One could do this. Say, we have some java code:
        }
    }
 
-We can compile this with javac, and next up, compile it with ppci into msp430
+We can compile this with ``javac``, and next up, compile it with PPCI into msp430
 code:
 
 .. code:: bash
@@ -38,7 +40,7 @@ Load a class file dynamically
 -----------------------------
 
 Given that you created a class file with a static function
-my_add in it, you could do the following:
+my_add in it (using ``javac``), you could do the following:
 
 .. code:: python
 
