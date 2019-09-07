@@ -125,7 +125,9 @@ class ColoredFormatter(logging.Formatter):
     """ Custom formatter that makes vt100 coloring to log messages """
 
     BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE = range(8)
-    colors = {"WARNING": YELLOW, "ERROR": RED}
+    # Before changing colors, consider that they must be legible on
+    # (at least) both white-on-black and black-on-white terminal themes.
+    colors = {"WARNING": MAGENTA, "ERROR": RED}
 
     def format(self, record):
         reset_seq = "\033[0m"
