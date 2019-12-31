@@ -69,25 +69,50 @@ from ..arch.generic_instructions import RegisterUseDef
 data_types = [str(t).upper() for t in ir.all_types]
 
 ops = [
-    'ADD', 'SUB', 'MUL', 'DIV', 'REM',  # Arithmatics
-    'OR', 'SHL', 'SHR', 'AND', 'XOR',  # bitwise stuff
-    'NEG', 'INV',  # Unary operations
-    'MOV', 'REG', 'LDR', 'STR', 'CONST',  # Data
-    'CJMP',  # Compare and jump
-    'I8TO', 'I16TO', 'I32TO', 'I64TO',  # Conversions
-    'U8TO', 'U16TO', 'U32TO', 'U64TO',
-    'F32TO', 'F64TO',
-    'FPREL', 'SPREL',  # Frame/stack pointer relative
-    ]
+    "ADD",
+    "SUB",
+    "MUL",
+    "DIV",
+    "REM",  # Arithmatics
+    "OR",
+    "SHL",
+    "SHR",
+    "AND",
+    "XOR",  # bitwise stuff
+    "NEG",
+    "INV",  # Unary operations
+    "MOV",
+    "REG",
+    "LDR",
+    "STR",
+    "CONST",  # Data
+    "CJMP",  # Compare and jump
+    "I8TO",
+    "I16TO",
+    "I32TO",
+    "I64TO",  # Conversions
+    "U8TO",
+    "U16TO",
+    "U32TO",
+    "U64TO",
+    "F32TO",
+    "F64TO",
+    "FPREL",
+    "SPREL",  # Frame/stack pointer relative
+]
 
 # Add all possible terminals:
 
 terminals = tuple(x + y for x in ops for y in data_types) + (
-             "CALL", "LABEL",
-             'MOVB',  # Attempts at blob data copies
-             "JMP",
-             "EXIT", "ENTRY",
-             'ALLOCA', 'FREEA')
+    "CALL",
+    "LABEL",
+    "MOVB",  # Attempts at blob data copies
+    "JMP",
+    "EXIT",
+    "ENTRY",
+    "ALLOCA",
+    "FREEA",
+)
 
 
 class ContextInterface(metaclass=abc.ABCMeta):
@@ -98,6 +123,7 @@ class ContextInterface(metaclass=abc.ABCMeta):
 
 class InstructionContext(ContextInterface):
     """ Usable to patterns when emitting code """
+
     def __init__(self, frame, arch):
         self.frame = frame
         self.arch = arch
@@ -126,6 +152,7 @@ class InstructionContext(ContextInterface):
 
 class TreeSelector:
     """ Tree matcher that can match a tree and generate instructions """
+
     def __init__(self, sys):
         self.sys = sys
 
@@ -160,8 +187,10 @@ class TreeSelector:
                 else:
                     accept = True
 
-                if all(x.state.has_goal(y) for x, y in zip(kids, nts)) \
-                        and accept:
+                if (
+                    all(x.state.has_goal(y) for x, y in zip(kids, nts))
+                    and accept
+                ):
                     cost = sum(x.state.get_cost(y) for x, y in zip(kids, nts))
                     marked_rules = set()
                     self.mark_tree(tree, rule, cost, marked_rules)
@@ -179,9 +208,12 @@ class TreeSelector:
     def apply_rules(self, context, tree, goal):
         """ Apply all selected instructions to the tree """
         rule = tree.state.get_rule(goal)
-        results = [self.apply_rules(context, kid_tree, kid_goal)
-                   for kid_tree, kid_goal in
-                   zip(self.kids(tree, rule), self.nts(rule))]
+        results = [
+            self.apply_rules(context, kid_tree, kid_goal)
+            for kid_tree, kid_goal in zip(
+                self.kids(tree, rule), self.nts(rule)
+            )
+        ]
         # Get the function to call:
         rule_f = self.sys.get_rule(rule).template
         context.tree = tree
@@ -206,6 +238,7 @@ class InstructionSelector1:
 
         This one does selection and scheduling combined.
     """
+
     verbose = False
 
     def __init__(self, arch, sgraph_builder, weights=(1, 1, 1)):
@@ -217,7 +250,7 @@ class InstructionSelector1:
         - or energy
         respectively.
         """
-        self.logger = logging.getLogger('instruction-selector')
+        self.logger = logging.getLogger("instruction-selector")
         self.dag_builder = sgraph_builder
         self.arch = arch
         self.dag_splitter = DagSplitter(arch)
@@ -229,17 +262,22 @@ class InstructionSelector1:
             self.sys.add_terminal(terminal)
 
         # Add special case nodes:
-        self.sys.add_rule(
-            'stm', Tree('CALL'), 0, None, self.call_function)
+        self.sys.add_rule("stm", Tree("CALL"), 0, None, self.call_function)
 
         # Add all isa patterns:
         for pattern in arch.isa.patterns:
-            cost = pattern.size * weights[0] + \
-                   pattern.cycles * weights[1] + \
-                   pattern.energy * weights[2]
+            cost = (
+                pattern.size * weights[0]
+                + pattern.cycles * weights[1]
+                + pattern.energy * weights[2]
+            )
             self.sys.add_rule(
-                pattern.non_term, pattern.tree, cost,
-                pattern.condition, pattern.method)
+                pattern.non_term,
+                pattern.tree,
+                cost,
+                pattern.condition,
+                pattern.method,
+            )
 
         self.sys.check()
         self.tree_selector = TreeSelector(self.sys)
@@ -257,7 +295,7 @@ class InstructionSelector1:
     def select(self, ir_function: ir.SubRoutine, frame, reporter):
         """ Select instructions of function into a frame """
         assert isinstance(ir_function, ir.SubRoutine)
-        self.logger.debug('Creating selection dag for %s', ir_function.name)
+        self.logger.debug("Creating selection dag for %s", ir_function.name)
 
         # Create a object that carries global function info:
         function_info = FunctionInfo(frame)
@@ -265,7 +303,8 @@ class InstructionSelector1:
 
         # Create selection dag (directed acyclic graph):
         sgraph = self.dag_builder.build(
-            ir_function, function_info, frame.debug_db)
+            ir_function, function_info, frame.debug_db
+        )
 
         if self.verbose:
             # Graph drawing takes considerable time
@@ -274,7 +313,8 @@ class InstructionSelector1:
 
         # Split the selection graph into a forest of trees:
         forest = self.dag_splitter.split_into_trees(
-            sgraph, ir_function, function_info, frame.debug_db)
+            sgraph, ir_function, function_info, frame.debug_db
+        )
         reporter.dump_trees(forest)
 
         # Create a context that can emit instructions:

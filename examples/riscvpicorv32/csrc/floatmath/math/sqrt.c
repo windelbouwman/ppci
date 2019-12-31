@@ -34,21 +34,21 @@
 
 #if	!defined(__TCS__)
 /* Hart table SQRT 0352, p. 160; precision 8.95, order 3 3. */
-static	double	P5[] = {
+static	double	P[] = {
 	0.29730278874025,
 	0.89403076206457e+1,
 	0.211252240569754e+2,
 	0.59304944591466e+1
 };
-static	double	Q5[] = {
+static	double	Q[] = {
 	0.24934718253158e+1,
 	0.177641338280541e+2,
 	0.150357233129921e+2,
 	1.0
 };
 
-#define	ORDERP	((int)(sizeof(P5) / sizeof(P5[0])) - 1)
-#define	ORDERQ	((int)(sizeof(Q5) / sizeof(Q5[0])) - 1)
+#define	ORDERP	((int)(sizeof(P) / sizeof(P[0])) - 1)
+#define	ORDERQ	((int)(sizeof(Q) / sizeof(Q[0])) - 1)
  
 #define ITERATIONS	1		/* Heron's iterations required */
 
@@ -93,7 +93,7 @@ sqrt(double x)
 
 	/* Extract the binary significand and approximate sqrt with polynomial. */
 	m = frexp (x, &k);
-	y = _poly(ORDERP, P5, m) / _poly(ORDERQ, Q5, m);
+	y = _poly(ORDERP, P, m) / _poly(ORDERQ, Q, m);
 
 	/* Adjust approximate result according to sqrt of binary exponent. */
 	if ((kmod2 = (k % 2)) < 0)

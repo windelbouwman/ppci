@@ -4,4 +4,4 @@ from .elf import ElfFile
 from .hexfile import HexFile
 
 
-__all__ = ('HexFile', 'ElfFile')
+__all__ = ("HexFile", "ElfFile")

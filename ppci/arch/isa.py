@@ -9,8 +9,9 @@ from .encoding import Relocation
 
 
 Pattern = namedtuple(
-    'Pattern',
-    ['non_term', 'tree', 'size', 'cycles', 'energy', 'condition', 'method'])
+    "Pattern",
+    ["non_term", "tree", "size", "cycles", "energy", "condition", "method"],
+)
 
 
 class Isa:
@@ -23,12 +24,12 @@ class Isa:
     For example the arm without FPU can be combined with the FPU isa
     to expand the supported functions.
     """
+
     def __init__(self):
         self.instructions = []
         self.relocation_map = {}
         self.patterns = []
         self.peepholes = []
-        self.postlinkopts = []
 
     def __add__(self, other):
         assert isinstance(other, Isa)
@@ -37,7 +38,6 @@ class Isa:
         isa3.patterns = self.patterns + other.patterns
         isa3.relocation_map = self.relocation_map.copy()
         isa3.relocation_map.update(other.relocation_map)
-        isa3.postlinkopts = self.postlinkopts + other.postlinkopts
         return isa3
 
     def add_instruction(self, instruction):
@@ -61,14 +61,9 @@ class Isa:
         self.peepholes.append(function)
         return function
 
-    def postlink(self, function):
-        """ Add a peephole optimization function """
-        self.postlinkopts.append(function)
-        return function
-    
     def pattern(
-            self, non_term, tree, condition=None,
-            size=1, cycles=1, energy=1):
+        self, non_term, tree, condition=None, size=1, cycles=1, energy=1
+    ):
         """
             Decorator function that adds a pattern.
         """
@@ -81,7 +76,9 @@ class Isa:
         def wrapper(function):
             """ Wrapper that add the function with the paramaters """
             pat = Pattern(
-                non_term, tree, size, cycles, energy, condition, function)
+                non_term, tree, size, cycles, energy, condition, function
+            )
             self.register_pattern(pat)
             return function
+
         return wrapper

@@ -1,0 +1,11 @@
+
+.. _m68k:
+
+m68k
+----
+
+This architecture is also known as M68000.
+
+.. automodule:: ppci.arch.m68k
+    :members:
+

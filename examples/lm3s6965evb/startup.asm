@@ -2,6 +2,9 @@
 section reset
 dd 0x2000f000 ; 0x0
 dd 0x00000009 ; reset vector 0x4
+global bsp_boot
+global bsp_exit
+
 BL bsp_boot  ; Branch to bsp boot // 0x8
 BL bsp_exit  ; do exit stuff 0xc
 local_loop:
@@ -17,4 +20,5 @@ dd 0 ; 0x30
 dd 0 ; 0x34
 dd 0 ; 0x38
 dd 0x00000041 ; 0x3c systick
+global bsp_systick_isr
 BW bsp_systick_isr

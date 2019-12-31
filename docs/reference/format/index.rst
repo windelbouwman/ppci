@@ -10,4 +10,6 @@ File formats
     exe
     dwarf
     hexfile
+    hunk
     uboot
+    srecord

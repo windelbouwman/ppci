@@ -1,6 +1,5 @@
 
 import sys
-import struct
 import os
 from ppci import api
 from ppci.utils.reporting import HtmlReportGenerator

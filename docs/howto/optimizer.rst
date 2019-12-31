@@ -90,7 +90,7 @@ file with io.StringIO. Then load this file with :class:`ppci.irutils.Reader`.
     >>> import io
     >>> f = io.StringIO("""
     ... module optimizable;
-    ... function i32 add(i32 z) {
+    ... global function i32 add(i32 z) {
     ...   entry: {
     ...     i32 x = 1;
     ...     i32 y = 2;
@@ -135,7 +135,7 @@ Now print the optimized module:
     >>> print(f2.getvalue())
     module optimizable;
     <BLANKLINE>
-    function i32 add(i32 z) {
+    global function i32 add(i32 z) {
       entry: {
         i32 x = 1;
         i32 y = 2;

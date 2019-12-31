@@ -14,6 +14,7 @@ from ..arch.registers import Register
 
 class InterferenceGraphNode(Node):
     """ Node in an interference graph. Represents a single register """
+
     def __init__(self, graph, vreg):
         super().__init__(graph)
         self.temps = {vreg}
@@ -26,16 +27,18 @@ class InterferenceGraphNode(Node):
         return self.reg is not None
 
     def __repr__(self):
-        return '{}(reg={},class={})'.format(
-            self.temps, self.reg, self.reg_class)
+        return "{}(reg={},class={})".format(
+            self.temps, self.reg, self.reg_class
+        )
 
 
 class InterferenceGraph(MaskableGraph):
     """ Interference graph. """
+
     def __init__(self):
         """ Create a new interference graph from a flowgraph """
         super().__init__()
-        self.logger = logging.getLogger('interferencegraph')
+        self.logger = logging.getLogger("interferencegraph")
         self.temp_map = {}
         self._def_map = defaultdict(list)
         self._use_map = defaultdict(list)
@@ -60,7 +63,7 @@ class InterferenceGraph(MaskableGraph):
                 # Add interfering edges:
                 for tmp in live_and_def:
                     n1 = self.get_node(tmp)
-                    for tmp2 in (live_and_def - {tmp}):
+                    for tmp2 in live_and_def - {tmp}:
                         n2 = self.get_node(tmp2)
                         self.add_edge(n1, n2)
 

@@ -1,4 +1,3 @@
-
 """ Frontend for the whitespace programming language.
 
 Whitespace has only 3 used characters: space (32), tab (9) and newline (10)

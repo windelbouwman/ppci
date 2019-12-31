@@ -3,6 +3,7 @@ from .common import ParserGenerationException
 
 class Grammar:
     """ Defines a grammar of a language """
+
     def __init__(self):
         self.terminals = set()
         self.nonterminals = set()
@@ -10,8 +11,9 @@ class Grammar:
         self.start_symbol = None
 
     def __repr__(self):
-        return 'Grammar with {} rules and {} terminals'.format(
-            len(self.productions), len(self.terminals))
+        return "Grammar with {} rules and {} terminals".format(
+            len(self.productions), len(self.terminals)
+        )
 
     def add_terminals(self, terminals):
         """ Add all terminals to terminals for this grammar """
@@ -22,7 +24,8 @@ class Grammar:
         """ Add a terminal name """
         if name in self.nonterminals:
             raise ParserGenerationException(
-                "Cannot redefine non-terminal {0} as terminal".format(name))
+                "Cannot redefine non-terminal {0} as terminal".format(name)
+            )
         self.terminals.add(name)
 
     def add_production(self, name, symbols, semantics=None, priority=0):
@@ -31,7 +34,8 @@ class Grammar:
         self.productions.append(production)
         if name in self.terminals:
             raise ParserGenerationException(
-                "Cannot redefine terminal {0}".format(name))
+                "Cannot redefine terminal {0}".format(name)
+            )
         self.nonterminals.add(name)
 
     def dump(self):
@@ -43,6 +47,7 @@ class Grammar:
            lst: elem
            lst: lst elem
         """
+
         def a(el):
             return [el]
 
@@ -51,6 +56,7 @@ class Grammar:
         def b(ls, el):
             ls.append(el)
             return ls
+
         self.add_production(list_nonterm, [list_nonterm, element_nonterm], b)
 
     def productions_for_name(self, name):
@@ -138,7 +144,8 @@ class Grammar:
             for symbol in production.symbols:
                 if symbol not in self.symbols:
                     raise ParserGenerationException(
-                        'Symbol {0} undefined'.format(symbol))
+                        "Symbol {0} undefined".format(symbol)
+                    )
 
 
 class Production:
@@ -147,6 +154,7 @@ class Production:
         contains a function that must be called when this rule is applied.
         The right hand side may contain terminals and non-terminals.
     """
+
     def __init__(self, name, symbols, semantics, priority=0):
         self.name = name
         self.symbols = tuple(symbols)
@@ -154,7 +162,7 @@ class Production:
         self.priority = priority
 
     def __repr__(self):
-        return '{} -> {} P_{}'.format(self.name, self.symbols, self.priority)
+        return "{} -> {} P_{}".format(self.name, self.symbols, self.priority)
 
     @property
     def is_epsilon(self):

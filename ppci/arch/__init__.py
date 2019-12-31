@@ -32,13 +32,13 @@ from .isa import Isa
 
 def get_current_arch():
     """ Try to get the architecture for the current platform """
-    if sys.platform.startswith('win'):
+    if sys.platform.startswith("win"):
         machine = platform.machine()
-        if machine == 'AMD64':
-            return get_arch('x86_64:wincc')
-    elif sys.platform == 'linux':
-        if platform.architecture()[0] == '64bit':
-            return get_arch('x86_64')
+        if machine == "AMD64":
+            return get_arch("x86_64:wincc")
+    elif sys.platform == "linux":
+        if platform.architecture()[0] == "64bit":
+            return get_arch("x86_64")
 
 
 def get_arch(arch):
@@ -61,13 +61,14 @@ def get_arch(arch):
     elif isinstance(arch, str):
         # Horrific import cycle created. TODO: restructure this
         from .target_list import create_arch
-        if ':' in arch:
+
+        if ":" in arch:
             # We have target with options attached
-            parts = arch.split(':')
+            parts = arch.split(":")
             return create_arch(parts[0], options=tuple(parts[1:]))
         else:
             return create_arch(arch)
-    raise ValueError('Invalid architecture {}'.format(arch))
+    raise ValueError("Invalid architecture {}".format(arch))
 
 
-__all__ = ['Architecture', 'Frame', 'Isa', 'get_arch', 'get_current_arch']
+__all__ = ["Architecture", "Frame", "Isa", "get_arch", "get_current_arch"]

@@ -2,7 +2,7 @@ import io
 import unittest
 from unittest.mock import patch
 
-from ppci.api import construct, asm, c3c, objcopy, disasm, link
+from ppci.api import construct, objcopy, disasm, link
 from ppci.build.tasks import TaskError
 import ppci.build.buildtasks
 

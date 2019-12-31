@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock
 from ppci.codegen.registerallocator import GraphColoringRegisterAllocator
 from ppci.api import get_arch
 from ppci.arch.arch import Frame
@@ -149,6 +149,7 @@ class GraphColoringRegisterAllocatorTestCase(unittest.TestCase):
     def test_coalesc(self):
         pass
         # self.register_allocator.coalesc()
+
 
 if __name__ == '__main__':
     unittest.main()

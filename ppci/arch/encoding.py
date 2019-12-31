@@ -19,6 +19,7 @@ class Operand(property):
     Custom derived property that implements the descriptor protocol
     by inheriting property
     """
+
     def __init__(self, name, cls, read=False, write=False):
         self._name = name
         if isinstance(cls, dict):
@@ -33,7 +34,7 @@ class Operand(property):
         # if isinstance(cls, type) or isinstance(cls, tuple)
 
         # Construct a private backing field for the property:
-        private_field = '_{}'.format(name)
+        private_field = "_{}".format(name)
 
         if isinstance(cls, type) and issubclass(cls, Register):
             assert read or write
@@ -48,7 +49,7 @@ class Operand(property):
         super().__init__(getter, setter)
 
     def __repr__(self):
-        return 'operand name={}, cls={}'.format(self._name, self._cls)
+        return "operand name={}, cls={}".format(self._name, self._cls)
 
     @property
     def is_constructor(self):
@@ -90,6 +91,7 @@ class Operand(property):
 
 class Transform(metaclass=abc.ABCMeta):
     """ Wrapper to transform the numeric value of a property """
+
     def __init__(self, wrapped):
         self._wrapped = wrapped
 
@@ -127,25 +129,30 @@ class Constructor:
     A constructor can contain a syntax and can be initialized by using
     this syntax.
     """
+
     syntax = None
     patterns = ()
 
     def __init__(self, *args, **kwargs):
         # Generate constructor from args:
         if self.syntax:
-            formal_args = self.syntax.get_formal_arguments()
+            formal_args = self.syntax.formal_arguments
 
             # Set parameters:
             if len(args) != len(formal_args):
                 raise TypeError(
-                    '{} arguments given, but {} expects {}'.format(
-                        len(args), self.__class__, len(formal_args)))
+                    "{} arguments given, but {} expects {}".format(
+                        len(args), self.__class__, len(formal_args)
+                    )
+                )
             for farg, arg in zip(formal_args, args):
                 if not isinstance(arg, farg._cls):  # pragma: no cover
                     # Create some nice looking error:
                     raise TypeError(
                         '{} expected {}, but got "{}" of type {}'.format(
-                            type(self), farg._cls, arg, type(arg)))
+                            type(self), farg._cls, arg, type(arg)
+                        )
+                    )
                 setattr(self, farg._name, arg)
 
         for pname, pval in kwargs.items():
@@ -199,14 +206,14 @@ class Constructor:
             v = tokens.get_field(pattern.field)
             if isinstance(pattern, FixedPattern):
                 if v != pattern.value:
-                    raise ValueError('Cannot decode {}'.format(cls))
+                    raise ValueError("Cannot decode {}".format(cls))
             elif isinstance(pattern, VariablePattern):
                 prop_map[pattern.prop.source] = pattern.prop.from_value(v)
             else:  # pragma: no cover
                 raise NotImplementedError(pattern)
 
         # Create constructors:
-        fargs = cls.syntax.get_formal_arguments()
+        fargs = cls.syntax.formal_arguments
         for farg in fargs:
             if isinstance(farg._cls, tuple):
                 options = farg._cls
@@ -228,7 +235,7 @@ class Constructor:
         """ Return all properties available into this syntax """
         if not self.syntax:
             return []
-        return self.syntax.get_formal_arguments()
+        return self.syntax.formal_arguments
 
     @property
     def leaves(self):
@@ -265,11 +272,12 @@ class Constructor:
 
 class InsMeta(type):
     """ Meta class to register an instruction within an isa class. """
+
     def __init__(cls, name, bases, attrs):
         super(InsMeta, cls).__init__(name, bases, attrs)
 
         # Register instruction with isa:
-        if hasattr(cls, 'isa'):
+        if hasattr(cls, "isa"):
             cls.isa.add_instruction(cls)
 
     def __add__(cls, other):
@@ -279,16 +287,13 @@ class InsMeta(type):
         p2 = cls.dict_to_patterns(other.patterns)
         patterns = p1 + p2
         syntax = cls.syntax + other.syntax
-        members = {
-            'tokens': tokens,
-            'patterns': patterns,
-            'syntax': syntax}
+        members = {"tokens": tokens, "patterns": patterns, "syntax": syntax}
         member_list = list(cls.__dict__.items())
         member_list += list(other.__dict__.items())
         for name, val in member_list:
             if isinstance(val, Operand):
                 if name in members:  # pragma: no cover
-                    raise ValueError('{} already defined!'.format(name))
+                    raise ValueError("{} already defined!".format(name))
                 members[name] = val
         name = cls.__name__ + other.__name__
         return InsMeta(name, (Instruction,), members)
@@ -309,6 +314,7 @@ class Instruction(Constructor, metaclass=InsMeta):
     Instruction classes are automatically added to an
     isa if they have an isa attribute.
     """
+
     def __init__(self, *args, **kwargs):
         """ Base instruction constructor.
 
@@ -371,7 +377,7 @@ class Instruction(Constructor, metaclass=InsMeta):
 
     def set_all_patterns(self, tokens):
         """ Look for all patterns and apply them to the tokens """
-        assert hasattr(self, 'patterns')
+        assert hasattr(self, "patterns")
         # self.set_patterns(tokens)
         for nl in self.non_leaves:
             nl.set_patterns(tokens)
@@ -387,7 +393,7 @@ class Instruction(Constructor, metaclass=InsMeta):
         precodes = []
         tokens = []
         for nl in self.non_leaves:
-            if hasattr(nl, 'tokens'):
+            if hasattr(nl, "tokens"):
                 for tc in nl.tokens:
                     t = tc()
                     if t.Info.precode:
@@ -402,8 +408,8 @@ class Instruction(Constructor, metaclass=InsMeta):
         positions = {}
         for nl in self.non_leaves:
             positions[nl] = pos
-            if hasattr(nl, 'tokens'):
-                tokens = getattr(nl, 'tokens')
+            if hasattr(nl, "tokens"):
+                tokens = getattr(nl, "tokens")
                 # TODO: this position might not what is expected!
                 size = sum(t.Info.size for t in tokens) // 8
             else:
@@ -433,7 +439,7 @@ class Instruction(Constructor, metaclass=InsMeta):
     @classmethod
     def sizes(cls):
         """ Get possible encoding sizes in bytes """
-        if hasattr(cls, 'tokens'):
+        if hasattr(cls, "tokens"):
             return [sum(t.size for t in cls.tokens) // 8]
         else:
             return []
@@ -464,10 +470,26 @@ class Syntax:
         set_props: The set_props property can be used to set additional
         properties after creating the instruction.
     """
+
     GLYPHS = [
-        '@', '&', '#', '=', ',', '.', ':',
-        '(', ')', '[', ']', '{', '}',
-        '+', '-', '*']
+        "@",
+        "&",
+        "#",
+        "=",
+        ",",
+        ".",
+        ":",
+        "(",
+        ")",
+        "[",
+        "]",
+        "{",
+        "}",
+        "+",
+        "-",
+        "*",
+        "%",
+    ]
 
     def __init__(self, syntax, priority=0):
         assert isinstance(syntax, (list, tuple))
@@ -476,7 +498,8 @@ class Syntax:
                 if element.isidentifier():
                     if not element.islower():
                         raise TypeError(
-                            'element "{}" must be lower case'.format(element))
+                            'element "{}" must be lower case'.format(element)
+                        )
                 elif element.isspace():
                     pass
                 elif element in self.GLYPHS:
@@ -486,9 +509,16 @@ class Syntax:
             elif isinstance(element, Operand):
                 pass
             else:  # pragma: no cover
-                raise TypeError('Element must be string or parameter')
+                raise TypeError("Element must be string or parameter")
         self.syntax = syntax
         self.priority = priority
+
+        # Pre-calculate format arguments:
+        formal_args = []
+        for element in self.syntax:
+            if isinstance(element, Operand):
+                formal_args.append(element)
+        self.formal_arguments = formal_args
 
     def __add__(self, other):
         assert isinstance(other, Syntax)
@@ -498,15 +528,7 @@ class Syntax:
         return Syntax(syntax)
 
     def __repr__(self):
-        return '{}'.format(self.syntax)
-
-    def get_formal_arguments(self):
-        """ Get the sequence of properties that must be passed in """
-        formal_args = []
-        for syntax_element in self.syntax:
-            if isinstance(syntax_element, Operand):
-                formal_args.append(syntax_element)
-        return formal_args
+        return "{}".format(self.syntax)
 
     def get_args(self):
         """ Return all non-whitespace elements """
@@ -517,7 +539,7 @@ class Syntax:
 
     def render(self, obj):
         """ Return this syntax formatted for the given object. """
-        return ''.join(self._get_repr(e, obj) for e in self.syntax)
+        return "".join(self._get_repr(e, obj) for e in self.syntax)
 
     @staticmethod
     def _get_repr(syntax_element, obj):
@@ -535,18 +557,20 @@ class BitPattern:
     """ Base bit pattern class. A bit mapping is a mapping of a field
         to a value of some kind.
     """
+
     def __init__(self, field):
         self.field = field
 
     def get_value(self, objref):  # pragma: no cover
-        raise NotImplementedError('Implement this for your pattern')
+        raise NotImplementedError("Implement this for your pattern")
 
     def set_value(self, value):  # pragma: no cover
-        raise NotImplementedError('Implement this for your pattern')
+        raise NotImplementedError("Implement this for your pattern")
 
 
 class FixedPattern(BitPattern):
     """ Bind a field to a fixed value """
+
     def __init__(self, field, value):
         super().__init__(field)
         self.value = value
@@ -574,34 +598,33 @@ class Relocation:
     - apply: a function that can be used to apply the relocation.
     - calc: a function that calculates the value for the relocation.
     """
+
     name = None
     number = None
     token = None
     field = None
 
-    def __init__(self, symbol_name, offset=0, addend=0, section=None):
+    def __init__(self, symbol_name, offset=0, addend=0):
         self.symbol_name = symbol_name
         self.addend = addend
-        self.section = section
         self.offset = offset
 
     def __repr__(self):
-        return 'Reloc[{} offset={}]'.format(self.name, self.offset)
+        return "Reloc[{} offset={}]".format(self.name, self.offset)
 
     def __eq__(self, other):
-        s = (
-            self.symbol_name, self.offset, type(self),
-            self.section, self.addend)
-        o = (
-            other.symbol_name, other.offset, type(other),
-            other.section, other.addend)
-        return s == o
+        return (
+            (self.symbol_name == other.symbol_name)
+            and (self.offset == other.offset)
+            and (type(self) == type(other))
+            and (self.addend == other.addend)
+        )
 
     def shifted(self, offset):
         """ Create a shifted copy of this relocation """
         return type(self)(
-            self.symbol_name, offset=self.offset+offset,
-            addend=self.addend, section=self.section)
+            self.symbol_name, offset=self.offset + offset, addend=self.addend
+        )
 
     @classmethod
     def size(cls):
@@ -619,7 +642,16 @@ class Relocation:
         assert self.field is not None
         assert hasattr(token, self.field)
         setattr(token, self.field, self.calc(sym_value, reloc_value))
-        return token.encode()
+        data = token.encode()
+        return data
+
+    def can_shrink(self, sym_value, reloc_value):
+        """ Test if this relocation can shrink during the relaxation phase.
+
+        Override this method to enable linker relaxation the relocation
+        subtype.
+        """
+        return False
 
     def calc(self, sym_value, reloc_value):  # pragma: no cover
         """ Calculate the relocation """

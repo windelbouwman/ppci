@@ -13,6 +13,8 @@ The directory structure of this spec is as follows:
 To use these tests, clone https://github.com/WebAssembly/spec and set
 the environment variable WASM_SPEC_DIR
 to the location where the code was cloned.
+
+Then, invoke this script with either pytest or run this script with python.
 """
 
 # COOL IDEA: use python-requests to download the suite on demand to
@@ -27,7 +29,10 @@ import logging
 import io
 import sys
 from functools import reduce
+from fnmatch import fnmatch
 from operator import add
+import warnings
+import argparse
 
 from ppci.wasm import read_wat, Module, instantiate
 from ppci.common import CompilerError, logformat
@@ -51,50 +56,51 @@ logging.getLogger().setLevel(logging.DEBUG)
 # TODO: at some point we should be able to process all snippets?
 # Black list of test files
 black_list = [
-    'br_table',  # This test takes a long time, but works
+    'br_table',  # Works, but takes a lot of time.
     'names',  # Contains many weird unicode characters
     'linking',  # Requires linking. This does not work yet.
     'imports',  # Import support is too limited for now.
     'globals',  # Import of globals not implemented
     'data',  # Importing of memory not implemented
     'elem',  # Importing of table not implemented
-    'exports',  # TODO: what goes wrong here?
+    # 'exports',  # TODO: what goes wrong here?
     'float_exprs',  # TODO: what is the issue here?
     'float_memory',  # TODO: handle signalling nan's
     'float_literals',  # TODO: what is the issue here?
     'skip-stack-guard-page',  # This is some stack overflow stuff?
     'func',  # TODO: this function is malformed!
-    'i64', # Grrr, so many expressions to blacklist!
 ]
 
 # Black list of specific expressions, per file
 black_list_expr = {
     'i64': [
-        ('invoke', 'mul', ('i64.const', '0x0123456789abcdef'), ('i64.const', '0xfedcba9876543210')),
-        ('invoke', 'div_u', ('i64.const', 10371807465568210928), ('i64.const', 4294967297)),
-        ('invoke', 'div_u', ('i64.const', -5), ('i64.const', 2)),
-        ('invoke', 'rem_u', ('i64.const', 10371807465568210928), ('i64.const', 4294967297)),
-        ('invoke', 'and', ('i64.const', 4042326015), ('i64.const', 4294963440)),
-        ('invoke', 'or', ('i64.const', 4042326015), ('i64.const', 4294963440)),
-        ('invoke', 'shr_s', ('i64.const', 4611686018427387904), ('i64.const', 1)),
-        ('invoke', 'shr_u', ('i64.const', 4611686018427387904), ('i64.const', 1)),
-        ('invoke', 'rotl', ('i64.const', '0xabcd987602468ace'), ('i64.const', 1)),
-        ('invoke', 'rotl', ('i64.const', '0xfe000000dc000000'), ('i64.const', 4)),
-        # ... more needed
-        ],
+        # Segfaults on too large positive integer:
+        # This happens, since 9223372036854775808 = 0x8000000000000000 = 2^63
+        # actually, this number is -2^63. Since the range of a 64 bit int
+        # is from [-2^63 , 2^63) positive 2^63 is not included in the range.
+        (
+            'assert_return',
+            ('invoke', 'rem_s', ('i64.const', 9223372036854775808), ('i64.const', -1)),
+            ('i64.const', 0)
+        ),
+    ],
+    'i32': [
+        # Segfaults since remainder would be a too large integer:
+        (
+            'assert_return',
+            ('invoke', 'rem_s', ('i32.const', 2147483648), ('i32.const', -1)),
+            ('i32.const', 0)
+        ),
+    ],
 }
 
 
 # On Windows, we need more blacklisting ...
-if sys.platform.startswith('win'):
+if False:  # sys.platform.startswith('win'):
     
     black_list.append('conversions') # Grrr, so many expressions to blacklist!
     # Note that this list is not complete, I ran out of time ...
     
-    # Segfault
-    black_list_expr['i32'] = [
-        ('invoke', 'rem_s', ('i32.const', 2147483648), ('i32.const', -1)),
-        ]
     
     # Test fail
     black_list_expr['call'] = [
@@ -192,11 +198,11 @@ def perform_test(filename, target):
         try:
             s_expressions = parse_multiple_sexpr(source_text)
             expressions2ignore = black_list_expr.get(base_name, [])
-            s_expressions = [s_expr for s_expr in s_expressions if len(s_expr) != 3 or s_expr[1] not in expressions2ignore]
-            if base_name == 'i64':
-                does_big_edges = lambda x: '9223372036854775808' in x or '9223372036854775807' in x or '9223372036854775809' in x
-                s_expressions = [s_expr for s_expr in s_expressions if not does_big_edges(str(s_expr))]
-            executor = WastExecutor(target, reporter)
+            # s_expressions = [s_expr for s_expr in s_expressions if len(s_expr) != 3 or s_expr[1] not in expressions2ignore]
+            # if base_name == 'i64':
+            #    does_big_edges = lambda x: '9223372036854775808' in x or '9223372036854775807' in x or '9223372036854775809' in x
+            #    s_expressions = [s_expr for s_expr in s_expressions if not does_big_edges(str(s_expr))]
+            executor = WastExecutor(target, reporter, expressions2ignore)
             executor.execute(s_expressions)
 
         except CompilerError as ex:
@@ -209,17 +215,20 @@ def perform_test(filename, target):
 class WastExecutor:
     logger = logging.getLogger('wast-exe')
 
-    def __init__(self, target, reporter):
+    def __init__(self, target, reporter, s_expr_blacklist):
         self.target = target
         self.reporter = reporter
+        self.s_expr_blacklist = s_expr_blacklist
         self.mod_instance = None
 
     def execute(self, s_expressions):
         for s_expr in s_expressions:
-            self.execute_single(s_expr)
+            if s_expr in self.s_expr_blacklist:
+                self.logger.warning('Backlisted: %s', s_expr)
+            else:
+                self.execute_single(s_expr)
 
     def execute_single(self, s_expr):
-        # print(s_expr)
         if s_expr[0] == 'module':
             self.load_module(s_expr)
 
@@ -227,6 +236,9 @@ class WastExecutor:
             # TODO: invoke test functions defined in wast files
             if self.mod_instance:
                 self.invoke(s_expr)
+            else:
+                self.logger.warning(
+                    'Skipping invoke, since no module was loaded yet')
 
         elif s_expr[0] == 'assert_return':
             if self.mod_instance:
@@ -239,6 +251,9 @@ class WastExecutor:
                         self.assert_equal(result, expected_value)
                 else:
                     self.invoke(s_expr[1])
+            else:
+                self.logger.warning(
+                    'Skipping assert_return, since no module was loaded yet')
         else:
             # print('Unknown directive', s_expr[0])
             pass
@@ -308,6 +323,8 @@ class WastExecutor:
             self.mod_instance = instantiate(
                 m1, imports, target=self.target, reporter=self.reporter)
             self.logger.debug('Instantiated wasm module %s', self.mod_instance)
+        else:
+            self.mod_instance = None
 
     def invoke(self, target):
         # print(target)
@@ -378,19 +395,31 @@ def wasm_spec_populate(cls):
     return cls
 
 
-def get_wast_files():
+def get_wast_files(include_pattern='*'):
     """ Retrieve wast files if WASM_SPEC_DIR was set """
     if 'WASM_SPEC_DIR' in os.environ:
         wasm_spec_directory = os.path.normpath(os.environ['WASM_SPEC_DIR'])
+
+        # Do some auto detection:
         if os.path.isfile(os.path.join(wasm_spec_directory, 'f32.wast')):
             core_test_directory = wasm_spec_directory
         else:
             core_test_directory = os.path.join(
                 wasm_spec_directory, 'test', 'core')
+
+        # Check if we have a folder:
         if not os.path.isdir(core_test_directory):
             raise ValueError(
                 "WASM_SPEC_DIR is set, but {} not found".format(
                     core_test_directory))
+
+        # Check if we have the right folder:
+        validation_file = os.path.join(core_test_directory, 'f32.wast')
+        if not os.path.exists(validation_file):
+            raise ValueError(
+                "WASM_SPEC_DIR is set, but {} not found".format(
+                    validation_file))
+
         for filename in sorted(glob.iglob(os.path.join(
                 core_test_directory, '*.wast'))):
 
@@ -398,8 +427,16 @@ def get_wast_files():
             base_name = os.path.splitext(os.path.split(filename)[1])[0]
             if base_name in black_list:
                 continue
+            if not fnmatch(base_name, include_pattern):
+                continue
 
             yield filename
+    else:
+        warnings.warn(
+            'Please specify WASM_SPEC_DIR if you wish to run the wasm spec'
+            'test directory. '
+            'For example: export WASM_SPEC_DIR=~/GIT/spec'
+        )
 
 
 @wasm_spec_populate
@@ -408,30 +445,22 @@ class WasmSpecTestCase(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    verbose = False
-    if len(sys.argv) > 1:
-        verbose = True
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--target', choices=['native', 'python'],
+        action='append', default=[]
+    )
+    parser.add_argument('--verbose', '-v', action='count', default=0)
+    parser.add_argument('--filter', default='*')
+    args = parser.parse_args()
 
-    if verbose:
+    if args.verbose:
         loglevel = logging.DEBUG
     else:
         loglevel = logging.INFO
 
     logging.basicConfig(level=loglevel, format=logformat)
-    # Three ways to run this:
-    
-    # unittest.main(verbosity=2)
-    
-    #perform_test(os.path.join(os.environ['WASM_SPEC_DIR'], 'i64.wast'), 'native')
-    #perform_test(os.path.join(os.environ['WASM_SPEC_DIR'], 'names.wast'), 'native')
-    
-    continue_after = ''
-    # for target in ['python', 'native']:
-    # for target in ['native', 'python']:
-    for target in ['native']:
-        for filename in get_wast_files():
-            if continue_after:
-                if filename.endswith(continue_after + '.wast'):
-                    continue_after = None
-                continue
+
+    for target in args.target:
+        for filename in get_wast_files(include_pattern=args.filter):
             perform_test(filename, target)

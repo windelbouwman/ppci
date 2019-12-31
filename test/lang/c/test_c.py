@@ -1,8 +1,10 @@
 import unittest
+from functools import reduce
+import operator
 import io
 from ppci.common import CompilerError
-from ppci.lang.c import CBuilder, CPrinter, CContext
-from ppci.lang.c import CSynthesizer, parse_type
+from ppci.lang.c import CBuilder, render_ast, CContext
+from ppci.lang.c import parse_type, print_ast
 from ppci.lang.c.options import COptions
 from ppci.lang.c.utils import replace_escape_codes
 from ppci.arch.example import ExampleArch
@@ -34,6 +36,10 @@ class CFrontendTestCase(unittest.TestCase):
         self.builder = CBuilder(arch.info, COptions())
 
     def do(self, src):
+        # self._print_ast(src)
+        self._do_compile(src)
+
+    def _do_compile(self, src):
         f = io.StringIO(src)
         try:
             ir_module = self.builder.build(f, None)
@@ -44,12 +50,17 @@ class CFrontendTestCase(unittest.TestCase):
         assert isinstance(ir_module, ir.Module)
         Verifier().verify(ir_module)
 
+    def _print_ast(self, src):
         # Try to parse ast as well:
         f = io.StringIO(src)
         tree = self.builder._create_ast(src, None)
-        printer = CPrinter()
         print(tree)
-        printer.print(tree)
+        print('C-AST:')
+        print_ast(tree)
+
+        # Print rendered c:
+        print('re-rendered C:')
+        render_ast(tree)
 
     def expect_errors(self, src, errors):
         with self.assertRaises(CompilerError) as cm:
@@ -131,6 +142,18 @@ class CFrontendTestCase(unittest.TestCase):
         """
         self.do(src)
 
+    def test_for_statement(self):
+        src = """
+        int main() {
+            int i;
+            for (i=i;i<10;i++) { }
+            for (i=0;;) { }
+            for (;;) { }
+            for (int x=0;x<10;x++) { }
+        }
+        """
+        self.do(src)
+
     def test_conditionals(self):
         src = """
         int main() {
@@ -150,6 +173,16 @@ class CFrontendTestCase(unittest.TestCase):
           d = a + b - c / a * b;
           d = !a;
           d = a ? b : c + 2;
+        }
+        """
+        self.do(src)
+
+    def test_comma_operator(self):
+        """ Test comma operator """
+        src = """
+        void main() {
+          int a,b,c,d;
+          a = 2, b=3;
         }
         """
         self.do(src)
@@ -227,6 +260,26 @@ class CFrontendTestCase(unittest.TestCase):
         """
         self.do(src)
 
+    def test_struct_copy(self):
+        """ Test struct behavior when copied around. """
+        src = """
+        typedef struct {int a,b,c,d,e,f; } data_t;
+        data_t my_f(data_t y) {
+            data_t z;
+            z.a = y.a;
+            z.b = 42;
+          return z;
+        }
+        void main() {
+            data_t *ptr;
+            data_t x;
+            x = *ptr++;
+            x = my_f(x);
+            x = my_f(*ptr--);
+        }
+        """
+        self.do(src)
+
     def test_bad_bitfield_type(self):
         """ Test bad bitfield type """
         src = """
@@ -239,12 +292,27 @@ class CFrontendTestCase(unittest.TestCase):
         src = """
         struct z { int foo; };
         void main() {
-         __builtin_offsetof(struct z, foo);
+             __builtin_offsetof(struct z, foo);
         }
         """
         self.do(src)
 
-    def test_offsetof_bitfields(self):
+    def test_offsetof_after_bitfield(self):
+        """ Test offsetof after bitfields works """
+        src = """
+        struct z { char foo : 1; int fu : 2; int bar; };
+        void do_x(struct z g) {
+        }
+
+        void main() {
+             __builtin_offsetof(struct z, bar);
+             struct z y;
+             do_x(y);
+        }
+        """
+        self.do(src)
+
+    def test_offsetof_bitfield(self):
         """ Test offsetof on bitfields returns an error """
         src = """
         struct z { int foo : 23; };
@@ -258,9 +326,21 @@ class CFrontendTestCase(unittest.TestCase):
         """ Test union usage """
         src = """
         union z { int foo; struct { int b, a, r; } bar;};
-        union z myZ[2] = {1, 2, 3};
+        union z myZ[2] = {1, 2};
         void main() {
-          union z localZ[2] = {1, 2, 3};
+          union z localZ[2] = {1, 2};
+        }
+        """
+        self.do(src)
+
+    @unittest.skip('TODO')
+    def test_anonymous_union_member(self):
+        """ Test anonymous union member access. """
+        src = """
+        union z { int foo; struct { int b; }; };
+        void main() {
+          union z my_z;
+          my_z.b = 34;
         }
         """
         self.do(src)
@@ -318,6 +398,17 @@ class CFrontendTestCase(unittest.TestCase):
         """
         self.do(src)
 
+    def test_enum_implicit_cast(self):
+        """ Test enum casting """
+        src = """
+        void main() {
+         enum E { A, B, C };
+         enum D { X, Y, Z };
+         enum E e = Z;
+        }
+        """
+        self.do(src)
+
     def test_literal_data(self):
         """ Test various formats of literal data """
         src = """
@@ -327,6 +418,17 @@ class CFrontendTestCase(unittest.TestCase):
          i = 10l;
          s = "Hello!" "World!";
          c = ' ';
+         s = &"bla"[2]; // This is fine!
+        }
+        """
+        self.do(src)
+
+    def test_compound_literal(self):
+        """ Test compund literal """
+        src = """
+        typedef struct { int x; } X_t;
+        X_t main() {
+         return (X_t){2};
         }
         """
         self.do(src)
@@ -456,6 +558,15 @@ class CFrontendTestCase(unittest.TestCase):
         """
         self.do(src)
 
+    def test_function_argument_name(self):
+        """ Test an argument name with the same name as a typedef """
+        src = """
+        typedef int a;
+        void add(a a) {
+        }
+        """
+        self.do(src)
+
     def test_forward_declaration(self):
         """ Test forward declarations """
         src = """
@@ -463,6 +574,43 @@ class CFrontendTestCase(unittest.TestCase):
         char a = 2;
         """
         self.do(src)
+
+    def test_afterwards_declaration(self):
+        """ Test redeclaration """
+        src = """
+        char a = 2;
+        extern char a;  // this is fine too!
+        char a;  // this is fine
+
+        int add(int a, int b);
+        int add(int a, int b); // fine!
+        int add(int a, int b) {
+          return a + b;
+        }
+        int add(int a, int b); // fine!
+
+        """
+        self.do(src)
+
+    def test_variable_double_definition(self):
+        """ Test double definition raises an error. """
+        src = """
+        char a = 2;
+        char a = 3; // Not cool!
+        """
+        self.expect_errors(src, [(3, 'Invalid redefinition')])
+
+    def test_function_double_definition(self):
+        """ Test double definition raises an error. """
+        src = """
+        int add(int a, int b) {
+          return a + b;
+        }
+        int add(int a, int b) { // Not cool!
+          return a + b;
+        }
+        """
+        self.expect_errors(src, [(5, 'invalid redefinition')])
 
     def test_softfloat_bug(self):
         """ Bug encountered in softfloat library """
@@ -526,14 +674,27 @@ class CFrontendTestCase(unittest.TestCase):
         self.do(src)
 
     def test_initialization(self):
-        """ Test calling of functions """
+        """ Test initialization of complex data structures. """
         src = """
+        struct rec {
+          int a, b;
+          char c[5];
+          struct {
+            int x, y;
+          } d;
+        };
         char x = '\2';
         int* ptr = (int*)0x1000;
+        struct rec d = {.b = 2, .c = {[2] = 3}, .d.x=100};
+        int e[] = {1, [2]=3, [0] = 2, [6]=2.2};
+        int f[] = {1,2,[5]=6};
 
         void main() {
-          char x = '\2';
-          int* ptr = (int*)0x1000;
+            char x = '\2';
+            int* ptr = (int*)0x1000;
+            struct rec d = {.b = 2, .c = {[2] = 3}, .d.x=100};
+            int e[] = {1, [2]=3, [0] = 2, [6]=2.2};
+            int f[] = {1,2,[5]=6};
         }
         """
         self.do(src)
@@ -554,6 +715,9 @@ class CFrontendTestCase(unittest.TestCase):
 
         void main() {
           register_callback(callback);
+          callback(); // direct call
+          cb();  // via function pointer
+          // TODO: (*cb)();  // again via function pointer
         }
         """
         self.do(src)
@@ -568,31 +732,18 @@ class CFrontendTestCase(unittest.TestCase):
         """
         self.do(src)
 
-
-class CSynthesizerTestCase(unittest.TestCase):
-    @unittest.skip('todo')
-    def test_hello(self):
-        """ Convert C to Ir, and then this IR to C """
-        src = r"""
-        void printf(char*);
-        void main(int b) {
-          printf("Hello" "world\n");
-        }
+    def test_array_of_strings(self):
+        """ Test array's of strings """
+        src = """
+        char *msg[] = {
+          "Hi",
+          "Bonjour"
+        };
         """
-        builder = CBuilder(ExampleArch(), COptions())
-        f = io.StringIO(src)
-        try:
-            ir_module = builder.build(f, None)
-        except CompilerError as compiler_error:
-            lines = src.split('\n')
-            compiler_error.render(lines)
-            raise
-        assert isinstance(ir_module, ir.Module)
-        Verifier().verify(ir_module)
-        synthesizer = CSynthesizer()
-        synthesizer.syn_module(ir_module)
+        self.do(src)
 
 
+@unittest.skip('fixme')
 class CTypeInitializerTestCase(unittest.TestCase):
     """ Test if C-types are correctly initialized """
     def setUp(self):
@@ -600,19 +751,23 @@ class CTypeInitializerTestCase(unittest.TestCase):
         coptions = COptions()
         self.context = CContext(coptions, arch.info)
 
+    def pack_value(self, ty, value):
+        mem = self.context.gen_global_ival(ty, value)
+        return reduce(operator.add, mem)
+
     def test_int_array(self):
         """ Test array initialization """
         src = "short[4]"
         ty = parse_type(src, self.context)
         self.assertEqual(8, self.context.sizeof(ty))
-        mem = self.context.gen_global_ival(ty, [1, 2, 3, 4])
+        mem = self.pack_value(ty, [1, 2, 3, 4])
         self.assertEqual(bytes([1, 0, 2, 0, 3, 0, 4, 0]), mem)
 
     def test_struct(self):
         src = "struct { char x; short y; }"
         ty = parse_type(src, self.context)
         self.assertEqual(4, self.context.sizeof(ty))
-        mem = self.context.gen_global_ival(ty, [3, 4])
+        mem = self.pack_value(ty, [3, 4])
         self.assertEqual(bytes([3, 0, 4, 0]), mem)
 
     def test_packed_struct(self):
@@ -620,7 +775,7 @@ class CTypeInitializerTestCase(unittest.TestCase):
         src = "struct { unsigned x: 5; short y : 10; }"
         ty = parse_type(src, self.context)
         self.assertEqual(2, self.context.sizeof(ty))
-        mem = self.context.gen_global_ival(ty, [5, 2])
+        mem = self.pack_value(ty, [5, 2])
         self.assertEqual(bytes([69, 0]), mem)
 
 

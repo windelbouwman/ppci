@@ -13,4 +13,4 @@ http://www.atmel.com/webdoc/avrassembler/avrassembler.wb_instruction_list.html
 from .arch import AvrArch
 from .registers import AvrRegister, AvrWordRegister
 
-__all__ = ['AvrArch', 'AvrRegister', 'AvrWordRegister']
+__all__ = ["AvrArch", "AvrRegister", "AvrWordRegister"]

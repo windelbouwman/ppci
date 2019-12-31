@@ -3,6 +3,7 @@ import unittest
 
 from ppci.common import CompilerError
 from ppci.lang.c import CLexer, lexer
+from ppci.lang.c.lexer import SourceFile
 from ppci.lang.c.options import COptions
 from ppci.lang.c.utils import cnum
 
@@ -15,18 +16,21 @@ class CLexerTestCase(unittest.TestCase):
         coptions.enable('trigraphs')
 
     def tokenize(self, src):
-        tokens = list(self.lexer.lex(io.StringIO(src), 'a.h'))
+        source_file = SourceFile('a.h')
+        tokens = list(self.lexer.lex(io.StringIO(src), source_file))
         return tokens
 
     def test_generate_characters(self):
         src = "ab\ndf"
-        chars = list(lexer.create_characters(io.StringIO(src), 'a.h'))
+        source_file = SourceFile('a.h')
+        chars = list(lexer.create_characters(io.StringIO(src), source_file))
         self.assertSequenceEqual([1, 1, 1, 2, 2], [c.loc.row for c in chars])
         self.assertSequenceEqual([1, 2, 3, 1, 2], [c.loc.col for c in chars])
 
     def test_trigraphs(self):
         src = "??( ??) ??/ ??' ??< ??> ??! ??- ??="
-        chars = list(lexer.create_characters(io.StringIO(src), 'a.h'))
+        source_file = SourceFile('a.h')
+        chars = list(lexer.create_characters(io.StringIO(src), source_file))
         chars = list(lexer.trigraph_filter(chars))
         self.assertSequenceEqual(
             list(r'[ ] \ ^ { } | ~ #'), [c.char for c in chars])

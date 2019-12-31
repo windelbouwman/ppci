@@ -28,24 +28,28 @@ ldi r16, 32
 out 0x4, r16
 
 ; sei  ; enable interrupts
+global main_main
 rjmp main_main
 
 
 ; Assembly functions:
 
 ; pb5 on
+global main_on
 main_on:
 ldi r16, 32
 out 0x5, r16
 ret
 
 ; pb5 off
+global main_off
 main_off:
 ldi r16, 0
 out 0x5, r16
 ret
 
 ; delay x times 10 ms:
+global main_delay
 main_delay:
     push r20
     push r19

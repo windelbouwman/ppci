@@ -1,9 +1,7 @@
-
 from cProfile import Profile
 import pstats
 import logging
 import logging.handlers
-from os import path
 import shutil
 import os
 

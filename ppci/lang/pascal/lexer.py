@@ -7,26 +7,40 @@ from ..tools.baselex import SimpleLexer, on
 
 class Lexer(SimpleLexer):
     """ Generates a sequence of token from an input stream """
-    keywords = ['program',
-                'type', 'const', 'var',
-                'begin', 'end',
-                'case', 'of',
-                'if', 'then', 'else', 'while', 'for', 'do',
-                'to', 'downto',
-                'read', 'readln', 'write', 'writeln']
-    double_glyphs = (
-        ':=', '<>')
-    single_glyphs = (
-        ',', ';', '(', ')', '.', ':', '<', '>', '=')
+
+    keywords = [
+        "program",
+        "type",
+        "const",
+        "var",
+        "begin",
+        "end",
+        "case",
+        "of",
+        "if",
+        "then",
+        "else",
+        "while",
+        "for",
+        "do",
+        "to",
+        "downto",
+        "read",
+        "readln",
+        "write",
+        "writeln",
+    ]
+    double_glyphs = (":=", "<>")
+    single_glyphs = (",", ";", "(", ")", ".", ":", "<", ">", "=")
     glyphs = double_glyphs + single_glyphs
-    op_txt = '|'.join(re.escape(g) for g in glyphs)
+    op_txt = "|".join(re.escape(g) for g in glyphs)
 
     def __init__(self, diag):
         super().__init__()
         self.diag = diag
 
     def lex(self, input_file):
-        filename = input_file.name if hasattr(input_file, 'name') else ''
+        filename = input_file.name if hasattr(input_file, "name") else ""
         s = input_file.read()
         input_file.close()
         self.diag.add_source(filename, s)
@@ -38,34 +52,34 @@ class Lexer(SimpleLexer):
         for token in super().tokenize(text):
             yield token
         loc = SourceLocation(self.filename, self.line, 0, 0)
-        yield Token('EOF', 'EOF', loc)
+        yield Token("EOF", "EOF", loc)
 
-    @on(r'[ \t\n]+')
+    @on(r"[ \t\n]+")
     def handle_skip(self, val):
         pass
 
-    @on(r'[A-Za-z_][A-Za-z\d_]*')
+    @on(r"[A-Za-z_][A-Za-z\d_]*")
     def handle_id(self, val):
         val = val.lower()
         if val in self.keywords:
             typ = val
         else:
-            typ = 'ID'
+            typ = "ID"
         return typ, val
 
     @on(r"'.*?'")
     def handle_string(self, val):
-        return 'STRING', val[1:-1]
+        return "STRING", val[1:-1]
 
     @on(r"\d+")
     def handle_number(self, val):
-        return 'NUMBER', int(val)
+        return "NUMBER", int(val)
 
-    @on('\(\*.*\*\)', flags=re.DOTALL, order=-2)
+    @on(r"\(\*.*\*\)", flags=re.DOTALL, order=-2)
     def handle_oldcomment(self, val):
         pass
 
-    @on('\{.*\}', flags=re.DOTALL, order=-1)
+    @on(r"\{.*\}", flags=re.DOTALL, order=-1)
     def handle_comment(self, val):
         pass
 

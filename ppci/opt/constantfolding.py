@@ -30,16 +30,17 @@ def enhance(f):
 
 class ConstantFolder(BlockPass):
     """ Try to fold common constant expressions """
+
     def __init__(self):
         super().__init__()
         self.ops = {
-            '+': enhance(operator.add),
-            '-': enhance(operator.sub),
-            '*': enhance(operator.mul),
-            '%': enhance(operator.mod),
-            '<<': enhance(operator.lshift),
-            '>>': enhance(operator.rshift),
-            }
+            "+": enhance(operator.add),
+            "-": enhance(operator.sub),
+            "*": enhance(operator.mul),
+            "%": enhance(operator.mod),
+            "<<": enhance(operator.lshift),
+            ">>": enhance(operator.rshift),
+        }
 
     def is_const(self, value):
         """ Determine if a value can be evaluated as a constant value """
@@ -48,8 +49,12 @@ class ConstantFolder(BlockPass):
         elif isinstance(value, ir.Cast):
             return self.is_const(value.src)
         elif isinstance(value, ir.Binop):
-            return value.operation in self.ops and value.ty.is_integer and \
-                self.is_const(value.a) and self.is_const(value.b)
+            return (
+                value.operation in self.ops
+                and value.ty.is_integer
+                and self.is_const(value.a)
+                and self.is_const(value.b)
+            )
         else:
             return False
 
@@ -63,11 +68,11 @@ class ConstantFolder(BlockPass):
             assert a.ty is b.ty
             assert a.ty is value.ty
             res = self.ops[value.operation](value.ty, a.value, b.value)
-            return ir.Const(res, 'new_fold', a.ty)
+            return ir.Const(res, "new_fold", a.ty)
         elif isinstance(value, ir.Cast):
             c_val = self.eval_const(value.src)
             numeric_value = cast(c_val.value, value.ty)
-            return ir.Const(numeric_value, 'casted', value.ty)
+            return ir.Const(numeric_value, "casted", value.ty)
         else:  # pragma: no cover
             raise NotImplementedError(str(value))
 
@@ -86,41 +91,47 @@ class ConstantFolder(BlockPass):
                 instruction.replace_by(cnst)
                 count += 1
             else:
-                if isinstance(instruction, ir.Binop) and \
-                        isinstance(instruction.a, ir.Binop) and \
-                        instruction.a.operation == '+' and \
-                        self.is_const(instruction.a.b) and \
-                        (instruction.operation == '+') and \
-                        self.is_const(instruction.b):
+                if (
+                    isinstance(instruction, ir.Binop)
+                    and isinstance(instruction.a, ir.Binop)
+                    and instruction.a.operation == "+"
+                    and self.is_const(instruction.a.b)
+                    and (instruction.operation == "+")
+                    and self.is_const(instruction.b)
+                ):
                     # Now we can replace x = (y+5)+5 with x = y + 10
                     a = self.eval_const(instruction.a.b)
                     b = self.eval_const(instruction.b)
                     assert a.ty is b.ty
-                    cn = ir.Const(a.value + b.value, 'new_fold', a.ty)
+                    cn = ir.Const(a.value + b.value, "new_fold", a.ty)
                     block.insert_instruction(
-                        cn, before_instruction=instruction)
+                        cn, before_instruction=instruction
+                    )
                     instruction.a = instruction.a.a
                     instruction.b = cn
                     assert instruction.ty is cn.ty
                     assert instruction.ty is instruction.a.ty
                     count += 1
-                elif isinstance(instruction, ir.Binop) and \
-                        isinstance(instruction.a, ir.Binop) and \
-                        instruction.a.operation == '-' and \
-                        self.is_const(instruction.a.b) and \
-                        instruction.operation == '-' and \
-                        self.is_const(instruction.b):
+                elif (
+                    isinstance(instruction, ir.Binop)
+                    and isinstance(instruction.a, ir.Binop)
+                    and instruction.a.operation == "-"
+                    and self.is_const(instruction.a.b)
+                    and instruction.operation == "-"
+                    and self.is_const(instruction.b)
+                ):
                     # Now we can replace x = (y-5)-5 with x = y - 10
                     a = self.eval_const(instruction.a.b)
                     b = self.eval_const(instruction.b)
                     assert a.ty is b.ty
-                    cn = ir.Const(a.value + b.value, 'new_fold', a.ty)
+                    cn = ir.Const(a.value + b.value, "new_fold", a.ty)
                     block.insert_instruction(
-                        cn, before_instruction=instruction)
+                        cn, before_instruction=instruction
+                    )
                     instruction.a = instruction.a.a
                     instruction.b = cn
                     assert instruction.ty is cn.ty
                     assert instruction.ty is instruction.a.ty
                     count += 1
         if count > 0:
-            self.logger.debug('Folded %i expressions', count)
+            self.logger.debug("Folded %i expressions", count)

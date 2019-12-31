@@ -21,11 +21,11 @@
 #if	defined(__IEEE_SP_FP__)
 
 /* Hart table LOGE 2701, p. 195; precision 8.48, order 1 1. */
-static double P3[] = {
+static double P[] = {
 	-0.331355617479e+1,
 	 0.89554061525
 };
-static double Q3[] = {
+static double Q[] = {
 	-0.165677797691e+1,
 	 1.0
 };
@@ -33,13 +33,13 @@ static double Q3[] = {
 #else	/* defined(__IEEE_SP_FP__) */
 
 /* Hart table LOGE 2705, p. 195; precision 19.38, order 3 3. */
-static double P3[] = {
+static double P[] = {
 	-0.24013917955921050986e+2,
 	 0.30957292821537650062e+2,
 	-0.96376909336868659324e+1,
 	 0.4210873712179797145
 };
-static double Q3[] = {
+static double Q[] = {
 	-0.12006958977960525471e+2,
 	 0.19480966070088973051e+2,
 	-0.89111090279378312337e+1,
@@ -48,8 +48,8 @@ static double Q3[] = {
 
 #endif	/* defined(__IEEE_SP_FP__) */
 
-#define	ORDERP	((int)(sizeof(P3) / sizeof(P3[0])) - 1)
-#define	ORDERQ	((int)(sizeof(Q3) / sizeof(Q3[0])) - 1)
+#define	ORDERP	((int)(sizeof(P) / sizeof(P[0])) - 1)
+#define	ORDERQ	((int)(sizeof(Q) / sizeof(Q[0])) - 1)
 
 double
 log(double x)
@@ -79,6 +79,6 @@ log(double x)
 
 	s = SQRT2 * frexp (x, &k);
 	z = (s - 1.0) / (s + 1.0);
-	q = z * (_poly (ORDERP, P3, z * z) / _poly (ORDERQ, Q3, z * z));
+	q = z * (_poly (ORDERP, P, z * z) / _poly (ORDERQ, Q, z * z));
 	return k * LN2 - LNSQRT2 + q;
 }

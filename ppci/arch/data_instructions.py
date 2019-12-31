@@ -36,28 +36,35 @@ class DwordToken(Token):
     value = bit_range(0, 32)
 
 
+class QwordToken(Token):
+    class Info:
+        size = 64
+
+    value = bit_range(0, 64)
+
+
 class DataInstruction(Instruction):
     isa = data_isa
 
 
 class Db(DataInstruction):
     tokens = [ByteToken]
-    v = Operand('v', int)
-    syntax = Syntax(['db', ' ', v])
-    patterns = {'value': v}
+    v = Operand("v", int)
+    syntax = Syntax(["db", " ", v])
+    patterns = {"value": v}
 
 
 class Dw(DataInstruction):
     tokens = [WordToken]
-    v = Operand('v', int)
-    syntax = Syntax(['dw', ' ', v])
-    patterns = {'value': v}
+    v = Operand("v", int)
+    syntax = Syntax(["dw", " ", v])
+    patterns = {"value": v}
 
 
 class Dw2(DataInstruction):
     tokens = [WordToken]
-    v = Operand('v', str)
-    syntax = Syntax(['dw', ' ', v])
+    v = Operand("v", str)
+    syntax = Syntax(["dw", " ", v])
 
     def relocations(self):
         return [U16DataRelocation(self.v)]
@@ -65,16 +72,17 @@ class Dw2(DataInstruction):
 
 class DByte(DataInstruction):
     tokens = [ByteToken]
-    v = Operand('v', int)
-    syntax = Syntax(['.', 'byte', ' ', v])
-    patterns = {'value': v}
+    v = Operand("v", int)
+    syntax = Syntax([".", "byte", " ", v])
+    patterns = {"value": v}
 
 
 class DZero(DataInstruction):
     """ Reserve an amount of space """
+
     tokens = []
-    v = Operand('v', int)
-    syntax = Syntax(['.', 'zero', ' ', v])
+    v = Operand("v", int)
+    syntax = Syntax([".", "zero", " ", v])
 
     def encode(self):
         return bytes([0] * self.v)
@@ -82,9 +90,9 @@ class DZero(DataInstruction):
 
 @data_isa.register_relocation
 class U16DataRelocation(Relocation):
-    name = 'absaddr16'
+    name = "absaddr16"
     token = WordToken
-    field = 'value'
+    field = "value"
 
     def calc(self, sym_value, reloc_value):
         assert sym_value % 2 == 0
@@ -94,26 +102,25 @@ class U16DataRelocation(Relocation):
 
 class Dd(DataInstruction):
     tokens = [DwordToken]
-    v = Operand('v', int)
-    syntax = Syntax(['dd', ' ', v])
-    patterns = {'value': v}
+    v = Operand("v", int)
+    syntax = Syntax(["dd", " ", v])
+    patterns = {"value": v}
 
 
 @data_isa.register_relocation
 class U32DataRelocation(Relocation):
-    name = 'absaddr32'
+    name = "absaddr32"
     token = DwordToken
-    field = 'value'
+    field = "value"
 
     def calc(self, sym_value, reloc_value):
-        assert sym_value % 4 == 0
         assert reloc_value % 4 == 0
         return sym_value
 
 
 class Dcd2(DataInstruction):
-    v = Operand('v', str)
-    syntax = Syntax(['dcd', ' ', '=', v])
+    v = Operand("v", str)
+    syntax = Syntax(["dcd", " ", "=", v])
 
     def encode(self):
         return u32(0)
@@ -122,11 +129,44 @@ class Dcd2(DataInstruction):
         return [U32DataRelocation(self.v)]
 
 
+class Dq(DataInstruction):
+    v = Operand("v", int)
+    tokens = [QwordToken]
+    syntax = Syntax(["dq", " ", v])
+    patterns = {"value": v}
+
+    def relocations(self):
+        return [U64DataRelocation(self.v)]
+
+
+@data_isa.register_relocation
+class U64DataRelocation(Relocation):
+    name = "absaddr64"
+    token = QwordToken
+    field = "value"
+
+    def calc(self, sym_value, reloc_value):
+        assert sym_value % 4 == 0
+        assert reloc_value % 4 == 0
+        return sym_value
+
+
+class Dq2(DataInstruction):
+    v = Operand("v", str)
+    tokens = [QwordToken]
+    syntax = Syntax(["dq", " ", "=", v])
+    patterns = {"value": 0}
+
+    def relocations(self):
+        return [U64DataRelocation(self.v)]
+
+
 class Ds(DataInstruction):
     """ Reserve an amount of space """
+
     tokens = []
-    v = Operand('v', int)
-    syntax = Syntax(['ds', ' ', v])
+    v = Operand("v", int)
+    syntax = Syntax(["ds", " ", v])
 
     def encode(self):
         return bytes([0] * self.v)

@@ -16,7 +16,8 @@ class DagSplitter:
     such that data dependencies are met. The trees can henceforth be
     used to match trees.
     """
-    logger = logging.getLogger('dag-splitter')
+
+    logger = logging.getLogger("dag-splitter")
 
     def __init__(self, arch):
         self.arch = arch
@@ -32,7 +33,8 @@ class DagSplitter:
         # Process other blocks:
         for ir_block in ir_function:
             block_trees = self.split_group_into_trees(
-                sgraph, function_info, ir_block)
+                sgraph, function_info, ir_block
+            )
             forest.append(function_info.label_map[ir_block])
             forest.extend(block_trees)
 
@@ -45,8 +47,8 @@ class DagSplitter:
         nodes = sgraph.get_group(group)
         # Get rid of ENTRY and EXIT:
         nodes = set(
-            filter(
-                lambda x: x.name.op not in ['ENTRY', 'EXIT'], nodes))
+            filter(lambda x: x.name.op not in ["ENTRY", "EXIT"], nodes)
+        )
 
         tail_node = function_info.block_tails[group]
         return self.make_trees(nodes, tail_node)
@@ -63,9 +65,11 @@ class DagSplitter:
         assert node.group is not None
 
         for data_output in node.data_outputs:
-            if (len(data_output.users) > 1) or node.volatile or \
-                    any(u.group is not node.group
-                        for u in data_output.users):
+            if (
+                (len(data_output.users) > 1)
+                or node.volatile
+                or any(u.group is not node.group for u in data_output.users)
+            ):
                 if data_output.wants_vreg and not data_output.vreg:
                     cls = self.get_reg_class(data_output)
                     vreg = frame.new_reg(cls, data_output.name)
@@ -80,19 +84,19 @@ class DagSplitter:
         def mk_tr(inp):
             if inp.vreg:
                 # If the input value has a vreg, use it
-                child_tree = Tree(
-                    self.make_op('REG', inp.ty), value=inp.vreg)
+                child_tree = Tree(self.make_op("REG", inp.ty), value=inp.vreg)
             elif inp.node in node_map:
                 child_tree = node_map[inp.node]
-            elif inp.node.name.op == 'LABEL':
+            elif inp.node.name.op == "LABEL":
                 child_tree = Tree(str(inp.node.name), value=inp.node.value)
             else:  # inp.node.name.startswith('CONST'):
                 # If the node is a constant, use that
                 if inp.wants_vreg:
-                    raise ValueError('{} does require vreg'.format(inp))
+                    raise ValueError("{} does require vreg".format(inp))
                 children = [mk_tr(i) for i in inp.node.data_inputs]
                 child_tree = Tree(
-                    str(inp.node.name), *children, value=inp.node.value)
+                    str(inp.node.name), *children, value=inp.node.value
+                )
             return child_tree
 
         for node in sorted_nodes:
@@ -121,9 +125,9 @@ class DagSplitter:
                     typ = data_output.ty
                     if typ is None:
                         print(node)
-                    tree = Tree(self.make_op('MOV', typ), tree, value=vreg)
+                    tree = Tree(self.make_op("MOV", typ), tree, value=vreg)
                     trees.append(tree)
-                    tree = Tree(self.make_op('REG', typ), value=vreg)
+                    tree = Tree(self.make_op("REG", typ), value=vreg)
                 elif node.volatile:
                     trees.append(tree)
 
@@ -134,7 +138,7 @@ class DagSplitter:
     def make_op(self, op, typ):
         """ Construct a string opcode from an operation and a type """
         assert isinstance(typ, ir.Typ), str(typ)
-        return '{}{}'.format(op, typ).upper()
+        return "{}{}".format(op, typ).upper()
 
     def get_reg_class(self, data_flow):
         """ Determine the register class suited for this data flow line """
@@ -153,7 +157,7 @@ def topological_sort_modified(nodes, start):
     def visit(n):
         if n not in nodes:
             return
-        assert n not in temp_marked, 'DAG has cycles'
+        assert n not in temp_marked, "DAG has cycles"
         if n in unmarked:
             temp_marked.add(n)
 

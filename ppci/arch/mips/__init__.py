@@ -2,4 +2,4 @@
 
 from .arch import MipsArch
 
-__all__ = ['MipsArch']
+__all__ = ["MipsArch"]

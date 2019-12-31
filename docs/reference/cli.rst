@@ -37,6 +37,9 @@ activated stand alone.
 .. autoprogram:: ppci.cli.build:parser
     :prog: ppci-build
 
+.. autoprogram:: ppci.cli.archive:parser
+    :prog: ppci-archive
+
 .. _ppci-asm:
 .. autoprogram:: ppci.cli.asm:parser
     :prog: ppci-asm
@@ -79,3 +82,19 @@ activated stand alone.
 
 .. autoprogram:: ppci.cli.wat2wasm:parser
     :prog: ppci-wat2wasm
+
+.. autoprogram:: ppci.cli.wabt:parser
+    :prog: ppci-wabt
+
+.. autoprogram:: ppci.cli.ocaml:parser
+    :prog: ppci-ocaml
+
+.. autoprogram:: ppci.cli.java:parser
+    :prog: ppci-java
+
+.. autoprogram:: ppci.cli.hexutil:parser
+    :prog: ppci-hexutil
+
+.. autoprogram:: ppci.cli.hexdump:parser
+    :prog: ppci-hexdump
+

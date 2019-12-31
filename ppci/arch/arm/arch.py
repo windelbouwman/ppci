@@ -24,12 +24,13 @@ class ArmCallingConvention:
 
 class ArmArch(Architecture):
     """ Arm machine class. """
-    name = 'arm'
-    option_names = ('thumb', 'jazelle', 'neon', 'vfpv1', 'vfpv2')
+
+    name = "arm"
+    option_names = ("thumb", "jazelle", "neon", "vfpv1", "vfpv2")
 
     def __init__(self, options=None):
         super().__init__(options=options)
-        if self.has_option('thumb'):
+        if self.has_option("thumb"):
             self.assembler = ThumbAssembler()
             self.isa = thumb_isa + data_isa
             # We use r7 as frame pointer (in case of thumb ;)):
@@ -39,11 +40,12 @@ class ArmArch(Architecture):
             # Registers usable by register allocator:
             register_classes = [
                 RegisterClass(
-                    'loreg',
+                    "loreg",
                     [ir.i8, ir.i32, ir.ptr, ir.u8, ir.u32, ir.i16, ir.u16],
                     LowArmRegister,
-                    [R0, R1, R2, R3, R4, R5, R6, R7])
-                ]
+                    [R0, R1, R2, R3, R4, R5, R6, R7],
+                )
+            ]
         else:
             self.isa = arm_isa + data_isa
             self.assembler = ArmAssembler()
@@ -53,43 +55,57 @@ class ArmArch(Architecture):
             # Registers usable by register allocator:
             register_classes = [
                 RegisterClass(
-                    'loreg', [], LowArmRegister,
-                    [R0, R1, R2, R3, R4, R5, R6, R7]),
+                    "loreg",
+                    [],
+                    LowArmRegister,
+                    [R0, R1, R2, R3, R4, R5, R6, R7],
+                ),
                 RegisterClass(
-                    'reg',
+                    "reg",
                     [ir.i8, ir.i32, ir.u8, ir.u32, ir.i16, ir.u16, ir.ptr],
                     ArmRegister,
-                    [R0, R1, R2, R3, R4, R5, R6, R7, R8, R9, R10, R11])
-                ]
+                    [R0, R1, R2, R3, R4, R5, R6, R7, R8, R9, R10, R11],
+                ),
+            ]
         self.assembler.gen_asm_parser(self.isa)
         self.gdb_registers = all_registers
         self.gdb_pc = PC
 
         self.info = ArchInfo(
             type_infos={
-                ir.i8: TypeInfo(1, 1), ir.u8: TypeInfo(1, 1),
-                ir.i16: TypeInfo(2, 2), ir.u16: TypeInfo(2, 2),
-                ir.i32: TypeInfo(4, 4), ir.u32: TypeInfo(4, 4),
-                'int': ir.i32, 'ptr': ir.u32, ir.ptr: ir.u32,
+                ir.i8: TypeInfo(1, 1),
+                ir.u8: TypeInfo(1, 1),
+                ir.i16: TypeInfo(2, 2),
+                ir.u16: TypeInfo(2, 2),
+                ir.i32: TypeInfo(4, 4),
+                ir.u32: TypeInfo(4, 4),
+                ir.f32: TypeInfo(4, 4),
+                ir.f64: TypeInfo(8, 8),
+                "int": ir.i32,
+                "ptr": ir.u32,
+                ir.ptr: ir.u32,
             },
-            register_classes=register_classes)
+            register_classes=register_classes,
+        )
 
     def get_runtime(self):
         """ Implement compiler runtime functions """
         from ...api import asm
-        if self.has_option('thumb'):
-            asm_src = ''
+
+        if self.has_option("thumb"):
+            asm_src = ""
         else:
             asm_src = ARM_ASM_RT
         return asm(io.StringIO(asm_src), self)
 
     def move(self, dst, src):
         """ Generate a move from src to dst """
-        if self.has_option('thumb'):
+        if self.has_option("thumb"):
             return thumb_instructions.Mov2(dst, src, ismove=True)
         else:
             return arm_instructions.Mov2(
-                dst, src, arm_instructions.NoShift(), ismove=True)
+                dst, src, arm_instructions.NoShift(), ismove=True
+            )
 
     def gen_prologue(self, frame):
         """ Returns prologue instruction sequence.
@@ -104,13 +120,13 @@ class ArmArch(Architecture):
         yield Label(frame.name)
 
         # Save the link register and the frame pointer:
-        if self.has_option('thumb'):
+        if self.has_option("thumb"):
             yield thumb_instructions.Push({LR, R7})
         else:
             yield arm_instructions.Push(RegisterSet({LR, R11}))
 
         # Setup frame pointer:
-        if self.has_option('thumb'):
+        if self.has_option("thumb"):
             yield thumb_instructions.Mov2(R7, SP)
         else:
             yield arm_instructions.Mov2(R11, SP, arm_instructions.NoShift())
@@ -121,7 +137,7 @@ class ArmArch(Architecture):
         # 3. parameters to called functions
         if frame.stacksize:
             ssize = round_up(frame.stacksize)
-            if self.has_option('thumb'):
+            if self.has_option("thumb"):
 
                 # Reserve stack space:
                 # subSp cannot handle large numbers:
@@ -135,7 +151,7 @@ class ArmArch(Architecture):
         # Callee save registers:
         callee_save = {r for r in self.callee_save if r in frame.used_regs}
         if callee_save:
-            if self.has_option('thumb'):
+            if self.has_option("thumb"):
                 yield thumb_instructions.Push(callee_save)
             else:
                 yield arm_instructions.Push(RegisterSet(callee_save))
@@ -144,7 +160,7 @@ class ArmArch(Architecture):
         extras = max(frame.out_calls) if frame.out_calls else 0
         if extras:
             ssize = round_up(extras)
-            if self.has_option('thumb'):
+            if self.has_option("thumb"):
                 raise NotImplementedError()
             else:
                 yield arm_instructions.SubImm(SP, SP, ssize)
@@ -165,7 +181,7 @@ class ArmArch(Architecture):
         extras = max(frame.out_calls) if frame.out_calls else 0
         if extras:
             ssize = round_up(extras)
-            if self.has_option('thumb'):
+            if self.has_option("thumb"):
                 raise NotImplementedError()
             else:
                 yield arm_instructions.AddImm(SP, SP, ssize)
@@ -173,14 +189,14 @@ class ArmArch(Architecture):
         # Callee save registers:
         callee_save = {r for r in self.callee_save if r in frame.used_regs}
         if callee_save:
-            if self.has_option('thumb'):
+            if self.has_option("thumb"):
                 yield thumb_instructions.Pop(callee_save)
             else:
                 yield arm_instructions.Pop(RegisterSet(callee_save))
 
         if frame.stacksize > 0:
             ssize = round_up(frame.stacksize)
-            if self.has_option('thumb'):
+            if self.has_option("thumb"):
                 # subSp cannot handle large numbers:
                 while ssize > 0:
                     inc = min(124, ssize)
@@ -189,7 +205,7 @@ class ArmArch(Architecture):
             else:
                 yield arm_instructions.AddImm(SP, SP, ssize)
 
-        if self.has_option('thumb'):
+        if self.has_option("thumb"):
             yield thumb_instructions.Pop({PC, R7})
         else:
             yield arm_instructions.Pop(RegisterSet({PC, R11}))
@@ -198,8 +214,8 @@ class ArmArch(Architecture):
         for instruction in self.litpool(frame):
             yield instruction
 
-        if not self.has_option('thumb'):
-            yield Alignment(4)   # Align at 4 bytes
+        if not self.has_option("thumb"):
+            yield Alignment(4)  # Align at 4 bytes
 
     def gen_arm_memcpy(self, p1, p2, v3, size):
         # Called before register allocation
@@ -226,12 +242,12 @@ class ArmArch(Architecture):
                 stack_size += arg_loc.size
                 if isinstance(arg, ArmRegister):
                     # Store register on stack:
-                    if self.has_option('thumb'):
+                    if self.has_option("thumb"):
                         yield thumb_instructions.Str1(arg, SP, arg_loc.offset)
                     else:
                         yield arm_instructions.Str1(arg, SP, arg_loc.offset)
                 elif isinstance(arg, StackLocation):
-                    if self.has_option('thumb'):
+                    if self.has_option("thumb"):
                         raise NotImplementedError()
                     else:
                         # Generate memcpy now:
@@ -246,18 +262,19 @@ class ArmArch(Architecture):
                         # Remember that the LR and FP are pushed in between
                         # So hence -8:
                         yield arm_instructions.AddImm(
-                            p1, SP, arg_loc.offset - 8)
+                            p1, SP, arg_loc.offset - 8
+                        )
                         # Source location:
-                        yield arm_instructions.SubImm(
-                            p2, self.fp, -arg.offset)
+                        yield arm_instructions.SubImm(p2, self.fp, -arg.offset)
                         for instruction in self.gen_arm_memcpy(
-                                p1, p2, v3, arg.size):
+                            p1, p2, v3, arg.size
+                        ):
                             yield instruction
 
                 else:  # pragma: no cover
                     raise NotImplementedError(str(arg))
             else:  # pragma: no cover
-                raise NotImplementedError('Parameters in memory not impl')
+                raise NotImplementedError("Parameters in memory not impl")
 
         # Record that certain amount of stack is required:
         frame.add_out_call(stack_size)
@@ -265,7 +282,7 @@ class ArmArch(Architecture):
         yield RegisterUseDef(uses=arg_regs)
 
         clobbers = [R0, R1, R2, R3, R4]
-        if self.has_option('thumb'):
+        if self.has_option("thumb"):
             if isinstance(label, ArmRegister):
                 # Ensure thumb mode!
                 yield thumb_instructions.AddImm(label, label, 1)
@@ -297,7 +314,7 @@ class ArmArch(Architecture):
             elif isinstance(arg_loc, StackLocation):
                 pass
             else:  # pragma: no cover
-                raise NotImplementedError('Parameters in memory not impl')
+                raise NotImplementedError("Parameters in memory not impl")
 
     def gen_function_exit(self, rv):
         live_out = set()
@@ -324,9 +341,9 @@ class ArmArch(Architecture):
             elif isinstance(value, bytes):
                 for byte in value:
                     yield Db(byte)
-                yield Alignment(4)   # Align at 4 bytes
+                yield Alignment(4)  # Align at 4 bytes
             else:  # pragma: no cover
-                raise NotImplementedError('Constant of type {}'.format(value))
+                raise NotImplementedError("Constant of type {}".format(value))
 
     def between_blocks(self, frame):
         for instruction in self.litpool(frame):
@@ -369,6 +386,7 @@ class ArmArch(Architecture):
 
 class ArmAssembler(BaseAssembler):
     """ Assembler for the arm instruction set """
+
     def __init__(self):
         super().__init__()
         # self.parser.assembler = self
@@ -379,34 +397,39 @@ class ArmAssembler(BaseAssembler):
 
     def add_extra_rules(self):
         # Implement register list syntaxis:
-        reg_nt = '$reg_cls_armregister$'
-        self.typ2nt[RegisterSet] = 'reg_list'
+        reg_nt = "$reg_cls_armregister$"
+        self.typ2nt[RegisterSet] = "reg_list"
         self.add_rule(
-            'reg_list', ['{', 'reg_list_inner', '}'], lambda rhs: rhs[1])
-        self.add_rule('reg_list_inner', ['reg_or_range'], lambda rhs: rhs[0])
+            "reg_list", ["{", "reg_list_inner", "}"], lambda rhs: rhs[1]
+        )
+        self.add_rule("reg_list_inner", ["reg_or_range"], lambda rhs: rhs[0])
 
         # self.add_rule(
         #    'reg_list_inner',
         #    ['reg_or_range', ',', 'reg_list_inner'],
         #    lambda rhs: RegisterSet(rhs[0] | rhs[2]))
         self.add_rule(
-            'reg_list_inner',
-            ['reg_list_inner', ',', 'reg_or_range'],
-            lambda rhs: RegisterSet(rhs[0] | rhs[2]))
+            "reg_list_inner",
+            ["reg_list_inner", ",", "reg_or_range"],
+            lambda rhs: RegisterSet(rhs[0] | rhs[2]),
+        )
 
         self.add_rule(
-            'reg_or_range', [reg_nt], lambda rhs: RegisterSet([rhs[0]]))
+            "reg_or_range", [reg_nt], lambda rhs: RegisterSet([rhs[0]])
+        )
         self.add_rule(
-            'reg_or_range',
-            [reg_nt, '-', reg_nt],
-            lambda rhs: RegisterSet(register_range(rhs[0], rhs[2])))
+            "reg_or_range",
+            [reg_nt, "-", reg_nt],
+            lambda rhs: RegisterSet(register_range(rhs[0], rhs[2])),
+        )
 
         # Ldr pseudo instruction:
         # TODO: fix the add_literal other way:
         self.add_rule(
-            'instruction',
-            ['ldr', reg_nt, ',', '=', 'ID'],
-            lambda rhs: LdrPseudo(rhs[1], rhs[4].val, self.add_literal))
+            "instruction",
+            ["ldr", reg_nt, ",", "=", "ID"],
+            lambda rhs: LdrPseudo(rhs[1], rhs[4].val, self.add_literal),
+        )
 
     def flush(self):
         assert not self.in_macro
@@ -433,25 +456,29 @@ class ThumbAssembler(BaseAssembler):
 
     def add_extra_rules(self):
         # Implement register list syntaxis:
-        reg_nt = '$reg_cls_armregister$'
-        self.typ2nt[set] = 'reg_list'
+        reg_nt = "$reg_cls_armregister$"
+        self.typ2nt[set] = "reg_list"
         self.add_rule(
-            'reg_list', ['{', 'reg_list_inner', '}'], lambda rhs: rhs[1])
-        self.add_rule('reg_list_inner', ['reg_or_range'], lambda rhs: rhs[0])
+            "reg_list", ["{", "reg_list_inner", "}"], lambda rhs: rhs[1]
+        )
+        self.add_rule("reg_list_inner", ["reg_or_range"], lambda rhs: rhs[0])
 
         # For a left right parser, or right left parser, this is important:
         self.add_rule(
-            'reg_list_inner',
-            ['reg_list_inner', ',', 'reg_or_range'],
-            lambda rhs: rhs[0] | rhs[2])
+            "reg_list_inner",
+            ["reg_list_inner", ",", "reg_or_range"],
+            lambda rhs: rhs[0] | rhs[2],
+        )
         # self.add_rule(
         # 'reg_list_inner',
         # ['reg_or_range', ',', 'reg_list_inner'], lambda rhs: rhs[0] | rhs[2])
 
-        self.add_rule('reg_or_range', [reg_nt], lambda rhs: set([rhs[0]]))
+        self.add_rule("reg_or_range", [reg_nt], lambda rhs: set([rhs[0]]))
         self.add_rule(
-            'reg_or_range',
-            [reg_nt, '-', reg_nt], lambda rhs: register_range(rhs[0], rhs[2]))
+            "reg_or_range",
+            [reg_nt, "-", reg_nt],
+            lambda rhs: register_range(rhs[0], rhs[2]),
+        )
 
 
 def round_up(s):
@@ -459,6 +486,7 @@ def round_up(s):
 
 
 ARM_ASM_RT = """
+global __sdiv
 __sdiv:
    ; Divide r1 by r2
    ; R4 is a work register.

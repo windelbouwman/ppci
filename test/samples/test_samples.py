@@ -4,10 +4,10 @@ import re
 from tempfile import mkstemp
 
 from sample_helpers import add_samples
-from util import has_qemu, qemu, relpath, run_python, source_files
-from util import has_iverilog, run_msp430, run_picorv32
-from util import has_avr_emulator, run_avr, run_nodejs
-from util import do_long_tests, do_iverilog, make_filename
+from helper_util import has_qemu, qemu, relpath, run_python, source_files
+from helper_util import has_iverilog, run_msp430, run_picorv32
+from helper_util import has_avr_emulator, run_avr, run_nodejs
+from helper_util import do_long_tests, do_iverilog, make_filename
 
 from ppci.api import asm, c3c, link, objcopy, bfcompile, cc, get_current_arch
 from ppci.api import c3_to_ir, bf_to_ir, ir_to_python, optimize, c_to_ir

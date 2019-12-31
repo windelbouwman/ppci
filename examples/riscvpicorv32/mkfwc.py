@@ -1,4 +1,5 @@
-from sys import argv
+import argparse
+import logging
 import os
 from glob import glob
 from ppci.api import asm, cc, link, objcopy, get_arch
@@ -20,7 +21,15 @@ with open('report.html', 'w') as f:
     arch = get_arch('riscv')
     o1 = asm("start.s", arch)
     reporter = HtmlReportGenerator(f)
-    path = os.path.join('.','csrc',argv[1])
+    parser = argparse.ArgumentParser()
+    parser.add_argument('folder', help='folder inside the csrc directory to use')
+    parser.add_argument('-v', help='increase verbosity of output', action='store_true', default=False)
+    args = parser.parse_args()
+    if args.v:
+        logging.basicConfig(level=logging.DEBUG)
+    path = os.path.join('.','csrc', args.folder)
+    if not os.path.exists(path):
+        raise FileNotFoundError('Path not found: {}'.format(path))
     dirs, srcs = get_sources(path, '*.c')
     srcs += [os.path.join('.','csrc','bsp.c')] + [os.path.join('.','csrc','lib.c')]
     dirs += [os.path.join('.','csrc')]

@@ -1,10 +1,10 @@
-
 from .cfg import ir_function_to_graph
 
 
 class CfgInfo:
     """ Calculate control flow graph info, such as dominators
     dominator tree and dominance frontier """
+
     def __init__(self, function):
         # Store ir related info:
         self.function = function
@@ -14,7 +14,7 @@ class CfgInfo:
         self._calculate_df()
 
     def __repr__(self):
-        return 'CfgInfo(function={})'.format(self.function)
+        return "CfgInfo(function={})".format(self.function)
 
     def get_node(self, block):
         return self._block_map[block]
@@ -29,7 +29,8 @@ class CfgInfo:
         self.cfg.calculate_dominance_frontier()
         self.df = {
             self._node_map[n]: set(
-                self.get_block(o) for o in m if self.has_block(o))
+                self.get_block(o) for o in m if self.has_block(o)
+            )
             for n, m in self.cfg.df.items()
             if self.has_block(n)
         }

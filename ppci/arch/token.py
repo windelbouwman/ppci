@@ -1,35 +1,36 @@
 import struct
+from .arch_info import Endianness
 
 
 def u16(h):
     if h < 0:
-        return struct.pack('<h', h)
+        return struct.pack("<h", h)
     else:
-        return struct.pack('<H', h)
+        return struct.pack("<H", h)
 
 
 def u32(x):
     if x < 0:
-        return struct.pack('<i', x)
+        return struct.pack("<i", x)
     else:
-        return struct.pack('<I', x)
+        return struct.pack("<I", x)
 
 
 def u64(x):
     if x < 0:
-        return struct.pack('<q', x)
+        return struct.pack("<q", x)
     else:
-        return struct.pack('<Q', x)
+        return struct.pack("<Q", x)
 
 
 def u8(x):
-    return struct.pack('<B', x)
+    return struct.pack("<B", x)
 
 
 class _p2(property):
     def __init__(self, getter, setter, bitsize, signed):
         if bitsize < 1:
-            raise TypeError('Cannot create field with less than 1 bit')
+            raise TypeError("Cannot create field with less than 1 bit")
         self._bitsize = bitsize
         self._signed = signed
         self._mask = (1 << bitsize) - 1
@@ -41,6 +42,7 @@ class _p2(property):
 
 def bit_range(b, e, signed=False):
     """ Create a property which sets a bit range """
+
     def getter(s):
         return s[b:e]
 
@@ -57,6 +59,7 @@ def bit(b):
 
 def bit_concat(*partials):
     """ Group several fields together into a single usable field """
+
     def getter(s):
         v = 0
         for at in partials:
@@ -68,6 +71,7 @@ def bit_concat(*partials):
         for at in reversed(partials):
             at.__set__(s, v & at._mask)
             v = v >> at._bitsize
+
     bitsize = sum(at._bitsize for at in partials)
     signed = partials[0]._signed
     return _p2(getter, setter, bitsize, signed)
@@ -78,11 +82,11 @@ class TokenMeta(type):
         super(TokenMeta, cls).__init__(name, bases, attrs)
 
         # 'Inherit' info attributes
-        if 'Info' in attrs:
+        if "Info" in attrs:
             for base in bases:
-                if hasattr(base, 'Info'):
+                if hasattr(base, "Info"):
                     for k, v in base.Info.__dict__.items():
-                        if k.startswith('__'):
+                        if k.startswith("__"):
                             continue
                         if not hasattr(cls.Info, k):
                             # print(k, v)
@@ -95,10 +99,11 @@ class TokenMeta(type):
 
 class Token(metaclass=TokenMeta):
     """ A token in a stream """
+
     class Info:
         precode = False  # Set precode to True to indicate a precode
         size = None  # The size in bits of the token type: int
-        endianness = 'little'
+        endianness = Endianness.LITTLE
 
     ignore_values = ()  # TODO: for optional tokens?
 
@@ -116,7 +121,7 @@ class Token(metaclass=TokenMeta):
         if value:
             self.bit_value |= mask
         else:
-            self.bit_value &= (~mask)
+            self.bit_value &= ~mask
 
     def __getitem__(self, key):
         if isinstance(key, slice):
@@ -142,7 +147,8 @@ class Token(metaclass=TokenMeta):
             # assert value >= 0, value
             if value >= limit:
                 raise ValueError(
-                    'value {} cannot be fit into {} bits'.format(value, bits))
+                    "value {} cannot be fit into {} bits".format(value, bits)
+                )
             # TODO: move negative value to field property?
             if value < 0:
                 # Assume signed value here, and wrap around
@@ -173,20 +179,20 @@ class Token(metaclass=TokenMeta):
         """ Pack integer value into bytes """
         assert cls.Info.size is not None
         size = cls.Info.size // 8
-        if cls.Info.endianness == 'little':
+        if cls.Info.endianness == Endianness.LITTLE:
             byte_numbers = range(size)
         else:
             byte_numbers = reversed(range(size))
-        return bytes((value >> (x * 8)) & 0xff for x in byte_numbers)
+        return bytes((value >> (x * 8)) & 0xFF for x in byte_numbers)
 
     @classmethod
     def unpack(cls, data):
         """ Unpack data into integer value """
         byte_size = cls.Info.size // 8
         if len(data) != byte_size:
-            raise TypeError('Incorrect amount of data provided')
+            raise TypeError("Incorrect amount of data provided")
         value = 0
-        if cls.Info.endianness == 'little':
+        if cls.Info.endianness == Endianness.LITTLE:
             data = reversed(data)
         for byte in data:
             value <<= 8
@@ -196,6 +202,7 @@ class Token(metaclass=TokenMeta):
 
 class TokenSequence:
     """ A helper to work with a sequence of tokens """
+
     def __init__(self, tokens):
         self.tokens = tokens
 
@@ -229,10 +236,10 @@ class TokenSequence:
         offset = 0
         for token in self.tokens:
             size = token.Info.size // 8
-            piece = data[offset:offset+size]
+            piece = data[offset : offset + size]
             if len(piece) != size:
-                raise ValueError('Not enough data for instruction')
-            token.fill(data[offset:offset+size])
+                raise ValueError("Not enough data for instruction")
+            token.fill(data[offset : offset + size])
             offset += size
         if len(data) > offset:
-            raise ValueError('Too much data for instruction!')
+            raise ValueError("Too much data for instruction!")

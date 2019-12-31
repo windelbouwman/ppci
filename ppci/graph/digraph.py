@@ -9,6 +9,7 @@ from .graph import BaseGraph, Node
 
 class DiGraph(BaseGraph):
     """ Directed graph. """
+
     def __init__(self):
         super().__init__()
         self.suc_map = defaultdict(set)
@@ -50,6 +51,11 @@ class DiGraph(BaseGraph):
         """ Test if there exist and edge between n and m """
         return m in self.suc_map[n]
 
+    def get_number_of_edges(self):
+        """ Get the number of edges in this graph """
+        n_edges = sum(len(self.adj_map[n]) for n in self.nodes)
+        return n_edges
+
     def successors(self, node):
         """ Get the successors of the node """
         return self.suc_map[node]
@@ -61,6 +67,7 @@ class DiGraph(BaseGraph):
 
 class DiNode(Node):
     """ Node in a directed graph """
+
     @property
     def successors(self):
         """ Get the successors of this node """

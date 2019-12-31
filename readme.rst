@@ -2,27 +2,32 @@
 Introduction
 ============
 
-The ppci (pure python compiler infrastructure) project is a compiler
-written entirely in python. It contains language front-ends as well
-as machine code generation functionality. With this library you can
-generate (working!) machine code within python!
+The PPCI (Pure Python Compiler Infrastructure) project is a compiler
+written entirely in the `Python <https://www.python.org/>`_ programming
+language. It contains front-ends for various programming languages as
+well as machine code generation functionality. With this library you can
+generate (working!) machine code using Python (and thus very easy to
+explore, extend, etc.)!
 
 The project contains the following:
 
-- A Compiler, an assembler, a linker and a build system
-- Language front-ends: Brainfuck, c3, C, WASM
-- Backends: 6500, arm, avr, msp430, openrisc, risc-v, stm8, x86_64, xtensa
+- A compiler, an assembler, a linker and a build system
+- Language front-ends: Brainfuck, C, c3, WebAssembly
+- CPU backends: 6500, arm, avr, m68k, microblaze, msp430, openrisc, risc-v, stm8,
+  x86_64, xtensa
+- Other backends: WebAssembly, Python
 
 .. warning::
 
     **This project is in alpha state and not ready for production use!**
 
-You can try out ppci at godbolt.org: https://godbolt.org/g/eooaPP
+You can try out PPCI at godbolt.org, a site which offers Web access to
+various compilers: https://godbolt.org/g/eooaPP
 
-Api
+API
 ---
 
-Api example to compile c3 code:
+API example to compile c3 code:
 
 .. code-block:: python
 

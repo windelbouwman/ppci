@@ -45,7 +45,7 @@ The stack frame is layout as follows:
 
 Stack grows
     ||
-    \/
+     /
 
 """
 
@@ -75,7 +75,8 @@ from .registers import get16reg, register_classes, gdb_registers
 
 class AvrArch(Architecture):
     """ Avr architecture description. """
-    name = 'avr'
+
+    name = "avr"
 
     def __init__(self, options=None):
         super().__init__(options=options)
@@ -86,11 +87,18 @@ class AvrArch(Architecture):
         # with an option -mint8 every integer is 8 bits wide.
         self.info = ArchInfo(
             type_infos={
-                ir.i8: TypeInfo(1, 1), ir.u8: TypeInfo(1, 1),
-                ir.i16: TypeInfo(2, 2), ir.u16: TypeInfo(2, 2),
-                'int': ir.i16, 'ptr': ir.u16
+                ir.i8: TypeInfo(1, 1),
+                ir.u8: TypeInfo(1, 1),
+                ir.i16: TypeInfo(2, 2),
+                ir.u16: TypeInfo(2, 2),
+                ir.f32: TypeInfo(4, 4),
+                ir.f64: TypeInfo(8, 8),
+                "int": ir.i16,
+                "ptr": ir.u16,
+                ir.ptr: ir.u16,
             },
-            register_classes=register_classes)
+            register_classes=register_classes,
+        )
         self.fp = Y
         self.fp_location = FramePointerLocation.BOTTOM
         self.gdb_registers = gdb_registers
@@ -99,11 +107,9 @@ class AvrArch(Architecture):
 
     def get_runtime(self):
         from ...api import asm, c3c, link
+
         obj1 = asm(io.StringIO(asm_rt_src), self)
-        c3_sources = get_runtime_files([
-            'sdiv',
-            'smul',
-        ])
+        c3_sources = get_runtime_files(["sdiv", "smul"])
         obj2 = c3c(c3_sources, [], self)
         obj = link([obj1, obj2], partial_link=True)
         return obj
@@ -112,13 +118,27 @@ class AvrArch(Architecture):
         """ Given a set of argument types, determine location for argument """
         locations = []
         regs = [
-            r25, r24, r23, r22, r21, r20, r19, r18, r17, r16, r15,
-            r14, r13, r12, r11, r10, r9, r8]
+            r25,
+            r24,
+            r23,
+            r22,
+            r21,
+            r20,
+            r19,
+            r18,
+            r17,
+            r16,
+            r15,
+            r14,
+            r13,
+            r12,
+            r11,
+            r10,
+            r9,
+            r8,
+        ]
         for a in arg_types:
-            sizes = {
-                ir.i8: 1, ir.u8: 1, ir.i16: 2, ir.u16: 2,
-                ir.ptr: 2
-            }
+            sizes = {ir.i8: 1, ir.u8: 1, ir.i16: 2, ir.u16: 2, ir.ptr: 2}
             s = sizes[a]
 
             # Round odd registers:
@@ -173,8 +193,8 @@ class AvrArch(Architecture):
                 yield Push(r0)
 
             # Setup frame pointer:
-            yield In(Y.lo, 0x3d)
-            yield In(Y.hi, 0x3e)
+            yield In(Y.lo, 0x3D)
+            yield In(Y.hi, 0x3E)
             # ATTENTION: after push, the stackpointer points to the next empty
             # byte.
             # Increment entire Y by one to point to address frame+0:
@@ -203,7 +223,7 @@ class AvrArch(Architecture):
         # Add final literal pool:
         for instruction in self.litpool(frame):
             yield instruction
-        yield Alignment(4)   # Align at 4 bytes
+        yield Alignment(4)  # Align at 4 bytes
 
     def gen_call(self, frame, label, args, rv):
         arg_types = [a[0] for a in args]
@@ -217,7 +237,7 @@ class AvrArch(Architecture):
             elif isinstance(arg_loc, AvrWordRegister):
                 yield self.move(arg_loc, arg)
             else:  # pragma: no cover
-                raise NotImplementedError('Parameters in memory not impl')
+                raise NotImplementedError("Parameters in memory not impl")
 
         arg_regs = set(l for l in arg_locs if isinstance(l, Register))
         yield RegisterUseDef(uses=arg_regs)
@@ -240,7 +260,7 @@ class AvrArch(Architecture):
             if isinstance(rv[1], AvrWordRegister):
                 yield self.move(rv[1], retval_loc)
             else:  # pragma: no cover
-                raise NotImplementedError('Parameters in memory not impl')
+                raise NotImplementedError("Parameters in memory not impl")
 
     def gen_function_enter(self, args):
         """ Copy arguments into local temporaries and mark registers live """
@@ -255,7 +275,7 @@ class AvrArch(Architecture):
             if isinstance(arg_loc, Register):
                 yield self.move(arg, arg_loc)
             else:  # pragma: no cover
-                raise NotImplementedError('Parameters in memory not impl')
+                raise NotImplementedError("Parameters in memory not impl")
 
     def gen_function_exit(self, rv):
         live_out = set()
@@ -270,7 +290,7 @@ class AvrArch(Architecture):
         # Align at 4 bytes
 
         if frame.constants:
-            yield SectionInstruction('data')
+            yield SectionInstruction("data")
             yield Alignment(4)
 
             # Add constant literals:
@@ -280,12 +300,13 @@ class AvrArch(Architecture):
                 if isinstance(value, bytes):
                     for byte in value:
                         yield Db(byte)
-                    yield Alignment(4)   # Align at 4 bytes
+                    yield Alignment(4)  # Align at 4 bytes
                 else:  # pragma: no cover
                     raise NotImplementedError(
-                        'Constant of type {}'.format(value))
+                        "Constant of type {}".format(value)
+                    )
 
-            yield SectionInstruction('code')
+            yield SectionInstruction("code")
 
     def between_blocks(self, frame):
         for instruction in self.litpool(frame):
@@ -295,8 +316,9 @@ class AvrArch(Architecture):
         """ Generate a move from src to dst """
         if isinstance(dst, AvrRegister) and isinstance(src, AvrRegister):
             return Mov(dst, src, ismove=True)
-        elif isinstance(dst, AvrWordRegister) and \
-                isinstance(src, AvrWordRegister):
+        elif isinstance(dst, AvrWordRegister) and isinstance(
+            src, AvrWordRegister
+        ):
             return Movw(dst, src, ismove=True)
         else:  # pragma: no cover
             raise NotImplementedError()
@@ -304,6 +326,7 @@ class AvrArch(Architecture):
 
 asm_rt_src = """
 ; shift r25:r24 right by r22 bits
+global __shr16
 __shr16:
   push r16
   mov r16, r22
@@ -320,6 +343,7 @@ __shr16_2:
   ret
 
 ; shift r25:r24 left by r22 bits
+global __shl16
 __shl16:
   push r16
   mov r16, r22

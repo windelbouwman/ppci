@@ -1,6 +1,5 @@
-
 from ..isa import Isa
-from ..token import Token, bit_range
+from ..token import Token, bit_range, Endianness
 
 
 orbis32 = Isa()
@@ -9,7 +8,7 @@ orbis32 = Isa()
 class Orbis32BaseToken(Token):
     class Info:
         size = 32
-        endianness = 'big'
+        endianness = Endianness.BIG
 
     opcode = bit_range(26, 32)
     rd = bit_range(21, 26)

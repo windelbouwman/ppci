@@ -26,4 +26,4 @@ most arguments on stack.
 
 from .arch import Stm8Arch
 
-__all__ = ['Stm8Arch']
+__all__ = ["Stm8Arch"]

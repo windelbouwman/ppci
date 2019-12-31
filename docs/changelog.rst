@@ -7,8 +7,19 @@ Release 1.0 (Planned)
 
 * platform.python_compiler() returns 'ppci 1.0'
 
-Release 0.5.6 (Upcoming)
+Release 0.5.7 (Upcoming)
 ------------------------
+
+* Added support for the m68k processor.
+* Added support for the microblaze processor.
+* Added RISCV floating point support (by Michael).
+* Add S-record format.
+* Add amiga hunk format.
+* Add OCaml bytecode file reader.
+* Use black formatter
+
+Release 0.5.6 (Aug 22, 2018)
+----------------------------
 
 * Compilation is now reproducible: recompiling the same source yields exactly the same machine code
 * Added support for webassembly WAT file format (by Almar)

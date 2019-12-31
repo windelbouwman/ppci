@@ -7,10 +7,11 @@ from .. import api
 
 
 parser = argparse.ArgumentParser(
-    description=__doc__, parents=[base_parser, march_parser])
+    description=__doc__, parents=[base_parser, march_parser]
+)
 parser.add_argument(
-    'binfile', type=argparse.FileType('rb'),
-    help='the source file to assemble')
+    "binfile", type=argparse.FileType("rb"), help="the source file to assemble"
+)
 
 
 def disasm(args=None):
@@ -22,5 +23,5 @@ def disasm(args=None):
         api.disasm(args.binfile, march)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     disasm()

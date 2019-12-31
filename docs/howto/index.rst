@@ -9,3 +9,4 @@ This section contains several howto documents.
     optimizer
     jitting
     webassembly
+    instrumentation

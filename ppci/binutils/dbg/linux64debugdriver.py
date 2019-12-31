@@ -16,7 +16,7 @@ import ctypes
 from ppci.binutils.dbg.debug_driver import DebugDriver, DebugState
 from ppci.arch.x86_64 import registers as x86_registers
 
-libc = ctypes.CDLL('libc.so.6')
+libc = ctypes.CDLL("libc.so.6")
 PTRACE_TRACEME = 0
 PTRACE_PEEKTEXT = 1
 PTRACE_PEEKDATA = 2
@@ -30,7 +30,11 @@ PTRACE_SETREGS = 13
 # TODO: what is this calling convention??
 libc.ptrace.restype = ctypes.c_ulong
 libc.ptrace.argtypes = (
-    ctypes.c_ulong, ctypes.c_ulong, ctypes.c_void_p, ctypes.c_void_p)
+    ctypes.c_ulong,
+    ctypes.c_ulong,
+    ctypes.c_void_p,
+    ctypes.c_void_p,
+)
 
 
 class UserRegsStruct(ctypes.Structure):
@@ -69,6 +73,7 @@ class UserRegsStruct(ctypes.Structure):
 def stopped(f):
     def f2():
         pass
+
     return f
 
 
@@ -78,6 +83,7 @@ def running(f):
 
 class Linux64DebugDriver(DebugDriver):
     """ Implements a debugger backend """
+
     def __init__(self):
         super().__init__()
         self.pid = None
@@ -104,12 +110,12 @@ class Linux64DebugDriver(DebugDriver):
         self.status = DebugState.RUNNING
 
         # TODO: for now, block here??
-        print('running')
+        print("running")
         _, status = os.wait()
 
         self.status = DebugState.STOPPED
 
-        print('stopped at breakpoint!')
+        print("stopped at breakpoint!")
         rip = self.get_pc()
         self.dec_pc()
         print(self.read_mem(rip - 1, 3))
@@ -148,7 +154,7 @@ class Linux64DebugDriver(DebugDriver):
         # raise NotImplementedError()
 
     def set_breakpoint(self, address):
-        new_code = bytes([0xcc])
+        new_code = bytes([0xCC])
         old_code = self.read_mem(address, 1)
         self.write_mem(address, new_code)
         if address not in self.breakpoint_backup:
@@ -192,13 +198,13 @@ class Linux64DebugDriver(DebugDriver):
     def read_byte(self, address):
         """ Convenience wrapper """
         w = self.read_word(address)
-        byte = w & 0xff
+        byte = w & 0xFF
         return byte
 
     def write_byte(self, address, byte):
         """ Convenience function to write a single byte """
         w = self.read_word(address)
-        w = (w & 0xffffffffffffff00) | byte
+        w = (w & 0xFFFFFFFFFFFFFF00) | byte
         self.write_word(address, w)
 
     def read_word(self, address):
@@ -220,7 +226,7 @@ class Linux64DebugDriver(DebugDriver):
 
 
 def wifstopped(status):
-    return (status & 0xff) == 0x7f
+    return (status & 0xFF) == 0x7F
 
 
 def fork_spawn_stop(argz):

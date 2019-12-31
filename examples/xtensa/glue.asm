@@ -13,6 +13,10 @@ thr:
 stackpointer:
   dd 0xd8020000  ; initial value for stack pointer
 
+global __data_load_start
+global __data_start
+global __data_end
+
 _data_load_start:
   dcd =__data_load_start
 _data_start:
@@ -54,6 +58,8 @@ _load_loop:
 _load_done:
   ; ====================
 
+global main_main
+global bsp_exit
   call0 main_main
   call0 bsp_exit
 

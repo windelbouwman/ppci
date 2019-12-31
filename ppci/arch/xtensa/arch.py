@@ -14,7 +14,8 @@ from . import instructions
 
 class XtensaArch(Architecture):
     """ Xtensa architecture implementation. """
-    name = 'xtensa'
+
+    name = "xtensa"
 
     def __init__(self, options=None):
         super().__init__(options=options)
@@ -25,11 +26,20 @@ class XtensaArch(Architecture):
 
         self.info = ArchInfo(
             type_infos={
-                ir.i8: TypeInfo(1, 1), ir.u8: TypeInfo(1, 1),
-                ir.i16: TypeInfo(2, 2), ir.u16: TypeInfo(2, 2),
-                ir.i32: TypeInfo(4, 4), ir.u32: TypeInfo(4, 4),
-                'int': ir.i32, 'ptr': ir.u32
-            }, register_classes=register_classes)
+                ir.i8: TypeInfo(1, 1),
+                ir.u8: TypeInfo(1, 1),
+                ir.i16: TypeInfo(2, 2),
+                ir.u16: TypeInfo(2, 2),
+                ir.i32: TypeInfo(4, 4),
+                ir.u32: TypeInfo(4, 4),
+                ir.f32: TypeInfo(4, 4),
+                ir.f64: TypeInfo(8, 8),
+                "int": ir.i32,
+                "ptr": ir.u32,
+                ir.ptr: ir.u32,
+            },
+            register_classes=register_classes,
+        )
 
         # TODO: a15 is also callee save
         self.callee_save = registers.callee_save
@@ -42,18 +52,20 @@ class XtensaArch(Architecture):
     def get_runtime(self):
         """ Retrieve the runtime for this target """
         from ...api import c3c
-        c3_sources = get_runtime_files([
-            'divsi3',
-            'mulsi3',
-        ])
+
+        c3_sources = get_runtime_files(["divsi3", "mulsi3"])
         obj = c3c(c3_sources, [], self)
         return obj
 
     def determine_arg_locations(self, arg_types):
         arg_locs = []
         int_regs = [
-            registers.a2, registers.a3, registers.a4, registers.a5,
-            registers.a6]
+            registers.a2,
+            registers.a3,
+            registers.a4,
+            registers.a5,
+            registers.a6,
+        ]
         for arg_type in arg_types:
             # Determine register:
             if arg_type in [ir.i8, ir.u8, ir.i32, ir.u32, ir.ptr]:
@@ -86,7 +98,7 @@ class XtensaArch(Architecture):
             elif isinstance(value, str):
                 yield Dcd2(value)
             else:  # pragma: no cover
-                raise NotImplementedError('Constant {}'.format(value))
+                raise NotImplementedError("Constant {}".format(value))
 
         # Label indication function:
         yield Alignment(4)  # Must be 32 bit aligned for call0 instruction
@@ -141,7 +153,7 @@ class XtensaArch(Architecture):
                 arg_regs.append(arg_loc)
                 yield self.move(arg_loc, arg)
             else:  # pragma: no cover
-                raise NotImplementedError('Parameters in memory not impl')
+                raise NotImplementedError("Parameters in memory not impl")
 
         yield RegisterUseDef(uses=arg_regs)
 
@@ -159,8 +171,9 @@ class XtensaArch(Architecture):
         arg_types = [a[0] for a in args]
         arg_locs = self.determine_arg_locations(arg_types)
 
-        arg_regs = set(l for l in arg_locs if isinstance(
-            l, registers.AddressRegister))
+        arg_regs = set(
+            l for l in arg_locs if isinstance(l, registers.AddressRegister)
+        )
         yield RegisterUseDef(defs=arg_regs)
 
         for arg_loc, arg2 in zip(arg_locs, args):
@@ -168,7 +181,7 @@ class XtensaArch(Architecture):
             if isinstance(arg_loc, registers.AddressRegister):
                 yield self.move(arg, arg_loc)
             else:  # pragma: no cover
-                raise NotImplementedError('Parameters in memory not impl')
+                raise NotImplementedError("Parameters in memory not impl")
 
     def gen_function_exit(self, rv):
         live_out = set()

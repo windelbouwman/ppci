@@ -17,18 +17,22 @@ setup(
     package_data={'': ['*.grammar', "*.rst", 'template.js', 'template.html']},
     entry_points={
         'console_scripts': [
+            'ppci-archive = ppci.cli.archive:archive',
             'ppci-asm = ppci.cli.asm:asm',
             'ppci-build = ppci.cli.build:build',
             'ppci-c3c = ppci.cli.c3c:c3c',
             'ppci-cc = ppci.cli.cc:cc',
             'ppci-dbg = ppci.cli.dbg:dbg',
             'ppci-disasm = ppci.cli.disasm:disasm',
+            'ppci-hexdump = ppci.cli.hexdump:hexdump',
             'ppci-hexutil = ppci.cli.hexutil:hexutil',
+            'ppci-java = ppci.cli.java:java',
             'ppci-ld = ppci.cli.link:link',
             'ppci-llc = ppci.cli.llc:llc',
             'ppci-mkuimage = ppci.cli.mkuimage:mkuimage',
             'ppci-objcopy = ppci.cli.objcopy:objcopy',
             'ppci-objdump = ppci.cli.objdump:objdump',
+            'ppci-ocaml = ppci.cli.ocaml:ocaml',
             'ppci-opt = ppci.cli.opt:opt',
             'ppci-pascal = ppci.cli.pascal:pascal',
             'ppci-pedump = ppci.cli.pedump:pedump',
@@ -46,7 +50,9 @@ setup(
     classifiers=[
         'License :: OSI Approved :: BSD License',
         'Development Status :: 3 - Alpha',
+        'Programming Language :: Assembly',
         'Programming Language :: C',
+        'Programming Language :: Java',
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5',
@@ -56,6 +62,8 @@ setup(
         'Programming Language :: Python :: Implementation :: PyPy',
         'Topic :: Software Development :: Compilers',
         'Topic :: Software Development :: Assemblers',
+        'Topic :: Software Development :: Code Generators',
         'Topic :: Software Development :: Embedded Systems',
+        'Topic :: Software Development :: Pre-processors',
     ]
 )

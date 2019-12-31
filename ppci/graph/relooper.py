@@ -16,10 +16,20 @@ References:
 A hint might be "Hammock graphs" which are single entry, single exit graphs.
 They might be the join point between dominator and post dominator nodes.
 
+The algorithm for finding a program structure is as following:
+
+- Create a control flow graph from the ir-function.
+- Find loops in the control flow graph
+- Now start with entry node, and check if this node is:
+   - a start of a loop
+   - an if statement with two outgoing control flow paths
+   - straight line code
 """
 
 import logging
 from .cfg import ir_function_to_graph, Loop
+
+# from ..utils.collections import OrderedSet, OrderedDict
 
 
 def find_structure(ir_function):
@@ -31,8 +41,8 @@ def find_structure(ir_function):
     Returns:
         A control flow tree structure.
     """
-    logger = logging.getLogger('structure-detection')
-    logger.debug('finding structure for %s', ir_function)
+    logger = logging.getLogger("structure-detection")
+    logger.debug("finding structure for %s", ir_function)
     cfg, block_map = ir_function_to_graph(ir_function)
     sd = StructureDetector()
     shape = sd.detect(cfg)
@@ -43,35 +53,35 @@ def find_structure(ir_function):
     return shape, rmap
 
 
-def print_shape(shape, indent=0):
+def print_shape(shape, indent=0, file=None):
     if isinstance(shape, BasicShape):
-        print('   ' * indent + 'code:', str(shape.content))
+        print("   " * indent + "code:", str(shape.content), file=file)
     elif isinstance(shape, (BreakShape, ContinueShape)):
-        print('   ' * indent + str(shape))
+        print("   " * indent + str(shape), file=file)
     elif isinstance(shape, SequenceShape):
         for sub_shape in shape.shapes:
-            print_shape(sub_shape, indent=indent+1)
+            print_shape(sub_shape, indent=indent + 1, file=file)
     elif isinstance(shape, IfShape):
-        print('   ' * indent + 'if-then', shape.content)
+        print("   " * indent + "if-then", shape.content, file=file)
         if shape.yes_shape is not None:
-            print_shape(shape.yes_shape, indent=indent+1)
+            print_shape(shape.yes_shape, indent=indent + 1, file=file)
 
         if shape.no_shape is not None:
-            print('   ' * indent + 'else')
-            print_shape(shape.no_shape, indent=indent+1)
-        print('   ' * indent + 'end-if')
+            print("   " * indent + "else", file=file)
+            print_shape(shape.no_shape, indent=indent + 1, file=file)
+        print("   " * indent + "end-if", file=file)
     elif isinstance(shape, LoopShape):
-        print('   ' * indent + 'loop')
-        print_shape(shape.body, indent=indent+1)
-        print('   ' * indent + 'end-loop')
+        print("   " * indent + "loop", file=file)
+        print_shape(shape.body, indent=indent + 1, file=file)
+        print("   " * indent + "end-loop", file=file)
     elif shape is None:
         pass
-    else:
+    else:  # pragma: no cover
         raise NotImplementedError(str(shape))
 
 
 class StructureDetector:
-    logger = logging.getLogger('structure-detector')
+    logger = logging.getLogger("structure-detector")
 
     def detect(self, cfg):
         """ Find structure in control flow graph """
@@ -86,7 +96,8 @@ class StructureDetector:
         self.follow_stack = [self.cfg.exit_node]
         top_loop = Loop(
             header=self.cfg.entry_node,
-            rest=(self.cfg.nodes - {self.cfg.entry_node}))
+            rest=(self.cfg.nodes - {self.cfg.entry_node}),
+        )
 
         # Stack of loops with follow nodes
         self.loop_stack = [(top_loop, None)]
@@ -104,25 +115,26 @@ class StructureDetector:
             # Loop found!
             loop = self.loop_headers[entry]
             follow_up = self.follows_loop(loop)
-            assert follow_up
+            # assert follow_up
             self.loop_stack.append((loop, follow_up))
             self.marked.add(entry)
             self.marked.add(follow_up)
 
-            self.logger.debug('--> Loop: %s break to %s', entry, follow_up)
+            self.logger.debug("--> Loop: %s break to %s", entry, follow_up)
             s1 = self.make_shape(entry)
-            self.logger.debug('--> end loop')
+            self.logger.debug("--> end loop")
 
             # Cleanup stacks:
             self.loop_stack.pop(-1)
 
             # Create shape:
-            s2 = LoopShape(s1)
-            s3 = self.make_shape(follow_up)
-            shape = SequenceShape([s2, s3])
+            shape = LoopShape(s1)
+            if follow_up:
+                s3 = self.make_shape(follow_up)
+                shape = SequenceShape([shape, s3])
         elif len(entry.successors) == 1:
             # Simple straight ahead:
-            self.logger.debug('--> code: %s', entry)
+            self.logger.debug("--> code: %s", entry)
             follow_up, = entry.successors
             shape = BasicShape(entry)
             s2 = self.test(follow_up)
@@ -137,12 +149,12 @@ class StructureDetector:
             else:
                 follow_up = None
             yes, no = entry.yes, entry.no  # TODO: major hack for yes and no
-            self.logger.debug('--> code %s', entry)
-            self.logger.debug('--> if (based on) %s', entry)
+            self.logger.debug("--> code %s", entry)
+            self.logger.debug("--> if (based on) %s", entry)
             yes_shape = self.test(yes)
-            self.logger.debug('--> else')
+            self.logger.debug("--> else")
             no_shape = self.test(no)
-            self.logger.debug('--> end if %s', entry)
+            self.logger.debug("--> end if %s", entry)
             shape = IfShape(entry, yes_shape, no_shape)
             if follow_up:  # follow_up in same_loop:
                 s2 = self.make_shape(follow_up)
@@ -179,25 +191,30 @@ class StructureDetector:
         for node in all_loop_nodes:
             for s in node.successors:
                 if s not in all_loop_nodes:
-                    reachable_outside_loop.add(s)
+                    if not self.cfg.strictly_dominates(loop.header, s):
+                        reachable_outside_loop.add(s)
 
         if reachable_outside_loop:
             if len(reachable_outside_loop) != 1:
-                reachables = ', '.join(map(str, reachable_outside_loop))
+                reachables = ", ".join(map(str, reachable_outside_loop))
                 raise ValueError(
-                    'Loop followed by more then one node: {}'.format(
-                        reachables))
+                    "Loop followed by more then one node: {}".format(
+                        reachables
+                    )
+                )
             return list(reachable_outside_loop)[0]
 
 
 class Relooper:
     """ Implementation of the relooper algorithm """
+
     # TODO: implement the relooper algorithm
     pass
 
 
 class Shape:
     """ A control flow shape. """
+
     def __init__(self):
         pass
 
@@ -214,7 +231,7 @@ class BreakShape(Shape):
         self.level = level
 
     def __repr__(self):
-        return 'Break-shape {}'.format(self.level)
+        return "Break-shape {}".format(self.level)
 
 
 class ContinueShape(Shape):
@@ -223,7 +240,7 @@ class ContinueShape(Shape):
         self.level = level
 
     def __repr__(self):
-        return 'Continue-shape {}'.format(self.level)
+        return "Continue-shape {}".format(self.level)
 
 
 class SequenceShape(Shape):
@@ -232,21 +249,23 @@ class SequenceShape(Shape):
         self.shapes = shapes
 
     def __repr__(self):
-        return 'Sequence of {}'.format(len(self.shapes))
+        return "Sequence of {}".format(len(self.shapes))
 
 
 class LoopShape(Shape):
     """ Loop shape """
+
     def __init__(self, body):
         super().__init__()
         self.body = body
 
     def __repr__(self):
-        return 'Loop-shape'
+        return "Loop-shape"
 
 
 class IfShape(Shape):
     """ If statement """
+
     def __init__(self, content, yes_shape, no_shape):
         super().__init__()
         self.content = content
@@ -256,4 +275,5 @@ class IfShape(Shape):
 
 class MultipleShape(Shape):
     """ Can be a switch statement? """
+
     pass

@@ -1,6 +1,6 @@
 
-#ifndef STDARG_H
-#define STDARG_H
+#ifndef SETJMP_H
+#define SETJMP_H 1
 
 typedef int jmp_buf;
 int setjmp(jmp_buf env);

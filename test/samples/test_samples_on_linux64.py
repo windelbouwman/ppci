@@ -6,7 +6,7 @@ import subprocess
 from tempfile import mkstemp
 
 from sample_helpers import add_samples, build
-from util import do_long_tests, make_filename
+from helper_util import do_long_tests, make_filename
 
 from ppci.api import asm, link, objcopy
 
@@ -18,6 +18,9 @@ class TestSamplesOnX86Linux(unittest.TestCase):
     march = "x86_64"
     startercode = """
     section reset
+
+    global bsp_putc
+    global main_main
 
     start:
         call main_main

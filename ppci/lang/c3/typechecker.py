@@ -5,7 +5,8 @@ from .scope import SemanticError
 
 class TypeChecker:
     """ Type checker """
-    logger = logging.getLogger('c3check')
+
+    logger = logging.getLogger("c3check")
 
     def __init__(self, diag, context):
         self.diag = diag
@@ -20,7 +21,7 @@ class TypeChecker:
         """ Check a module """
         assert isinstance(module, ast.Module)
         self.module_ok = True
-        self.logger.info('Checking module %s', module.name)
+        self.logger.info("Checking module %s", module.name)
         try:
             # Check defined types of this module:
             for typ in module.types:
@@ -68,7 +69,7 @@ class TypeChecker:
 
         # Check for recursion:
         if typ in self.got_types:
-            raise SemanticError('Recursive data type {}'.format(typ), None)
+            raise SemanticError("Recursive data type {}".format(typ), None)
 
         if isinstance(typ, ast.BaseType):
             pass
@@ -90,7 +91,7 @@ class TypeChecker:
         elif isinstance(typ, ast.DefinedType):
             pass
         else:  # pragma: no cover
-            raise NotImplementedError('{} not implemented'.format(type(typ)))
+            raise NotImplementedError("{} not implemented".format(type(typ)))
 
     def check_variable(self, var):
         """ Check a variable and especially its initial value """
@@ -103,15 +104,17 @@ class TypeChecker:
         typ = self.context.get_type(typ)
         if isinstance(typ, ast.ArrayType):
             if not isinstance(ival, ast.ExpressionList):
-                raise SemanticError('Invalid array initialization', ival.loc)
+                raise SemanticError("Invalid array initialization", ival.loc)
 
             # TODO: can we do legit constant evaluation here?
             size = self.context.eval_const(typ.size)
             if len(ival.expressions) != size:
                 raise SemanticError(
-                    '{} initial values given, expected {}'.format(
-                        len(ival.expressions), size),
-                    ival.loc)
+                    "{} initial values given, expected {}".format(
+                        len(ival.expressions), size
+                    ),
+                    ival.loc,
+                )
             new_expressions = []
             for expr in ival.expressions:
                 new_expr = self.check_initial_value(expr, typ.element_type)
@@ -121,14 +124,14 @@ class TypeChecker:
         elif isinstance(typ, ast.StructureType):
             print(ival)
             if not isinstance(ival, ast.NamedExpressionList):
-                raise SemanticError('Invalid struct initialization', ival.loc)
+                raise SemanticError("Invalid struct initialization", ival.loc)
             if len(ival.expressions) != len(typ.fields):
-                raise SemanticError('Wrong number of given fields', ival.loc)
+                raise SemanticError("Wrong number of given fields", ival.loc)
             new_expressions = []
             for ival2, fld in zip(ival.expressions, typ.fields):
                 field, expr = ival2
                 if field != fld.name:
-                    raise SemanticError('Wrong name of struct field', expr.loc)
+                    raise SemanticError("Wrong name of struct field", expr.loc)
                 new_expr = self.check_initial_value(expr, fld.typ)
                 new_expressions.append((field, new_expr))
             ival.expressions = new_expressions
@@ -145,12 +148,14 @@ class TypeChecker:
             # Parameters can only be simple types (pass by value)
             if not self.context.is_simple_type(param.typ):
                 raise SemanticError(
-                    'Function parameters can only be simple types',
-                    function.loc)
+                    "Function parameters can only be simple types",
+                    function.loc,
+                )
 
         if not self.context.is_simple_type(function.typ.returntype):
             raise SemanticError(
-                'Functions can only return simple types', function.loc)
+                "Functions can only return simple types", function.loc
+            )
 
         for sym in function.inner_scope:
             self.check_type(sym.typ)
@@ -176,11 +181,12 @@ class TypeChecker:
             elif isinstance(code, ast.ExpressionStatement):
                 # Check that this is always a void function call
                 if not isinstance(code.ex, ast.FunctionCall):
-                    raise SemanticError('Not a call expression', code.ex.loc)
+                    raise SemanticError("Not a call expression", code.ex.loc)
                 value = self.check_function_call(code.ex)
-                if not self.context.equal_types('void', code.ex.typ):
+                if not self.context.equal_types("void", code.ex.typ):
                     raise SemanticError(
-                        'Can only call void functions', code.ex.loc)
+                        "Can only call void functions", code.ex.loc
+                    )
                 assert value is None
             elif isinstance(code, ast.If):
                 self.check_if_stmt(code)
@@ -218,9 +224,10 @@ class TypeChecker:
     def check_switch_stmt(self, switch):
         """ Check a switch statement """
         self.check_expr(switch.expression, rvalue=True)
-        if not self.context.equal_types('int', switch.expression.typ):
+        if not self.context.equal_types("int", switch.expression.typ):
             raise SemanticError(
-                'Switch condition must be integer', switch.expression.loc)
+                "Switch condition must be integer", switch.expression.loc
+            )
 
         default_block = False
         for option_val, option_code in switch.options:
@@ -234,23 +241,27 @@ class TypeChecker:
 
         if not default_block:
             raise SemanticError(
-                'No default case specified in switch-case', switch.location)
+                "No default case specified in switch-case", switch.location
+            )
 
     def check_return_stmt(self, code):
         """ Check a return statement """
         if code.expr:
             if self.context.equal_types(
-                    'void', self.current_function.typ.returntype):
+                "void", self.current_function.typ.returntype
+            ):
                 raise SemanticError(
-                    'Cannot return value from void function',
-                    code.expr.loc)
+                    "Cannot return value from void function", code.expr.loc
+                )
             self.check_expr(code.expr, rvalue=True)
             code.expr = self.do_coerce(
-                code.expr, self.current_function.typ.returntype)
+                code.expr, self.current_function.typ.returntype
+            )
         else:
             if not self.context.equal_types(
-                    'void', self.current_function.typ.returntype):
-                raise SemanticError('Cannot return nothing', code.location)
+                "void", self.current_function.typ.returntype
+            ):
+                raise SemanticError("Cannot return nothing", code.location)
 
     def check_assignment_stmt(self, code):
         """ Check code for assignment statement """
@@ -260,13 +271,15 @@ class TypeChecker:
         # Check that the left hand side is a simple type:
         if not self.context.is_simple_type(code.lval.typ):
             raise SemanticError(
-                'Cannot assign to complex type {}'.format(code.lval.typ),
-                code.location)
+                "Cannot assign to complex type {}".format(code.lval.typ),
+                code.location,
+            )
 
         # Check that left hand is an lvalue:
         if not code.lval.lvalue:
             raise SemanticError(
-                'No valid lvalue {}'.format(code.lval), code.lval.loc)
+                "No valid lvalue {}".format(code.lval), code.lval.loc
+            )
 
         # Evaluate right hand side (and make it rightly typed):
         self.check_expr(code.rval, rvalue=True)
@@ -275,24 +288,25 @@ class TypeChecker:
     def check_condition(self, expr):
         """ Check condition expression """
         if isinstance(expr, ast.Binop):
-            if expr.op in ['and', 'or']:
+            if expr.op in ["and", "or"]:
                 self.check_condition(expr.a)
                 self.check_condition(expr.b)
-            elif expr.op in ['==', '>', '<', '!=', '<=', '>=']:
+            elif expr.op in ["==", ">", "<", "!=", "<=", ">="]:
                 self.check_expr(expr.a, rvalue=True)
                 self.check_expr(expr.b, rvalue=True)
                 common_type = self.context.get_common_type(
-                    expr.a, expr.b, expr.loc)
+                    expr.a, expr.b, expr.loc
+                )
                 expr.a = self.do_coerce(expr.a, common_type)
                 expr.b = self.do_coerce(expr.b, common_type)
             else:
-                raise SemanticError('non-bool: {}'.format(expr.op), expr.loc)
-            expr.typ = self.context.get_type('bool')
+                raise SemanticError("non-bool: {}".format(expr.op), expr.loc)
+            expr.typ = self.context.get_type("bool")
         elif isinstance(expr, ast.Literal):
             self.check_expr(expr)
-        elif isinstance(expr, ast.Unop) and expr.op == 'not':
+        elif isinstance(expr, ast.Unop) and expr.op == "not":
             self.check_condition(expr.a)
-            expr.typ = self.context.get_type('bool')
+            expr.typ = self.context.get_type("bool")
         elif isinstance(expr, ast.Expression):
             # Evaluate expression, make sure it is boolean and compare it
             # with true:
@@ -301,8 +315,8 @@ class TypeChecker:
             raise NotImplementedError(str(expr))
 
         # Check that the condition is a boolean value:
-        if not self.context.equal_types(expr.typ, 'bool'):
-            self.error('Condition must be boolean', expr.loc)
+        if not self.context.equal_types(expr.typ, "bool"):
+            self.error("Condition must be boolean", expr.loc)
 
     def check_expr(self, expr: ast.Expression, rvalue=False):
         """ Check an expression. """
@@ -359,7 +373,7 @@ class TypeChecker:
         expr.lvalue = False
 
         # The type of this expression is int:
-        expr.typ = self.context.get_type('int')
+        expr.typ = self.context.get_type("int")
 
         self.check_type(expr.query_typ)
 
@@ -375,18 +389,18 @@ class TypeChecker:
 
         ptr_typ = self.context.get_type(expr.ptr.typ)
         if not isinstance(ptr_typ, ast.PointerType):
-            raise SemanticError('Cannot deref {}'.format(ptr_typ), expr.loc)
+            raise SemanticError("Cannot deref {}".format(ptr_typ), expr.loc)
         expr.typ = ptr_typ.ptype
 
     def check_unop(self, expr):
         """ Check unary operator """
-        if expr.op == '&':
+        if expr.op == "&":
             self.check_expr(expr.a)
             if not expr.a.lvalue:
-                raise SemanticError('No valid lvalue', expr.a.loc)
+                raise SemanticError("No valid lvalue", expr.a.loc)
             expr.typ = ast.PointerType(expr.a.typ)
             expr.lvalue = False
-        elif expr.op in ['+', '-']:
+        elif expr.op in ["+", "-"]:
             self.check_expr(expr.a, rvalue=True)
             expr.typ = expr.a.typ
             expr.lvalue = False
@@ -430,7 +444,8 @@ class TypeChecker:
             expr.typ = target.typ
         else:
             raise SemanticError(
-                'Cannot use {} in expression'.format(target), expr.loc)
+                "Cannot use {} in expression".format(target), expr.loc
+            )
 
     def check_member_expr(self, expr):
         """ Check expressions such as struc.mem """
@@ -455,12 +470,19 @@ class TypeChecker:
             if basetype.has_field(expr.field):
                 expr.typ = basetype.field_type(expr.field)
             else:
-                raise SemanticError('{} does not contain field {}'
-                                    .format(basetype, expr.field),
-                                    expr.loc)
+                raise SemanticError(
+                    "{} does not contain field {}".format(
+                        basetype, expr.field
+                    ),
+                    expr.loc,
+                )
         else:
-            raise SemanticError('Cannot select {} of non-structure type {}'
-                                .format(expr.field, basetype), expr.loc)
+            raise SemanticError(
+                "Cannot select {} of non-structure type {}".format(
+                    expr.field, basetype
+                ),
+                expr.loc,
+            )
 
         # expr must be lvalue because we handle with addresses of variables
         assert expr.lvalue
@@ -482,12 +504,13 @@ class TypeChecker:
 
         base_typ = self.context.get_type(expr.base.typ)
         if not isinstance(base_typ, ast.ArrayType):
-            raise SemanticError('Cannot index non-array type {}'
-                                .format(base_typ),
-                                expr.base.loc)
+            raise SemanticError(
+                "Cannot index non-array type {}".format(base_typ),
+                expr.base.loc,
+            )
 
         # Make sure the index is an integer:
-        expr.i = self.do_coerce(expr.i, 'int')
+        expr.i = self.do_coerce(expr.i, "int")
 
         # Base address must be a location value:
         assert expr.base.lvalue
@@ -497,10 +520,7 @@ class TypeChecker:
     def check_literal_expr(self, expr):
         """ Check literal """
         expr.lvalue = False
-        typemap = {int: 'int',
-                   float: 'double',
-                   bool: 'bool',
-                   str: 'string'}
+        typemap = {int: "int", float: "double", bool: "bool", str: "string"}
         expr.typ = self.context.get_type(typemap[type(expr.val)])
 
     def check_type_cast(self, expr):
@@ -516,16 +536,19 @@ class TypeChecker:
         # Lookup the function in question:
         target_func = self.context.resolve_symbol(expr.proc)
         if not isinstance(target_func, ast.Function):
-            raise SemanticError('cannot call {}'.format(target_func), expr.loc)
+            raise SemanticError("cannot call {}".format(target_func), expr.loc)
         ftyp = target_func.typ
-        fname = target_func.package.name + '_' + target_func.name
+        fname = target_func.package.name + "_" + target_func.name
 
         # Check arguments:
         ptypes = ftyp.parametertypes
         if len(expr.args) != len(ptypes):
-            raise SemanticError('{} requires {} arguments, {} given'
-                                .format(fname, len(ptypes), len(expr.args)),
-                                expr.loc)
+            raise SemanticError(
+                "{} requires {} arguments, {} given".format(
+                    fname, len(ptypes), len(expr.args)
+                ),
+                expr.loc,
+            )
 
         # Evaluate the arguments:
         new_args = []
@@ -543,7 +566,8 @@ class TypeChecker:
 
         if not self.context.is_simple_type(ftyp.returntype):
             raise SemanticError(
-                'Return value can only be a simple type', expr.loc)
+                "Return value can only be a simple type", expr.loc
+            )
 
     def do_coerce(self, expr, typ):
         """ Try to convert expression into the given type.
@@ -559,58 +583,76 @@ class TypeChecker:
         if self.context.equal_types(from_type, to_type):
             # no cast required
             auto_cast = False
-        elif isinstance(from_type, ast.PointerType) and \
-                isinstance(to_type, ast.PointerType):
+        elif isinstance(from_type, ast.PointerType) and isinstance(
+            to_type, ast.PointerType
+        ):
             # Pointers are pointers, no matter the pointed data.
             # But a conversion of type is still needed:
             auto_cast = True
-        elif isinstance(from_type, ast.UnsignedIntegerType) and \
-                isinstance(to_type, ast.PointerType):
+        elif isinstance(from_type, ast.UnsignedIntegerType) and isinstance(
+            to_type, ast.PointerType
+        ):
             # Unsigned integers can be used as pointers without problem
             # Signed integers form a problem, because those can be negative
             # and thus must be casted explicitly.
             auto_cast = True
-        elif isinstance(from_type, ast.UnsignedIntegerType) and \
-                isinstance(to_type, ast.UnsignedIntegerType) and \
-                from_type.bits <= to_type.bits:
+        elif (
+            isinstance(from_type, ast.UnsignedIntegerType)
+            and isinstance(to_type, ast.UnsignedIntegerType)
+            and from_type.bits <= to_type.bits
+        ):
             auto_cast = True
-        elif isinstance(from_type, ast.SignedIntegerType) and \
-                isinstance(to_type, ast.SignedIntegerType) and \
-                from_type.bits <= to_type.bits:
+        elif (
+            isinstance(from_type, ast.SignedIntegerType)
+            and isinstance(to_type, ast.SignedIntegerType)
+            and from_type.bits <= to_type.bits
+        ):
             auto_cast = True
-        elif isinstance(from_type, ast.UnsignedIntegerType) and \
-                isinstance(to_type, ast.SignedIntegerType) and \
-                from_type.bits < to_type.bits - 1:
+        elif (
+            isinstance(from_type, ast.UnsignedIntegerType)
+            and isinstance(to_type, ast.SignedIntegerType)
+            and from_type.bits < to_type.bits - 1
+        ):
             auto_cast = True
-        elif isinstance(from_type, ast.UnsignedIntegerType) and \
-                isinstance(to_type, ast.FloatType) and \
-                from_type.bits < to_type.fraction_bits:
+        elif (
+            isinstance(from_type, ast.UnsignedIntegerType)
+            and isinstance(to_type, ast.FloatType)
+            and from_type.bits < to_type.fraction_bits
+        ):
             auto_cast = True
-        elif isinstance(from_type, ast.SignedIntegerType) and \
-                isinstance(to_type, ast.FloatType) and \
-                from_type.bits < to_type.fraction_bits:
+        elif (
+            isinstance(from_type, ast.SignedIntegerType)
+            and isinstance(to_type, ast.FloatType)
+            and from_type.bits < to_type.fraction_bits
+        ):
             auto_cast = True
-        elif isinstance(from_type, ast.FloatType) and \
-                isinstance(to_type, ast.FloatType) and \
-                from_type.bits < to_type.bits:
+        elif (
+            isinstance(from_type, ast.FloatType)
+            and isinstance(to_type, ast.FloatType)
+            and from_type.bits < to_type.bits
+        ):
             auto_cast = True
-        elif isinstance(from_type, ast.SignedIntegerType) and \
-                isinstance(to_type, (ast.UnsignedIntegerType, ast.FloatType)):
+        elif isinstance(from_type, ast.SignedIntegerType) and isinstance(
+            to_type, (ast.UnsignedIntegerType, ast.FloatType)
+        ):
             # For now, allow auto-cast, until better way of
             # casting constant integer to byte type is found:
             # TODO: remove this branch!
             auto_cast = True
-        elif isinstance(from_type, ast.FloatType) and \
-                isinstance(to_type, ast.FloatType):
+        elif isinstance(from_type, ast.FloatType) and isinstance(
+            to_type, ast.FloatType
+        ):
             # TODO: remove this hack!
             auto_cast = True
-        elif isinstance(from_type, ast.IntegerType) and \
-                isinstance(to_type, ast.PointerType):
+        elif isinstance(from_type, ast.IntegerType) and isinstance(
+            to_type, ast.PointerType
+        ):
             # TODO: remove this hack!
             auto_cast = True
         else:
             raise SemanticError(
-                "Cannot use '{}' as '{}'".format(from_type, to_type), expr.loc)
+                "Cannot use '{}' as '{}'".format(from_type, to_type), expr.loc
+            )
         if auto_cast:
             expr = ast.TypeCast(typ, expr, expr.loc)
         self.check_expr(expr)

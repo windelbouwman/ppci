@@ -1,4 +1,6 @@
-""" Wrapper for the WebAssembly Binary Toolkit - https://github.com/WebAssembly/wabt/
+""" Wrapper for the WebAssembly Binary Toolkit
+
+https://github.com/WebAssembly/wabt/
 
 The wabt is more or less the reference implementation of WebAssembly,
 so its a great tool to have a solid reference implementation for a few tasks.
@@ -6,7 +8,6 @@ It's converted to (ASM) js, so we can run it cross-platform using node.
 """
 
 import os
-import sys
 import subprocess
 from urllib.request import urlopen
 
@@ -66,19 +67,24 @@ def wat2wasm(wat):
     using the WebAssembly Binary Toolkit (WABT).
     """
     if not isinstance(wat, str):
-        raise TypeError('wat2wasm() expects a str or tuple.')
-    
+        raise TypeError("wat2wasm() expects a str or tuple.")
+
     # Prepare
     libfile = _get_wabt_lib()
     libdir = os.path.dirname(libfile)
     node = get_node_exe()
-    
+
     # Compose JS
-    js = js_wat2wasm.replace('libwabt.js', os.path.basename(libfile))
-    
+    js = js_wat2wasm.replace("libwabt.js", os.path.basename(libfile))
+
     # Run
-    p = subprocess.Popen([node, '-e', js], cwd=libdir,
-        stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    p = subprocess.Popen(
+        [node, "-e", js],
+        cwd=libdir,
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
     blob = wat.encode()  # ?? (sys.getfilesystemencoding())
     out, err = p.communicate(blob)
     if err:
@@ -92,23 +98,32 @@ def wasm2wat(wasm, resolve_names=False):
     using the WebAssembly Binary Toolkit (WABT).
     """
     if not isinstance(wasm, bytes):
-        raise TypeError('wasm2wat() expects bytes.')
-    
+        raise TypeError("wasm2wat() expects bytes.")
+
     # Prepare
     libfile = _get_wabt_lib()
     libdir = os.path.dirname(libfile)
     node = get_node_exe()
-    
+
     # Compose JS
-    js = js_wasm2wat.replace('libwabt.js', os.path.basename(libfile))
+    js = js_wasm2wat.replace("libwabt.js", os.path.basename(libfile))
     if resolve_names:
-        js = js.replace('READ_DEBUG_NAMES', 'true').replace('GENERATE_NAMES', 'true')
+        js = js.replace("READ_DEBUG_NAMES", "true").replace(
+            "GENERATE_NAMES", "true"
+        )
     else:
-        js = js.replace('READ_DEBUG_NAMES', 'false').replace('GENERATE_NAMES', 'false')
-    
+        js = js.replace("READ_DEBUG_NAMES", "false").replace(
+            "GENERATE_NAMES", "false"
+        )
+
     # Run
-    p = subprocess.Popen([node, '-e', js], cwd=libdir,
-        stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    p = subprocess.Popen(
+        [node, "-e", js],
+        cwd=libdir,
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
     out, err = p.communicate(wasm)
     if err:
         raise RuntimeError(err.decode())
@@ -119,23 +134,26 @@ def wasm2wat(wasm, resolve_names=False):
 def _get_wabt_lib():
     """ Get the filename of the wabt js lib.
     """
-    # Update the commit tag to make use of a newer version. We tag to a specific commit
+    # Update the commit tag to make use of a newer version. We tag to a
+    # specific commit
     # to avoid unexpected regressions as the wabt API changes.
-    commit = '409d61ef'
-    filename = os.path.join(THIS_DIR, 'libwabt_{}.js'.format(commit))
+    commit = "409d61ef"
+    filename = os.path.join(THIS_DIR, "libwabt_{}.js".format(commit))
     if not os.path.isfile(filename):
-        print('Downloading libwabt.js ...')
-        url = 'https://raw.githubusercontent.com/WebAssembly/wabt/{}/demo/libwabt.js'.format(commit)
+        print("Downloading libwabt.js ...")
+        url = (
+            "https://raw.githubusercontent.com/WebAssembly"
+            "/wabt/{}/demo/libwabt.js".format(commit)
+        )
         with urlopen(url, timeout=5) as f:
             bb = f.read()
-        with open(filename, 'wb') as f:
+        with open(filename, "wb") as f:
             f.write(bb)
     return filename
 
 
-if __name__ == '__main__':
-    
-    x = wat2wasm('(module)')
+if __name__ == "__main__":
+    x = wat2wasm("(module)")
     print(x)
     y = wasm2wat(x)
     print(y)

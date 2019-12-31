@@ -4,6 +4,13 @@ l.j start
 l.nop 0
 
 section code
+
+global __data_load_start
+global __data_start
+global __data_end
+global main_main
+global bsp_exit
+
 start:
   ; Initialize ram!
   l.movhi r3, hi(__data_load_start)

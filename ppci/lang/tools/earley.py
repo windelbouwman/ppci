@@ -12,6 +12,7 @@ from ...common import ParseError
 
 class Item:
     """ Partially parsed grammar rule """
+
     def __init__(self, rule, dot, origin):
         self.rule = rule
         self.dot = dot
@@ -36,12 +37,12 @@ class Item:
     def __repr__(self):
         symbols = ["'{}'".format(symbol) for symbol in self.rule.symbols]
         if self.is_shift:
-            dot_part1 = ' '.join(symbols[:self.dot])
-            dot_part2 = ' '.join(symbols[self.dot:])
-            dot_part = dot_part1 + ' . ' + dot_part2
+            dot_part1 = " ".join(symbols[: self.dot])
+            dot_part2 = " ".join(symbols[self.dot :])
+            dot_part = dot_part1 + " . " + dot_part2
         else:
-            dot_part = ' '.join(symbols) + ' .'
-        return '{} -> {}, {}'.format(self.rule.name, dot_part, self.origin)
+            dot_part = " ".join(symbols) + " ."
+        return "{} -> {}, {}".format(self.rule.name, dot_part, self.origin)
 
     def __eq__(self, other):
         return self.__hash__() == other.__hash__()
@@ -52,11 +53,13 @@ class Item:
             self.rule.symbols,
             self.rule.priority,
             self.dot,
-            self.origin).__hash__()
+            self.origin,
+        ).__hash__()
 
 
 class Column:
     """ A set of partially parsed items for a given token position """
+
     def __init__(self, i, token):
         self.i = i
         self.token = token
@@ -67,7 +70,7 @@ class Column:
         return iter(self.item_list)
 
     def __repr__(self):
-        return 'Column at {}'.format(self.token)
+        return "Column at {}".format(self.token)
 
     def add(self, item):
         if item not in self.items:
@@ -79,7 +82,7 @@ def make_tokens(tokens):
     # Start with an non-token column!
     yield None
     token = tokens.next_token()
-    while token.typ != 'EOF':
+    while token.typ != "EOF":
         yield token
         token = tokens.next_token()
 
@@ -104,6 +107,7 @@ class EarleyParser:
     When an earley parse is complete, the parse can be back-tracked to
     yield the resulting parse tree or the syntax tree.
     """
+
     def __init__(self, grammar):
         self.grammar = grammar
         self.states = []
@@ -139,7 +143,8 @@ class EarleyParser:
         # Create the state stack:
         columns = [Column(i, tok) for i, tok in enumerate(make_tokens(tokens))]
         for rule in self.grammar.productions_for_name(
-                self.grammar.start_symbol):
+            self.grammar.start_symbol
+        ):
             columns[0].add(Item(rule, 0, 0))
 
         # Loop through all input.
@@ -160,13 +165,15 @@ class EarleyParser:
         # Check if the parse was a success:
         last_column = columns[-1]
         for item in last_column:
-            if item.is_reduce and \
-                    item.rule.name == self.grammar.start_symbol and \
-                    item.origin == 0:
+            if (
+                item.is_reduce
+                and item.rule.name == self.grammar.start_symbol
+                and item.origin == 0
+            ):
                 break
         else:
             # self.dump_parse(columns)
-            raise ParseError('Parsing failed')
+            raise ParseError("Parsing failed")
 
         if debug_dump:
             self.dump_parse(columns)

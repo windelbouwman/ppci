@@ -8,7 +8,7 @@ except:
 
 
 from ppci.lang.c import CLexer, lexer, CParser, CSemantics
-from ppci.lang.c.preprocessor import prepare_for_parsing
+from ppci.lang.c.preprocessor import prepare_for_parsing, SourceFile
 from ppci.lang.c.options import COptions
 
 
@@ -43,7 +43,8 @@ class CParserTestCase(unittest.TestCase):
         """ Lex a given source and prepare the parser """
         clexer = CLexer(COptions())
         f = io.StringIO(source)
-        tokens = clexer.lex(f, '<snippet>')
+        source_file = SourceFile('<snippet>')
+        tokens = clexer.lex(f, source_file)
         tokens = prepare_for_parsing(tokens, self.parser.keywords)
         self.parser.init_lexer(tokens)
 
@@ -68,7 +69,6 @@ class CParserTestCase(unittest.TestCase):
         #    ('test1.c', 1, 2)
         # )
         self.semantics.on_variable_declaration.assert_called()
-        self.semantics.add_global_declaration.assert_called()
 
     def test_function(self):
         """ Test the parsing of a function """
@@ -78,14 +78,14 @@ class CParserTestCase(unittest.TestCase):
             ('{', '{'), ('return', 'return'), ('ID', 'x'), ('+', '+'),
             ('ID', 'y'), (';', ';'), ('}', '}')]
         cu = self.parse(tokens)
-        self.semantics.add_global_declaration.assert_called()
+        self.semantics.on_function_declaration.assert_called()
         self.semantics.on_binop.assert_called()
         self.semantics.on_return.assert_called()
 
     def test_pointer_declaration(self):
         """ Test the proper parsing of a pointer to an integer """
         self.given_source('int *a;')
-        declarations = self.parser.parse_declarations()
+        self.parser.parse_declarations()
         self.semantics.on_variable_declaration.assert_called()
 
     def test_cdecl_example1(self):
@@ -95,38 +95,38 @@ class CParserTestCase(unittest.TestCase):
         """
         src = 'int (*(*foo)(void))[3];'
         self.given_source(src)
-        declarations = self.parser.parse_declarations()
+        self.parser.parse_declarations()
         self.semantics.on_variable_declaration.assert_called()
 
     def test_function_returning_pointer(self):
         """ Test the proper parsing of a pointer to a function """
         self.given_source('int *a(int x);')
-        declarations = self.parser.parse_declarations()
+        self.parser.parse_declarations()
         self.semantics.on_variable_declaration.assert_called()
 
     def test_function_pointer(self):
         """ Test the proper parsing of a pointer to a function """
         self.given_source('int (*a)(int x);')
-        declarations = self.parser.parse_declarations()
+        self.parser.parse_declarations()
         self.semantics.on_variable_declaration.assert_called()
 
     def test_array_pointer(self):
         """ Test the proper parsing of a pointer to an array """
         self.given_source('int (*a)[3];')
-        declarations = self.parser.parse_declarations()
+        self.parser.parse_declarations()
         self.semantics.on_variable_declaration.assert_called()
 
     def test_struct_declaration(self):
         """ Test struct declaration parsing """
         self.given_source('struct {int g; } a;')
-        declarations = self.parser.parse_declarations()
+        self.parser.parse_declarations()
         self.semantics.on_struct_or_union.assert_called()
         self.semantics.on_variable_declaration.assert_called()
 
     def test_union_declaration(self):
         """ Test union declaration parsing """
         self.given_source('union {int g; } a;')
-        declarations = self.parser.parse_declarations()
+        self.parser.parse_declarations()
         self.semantics.on_struct_or_union.assert_called()
         self.semantics.on_variable_declaration.assert_called()
 

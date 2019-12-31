@@ -7,4 +7,4 @@ http://www.ti.com/tool/msp430-flasher
 
 from .arch import Msp430Arch
 
-__all__ = ['Msp430Arch']
+__all__ = ["Msp430Arch"]

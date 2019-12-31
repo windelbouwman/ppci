@@ -15,10 +15,16 @@ The project contains:
 - Backends for various target architectures, such as
   :ref:`6500<mcs6500>`, :ref:`arm`,
   :ref:`avr`,
+  :ref:`m68k`,
+  :ref:`microblaze`,
   :ref:`msp430`,
   :ref:`or1k`,
   :ref:`ricv-v<riscv>`, :ref:`stm8`, :ref:`x86_64`,
   :ref:`xtensa`
+- Support for working with :ref:`WebAssembly<wasm>`, :ref:`java JVM<jvm>` and
+  :ref:`OCaml bytecode<ocaml>`.
+- Support for various file formats, such as :ref:`hexfile<hexfile>`,
+  :ref:`s-records<srecord>`, :ref:`ELF files<elf>` and :ref:`exe files<exe>`.
 - A :ref:`pythonic api<api>` and
   a set of :ref:`command line utilities<commandline>` build around it.
 - A simple :ref:`intermediate language<ir>`

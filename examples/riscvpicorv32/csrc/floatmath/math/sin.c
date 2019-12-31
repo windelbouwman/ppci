@@ -19,13 +19,13 @@
 #if	defined(__IEEE_SP_FP__)
 
 /* Hart table SIN 3062, p. 200; precision 14.62, order 3 2. */
-static double P4[] = {
+static double P[] = {
          0.12752317157040252689531e+5,
 	-0.1148319659730019252866e+4,
 	 0.24491788946981444987e+2,
 	-0.1586433575585969204
 };
-static double Q4[] = {
+static double Q[] = {
          0.16236754491348387146302e+5,
 	 0.207188411599011955321e+3,
 	 1.0
@@ -34,13 +34,13 @@ static double Q4[] = {
 #else	/* !defined(__IEEE_SP_FP__) */
 
 /* Hart table SIN 3063, p. 200; precision 17.59, order 3 3. */
-static double P4[] = {
+static double P[] = {
 	 0.20664343336995858240e+7,
 	-0.18160398797407332550e+6,
 	 0.35999306949636188317e+4,
 	-0.20107483294588615719e+2
 };
-static double Q4[] = {
+static double Q[] = {
 	0.26310659102647698963e+7,
 	0.39270242774649000308e+5,
 	0.27811919481083844087e+3,
@@ -49,8 +49,8 @@ static double Q4[] = {
 
 #endif	/* !defined(__IEEE_SP_FP__) */
 
-#define	ORDERP	((int)(sizeof(P4) / sizeof(P4[0])) - 1)
-#define	ORDERQ	((int)(sizeof(Q4) / sizeof(Q4[0])) - 1)
+#define	ORDERP	((int)(sizeof(P) / sizeof(P[0])) - 1)
+#define	ORDERQ	((int)(sizeof(Q) / sizeof(Q[0])) - 1)
 
 double
 sin(double x)
@@ -86,7 +86,7 @@ sin(double x)
 	else if (x < COS_MIN && x > -COS_MIN)
 		return x;
 	y = x / FOURTHPI;
-	return y * (_poly (ORDERP, P4, y * y) / _poly(ORDERQ, Q4, y * y));
+	return y * (_poly (ORDERP, P, y * y) / _poly(ORDERQ, Q, y * y));
 }
 
 /* end of libc/math/sin.c */

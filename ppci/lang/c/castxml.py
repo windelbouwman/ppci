@@ -9,6 +9,7 @@ class CastXmlReader:
 
     https://github.com/CastXML/CastXML
     """
+
     def process(self, filename):
         tree = ET.parse(filename)
         root = tree.getroot()

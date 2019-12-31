@@ -39,8 +39,13 @@ Other compilers
 
 * `sdcc`
 
-  THe small device c compiler.
+  The small device c compiler.
   http://sdcc.sourceforge.net/
+
+* `8cc`
+
+  A small C compiler in C99.
+  https://github.com/rui314/8cc
 
 
 Other compilers written in python
@@ -131,6 +136,11 @@ Citations
     "Assembly to High-Level Language Translation",
     1998,
     Cristina Cifuentes and Doug Simon and Antoine Fraboulet.
+
+.. [Davidson1980]
+    "The Design and Application of a Retargetable Peephole Optimizer",
+    1980,
+    Jack W. Davidson and Christopher W. Fraser.
 
 .. [Baker1977]
     "An Algorithm for Structuring Flowgraphs",

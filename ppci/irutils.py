@@ -35,9 +35,9 @@ class Writer:
             verify_module(module)
         self.print(0, '{};'.format(module))
 
-        for e in module.externals:
+        for external in module.externals:
             self.print(0, '')
-            self.print(0, '{};'.format(e))
+            self.print(0, '{};'.format(external))
 
         for variable in module.variables:
             self.print(0, '')
@@ -94,6 +94,7 @@ class Reader:
         tok_re = '|'.join('(?P<%s>%s)' % pair for pair in tok_spec)
         gettok = re.compile(tok_re).match
         keywords = [
+            'global', 'local',
             'function', 'module', 'procedure',
             'store', 'load',
             'cast',
@@ -161,24 +162,31 @@ class Reader:
         module = ir.Module(name)
         self.consume(';')
         while self.peak != 'eof':
+            if self.peak == 'local':
+                self.consume('local')
+                binding = ir.Binding.LOCAL
+            else:
+                self.consume('global')
+                binding = ir.Binding.GLOBAL
+
             if self.peak in ['function', 'procedure']:
-                module.add_function(self.parse_function())
+                module.add_function(self.parse_function(binding))
             else:
                 raise IrParseException('Expected function got {}'
                                        .format(self.peak))
         return module
 
-    def parse_function(self):
+    def parse_function(self, binding):
         """ Parse a function or procedure """
         if self.peak == 'function':
             self.consume('function')
             return_type = self.parse_type()
             name = self.consume('ID')[1]
-            function = ir.Function(name, return_type)
+            function = ir.Function(name, binding, return_type)
         else:
             self.consume('procedure')
             name = self.consume('ID')[1]
-            function = ir.Procedure(name)
+            function = ir.Procedure(name, binding)
 
         # Setup maps:
         self.val_map = {}
@@ -369,17 +377,17 @@ class Builder:
     def set_module(self, module):
         self.module = module
 
-    def new_function(self, name, return_ty):
+    def new_function(self, name, binding, return_ty):
         assert self.module is not None
-        f = ir.Function(name, return_ty)
-        self.module.add_function(f)
-        return f
+        function = ir.Function(name, binding, return_ty)
+        self.module.add_function(function)
+        return function
 
-    def new_procedure(self, name):
+    def new_procedure(self, name, binding):
         assert self.module is not None
-        f = ir.Procedure(name)
-        self.module.add_function(f)
-        return f
+        procedure = ir.Procedure(name, binding)
+        self.module.add_function(procedure)
+        return procedure
 
     def new_block(self, name=None):
         """ Create a new block and add it to the current function """
@@ -391,9 +399,9 @@ class Builder:
         self.function.add_block(block)
         return block
 
-    def set_function(self, f):
-        self.function = f
-        self.block = f.entry if f else None
+    def set_function(self, function):
+        self.function = function
+        self.block = function.entry if function else None
         self.block_number = 0
 
     def set_block(self, block):

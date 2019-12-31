@@ -19,13 +19,14 @@ class Header:
 
     Inherit this class to define a file header.
     """
-    _byte_order = '<'
+
+    _byte_order = "<"
     _fields = None
 
     def __init__(self):
         if self._fields is not None:
             # No padding bytes when using < or > endianness
-            fmt = self._byte_order + ''.join(f[1] for f in self._fields)
+            fmt = self._byte_order + "".join(f[1] for f in self._fields)
             self.s = struct.Struct(fmt)
 
     def write(self, f):
@@ -45,10 +46,12 @@ class Header:
             else:
                 value = getattr(self, name, 0)
 
-            if ty in 'IiHh' and not isinstance(value, int):
+            if ty in "IiHh" and not isinstance(value, int):
                 raise TypeError(
-                    'Field {} is set to {} which is not of type int'.format(
-                        name, value))
+                    "Field {} is set to {} which is not of type int".format(
+                        name, value
+                    )
+                )
             values.append(value)
         return self.s.pack(*values)
 
@@ -62,11 +65,11 @@ class Header:
             name = field[0]
             if name:
                 value = getattr(self, name)
-                print('{}: {}'.format(name, hex(value)))
+                print("{}: {}".format(name, hex(value)))
 
     @classmethod
     def deserialize(cls, f):
-        fmt = '<' + ''.join(f[1] for f in cls._fields)
+        fmt = "<" + "".join(f[1] for f in cls._fields)
         s = struct.Struct(fmt)
         size = s.size
         data = f.read(size)
@@ -83,23 +86,23 @@ class Header:
 
 # Programmatically define headers:
 
+
 def mk_header(name, fields):
     """ Create a type which can parse this kind of header """
-    members = {
-        '_fields': fields,
-    }
+    members = {"_fields": fields}
     size = 0
     for field in fields:
         if field.name is not None:
             members[field.name] = field
         size += field.size
-    members['size'] = size
-    type_name = '{}Header'.format(name)
+    members["size"] = size
+    type_name = "{}Header".format(name)
     return type(type_name, (BaseHeader,), members)
 
 
 class BaseHeader:
     """ Base header """
+
     def __init__(self):
         self._field_values = {}
         for field in self._fields:
@@ -124,7 +127,7 @@ class BaseHeader:
         for field in self._fields:
             if field.name:
                 value = getattr(self, field.name)
-                print('{}: {}'.format(field.name, hex(value)))
+                print("{}: {}".format(field.name, hex(value)))
 
     def serialize(self):
         data = bytearray()
@@ -142,7 +145,7 @@ class BaseHeader:
         hdr = cls()
         offset = 0
         for field in hdr._fields:
-            part = data[offset:offset+field.size]
+            part = data[offset : offset + field.size]
             value = field.decode(part)
             if field.name is not None:
                 setattr(hdr, field.name, value)
@@ -153,6 +156,7 @@ class BaseHeader:
 
 class HeaderField(property):
     """ A optionally named field in a header """
+
     def __init__(self, name=None, size=None):
         self.name = name
         self.size = size
@@ -180,7 +184,7 @@ class Const(HeaderField):
 
 
 def Uint8(name=None):
-    return FormatField(name, 'B')
+    return FormatField(name, "B")
 
 
 Byte = Uint8
@@ -188,41 +192,43 @@ Byte = Uint8
 
 def Int16(name=None):
     """ 16 bits signed integer value """
-    return FormatField(name, 'h')
+    return FormatField(name, "h")
 
 
 def Uint16(name=None):
     """ 16 bits unsigned integer value """
-    return FormatField(name, 'H')
+    return FormatField(name, "H")
 
 
 class Int24(HeaderField):
     """ 24 bits signed integer value """
+
     pass
 
 
 def Int32(name=None):
     """ 32 bits signed integer value """
-    return FormatField(name, 'i')
+    return FormatField(name, "i")
 
 
 def Uint32(name=None):
     """ 32 bits unsigned integer value """
-    return FormatField(name, 'I')
+    return FormatField(name, "I")
 
 
 def Int64(name=None):
     """ 64 bits signed integer value """
-    return FormatField(name, 'Q')
+    return FormatField(name, "Q")
 
 
 def Uint64(name=None):
     """ 64 bits unsigned integer value """
-    return FormatField(name, 'Q')
+    return FormatField(name, "Q")
 
 
 class FormatField(HeaderField):
     """ Field which uses ``struct`` to pack and unpack data """
+
     def __init__(self, name, fmt):
         self.packer = struct.Struct(fmt)
         super().__init__(name=name, size=self.packer.size)

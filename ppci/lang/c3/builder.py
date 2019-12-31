@@ -19,13 +19,13 @@ from .context import Context
 
 def c3_to_ir(sources, includes, march, reporter=None):
     """ Compile c3 sources to ir-code for the given architecture. """
-    logger = logging.getLogger('c3c')
+    logger = logging.getLogger("c3c")
     march = get_arch(march)
     if not reporter:  # pragma: no cover
         reporter = DummyReportGenerator()
 
-    logger.debug('C3 compilation started')
-    reporter.heading(2, 'c3 compilation')
+    logger.debug("C3 compilation started")
+    reporter.heading(2, "c3 compilation")
     sources = [get_file(fn) for fn in sources]
     includes = [get_file(fn) for fn in includes]
     diag = DiagnosticsManager()
@@ -37,10 +37,10 @@ def c3_to_ir(sources, includes, march, reporter=None):
     except CompilerError as ex:
         diag.error(ex.msg, ex.loc)
         diag.print_errors()
-        raise TaskError('Compile errors')
+        raise TaskError("Compile errors")
 
-    reporter.message('C3 compilation listings for {}'.format(sources))
-    reporter.message('{} {}'.format(ir_module, ir_module.stats()))
+    reporter.message("C3 compilation listings for {}".format(sources))
+    reporter.message("{} {}".format(ir_module, ir_module.stats()))
     reporter.dump_ir(ir_module)
     return ir_module
 
@@ -50,7 +50,8 @@ class C3Builder:
 
     Reports errors to the diagnostics system.
     """
-    logger = logging.getLogger('c3')
+
+    logger = logging.getLogger("c3")
 
     def __init__(self, diag, arch_info):
         assert isinstance(arch_info, ArchInfo)
@@ -73,7 +74,8 @@ class C3Builder:
         assert isinstance(sources, (tuple, list))
         assert isinstance(imps, (tuple, list))
         self.logger.debug(
-            'Building %d sources and %d includes', len(sources), len(imps))
+            "Building %d sources and %d includes", len(sources), len(imps)
+        )
 
         # Create a context where the modules can live:
         context = Context(self.arch_info)
@@ -98,7 +100,7 @@ class C3Builder:
         # Check modules
         self.verifier.verify(ir_module)
 
-        self.logger.debug('C3 build complete!')
+        self.logger.debug("C3 build complete!")
         return context, ir_module
 
     def do_parse(self, src, context):
@@ -112,8 +114,9 @@ class C3ExprParser:
         Generates IR-code from c3 source.
         Reports errors to the diagnostics system.
     """
+
     def __init__(self, arch_info):
-        self.logger = logging.getLogger('c3')
+        self.logger = logging.getLogger("c3")
         diag = DiagnosticsManager()
         self.diag = diag
         self.arch_info = arch_info

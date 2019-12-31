@@ -6,14 +6,10 @@ from .base import base_parser, LogSetup
 from .. import api, irutils
 
 
-parser = argparse.ArgumentParser(
-    description=__doc__, parents=[base_parser])
-parser.add_argument(
-    '-O', help='Optimization level', default=2, type=int)
-parser.add_argument(
-    'input', help='input file', type=argparse.FileType('r'))
-parser.add_argument(
-    'output', help='output file', type=argparse.FileType('w'))
+parser = argparse.ArgumentParser(description=__doc__, parents=[base_parser])
+parser.add_argument("-O", help="Optimization level", default=2, type=int)
+parser.add_argument("input", help="input file", type=argparse.FileType("r"))
+parser.add_argument("output", help="output file", type=argparse.FileType("w"))
 
 
 def opt(args=None):
@@ -25,5 +21,5 @@ def opt(args=None):
     irutils.Writer(file=args.output).write(module)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     opt()

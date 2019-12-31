@@ -18,25 +18,29 @@ class Tree:
 
     def __repr__(self):
         if self.children:
-            ch = ', '.join(str(c) for c in self.children)
-            children = '({})'.format(ch)
+            ch = ", ".join(str(c) for c in self.children)
+            children = "({})".format(ch)
         else:
-            children = ''
+            children = ""
         if self.value is not None:
-            val = '[{}]'.format(self.value)
+            val = "[{}]".format(self.value)
         else:
-            val = ''
-        return '{}{}{}'.format(self.name, val, children)
+            val = ""
+        return "{}{}{}".format(self.name, val, children)
 
     def __getitem__(self, index):
         return self.children[index]
 
     def structural_equal(self, other):
         """ Determine if this tree is structurally equivalent to another """
-        return self.name == other.name and \
-            len(self.children) == len(other.children) and \
-            all(a.structural_equal(b) for a, b in
-                zip(self.children, other.children))
+        return (
+            self.name == other.name
+            and len(self.children) == len(other.children)
+            and all(
+                a.structural_equal(b)
+                for a, b in zip(self.children, other.children)
+            )
+        )
 
     def get_defined_names(self):
         """ Returns a set of all names defined by this tree """
@@ -49,10 +53,10 @@ class Tree:
 class TreeLexer(BaseLexer):
     def __init__(self):
         tok_spec = [
-            ('ID', r'[A-Za-z][A-Za-z\d_]*', lambda typ, val: (typ, val)),
-            ('SKIP', r'[ \t]', None),
-            ('LEESTEKEN', r'[,\(\)]', lambda typ, val: (val, val))
-            ]
+            ("ID", r"[A-Za-z][A-Za-z\d_]*", lambda typ, val: (typ, val)),
+            ("SKIP", r"[ \t]", None),
+            ("LEESTEKEN", r"[,\(\)]", lambda typ, val: (val, val)),
+        ]
         super().__init__(tok_spec)
 
 
@@ -62,6 +66,7 @@ class TreeParser:
     For example:
         A(B(1,2,3),2,1,C)
     """
+
     def __init__(self):
         self.lexer = TreeLexer()
         self.peak = None
@@ -88,13 +93,13 @@ class TreeParser:
         return self.parse_tree()
 
     def parse_tree(self):
-        name = self.consume('ID').val
+        name = self.consume("ID").val
         children = []
-        if self.has_consumed('('):
+        if self.has_consumed("("):
             children.append(self.parse_tree())
-            while self.has_consumed(','):
+            while self.has_consumed(","):
                 children.append(self.parse_tree())
-            self.consume(')')
+            self.consume(")")
         return Tree(name, *children)
 
 

@@ -1,12 +1,12 @@
-sudo: false
+dist: xenial
 language: python
 
 python:
   - "3.4"
   - "3.5"
   - "3.6"
-  # - "3.7-dev"
-  - "pypy3"
+  - "3.7"
+  # - "pypy3"
 
 install: pip -q install tox codacy-coverage codecov
 

@@ -18,17 +18,15 @@
  */
  
 #include "mathlib.h"
+
 #if	defined(__IEEE_SP_FP__)
 
-#define	_poly(order, a, x)						\
-	 (a[0] + x * a[1])			
-
 /* Hart table EXPB 1063, p. 171; precision 10.03, order 1 1. */
-static	double	P1[] = {
+static	double	P[] = {
 	0.72152891511493e+1,
 	0.576900723731e-1
 };
-static	double	Q1[] = {
+static	double	Q[] = {
 	0.208189237930062e+2,
 	1.0
 };
@@ -36,12 +34,12 @@ static	double	Q1[] = {
 #else	/* defined(__IEEE_SP_FP__) */
 
 /* Hart table EXPB 1067, p. 171; precision 18.08, order 2 2. */
-static	double	P1[] = {
+static	double	P[] = {
 	0.1513906799054338915894328e+04,
 	0.20202065651286927227886e+02,
 	0.23093347753750233624e-01
 };
-static	double	Q1[] = {
+static	double	Q[] = {
 	0.4368211662727558498496814e+04,
 	0.233184211427481623790295e+03,
 	1.0
@@ -49,14 +47,14 @@ static	double	Q1[] = {
 
 #endif	/* defined(__IEEE_SP_FP__) */
 
-#define	ORDERP	((int)(sizeof(P1) / sizeof(P1[0])) - 1)
-#define	ORDERQ	((int)(sizeof(Q1) / sizeof(Q1[0])) - 1)
+#define	ORDERP	((int)(sizeof(P) / sizeof(P[0])) - 1)
+#define	ORDERQ	((int)(sizeof(Q) / sizeof(Q[0])) - 1)
 
 double
 exp(double x)
 {
 	register int flag;
-	double r, intpart, xsq, a, b, dummy;
+	double r, intpart, xsq, a, b;
  
 #if	defined(__IEEE_FP__)
 	if (_isNaN(x)) {
@@ -90,10 +88,10 @@ exp(double x)
 	 * in 80-bit registers rather than rounded to 64-bit doubles.
 	 * On most machines, though, it makes no difference.
 	 */
-	dummy = modf(x * LOG2E, &intpart); /* find intpart */
+	(void)modf(x * LOG2E, &intpart); /* find intpart */
 	x = x * LOG2E - intpart;	/* find fraction */
-#else    
-	x = modf(x * LOG2E, &intpart);    
+#else
+	x = modf(x * LOG2E, &intpart);
 #endif
 	if (x < 0.0) {
 		x += 1.0;		/* force fraction positive */
@@ -104,8 +102,8 @@ exp(double x)
 		x -= 0.5;
 	} else
 		r = 1.0;
-	xsq = x * x;    
-	a = _poly(ORDERQ, Q1, xsq);
-	b = x * _poly(ORDERP, P1, xsq);	
+	xsq = x * x;
+	a = _poly(ORDERQ, Q, xsq);
+	b = x * _poly(ORDERP, P, xsq);
 	return ldexp(((r * (a + b)) / (a - b)), (int)intpart);
 }

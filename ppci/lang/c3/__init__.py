@@ -29,5 +29,12 @@ from .builder import C3Builder, c3_to_ir
 from .context import Context
 
 __all__ = [
-    'AstPrinter', 'C3Builder', 'CodeGenerator', 'Context', 'Lexer', 'Parser',
-    'Visitor', 'c3_to_ir']
+    "AstPrinter",
+    "C3Builder",
+    "CodeGenerator",
+    "Context",
+    "Lexer",
+    "Parser",
+    "Visitor",
+    "c3_to_ir",
+]

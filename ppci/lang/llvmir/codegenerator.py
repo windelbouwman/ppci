@@ -1,4 +1,3 @@
-
 import logging
 from . import nodes
 from ... import ir, irutils
@@ -11,7 +10,8 @@ class CodeGenerator:
 
     llvm variables are prefixed with ll_
     """
-    logger = logging.getLogger('llvm-gen')
+
+    logger = logging.getLogger("llvm-gen")
 
     def __init__(self):
         self.builder = irutils.Builder()
@@ -21,9 +21,9 @@ class CodeGenerator:
     def generate(self, ll_module):
         """ Convert LLVM IR-module to ppci IR-module """
         assert isinstance(ll_module, nodes.Module)
-        self.logger.debug('generating ir-code from llvm ir-code')
-        self.logger.warning('ir code generation not functional yet')
-        self.builder.module = ir.Module('TODO')
+        self.logger.debug("generating ir-code from llvm ir-code")
+        self.logger.warning("ir code generation not functional yet")
+        self.builder.module = ir.Module("TODO")
         self.ll_module = ll_module
         for function in ll_module.functions:
             self.gen_function(function)
@@ -32,8 +32,8 @@ class CodeGenerator:
 
     def gen_function(self, function):
         """ Generate code for an llvm function """
-        self.logger.debug('generating ir-code for %s', function)
-        name = 'b'
+        self.logger.debug("generating ir-code for %s", function)
+        name = "b"
         ir_function = self.builder.new_procedure(name)
         self.builder.set_function(ir_function)
         for ll_arg in function.arguments:
@@ -52,19 +52,17 @@ class CodeGenerator:
         """ Transform an llvm instruction into the right ppci ir part """
         if isinstance(instruction, nodes.BinaryOperator):
             lhs = self.get_val(instruction.lhs)
-            op_map = {
-                'mul': '*',
-                'add': '+',
-                }
+            op_map = {"mul": "*", "add": "+"}
             op = op_map[instruction.op]
             rhs = self.get_val(instruction.rhs)
-            name = 'binop'
+            name = "binop"
             ty = self.get_ir_type(instruction.ty)
             ir_val = self.emit(ir.Binop(lhs, op, rhs, name, ty))
             self.val_map[instruction] = ir_val
         elif isinstance(instruction, nodes.AllocaInst):
             amount = self.ll_module.data_layout.get_type_alloc_size(
-                instruction.allocated_ty)
+                instruction.allocated_ty
+            )
             name = instruction.name
             ir_ins = self.emit(ir.Alloc(name, amount))
             self.val_map[instruction] = ir_ins
@@ -78,7 +76,7 @@ class CodeGenerator:
         elif isinstance(instruction, nodes.LoadInst):
             ty = self.get_ir_type(instruction.ptr.ty.el_type)
             ptr = self.get_val(instruction.ptr)
-            ir_ins = self.emit(ir.Load(ptr, 'load', ty))
+            ir_ins = self.emit(ir.Load(ptr, "load", ty))
             self.val_map[instruction] = ir_ins
         elif isinstance(instruction, nodes.StoreInst):
             val = self.get_val(instruction.val)
@@ -98,7 +96,7 @@ class CodeGenerator:
             # TODO: offset?
             # TODO: what if loaded type is not a basetype?
             # pp_ptr = self.emit(ir.add())
-            pp_val = self.emit(ir.Load(pp_ptr, 'load', pp_ty))
+            pp_val = self.emit(ir.Load(pp_ptr, "load", pp_ty))
             self.val_map[instruction] = pp_val
         elif isinstance(instruction, nodes.ShuffleVectorInst):
             raise NotImplementedError()
@@ -117,15 +115,15 @@ class CodeGenerator:
             block0 = self.builder.new_block()
             block1 = self.builder.new_block()
             final = self.builder.new_block()
-            self.emit(ir.CJump(a, '=', b, block1, block0))
+            self.emit(ir.CJump(a, "=", b, block1, block0))
             self.builder.set_block(block0)
-            zero = self.emit(ir.Const(0, 'zero', ir.i8))
+            zero = self.emit(ir.Const(0, "zero", ir.i8))
             self.emit(ir.Jump(final))
             self.builder.set_block(block1)
-            one = self.emit(ir.Const(1, 'one', ir.i8))
+            one = self.emit(ir.Const(1, "one", ir.i8))
             self.emit(ir.Jump(final))
             self.builder.set_block(final)
-            phi = ir.Phi('icmp', ir.i8)
+            phi = ir.Phi("icmp", ir.i8)
             phi.set_incoming(block0, zero)
             phi.set_incoming(block1, one)
             self.emit(phi)
@@ -140,8 +138,8 @@ class CodeGenerator:
                 block1 = self.get_block(instruction.op1)
                 block2 = self.get_block(instruction.op2)
                 val = self.get_val(instruction.op3)
-                one = self.emit(ir.Const(1, 'one', ir.i8))
-                self.emit(ir.CJump(val, '==', one, block1, block2))
+                one = self.emit(ir.Const(1, "one", ir.i8))
+                self.emit(ir.CJump(val, "==", one, block1, block2))
         elif isinstance(instruction, nodes.ReturnInst):
             # Is this return void?
             if instruction.ty.is_void:
@@ -168,8 +166,7 @@ class CodeGenerator:
 
     def get_ir_type(self, ll_ty):
         if ll_ty.type_id == nodes.integer_ty_id:
-            mapping = {
-                8: ir.i8, 16: ir.i16, 32: ir.i32, 64: ir.i64}
+            mapping = {8: ir.i8, 16: ir.i16, 32: ir.i32, 64: ir.i64}
             return mapping[ll_ty.bits]
         elif ll_ty.type_id == nodes.pointer_ty_id:
             return ir.ptr

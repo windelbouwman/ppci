@@ -23,6 +23,7 @@ import unittest
 import glob
 import os.path
 import io
+import warnings
 
 from ppci.api import preprocess
 from ppci.lang.c import COptions
@@ -41,7 +42,7 @@ def create_test_function(cls, filename):
         coptions.enable('trigraphs')
         coptions.add_include_path(test_t_directory)
         libc_dir = os.path.join(
-            this_dir, '..', '..', 'librt', 'libc')
+            this_dir, '..', '..', '..', 'librt', 'libc')
         coptions.add_include_path(libc_dir)
 
         output_file = io.StringIO()
@@ -65,12 +66,19 @@ def mcpp_populate(cls):
             'n_token.t',  # contains C++ token '::'
             'n_cnvucn.t',  # contains chinese chars # TODO
             'n_ucn1.t',  # non utf8 chars # TODO
+            'n_3_4.t',  # raises an error on purpose.
+            'n_8.t',  # raises error as an example
         ]
         for fullfile in files:
             filename = os.path.split(fullfile)[1]
             if filename in black_list:
                 continue
             create_test_function(cls, fullfile)
+    else:
+        warnings.warn(
+            'Please specify MCPP_DIR if you wish to run the mcpp tests.'
+            'For example: export MCPP_DIR=~/SVN/mcpp-code'
+        )
     return cls
 
 

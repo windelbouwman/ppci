@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import Mock
 import io
-from ppci import api, ir, irutils
+from ppci import api, irutils
 from ppci.lang.python import load_py, python_to_ir
 from ppci.utils.reporting import HtmlReportGenerator
 
@@ -53,12 +53,15 @@ class PythonJitLoadingTestCase(unittest.TestCase):
 
     def test_callback(self):
         mock = Mock()
+
         def myprint(x: int) -> None:
             mock(x)
+
         imports = {
             'myprint': myprint,
         }
-        with open('p2p_callback_report.html', 'w') as f, HtmlReportGenerator(f) as reporter:
+        with open('p2p_callback_report.html', 'w') as f, \
+                HtmlReportGenerator(f) as reporter:
             m2 = load_py(
                 io.StringIO(src2), imports=imports, reporter=reporter)
         # Segfaults:
@@ -75,7 +78,7 @@ class PythonJitLoadingTestCase(unittest.TestCase):
 class PythonToIrCompilerTestCase(unittest.TestCase):
     """ Check the compilation of python code to ir """
     def test_snippet1(self):
-        mod = python_to_ir(io.StringIO(src1))
+        python_to_ir(io.StringIO(src1))
 
     def test_snippet2(self):
         imports = {
@@ -87,7 +90,7 @@ class PythonToIrCompilerTestCase(unittest.TestCase):
         # print(f.getvalue())
 
     def test_snippet3(self):
-        mod = python_to_ir(io.StringIO(src3))
+        python_to_ir(io.StringIO(src3))
 
 
 if __name__ == '__main__':

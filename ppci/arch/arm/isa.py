@@ -1,4 +1,3 @@
-
 from ..isa import Isa
 from ..token import Token, bit_range, bit
 

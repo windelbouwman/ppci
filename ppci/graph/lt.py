@@ -11,7 +11,7 @@ import logging
 from .digraph import dfs
 
 
-logger = logging.getLogger('lt')
+logger = logging.getLogger("lt")
 
 
 def calculate_idom(graph, entry, reverse=False):
@@ -22,6 +22,7 @@ def calculate_idom(graph, entry, reverse=False):
 
 class LengauerTarjan:
     """ The lengauer Tarjan algorithm for calculating dominators """
+
     def __init__(self, reverse):
         self._reverse = reverse
 
@@ -39,7 +40,7 @@ class LengauerTarjan:
         self.samedom = {}
 
     def compute(self, graph, entry):
-        logger.debug('Computing dominator tree from %s nodes', len(graph))
+        logger.debug("Computing dominator tree from %s nodes", len(graph))
         bucket = {}
         # Fill maps:
         for n in graph:
@@ -115,7 +116,7 @@ class LengauerTarjan:
 
     def ancestor_with_lowest_semi_new(self, v):
         """ Modified algorithm. Sort of with path compression. """
-        raise NotImplementedError('appears to have a bug?')
+        raise NotImplementedError("appears to have a bug?")
         x = v
         while self.ancestor[x]:
             if self.dfnum[self.semi[x]] < self.dfnum[self.semi[self.best[v]]]:

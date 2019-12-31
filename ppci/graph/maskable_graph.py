@@ -10,6 +10,7 @@ from ..utils.collections import OrderedSet
 
 class MaskableGraph(Graph):
     """ A graph that allows masking nodes temporarily """
+
     def __init__(self):
         super().__init__()
         self._masked_nodes = set()
@@ -65,5 +66,5 @@ class MaskableGraph(Graph):
 
         assert len(self._masked_adj[m]) == 0
 
-        assert not self.is_masked(n), 'Combining only allowed for non-masked'
+        assert not self.is_masked(n), "Combining only allowed for non-masked"
         super().combine(n, m)

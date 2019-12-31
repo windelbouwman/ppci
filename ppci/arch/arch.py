@@ -11,7 +11,7 @@ from .. import ir
 # Idea: create several types of architectures.
 # One for real machines, one for virtual machines
 class MachineArchitecture(metaclass=abc.ABCMeta):
-    logger = logging.getLogger('arch')
+    logger = logging.getLogger("arch")
     name = None
     desc = None
     option_names = ()
@@ -36,6 +36,7 @@ class MachineArchitecture(metaclass=abc.ABCMeta):
 
 class VirtualMachineArchitecture(MachineArchitecture):
     """ Virtual machine architecture. """
+
     pass
 
 
@@ -49,7 +50,7 @@ class Architecture(MachineArchitecture):
             options: a tuple with which options to enable.
         """
         super().__init__()
-        self.logger.debug('Creating %s arch', self.name)
+        self.logger.debug("Creating %s arch", self.name)
         self.option_settings = {o: False for o in self.option_names}
         if options:
             assert isinstance(options, tuple)
@@ -63,16 +64,16 @@ class Architecture(MachineArchitecture):
         return self.option_settings[name]
 
     def __repr__(self):
-        opstring = ''
+        opstring = ""
         for n in self.option_names:
             if self.option_settings[n]:
-                opstring += ':' + n
-        return '{}{}-arch'.format(self.name, opstring)
+                opstring += ":" + n
+        return "{}{}-arch".format(self.name, opstring)
 
     def make_id_str(self):
         """ Return a string uniquely identifying this machine """
         options = [n for n, v in self.option_settings.items() if v]
-        return ':'.join([self.name] + options)
+        return ":".join([self.name] + options)
 
     def get_size(self, typ):
         """ Get type of ir type """
@@ -80,7 +81,7 @@ class Architecture(MachineArchitecture):
 
     def move(self, dst, src):  # pragma: no cover
         """ Generate a move from src to dst """
-        raise NotImplementedError('Implement this')
+        raise NotImplementedError("Implement this")
 
     @abc.abstractmethod
     def gen_prologue(self, frame):  # pragma: no cover
@@ -89,7 +90,7 @@ class Architecture(MachineArchitecture):
         Arguments:
             frame: the function frame for which to create a prologue
         """
-        raise NotImplementedError('Implement this!')
+        raise NotImplementedError("Implement this!")
 
     @abc.abstractmethod
     def gen_epilogue(self, frame):  # pragma: no cover
@@ -98,12 +99,12 @@ class Architecture(MachineArchitecture):
         Arguments:
             frame: the function frame for which to create a prologue
         """
-        raise NotImplementedError('Implement this!')
+        raise NotImplementedError("Implement this!")
 
     @abc.abstractmethod
     def gen_call(self, frame, label, args, rv):  # pragma: no cover
         """ Generate instructions for a function call. """
-        raise NotImplementedError('Implement this!')
+        raise NotImplementedError("Implement this!")
 
     @abc.abstractmethod
     def gen_function_enter(self, args):  # pragma: no cover
@@ -116,11 +117,11 @@ class Architecture(MachineArchitecture):
             args: an iterable of virtual registers in which the arguments
                   must be placed.
         """
-        raise NotImplementedError('Implement me!')
+        raise NotImplementedError("Implement me!")
 
     @abc.abstractmethod
     def gen_function_exit(self, rv):  # pragma: no cover
-        raise NotImplementedError('Implement me!')
+        raise NotImplementedError("Implement me!")
 
     def between_blocks(self, frame):
         """ Generate any instructions here if needed between two blocks """
@@ -129,13 +130,13 @@ class Architecture(MachineArchitecture):
     @abc.abstractmethod
     def determine_arg_locations(self, arg_types):  # pragma: no cover
         """ Determine argument location for a given function """
-        raise NotImplementedError('Implement this')
+        raise NotImplementedError("Implement this")
 
     @abc.abstractmethod
     def determine_rv_location(self, ret_type):  # pragma: no cover
         """ Determine the location of a return value of a function given the
         type of return value """
-        raise NotImplementedError('Implement this')
+        raise NotImplementedError("Implement this")
 
     def get_reloc(self, name):
         """ Retrieve a relocation identified by a name """
@@ -145,7 +146,8 @@ class Architecture(MachineArchitecture):
         """ Create an object with an optional runtime. """
         import io
         from ..api import asm
-        asm_src = ''
+
+        asm_src = ""
         return asm(io.StringIO(asm_src), self)
 
     @lru_cache(maxsize=30)

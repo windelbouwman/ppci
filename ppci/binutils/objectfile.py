@@ -19,7 +19,6 @@ The hierarchy is as follows:
 import json
 import binascii
 from ..common import CompilerError, make_num, get_file
-from ..arch.encoding import Relocation
 from . import debuginfo
 
 
@@ -34,22 +33,76 @@ def get_object(obj):
 
 class Symbol:
     """ A symbol definition in an object file """
-    def __init__(self, name, value, section):
+
+    def __init__(self, id, name, binding, value, section):
+        assert isinstance(id, int)
+        self.id = id
         self.name = name
+        self.binding = binding
         self.value = value
         self.section = section
 
+    @property
+    def undefined(self):
+        """ Test if this symbol is undefined. """
+        return self.value is None
+
+    @property
+    def defined(self):
+        return not self.undefined
+
+    @property
+    def is_global(self):
+        return self.binding == "global"
+
     def __repr__(self):
-        return 'Symbol({}, val={} section={})'.format(
-            self.name, self.value, self.section)
+        return "Symbol({}, binding={}, val={} section={})".format(
+            self.name, self.binding, self.value, self.section
+        )
 
     def __eq__(self, other):
-        return (self.name, self.value, self.section) == \
-            (other.name, other.value, other.section)
+        return (
+            (self.id == other.id)
+            and (self.name == other.name)
+            and (self.binding == other.binding)
+            and (self.value == other.value)
+            and (self.section == other.section)
+        )
+
+
+class RelocationEntry:
+    """ A relocation entry.
+
+    While it mich be confusing to have Relocation here, and
+    RelocationType in arch.encoding, this is cleaner, since the relocation
+    here is a record indicating a relocation, while the relocation type
+    is emitted by instructions and can actually apply the relocation.
+
+
+    This class is a record holding information on where to a apply which
+    relocation. Not how to do the actual relocation.
+    """
+
+    def __init__(self, reloc_type, symbol_id, section, offset, addend):
+        self.reloc_type = reloc_type
+        self.symbol_id = symbol_id
+        self.section = section
+        self.offset = offset
+        self.addend = addend
+
+    def __eq__(self, other):
+        return (
+            (self.reloc_type == other.reloc_type)
+            and (self.symbol_id == other.symbol_id)
+            and (self.section == other.section)
+            and (self.offset == other.offset)
+            and (self.addend == other.addend)
+        )
 
 
 class Section:
     """ A defined region of data in the object file """
+
     def __init__(self, name):
         self.name = name
         self.address = 0
@@ -65,13 +118,17 @@ class Section:
         return len(self.data)
 
     def __repr__(self):
-        return 'SECTION {} size=0x{:x} address=0x{:x}'.format(
-            self.name, self.size, self.address)
+        return "SECTION {} size=0x{:x} address=0x{:x}".format(
+            self.name, self.size, self.address
+        )
 
     def __eq__(self, other):
-        return (self.name == other.name) and (self.address == other.address) \
-            and (self.data == other.data) and \
-            (self.alignment == other.alignment)
+        return (
+            (self.name == other.name)
+            and (self.address == other.address)
+            and (self.data == other.data)
+            and (self.alignment == other.alignment)
+        )
 
     def __hash__(self):
         return id(self)
@@ -82,22 +139,26 @@ class Image:
 
     A memory image is a piece that can be loaded into memory.
     """
+
     def __init__(self, name: str, address: int):
         self.address = address
         self.name = name
         self.sections = []
 
     def __eq__(self, other):
-        return (self.address == other.address) \
-            and (self.sections == other.sections) \
+        return (
+            (self.address == other.address)
+            and (self.sections == other.sections)
             and (self.name == other.name)
+        )
 
     def __repr__(self):
-        return 'IMG {} {} 0x{:08X}'.format(self.name, self.size, self.address)
+        return "IMG {} {} 0x{:08X}".format(self.name, self.size, self.address)
 
     def __str__(self):
-        return 'Image {} of {} bytes at 0x{:X}'.format(
-            self.name, self.size, self.address)
+        return "Image {} of {} bytes at 0x{:X}".format(
+            self.name, self.size, self.address
+        )
 
     def __hash__(self):
         return id(self)
@@ -109,7 +170,7 @@ class Image:
         current_address = self.address
         for section in self.sections:
             if section.address < current_address:
-                raise ValueError('sections overlap!!')
+                raise ValueError("sections overlap!!")
             if section.address > current_address:
                 delta = section.address - current_address
                 data += bytes([0] * delta)
@@ -146,9 +207,11 @@ class ObjectFile:
         Also contains symbols and relocation entries.
         Also contains debug information.
     """
+
     def __init__(self, arch):
         self.symbols = []
         self.symbol_map = {}
+        self.symbols_by_id = {}
         self.sections = []
         self.section_map = {}
         self.relocations = []
@@ -158,7 +221,7 @@ class ObjectFile:
         self.arch = arch
 
     def __repr__(self):
-        return 'CodeObject of {} bytes'.format(self.byte_size)
+        return "CodeObject of {} bytes".format(self.byte_size)
 
     def has_symbol(self, name):
         """ Check if this object file has a symbol with name 'name' """
@@ -168,48 +231,68 @@ class ObjectFile:
         """ Get a symbol """
         return self.symbol_map[name]
 
-    def add_symbol(self, name, value, section):
+    def add_symbol(self, id, name, binding, value, section):
         """ Define a new symbol """
-        if self.has_symbol(name):
-            raise CompilerError('{} already defined'.format(name))
-        assert self.has_section(section)
-        sym = Symbol(name, value, section)
-        self.symbol_map[name] = sym
-        self.symbols.append(sym)
-        return sym
+        # assert self.has_section(section)
+        symbol = Symbol(id, name, binding, value, section)
+        self.symbols.append(symbol)
 
-    def get_symbol_value(self, name):
+        # If the symbol has a global binding, its name must be unique:
+        if binding == "global":
+            if self.has_symbol(name):
+                raise CompilerError("{} already defined".format(name))
+            self.symbol_map[name] = symbol
+
+        assert id not in self.symbols_by_id
+        self.symbols_by_id[id] = symbol
+        return symbol
+
+    def get_symbol_value(self, symbol_name):
+        symbol = self.get_symbol(symbol_name)
+        return self.get_symbol_id_value(symbol.id)
+
+    def get_symbol_id_value(self, symbol_id):
         """ Lookup a symbol and determine its value """
-        symbol = self.get_symbol(name)
-        section = self.get_section(symbol.section)
-        return symbol.value + section.address
+        symbol = self.symbols_by_id[symbol_id]
+        if symbol.undefined:
+            raise ValueError("Undefined reference {}".format(symbol.name))
+
+        if symbol.section is None:
+            return symbol.value
+        else:
+            section = self.get_section(symbol.section)
+            return symbol.value + section.address
 
     def del_symbol(self, name):
         """ Remove a symbol with a given name """
         sym = self.symbol_map.pop(name)
         self.symbols.remove(sym)
 
+    def get_undefined_symbols(self):
+        """ Get a list of undefined symbols. """
+        undefined_symbols = [
+            s.name for s in self.symbols if (s.undefined and s.is_global)
+        ]
+        return undefined_symbols
+
+    def get_defined_symbols(self):
+        """ Get a list of defined symbols. """
+        defined_symbols = [
+            s.name for s in self.symbols if (s.defined and s.is_global)
+        ]
+        return defined_symbols
+
     def add_relocation(self, reloc):
         """ Add a relocation entry """
-        assert isinstance(reloc, Relocation)
-        assert isinstance(reloc.symbol_name, str), str(reloc.symbol_name)
+        assert isinstance(reloc, RelocationEntry)
+        assert isinstance(reloc.symbol_id, int)
         assert self.has_section(reloc.section)
-        # assert sym_name in self.symbols
         self.relocations.append(reloc)
         return reloc
 
-    def gen_relocation(self, typ, sym_name, offset=0, section=None, addend=0):
-        """ Create a relocation given by name """
-        reloc_cls = self.arch.isa.relocation_map['rel8']
-        reloc = reloc_cls(
-            sym_name, offset=offset, section=section, addend=addend)
-        return self.add_relocation(reloc)
-
-#    def add_debug(self, section, offset, data):
-#        """ Add debug data to this object file """
-#        assert self.has_section(section)
-#        debug = Debug(section, offset, data)
-#        self.debug.append(debug)
+    def gen_relocation(self, reloc_type, symbol_id, section, offset):
+        reloc = RelocationEntry(reloc_type, symbol_id, section, offset, 0)
+        self.add_relocation(reloc)
 
     def has_section(self, name):
         """ Check if the object file has a section with the given name """
@@ -226,6 +309,14 @@ class ObjectFile:
             self.add_section(Section(name))
         return self.section_map[name]
 
+    def create_section(self, name):
+        """ Create and add a section with the given name. """
+        if name in self.section_map:
+            raise ValueError("section {} already exists!".format(name))
+        section = Section(name)
+        self.add_section(section)
+        return section
+
     def get_image(self, name):
         """ Get a memory image """
         return self.image_map[name]
@@ -241,46 +332,27 @@ class ObjectFile:
         return sum(section.size for section in self.sections)
 
     def __eq__(self, other):
-        return (self.symbols == other.symbols) and \
-            (self.sections == other.sections) and \
-            (self.relocations == other.relocations) and \
-            (self.images == other.images)
+        return (
+            (self.symbols == other.symbols)
+            and (self.sections == other.sections)
+            and (self.relocations == other.relocations)
+            and (self.images == other.images)
+        )
+
+    def serialize(self):
+        """ Serialize the object into a dictionary structure suitable for json.
+        """
+        return serialize(self)
 
     def save(self, output_file):
         """ Save object file to a file like object """
-        self.polish()
-        json.dump(serialize(self), output_file, indent=2, sort_keys=True)
+        json.dump(self.serialize(), output_file, indent=2, sort_keys=True)
         print(file=output_file)
 
     @staticmethod
     def load(input_file):
         """ Load object file from file """
         return deserialize(json.load(input_file))
-
-    def polish(self):
-        """ Cleanup an object file """
-        if self.debug_info:
-            # TODO: move this to linker?
-            # fix debug info objects:
-            def fx(x):
-                if isinstance(x, str):
-                    sym = self.get_symbol(x)
-                    return debuginfo.DebugAddress(sym.section, sym.value)
-                else:
-                    # assert isinstance(x, debuginfo.DebugAddress)
-                    return x
-            for loc in self.debug_info.locations:
-                loc.address = fx(loc.address)
-            for func in self.debug_info.functions:
-                func.begin = fx(func.begin)
-                func.end = fx(func.end)
-            for var in self.debug_info.variables:
-                var.address = fx(var.address)
-
-        # remove local labels:
-        names = [s.name for s in self.symbols if s.name.startswith('.L')]
-        for name in names:
-            self.del_symbol(name)
 
 
 def print_object(obj):
@@ -299,7 +371,7 @@ def print_object(obj):
 def chunks(data, size=30):
     """ Split iterable thing into n-sized chunks """
     for i in range(0, len(data), size):
-        yield data[i:i+size]
+        yield data[i : i + size]
 
 
 def bin2asc(data):
@@ -309,20 +381,20 @@ def bin2asc(data):
     if len(data) > 30:
         res = []
         for part in chunks(data):
-            res.append(binascii.hexlify(part).decode('ascii'))
+            res.append(binascii.hexlify(part).decode("ascii"))
         return res
     else:
-        return binascii.hexlify(data).decode('ascii')
+        return binascii.hexlify(data).decode("ascii")
 
 
 def asc2bin(data):
     """ Decode ascii into binary """
     if isinstance(data, str):
-        return bytearray(binascii.unhexlify(data.encode('ascii')))
+        return bytearray(binascii.unhexlify(data.encode("ascii")))
     elif isinstance(data, list):
         res = bytearray()
         for part in data:
-            res.extend(binascii.unhexlify(part.encode('ascii')))
+            res.extend(binascii.unhexlify(part.encode("ascii")))
         return res
     else:  # pragma: no cover
         raise NotImplementedError(str(type(data)))
@@ -332,41 +404,50 @@ def serialize(x):
     """ Serialize an object so it can be json-ified, or serialized """
     res = {}
     if isinstance(x, ObjectFile):
-        res['sections'] = []
+        res["sections"] = []
         for section in x.sections:
-            res['sections'].append(serialize(section))
-        res['symbols'] = []
+            res["sections"].append(serialize(section))
+
+        res["symbols"] = []
         for symbol in x.symbols:
-            res['symbols'].append(serialize(symbol))
-        res['relocations'] = []
+            res["symbols"].append(serialize(symbol))
+
+        res["relocations"] = []
         for reloc in x.relocations:
-            res['relocations'].append(serialize(reloc))
-        res['images'] = []
+            res["relocations"].append(serialize(reloc))
+
+        res["images"] = []
         for image in x.images:
-            res['images'].append(serialize(image))
+            res["images"].append(serialize(image))
+
         if x.debug_info:
-            res['debug'] = debuginfo.serialize(x.debug_info)
-        res['arch'] = x.arch.make_id_str()
+            res["debug"] = debuginfo.serialize(x.debug_info)
+
+        res["arch"] = x.arch.make_id_str()
     elif isinstance(x, Image):
-        res['name'] = x.name
-        res['address'] = hex(x.address)
-        res['sections'] = []
+        res["name"] = x.name
+        res["address"] = hex(x.address)
+        res["sections"] = []
         for section in x.sections:
-            res['sections'].append(section.name)
+            res["sections"].append(section.name)
     elif isinstance(x, Section):
-        res['name'] = x.name
-        res['address'] = hex(x.address)
-        res['data'] = bin2asc(x.data)
-        res['alignment'] = hex(x.alignment)
+        res["name"] = x.name
+        res["address"] = hex(x.address)
+        res["data"] = bin2asc(x.data)
+        res["alignment"] = hex(x.alignment)
     elif isinstance(x, Symbol):
-        res['name'] = x.name
-        res['value'] = hex(x.value)
-        res['section'] = x.section
-    elif isinstance(x, Relocation):
-        res['symbol'] = x.symbol_name
-        res['offset'] = hex(x.offset)
-        res['type'] = x.name
-        res['section'] = x.section
+        res["id"] = int(x.id)
+        res["name"] = x.name
+        res["binding"] = x.binding
+        if not x.undefined:
+            res["value"] = hex(x.value)
+            res["section"] = x.section
+    elif isinstance(x, RelocationEntry):
+        res["symbol_id"] = x.symbol_id
+        res["type"] = x.reloc_type
+        res["section"] = x.section
+        res["offset"] = hex(x.offset)
+        res["addend"] = hex(x.addend)
     else:  # pragma: no cover
         raise NotImplementedError(str(type(x)))
     return res
@@ -375,31 +456,51 @@ def serialize(x):
 def deserialize(data):
     """ Create an object file from dict-like data """
     from ..api import get_arch
-    arch = get_arch(data['arch'])
+
+    arch = get_arch(data["arch"])
     obj = ObjectFile(arch)
-    for section in data['sections']:
-        section_object = Section(section['name'])
+
+    for section in data["sections"]:
+        section_object = Section(section["name"])
         obj.add_section(section_object)
-        section_object.address = make_num(section['address'])
-        section_object.data = asc2bin(section['data'])
-        section_object.alignment = make_num(section['alignment'])
-    for reloc in data['relocations']:
-        typ = reloc['type']
-        rcls = arch.isa.relocation_map[typ]
-        r = rcls(
-            reloc['symbol'],
-            offset=make_num(reloc['offset']),
-            section=reloc['section'],
-            addend=0)
-        obj.add_relocation(r)
-    for sym in data['symbols']:
-        obj.add_symbol(sym['name'], make_num(sym['value']), sym['section'])
-    for image in data['images']:
-        img = Image(image['name'], make_num(image['address']))
+        section_object.address = make_num(section["address"])
+        section_object.data = asc2bin(section["data"])
+        section_object.alignment = make_num(section["alignment"])
+
+    for reloc in data["relocations"]:
+        relocation = RelocationEntry(
+            reloc["type"],
+            int(reloc["symbol_id"]),
+            reloc["section"],
+            make_num(reloc["offset"]),
+            make_num(reloc["addend"]),
+        )
+        obj.add_relocation(relocation)
+
+    for sym in data["symbols"]:
+        # Check for defined / undefined symbol:
+        if "value" in sym:
+            symbol_value = make_num(sym["value"])
+            symbol_section = sym["section"]
+        else:
+            symbol_value = None
+            symbol_section = None
+
+        obj.add_symbol(
+            int(sym["id"]),
+            sym["name"],
+            sym["binding"],
+            symbol_value,
+            symbol_section,
+        )
+
+    for image in data["images"]:
+        img = Image(image["name"], make_num(image["address"]))
         obj.add_image(img)
-        for section_name in image['sections']:
+        for section_name in image["sections"]:
             assert obj.has_section(section_name)
             img.add_section(obj.get_section(section_name))
-    if 'debug' in data:
-        obj.debug_info = debuginfo.deserialize(data['debug'])
+
+    if "debug" in data:
+        obj.debug_info = debuginfo.deserialize(data["debug"])
     return obj

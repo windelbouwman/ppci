@@ -35,7 +35,6 @@ The compiler is greatly influenced by the `LLVM`_ design.
 
 .. toctree::
 
-    compiler/backend
     compiler/specificationlang
     compiler/hardware
 

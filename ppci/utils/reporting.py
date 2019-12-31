@@ -65,7 +65,7 @@ class ReportGenerator(metaclass=abc.ABCMeta):
 
     def dump_wasm(self, wasm_module):
         """ Report web assembly module """
-        self.dump_source('Web assembly module', wasm_module.to_string())
+        self.dump_source("Web assembly module", wasm_module.to_string())
 
     def dump_sgraph(self, sgraph):
         pass
@@ -97,7 +97,7 @@ class ReportGenerator(metaclass=abc.ABCMeta):
         raise NotImplementedError()
 
     def dump_compiler_error(self, compiler_error):
-        self.heading(3, 'Error')
+        self.heading(3, "Error")
         f = io.StringIO()
         compiler_error.print(file=f)
         self.dump_raw_text(f.getvalue())
@@ -105,6 +105,7 @@ class ReportGenerator(metaclass=abc.ABCMeta):
 
 class DummyReportGenerator(ReportGenerator):
     """ Report generator which reports into the void """
+
     def heading(self, level, title):
         pass
 
@@ -131,7 +132,7 @@ class TextWritingReporter(ReportGenerator):
     def close(self):
         self.dump_file.close()
 
-    def print(self, *args, end='\n'):
+    def print(self, *args, end="\n"):
         """ Convenience helper for printing to dumpfile """
         print(*args, end=end, file=self.dump_file)
 
@@ -139,33 +140,33 @@ class TextWritingReporter(ReportGenerator):
         """ Print instructions """
         asm_printer = arch.asm_printer
         text_stream = TextOutputStream(
-            asm_printer, f=self.dump_file,
-            add_binary=True)
+            asm_printer, f=self.dump_file, add_binary=True
+        )
         text_stream.emit_all(instructions)
 
 
 class TextReportGenerator(TextWritingReporter):
     def header(self):
-        self.print('Report!')
+        self.print("Report!")
 
     def dump_ir(self, ir_module):
         writer = Writer(file=self.dump_file)
         if isinstance(ir_module, ir.Module):
-            self.print('==========================')
+            self.print("==========================")
             writer.write(ir_module, verify=False)
-            self.print('==========================')
+            self.print("==========================")
         elif isinstance(ir_module, ir.SubRoutine):
-            self.print('==========================')
+            self.print("==========================")
             writer.write_function(ir_module)
-            self.print('==========================')
+            self.print("==========================")
         else:  # pragma: no cover
             raise NotImplementedError(str(ir_module))
 
     def heading(self, level, title):
         self.print()
         self.print(title)
-        markers = {1: '=', 2: '-'}
-        marker = markers[level] if level in markers else '~'
+        markers = {1: "=", 2: "-"}
+        marker = markers[level] if level in markers else "~"
         self.print(marker * len(title))
         self.print()
 
@@ -179,7 +180,7 @@ class TextReportGenerator(TextWritingReporter):
         """ Write selection dag to dumpfile """
         self.print("Selection dag:")
         for dag in dags:
-            self.print('Dag:')
+            self.print("Dag:")
             for root in dag:
                 self.print("- {}".format(root))
 
@@ -189,19 +190,19 @@ class TextReportGenerator(TextWritingReporter):
     def dump_trees(self, trees):
         self.print("Selection trees:")
         for tree in trees:
-            self.print('  {}'.format(tree))
+            self.print("  {}".format(tree))
 
     def dump_frame(self, frame):
         """ Dump frame to file for debug purposes """
         self.print(frame)
         for ins in frame.instructions:
-            self.print('$ {}'.format(ins))
+            self.print("$ {}".format(ins))
 
     def dump_cfg_nodes(self, frame):
         for ins in frame.instructions:
             if frame.cfg.has_node(ins):
                 nde = frame.cfg.get_node(ins)
-                self.print('ins: {} {}'.format(ins, nde.longrepr))
+                self.print("ins: {} {}".format(ins, nde.longrepr))
 
     def function_header(self, irfunc, target):
         self.print("========= Log for {} ==========".format(irfunc))
@@ -218,16 +219,17 @@ class TextReportGenerator(TextWritingReporter):
 def collapseable(html_generator, title):
     html_generator.print('<div><div class="button">')
     html_generator.print('<input type="checkbox" class="expand" />')
-    html_generator.print('<h4>{}</h4>'.format(title))
-    html_generator.print('<div>')
-    html_generator.print('<hr>')
+    html_generator.print("<h4>{}</h4>".format(title))
+    html_generator.print("<div>")
+    html_generator.print("<hr>")
     yield html_generator
-    html_generator.print('</div>')
-    html_generator.print('</div></div>')
+    html_generator.print("</div>")
+    html_generator.print("</div></div>")
 
 
 HTML_HEADER = """<!DOCTYPE HTML>
 <html><head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
   <style>
   .expand {
     float: right;
@@ -305,7 +307,7 @@ HTML_FOOTER = """
 
 
 def str2(x):
-    return ', '.join(sorted(str(y) for y in x))
+    return ", ".join(sorted(str(y) for y in x))
 
 
 class MyHandler(logging.Handler):
@@ -329,9 +331,9 @@ def selection_graph_to_graph(sgraph):
         from_node = node_map[edge.src]
         to_node = node_map[edge.dst]
         color_map = {
-            SGValue.CONTROL: 'red',
-            SGValue.DATA: 'black',
-            SGValue.MEMORY: 'blue'
+            SGValue.CONTROL: "red",
+            SGValue.DATA: "black",
+            SGValue.MEMORY: "blue",
         }
 
         if not graph.has_edge(from_node, to_node):
@@ -352,22 +354,23 @@ class HtmlReportGenerator(TextWritingReporter):
 
     def new_guid(self):
         self.nr += 1
-        return 'guid_{}'.format(self.nr)
+        return "guid_{}".format(self.nr)
 
     def flush_log(self):
         if self.backlog:
-            with collapseable(self, 'Log'):
-                self.print('<pre>')
+            with collapseable(self, "Log"):
+                self.print("<pre>")
                 while self.backlog:
                     self.print(self.backlog.pop(0))
-                self.print('<pre>')
+                self.print("<pre>")
 
     def header(self):
         self.print(HTML_HEADER)
         self.message(
-            'Generated on {} by ppci version {}'.format(
-                datetime.today().ctime(),
-                __version__))
+            "Generated on {} by ppci version {}".format(
+                datetime.today().ctime(), __version__
+            )
+        )
 
     def footer(self):
         self.flush_log()
@@ -375,25 +378,23 @@ class HtmlReportGenerator(TextWritingReporter):
 
     def heading(self, level, title):
         self.flush_log()
-        html_tags = {
-            1: 'h1', 2: 'h2', 3: 'h3'
-        }
+        html_tags = {1: "h1", 2: "h2", 3: "h3"}
         html_tag = html_tags[level]
-        self.print('<{0}>{1}</{0}>'.format(html_tag, title))
+        self.print("<{0}>{1}</{0}>".format(html_tag, title))
 
     def message(self, msg):
-        self.print('<p>{}</p>'.format(msg))
+        self.print("<p>{}</p>".format(msg))
 
     def dump_ir(self, ir_module):
         if isinstance(ir_module, ir.Module):
-            title = 'Module {}'.format(ir_module.name)
+            title = "Module {}".format(ir_module.name)
             with collapseable(self, title):
                 f = io.StringIO()
                 writer = Writer(f)
                 writer.write(ir_module, verify=False)
                 self.dump_raw_text(f.getvalue())
         elif isinstance(ir_module, ir.SubRoutine):
-            title = 'Function {}'.format(ir_module.name)
+            title = "Function {}".format(ir_module.name)
             with collapseable(self, title):
                 f = io.StringIO()
                 writer = Writer(f)
@@ -409,38 +410,39 @@ class HtmlReportGenerator(TextWritingReporter):
 
     def dump_raw_text(self, text):
         """ Spitout text not to be formatted """
-        self.print('<pre>')
+        self.print("<pre>")
         self.print(text)
-        self.print('</pre>')
+        self.print("</pre>")
 
     def dump_instructions(self, instructions, arch):
-        with collapseable(self, 'Instructions'):
-            self.print('<pre>')
+        with collapseable(self, "Instructions"):
+            self.print("<pre>")
             super().dump_instructions(instructions, arch)
-            self.print('</pre>')
+            self.print("</pre>")
 
     def render_graph(self, graph):
         LayeredLayout().generate(graph)
         graph.to_svg(self.dump_file)
 
     def dump_sgraph(self, sgraph):
-        with collapseable(self, 'Selection graph'):
+        with collapseable(self, "Selection graph"):
             self.print(
-                '<div>'
-                '<p>Selection graph.</p><ul>'
-                '<li>red=control dependency</li>'
-                '<li>blue=memory dependency</li>'
-                '<li>black=data dependency</li>'
-                '</ul>')
+                "<div>"
+                "<p>Selection graph.</p><ul>"
+                "<li>red=control dependency</li>"
+                "<li>blue=memory dependency</li>"
+                "<li>black=data dependency</li>"
+                "</ul>"
+            )
             graph = selection_graph_to_graph(sgraph)
             self.render_graph(graph)
-            self.print('</div>')
-            self.print('<p><b>To be implemented</b></p>')
+            self.print("</div>")
+            self.print("<p><b>To be implemented</b></p>")
 
     def dump_dag(self, dags):
         """ Write selection dag to dumpfile """
         for dag in dags:
-            self.print('Dag:')
+            self.print("Dag:")
             for root in dag:
                 self.print("- {}".format(root))
 
@@ -448,82 +450,82 @@ class HtmlReportGenerator(TextWritingReporter):
         self.print(cgitb.html(einfo))
 
     def dump_trees(self, trees):
-        with collapseable(self, 'Selection trees'):
-            self.print('<hr>')
-            self.print('<pre>')
+        with collapseable(self, "Selection trees"):
+            self.print("<hr>")
+            self.print("<pre>")
             for tree in trees:
-                self.print('  {}'.format(tree))
-            self.print('</pre>')
+                self.print("  {}".format(tree))
+            self.print("</pre>")
 
     def dump_frame(self, frame):
         """ Dump frame to file for debug purposes """
-        with collapseable(self, 'Frame'):
+        with collapseable(self, "Frame"):
             used_regs = list(sorted(frame.used_regs, key=lambda r: r.name))
             self.print('<p><div class="codeblock">')
             self.print(frame)
-            self.print('<p>stack size: {}</p>'.format(frame.stacksize))
-            self.print('<p>Used: {}</p>'.format(used_regs))
+            self.print("<p>stack size: {}</p>".format(frame.stacksize))
+            self.print("<p>Used: {}</p>".format(used_regs))
             self.print('<table border="1">')
-            self.print('<tr>')
-            self.print('<th>#</th><th>instruction</th>')
-            self.print('<th>use</th><th>def</th><th>clobber</th>')
-            self.print('<th>jump</th><th>move</th>')
-            self.print('<th>gen</th><th>kill</th>')
-            self.print('<th>live_in</th><th>live_out</th>')
+            self.print("<tr>")
+            self.print("<th>#</th><th>instruction</th>")
+            self.print("<th>use</th><th>def</th><th>clobber</th>")
+            self.print("<th>jump</th><th>move</th>")
+            self.print("<th>gen</th><th>kill</th>")
+            self.print("<th>live_in</th><th>live_out</th>")
             for ur in used_regs:
-                self.print('<th>{}</th>'.format(ur))
-            self.print('</tr>')
+                self.print("<th>{}</th>".format(ur))
+            self.print("</tr>")
             for idx, ins in enumerate(frame.instructions):
-                self.print('<tr>')
-                self.print('<td>{}</td>'.format(idx))
-                self.print('<td>{}</td>'.format(ins))
-                self.print('<td>{}</td>'.format(str2(ins.used_registers)))
-                self.print('<td>{}</td>'.format(str2(ins.defined_registers)))
-                self.print('<td>{}</td>'.format(str2(ins.clobbers)))
-                self.print('<td>', end='')
+                self.print("<tr>")
+                self.print("<td>{}</td>".format(idx))
+                self.print("<td>{}</td>".format(ins))
+                self.print("<td>{}</td>".format(str2(ins.used_registers)))
+                self.print("<td>{}</td>".format(str2(ins.defined_registers)))
+                self.print("<td>{}</td>".format(str2(ins.clobbers)))
+                self.print("<td>", end="")
                 if ins.jumps:
-                    self.print(str2(ins.jumps), end='')
-                self.print('</td>')
+                    self.print(str2(ins.jumps), end="")
+                self.print("</td>")
 
-                self.print('<td>', end='')
+                self.print("<td>", end="")
                 if ins.ismove:
-                    self.print('yes', end='')
-                self.print('</td>')
+                    self.print("yes", end="")
+                self.print("</td>")
 
-                self.print('<td>', end='')
-                if hasattr(ins, 'gen'):
-                    self.print(str2(ins.gen), end='')
-                self.print('</td>')
+                self.print("<td>", end="")
+                if hasattr(ins, "gen"):
+                    self.print(str2(ins.gen), end="")
+                self.print("</td>")
 
-                self.print('<td>', end='')
-                if hasattr(ins, 'kill'):
-                    self.print(str2(ins.kill), end='')
-                self.print('</td>')
+                self.print("<td>", end="")
+                if hasattr(ins, "kill"):
+                    self.print(str2(ins.kill), end="")
+                self.print("</td>")
 
-                self.print('<td>', end='')
-                if hasattr(ins, 'live_in'):
-                    self.print(str2(ins.live_in), end='')
-                self.print('</td>')
+                self.print("<td>", end="")
+                if hasattr(ins, "live_in"):
+                    self.print(str2(ins.live_in), end="")
+                self.print("</td>")
 
-                self.print('<td>', end='')
-                if hasattr(ins, 'live_out'):
-                    self.print(str2(ins.live_out), end='')
-                self.print('</td>')
+                self.print("<td>", end="")
+                if hasattr(ins, "live_out"):
+                    self.print(str2(ins.live_out), end="")
+                self.print("</td>")
                 for ur in used_regs:
-                    self.print('<td>')
+                    self.print("<td>")
                     for r2 in ins.live_out:
                         if r2.color == ur.color:
                             self.print(r2.name)
-                    self.print('</td>')
-                self.print('</tr>')
+                    self.print("</td>")
+                self.print("</tr>")
             self.print("</table>")
-            self.print('</div></p>')
+            self.print("</div></p>")
 
     def dump_cfg_nodes(self, frame):
         for ins in frame.instructions:
             if frame.cfg.has_node(ins):
                 nde = frame.cfg.get_node(ins)
-                self.print('ins: {} {}'.format(ins, nde.longrepr))
+                self.print("ins: {} {}".format(ins, nde.longrepr))
 
     def dump_ig(self, ig):
         ig.to_dot()

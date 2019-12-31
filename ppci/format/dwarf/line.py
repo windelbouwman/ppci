@@ -1,4 +1,3 @@
-
 """ Encode line number programs """
 import abc
 import operator
@@ -14,6 +13,7 @@ class LineNumberProgram:
     A line number program contains a series of operations which when
     executed create a table.
     """
+
     def __init__(self, instructions=()):
         self.instructions = list(instructions)
 
@@ -32,8 +32,8 @@ class LineNumberProgram:
     def encode(self):
         """ Encode the program into bytes """
         return functools.reduce(
-            operator.add,
-            (i.encode() for i in self.instructions))
+            operator.add, (i.encode() for i in self.instructions)
+        )
 
     @classmethod
     def decode(cls, data):
@@ -48,6 +48,7 @@ def table_to_program(table):
 
 class ExecutionContext:
     """ The line number fsm. """
+
     def __init__(self, default_is_stmt):
         # Registers:
         self.address = 0
@@ -76,6 +77,7 @@ class ExecutionContext:
 # Opcodes for line number programs:
 class Opcode(metaclass=abc.ABCMeta):
     """ A single line number program instruction """
+
     fields = ()
 
     @abc.abstractmethod
@@ -98,10 +100,11 @@ class Opcode(metaclass=abc.ABCMeta):
 
 class Copy(Opcode):
     """ Enter current state machine state as row into matrix """
+
     opcode = 0x01
 
     def __str__(self):
-        return 'DW_LNS_copy'
+        return "DW_LNS_copy"
 
     def execute(self, context):
         context.emit_row()
@@ -109,14 +112,15 @@ class Copy(Opcode):
 
 class AdvancePc(Opcode):
     """ Modify address """
+
     opcode = 0x02
-    fields = (('amount', False),)
+    fields = (("amount", False),)
 
     def __init__(self, amount):
         self.amount = amount
 
     def __str__(self):
-        return 'DW_LNS_advance_pc <{}>'.format(self.amount)
+        return "DW_LNS_advance_pc <{}>".format(self.amount)
 
     def execute(self, context):
         context.address += self.amount
@@ -124,13 +128,13 @@ class AdvancePc(Opcode):
 
 class AdvanceLine(Opcode):
     opcode = 0x03
-    fields = (('amount', True),)
+    fields = (("amount", True),)
 
     def __init__(self, amount):
         self.amount = amount
 
     def __str__(self):
-        return 'DW_LNS_advance_line <{}>'.format(self.amount)
+        return "DW_LNS_advance_line <{}>".format(self.amount)
 
     def execute(self, context):
         context.line += self.amount
@@ -138,14 +142,15 @@ class AdvanceLine(Opcode):
 
 class SetFile(Opcode):
     """ DW_LNS_set_file """
+
     opcode = 0x04
-    fields = (('file', False),)
+    fields = (("file", False),)
 
     def __init__(self, file):
         self.file = file
 
     def __str__(self):
-        return 'DW_LNS_set_file <{}>'.format(self.file)
+        return "DW_LNS_set_file <{}>".format(self.file)
 
     def execute(self, context):
         context.file = self.file
@@ -153,14 +158,15 @@ class SetFile(Opcode):
 
 class SetColumn(Opcode):
     """ Set column """
+
     opcode = 0x05
-    fields = (('column', False),)
+    fields = (("column", False),)
 
     def __init__(self, column):
         self.column = column
 
     def __str__(self):
-        return 'DW_LNS_set_column <{}>'.format(self.column)
+        return "DW_LNS_set_column <{}>".format(self.column)
 
     def execute(self, context):
         context.column = self.column
@@ -168,10 +174,11 @@ class SetColumn(Opcode):
 
 class NegateStmt(Opcode):
     """ Negate is_stmt field """
+
     opcode = 0x06
 
     def __str__(self):
-        return 'DW_LNS_negate_stmt'
+        return "DW_LNS_negate_stmt"
 
     def execute(self, context):
         context.is_stmt = not context.is_stmt
@@ -179,17 +186,18 @@ class NegateStmt(Opcode):
 
 class SetBasicBlock(Opcode):
     """ Sets `basic_block` to `true` """
+
     opcode = 0x07
 
     def __str__(self):
-        return 'DW_LNS_set_basic_block'
+        return "DW_LNS_set_basic_block"
 
 
 class SetPrologueEnd:
-    opcode = 0x0a
+    opcode = 0x0A
 
     def __str__(self):
-        return 'DW_LNS_set_prologue_end'
+        return "DW_LNS_set_prologue_end"
 
     def execute(self, context):
         context.prologue_end = True
@@ -197,24 +205,25 @@ class SetPrologueEnd:
 
 class SetEpilogueBegin:
     """ Set `epilogue_begin` to true """
-    opcode = 0x0b
+
+    opcode = 0x0B
 
     def __str__(self):
-        return 'DW_LNS_set_epilogue_begin'
+        return "DW_LNS_set_epilogue_begin"
 
     def execute(self, context):
         context.epilogue_begin = True
 
 
 class SetIsa(Opcode):
-    opcode = 0x0c
-    fields = (('isa', False),)
+    opcode = 0x0C
+    fields = (("isa", False),)
 
     def __init__(self, isa):
         self.isa = isa
 
     def __str__(self):
-        return 'DW_LNS_set_isa {}'.format(self.isa)
+        return "DW_LNS_set_isa {}".format(self.isa)
 
     def execute(self, context):
         context.isa = self.isa

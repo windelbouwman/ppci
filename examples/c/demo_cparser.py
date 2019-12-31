@@ -4,9 +4,7 @@
 
 import argparse
 from ppci.common import CompilerError
-from ppci.lang.c import CPreProcessor, CParser, COptions, CAstPrinter, CPrinter
-from ppci.lang.c import CContext, CSemantics
-from ppci.lang.c.preprocessor import prepare_for_parsing
+from ppci.lang.c import create_ast, CAstPrinter, CPrinter
 from ppci.api import get_current_arch
 
 
@@ -24,17 +22,11 @@ if __name__ == '__main__':
     print("====================================")
 
     # Parsing:
-    coptions = COptions()
-    context = CContext(coptions, get_current_arch().info)
-    preprocessor = CPreProcessor(coptions)
-    semantics = CSemantics(context)
-    parser = CParser(coptions, semantics)
+    arch_info = get_current_arch().info
 
     try:
         with open(filename, 'r') as f:
-            tokens = preprocessor.process(f, filename)
-            tokens = prepare_for_parsing(tokens, parser.keywords)
-            ast = parser.parse(tokens)
+            ast = create_ast(f, arch_info, filename=filename)
     except CompilerError as ex:
         ex.print()
         raise

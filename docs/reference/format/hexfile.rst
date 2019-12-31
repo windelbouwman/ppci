@@ -1,4 +1,6 @@
 
+.. _hexfile:
+
 Hexfile manipulation
 ====================
 
@@ -13,10 +15,10 @@ Hexfile manipulation
     >>> h.dump()
     Hexfile containing 21 bytes
     Region at 0x00000000 of 3 bytes
-    00000000  01 02 03                                         ...
+    00000000  01 02 03                                          |...|
     Region at 0x00000100 of 18 bytes
-    00000100  48 65 6c 6c 6f 20 77 6f 72 6c 64 20 6f 66 20 68  Hello.world.of.h
-    00000110  65 78                                            ex
+    00000100  48 65 6c 6c 6f 20 77 6f  72 6c 64 20 6f 66 20 68  |Hello.world.of.h|
+    00000110  65 78                                             |ex|
 
 
 Reference

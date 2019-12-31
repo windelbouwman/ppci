@@ -24,7 +24,8 @@ def is_alloc_promotable(alloc_inst: ir.Alloc):
 
     # Check if alloc is only used by load and store instructions:
     if not all(
-            isinstance(use, (ir.Load, ir.Store)) for use in addr_inst.used_by):
+        isinstance(use, (ir.Load, ir.Store)) for use in addr_inst.used_by
+    ):
         return False
 
     # Extract loads and stores:
@@ -155,8 +156,11 @@ class Mem2RegPromotor(FunctionPass):
         stores = [i for i in addr.used_by if isinstance(i, ir.Store)]
 
         self.logger.debug(
-            'Promoting alloc %s used by %s load and %s stores',
-            alloc, len(loads), len(stores))
+            "Promoting alloc %s used by %s load and %s stores",
+            alloc,
+            len(loads),
+            len(stores),
+        )
 
         # Determine the type of the phi node:
         load_types = [load.ty for load in loads]
@@ -174,7 +178,7 @@ class Mem2RegPromotor(FunctionPass):
                 self.debug_db.map(alloc, phi)
 
             # Create undefined value at start:
-            initial_value = ir.Undefined('und_{}'.format(name), phi_ty)
+            initial_value = ir.Undefined("und_{}".format(name), phi_ty)
             alloc.function.entry.insert_instruction(initial_value)
 
             self.rename(initial_value, phis, loads, stores, cfg_info)
@@ -182,7 +186,8 @@ class Mem2RegPromotor(FunctionPass):
             # Check that all phis have the proper number of inputs.
             for phi in phis:
                 assert len(phi.inputs) == len(
-                    cfg_info.cfg.predecessors(cfg_info.get_node(phi.block)))
+                    cfg_info.cfg.predecessors(cfg_info.get_node(phi.block))
+                )
 
             # Remove unused instructions:
             new_instructions = [initial_value] + phis

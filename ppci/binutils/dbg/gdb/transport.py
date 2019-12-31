@@ -23,13 +23,13 @@ class Transport(metaclass=abc.ABCMeta):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def send(self):  # pragma: no cover
+    def send(self, data):  # pragma: no cover
         """ Send data """
         raise NotImplementedError()
 
 
 class ThreadedTransport(Transport):
-    logger = logging.getLogger('transport')
+    logger = logging.getLogger("transport")
 
 
 class TCP(ThreadedTransport):
@@ -41,8 +41,8 @@ class TCP(ThreadedTransport):
 
     def connect(self):
         """ Connect to socket and start thread """
-        host = 'localhost'
-        self.logger.info('Connecting to %s:%s', host, self._port)
+        host = "localhost"
+        self.logger.info("Connecting to %s:%s", host, self._port)
         self.sock.connect((host, self._port))
         self._running = True
         self._rxthread = Thread(target=self.recv_thread)
@@ -50,15 +50,15 @@ class TCP(ThreadedTransport):
 
     def disconnect(self):
         """ Stop thread gracefully """
-        self.logger.info('Disconnecting')
+        self.logger.info("Disconnecting")
         self._running = False
         self._rxthread.join()
         self._rxthread = None
         self.sock.close()
-        self.logger.info('Disconnected')
+        self.logger.info("Disconnected")
 
     def __str__(self):
-        return 'Tcp localhost:{}'.format(self._port)
+        return "Tcp localhost:{}".format(self._port)
 
     def rx_avail(self):
         readable, _, _ = select.select([self.sock], [], [], 0)
@@ -74,7 +74,7 @@ class TCP(ThreadedTransport):
 
     def recv_thread(self):
         """ Receive either a packet, or an ack """
-        self.logger.info('Receiver thread started')
+        self.logger.info("Receiver thread started")
         try:
             while self._running:
                 readable = self.rx_avail()
@@ -85,7 +85,7 @@ class TCP(ThreadedTransport):
                             self.on_byte(data)
                     else:  # No data means socket closed.
                         break
-        #except Exception as ex:
+        # except Exception as ex:
         #    self.logger.error('Receiver thread terminated: %s', ex)
         finally:
-            self.logger.info('Receiver thread finished')
+            self.logger.info("Receiver thread finished")

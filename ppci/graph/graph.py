@@ -18,7 +18,7 @@ def topological_sort(nodes):
 
     def visit(n):
         # print(n)
-        assert n not in temp_marked, 'DAG has cycles'
+        assert n not in temp_marked, "DAG has cycles"
         if n in unmarked:
             temp_marked.add(n)
             for m in n.children:
@@ -37,6 +37,7 @@ def topological_sort(nodes):
 
 class BaseGraph(abc.ABC):
     """ Base graph class """
+
     def __init__(self):
         self.nodes = OrderedSet()
 
@@ -67,6 +68,16 @@ class BaseGraph(abc.ABC):
     def del_edge(self, n, m):  # pragma: no cover
         raise NotImplementedError()
 
+    @abc.abstractmethod
+    def has_edge(self, n, m):
+        """ Test if there exist and edge between n and m """
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def get_number_of_edges(self):
+        """ Get the number of edges in this graph """
+        raise NotImplementedError()
+
     def get_degree(self, node):
         """ Get the degree of a certain node """
         return len(self.adj_map[node])
@@ -81,6 +92,7 @@ class Graph(BaseGraph):
 
     Can dump to graphviz dot format for example!
     """
+
     def del_node(self, node):
         """ Remove a node from the graph """
         # Delete edges:
@@ -113,6 +125,14 @@ class Graph(BaseGraph):
         assert m in self.nodes
         return m in self.adj_map[n]
 
+    def get_number_of_edges(self):
+        """ Get the number of edges in this graph """
+        n_edges = sum(len(self.adj_map[n]) for n in self.nodes)
+        # Since this is an undirected graph, we will now have
+        # twice the amount of edges, since adj_map contains neighbour
+        # information for both directions. So divide this number by 2.
+        return n_edges // 2
+
     def combine(self, n, m):
         """ Merge nodes n and m into node n """
         assert n != m
@@ -139,6 +159,7 @@ class Graph(BaseGraph):
 
 class Node:
     """ Node in a graph. """
+
     def __init__(self, graph):
         self.graph = graph
         self.graph.add_node(self)

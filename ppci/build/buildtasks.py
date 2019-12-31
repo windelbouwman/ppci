@@ -95,7 +95,9 @@ class C3CompileTask(OutputtingTask):
 
         if 'report' in self.arguments:
             report_file = self.relpath(self.arguments['report'])
-            reporter = HtmlReportGenerator(open(report_file, 'wt', encoding='utf8'))
+            reporter = HtmlReportGenerator(
+                open(report_file, 'wt', encoding='utf8')
+            )
         else:
             reporter = DummyReportGenerator()
 
@@ -123,7 +125,9 @@ class CCompileTask(OutputtingTask):
 
         if 'report' in self.arguments:
             report_file = self.relpath(self.arguments['report'])
-            reporter = HtmlReportGenerator(open(report_file, 'wt', encoding='utf8'))
+            reporter = HtmlReportGenerator(
+                open(report_file, 'wt', encoding='utf8')
+            )
         else:
             reporter = DummyReportGenerator()
 
@@ -157,7 +161,9 @@ class WasmCompileTask(OutputtingTask):
 
         if 'report' in self.arguments:
             report_file = self.relpath(self.arguments['report'])
-            reporter = HtmlReportGenerator(open(report_file, 'wt', encoding='utf8'))
+            reporter = HtmlReportGenerator(
+                open(report_file, 'wt', encoding='utf8')
+            )
         else:
             reporter = DummyReportGenerator()
 

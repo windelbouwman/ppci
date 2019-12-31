@@ -8,4 +8,4 @@ Contributed by Michael.
 
 from .arch import RiscvArch
 
-__all__ = ['RiscvArch']
+__all__ = ["RiscvArch"]

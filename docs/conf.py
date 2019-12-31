@@ -33,7 +33,6 @@ extensions = [
     'sphinx.ext.doctest',
     'sphinx.ext.graphviz',
     'sphinxcontrib.autoprogram',
-    'zipexamples',
     'gen_programs',
 ]
 if not sys.platform.startswith('win'):
@@ -54,7 +53,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = 'ppci'
-copyright = '2018, Windel Bouwman'
+copyright = '2019, Windel Bouwman'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the

@@ -2,24 +2,26 @@ import unittest
 import io
 from unittest import mock
 from ppci.common import CompilerError
-from ppci.lang.c import CBuilder, CPreProcessor, CLexer, lexer, CParser, nodes
-from ppci.lang.c import CContext, COptions
-from ppci.lang.c.preprocessor import CTokenPrinter, prepare_for_parsing
+from ppci.lang.c import CPreProcessor
+from ppci.lang.c import COptions
+from ppci.lang.c import CTokenPrinter
 
 
 class CPreProcessorTestCase(unittest.TestCase):
     """ Test the preprocessor functioning """
     def setUp(self):
-        self.preprocessor = CPreProcessor(COptions())
+        coptions = COptions()
+        coptions.enable('verbose')
+        self.preprocessor = CPreProcessor(coptions)
 
     def preprocess(self, src, expected=None):
         f = io.StringIO(src)
-        lines = self.preprocessor.process(f, 'dummy.t')
-        lines = list(lines)
-        print(lines)
+        tokens = self.preprocessor.process_file(f, 'dummy.t')
+        tokens = list(tokens)
+        print(tokens)
 
         f2 = io.StringIO()
-        CTokenPrinter().dump(lines, file=f2)
+        CTokenPrinter().dump(tokens, file=f2)
         actual_output = f2.getvalue()
         if expected:
             self.assertEqual(expected, actual_output)
@@ -38,7 +40,19 @@ class CPreProcessorTestCase(unittest.TestCase):
         printf("%i\n",100);"""
         self.preprocess(src, expected)
 
+    def test_null_directive(self):
+        """ Test null directive. """
+        src = r"""
+        #
+        x"""
+        expected = r"""# 1 "dummy.t"
+
+
+        x"""
+        self.preprocess(src, expected)
+
     def test_recursive_define(self):
+        """ Test recursive function like macro. """
         src = r"""
         #define A(X,Y) (100 + X + (Y))
         A(A(1,2),A(A(23,G),22))"""
@@ -49,6 +63,7 @@ class CPreProcessorTestCase(unittest.TestCase):
         self.preprocess(src, expected)
 
     def test_if_expression(self):
+        """ The #if preprocessor directive. """
         src = r"""#if L'\0'-1 > 0
         unsigned wide char
         #endif
@@ -56,10 +71,31 @@ class CPreProcessorTestCase(unittest.TestCase):
         expected = r"""# 1 "dummy.t"
 
 
+
         end"""
         self.preprocess(src, expected)
 
+    def test_empty_macro_expansion(self):
+        """ See what happens when on the next line, the first token is
+        macro-expanded into nothing.
+
+        Proper care should be taken to copy the beginning-of-line (BOL)
+        marker.
+        """
+        src = r"""#define foo
+        #if 1
+        foo bla
+        #endif
+        """
+        expected = r"""# 1 "dummy.t"
+
+ bla
+
+"""
+        self.preprocess(src, expected)
+
     def test_ifdef(self):
+        """ Test #ifdef directive. """
         src = r"""
         #ifdef A
         printf("%i\n", A);
@@ -70,23 +106,29 @@ class CPreProcessorTestCase(unittest.TestCase):
 
 
 
+
         printf("%i\n", 100);
 """
         self.preprocess(src, expected)
 
     def test_line_directive(self):
+        """ Test #line directive and __LINE__ and __FILE__ macros. """
         src = r"""
         #line 1234 "cpp"
+        fubar
         __LINE__; __FILE__;
         #line 567
-        __LINE__; __FILE__;
-        """
+        fubar
+        __LINE__; __FILE__;"""
         expected = r"""# 1 "dummy.t"
 
-        1234; "cpp";
-        567; "cpp";"""
-        # TODO: check expected output
-        self.preprocess(src)
+
+        fubar
+        1235; "cpp";
+
+        fubar
+        568; "cpp";"""
+        self.preprocess(src, expected)
 
     def test_error_directive(self):
         src = r"""
@@ -134,6 +176,7 @@ class CPreProcessorTestCase(unittest.TestCase):
 
 
         int X=0;
+
 
 
 
@@ -190,7 +233,10 @@ class CPreProcessorTestCase(unittest.TestCase):
         self.preprocess(src, expected)
 
     def test_cpplib_example(self):
-        """ Test a nested function like macro on multiple lines """
+        """ Test a nested function like macro on multiple lines.
+
+        https://gcc.gnu.org/onlinedocs/cppinternals.pdf
+        """
         src = r"""#define foo(x) bar x
         foo(foo
         ) (2)"""
@@ -218,9 +264,11 @@ class CPreProcessorTestCase(unittest.TestCase):
         if (1 > 2
 
 
+
         ||
 """
         self.preprocess(src, expected)
+
     def test_if(self):
         """ Test elif with else """
         src = r"""/* test with comments */
@@ -237,6 +285,8 @@ class CPreProcessorTestCase(unittest.TestCase):
 
 
         int32
+
+
 
 
 """
@@ -258,22 +308,27 @@ class CPreProcessorTestCase(unittest.TestCase):
 
 
 
+
         int64
+
 
 """
         self.preprocess(src, expected)
 
     def test_mismatching_endif(self):
+        """ Test stray #endif directive. """
         src = r"""     #endif   """
         with self.assertRaises(CompilerError):
             self.preprocess(src)
 
     def test_mismatching_else(self):
+        """ Test wild #else directive. """
         src = r"""     #else   """
         with self.assertRaises(CompilerError):
             self.preprocess(src)
 
     def test_double_else(self):
+        """ Test misplaced #else directive. """
         src = r""" #ifdef A
         #else
         #else
@@ -291,6 +346,7 @@ class CPreProcessorTestCase(unittest.TestCase):
             self.preprocess(src)
 
     def test_command_structure(self):
+        """ Test a typical use case of token glueing. """
         src = r"""
         #define COMMAND(NAME)  { #NAME, NAME ## _command }
         struct command commands[] =
@@ -331,15 +387,22 @@ class CPreProcessorTestCase(unittest.TestCase):
     def test_builtin_macros(self):
         src = r"""
         __FILE__;__LINE__
-        __LINE__;__FILE__"""
+        __LINE__;__FILE__
+        __COUNTER__
+        __COUNTER__
+        __COUNTER__"""
         expected = '''# 1 "dummy.t"
 
         "dummy.t";2
-        3;"dummy.t"'''
+        3;"dummy.t"
+        0
+        1
+        2'''
         self.preprocess(src, expected)
 
-    @mock.patch('time.strftime', lambda fmt: 'mastah')
+    @mock.patch('time.strftime', lambda fmt: '"mastah"')
     def test_builtin_time_macros(self):
+        """ Test builtin macros __DATE__ and __TIME__ """
         src = r"""
         __DATE__;__TIME__;"""
         expected = '''# 1 "dummy.t"
@@ -393,15 +456,15 @@ class CPreProcessorTestCase(unittest.TestCase):
         "B" 55 - 3"""
         self.preprocess(src, expected)
 
-    @unittest.skip('TODO!')
-    def test_variable_arguments(self):
-        """ Check the behavior of variable arguments """
+    def test_variadic_macro(self):
+        """ Check the behavior of variadic macros """
         src = r"""#define A(...) a __VA_ARGS__ b
-        A(B)"""
+        A(B)
+        A(2, 4,5)"""
         expected = """# 1 "dummy.t"
 
-
-        "B" 55 - 3"""
+        a B b
+        a 2, 4,5 b"""
         self.preprocess(src, expected)
 
     def test_argument_prescan(self):
@@ -423,7 +486,7 @@ class CPreProcessorTestCase(unittest.TestCase):
 
     @unittest.skip('TODO!')
     def test_argument_prescan2(self):
-        """ Example from gnu argument prescan website:
+        """ Example from gnu argument prescan website.
 
         https://gcc.gnu.org/onlinedocs/cpp/Argument-Prescan.html """
         src = r"""#define foo a,b

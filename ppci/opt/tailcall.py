@@ -53,15 +53,18 @@ class TailCallOptimization(FunctionPass):
     In the latter case, the return call combination is replaced
     with a jump to the start of the function.
     """
+
     def on_function(self, function):
         # Check if there are any tail calls. If not, we are done.
         tail_calls = []
         for block in function:
-            if len(block) >= 2 and \
-                    isinstance(block[-1], ir.Return) and \
-                    isinstance(block[-2], ir.FunctionCall) and \
-                    block[-2] is block[-1].result and \
-                    block[-2].callee is function:
+            if (
+                len(block) >= 2
+                and isinstance(block[-1], ir.Return)
+                and isinstance(block[-2], ir.FunctionCall)
+                and block[-2] is block[-1].result
+                and block[-2].callee is function
+            ):
                 tail_calls.append((block[-1], block[-2]))
 
         if tail_calls:
@@ -72,7 +75,7 @@ class TailCallOptimization(FunctionPass):
         """
         z = []
         z.append((function.entry, function.arguments))
-        new_entry = ir.Block('new_entry')
+        new_entry = ir.Block("new_entry")
         function.add_block(new_entry)
         function.blocks.insert(0, function.blocks.pop())
         old_entry = function.entry

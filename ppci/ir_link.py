@@ -23,27 +23,30 @@ def ir_link(ir_modules, name='linked') -> ir.Module:
     mod0 = ir.Module(name)
 
     # Add all variables and functions:
-    for m in ir_modules:
-        for v in m.variables:
-            mod0.add_variable(v)
-        for p in m.functions:
+    for module in ir_modules:
+        for variable in module.variables:
+            mod0.add_variable(variable)
+
+        for p in module.functions:
             mod0.add_function(p)
 
     # Add externals, if not already resolved:
     internal_functions = {p.name: p for p in mod0.functions}
-    for m in ir_modules:
-        for e in m.externals:
-            if isinstance(e, ir.ExternalSubRoutine):
-                if e.name in internal_functions:
-                    p = internal_functions[e.name]
-                    e.replace_by(p)
+    for module in ir_modules:
+        for external in module.externals:
+            if isinstance(external, ir.ExternalSubRoutine):
+                # TODO: check argument similarity?
+                if external.name in internal_functions:
+                    p = internal_functions[external.name]
+                    external.replace_by(p)
                 else:
-                    mod0.add_external(e)
+                    mod0.add_external(external)
+                    internal_functions[external.name] = external
             else:
                 # TODO: link external variables?
-                mod0.add_external(e)
+                mod0.add_external(external)
+                internal_functions[external.name] = external
 
     # Verify, just to be sure:
     verify_module(mod0)
     return mod0
-

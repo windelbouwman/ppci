@@ -36,7 +36,7 @@ class TmpValue:
         self.typ = typ
 
     def __repr__(self):
-        return 'TMP[0x{:X} {} {}]'.format(self.value, self.lval, self.typ)
+        return "TMP[0x{:X} {} {}]".format(self.value, self.lval, self.typ)
 
 
 class Debugger:
@@ -45,7 +45,8 @@ class Debugger:
         Give it a target architecture for which it must debug
         and driver plugin to connect to hardware.
     """
-    logger = logging.getLogger('dbg')
+
+    logger = logging.getLogger("dbg")
 
     def __init__(self, arch, driver):
         self.arch = get_arch(arch)
@@ -61,22 +62,22 @@ class Debugger:
         self.addr_map = {}
 
     def __repr__(self):
-        return 'Debugger for {} using {}'.format(self.arch, self.driver)
+        return "Debugger for {} using {}".format(self.arch, self.driver)
 
     # Start stop parts:
     def run(self):
         """ Run the program """
-        self.logger.info('run')
+        self.logger.info("run")
         self.driver.run()
 
     def restart(self):
         """ Restart the debugged program """
-        self.logger.info('restart')
+        self.logger.info("restart")
         self.driver.restart()
 
     def stop(self):
         """ Interrupt the currently running program """
-        self.logger.info('stop')
+        self.logger.info("stop")
         self.driver.stop()
 
     def shutdown(self):
@@ -92,33 +93,33 @@ class Debugger:
 
     def set_breakpoint(self, filename, row):
         """ Set a breakpoint """
-        self.logger.info('set breakpoint %s:%i', filename, row)
+        self.logger.info("set breakpoint %s:%i", filename, row)
         address = self.find_address(filename, row)
         if address is None:
-            self.logger.warning('Could not find address for breakpoint')
+            self.logger.warning("Could not find address for breakpoint")
         else:
             self.driver.set_breakpoint(address)
 
     def clear_breakpoint(self, filename, row):
         """ Remove a breakpoint """
-        self.logger.info('clear breakpoint %s:%i', filename, row)
+        self.logger.info("clear breakpoint %s:%i", filename, row)
         address = self.find_address(filename, row)
         if address is None:
-            self.logger.warning('Could not find address for breakpoint')
+            self.logger.warning("Could not find address for breakpoint")
         else:
             self.driver.clear_breakpoint(address)
 
     def step(self):
         """ Single step the debugged program """
-        self.logger.info('step')
+        self.logger.info("step")
         self.driver.step()
-        self.logger.info('program counter 0x%x', self.get_pc())
+        self.logger.info("program counter 0x%x", self.get_pc())
 
     def nstep(self, count):
         """ step n instructions of the debugged program """
-        self.logger.info('nstep 0x%x', count)
+        self.logger.info("nstep 0x%x", count)
         self.driver.nstep(count)
-        self.logger.info('program counter 0x%x', self.get_pc())
+        self.logger.info("program counter 0x%x", self.get_pc())
 
     def get_status(self):
         return self.driver.get_status()
@@ -147,7 +148,7 @@ class Debugger:
         if obj.debug_info:
             self.debug_info = obj.debug_info
         else:
-            self.logger.warning('No debug information in object')
+            self.logger.warning("No debug information in object")
             self.debug_info = DebugInfo()
 
         self.obj = obj
@@ -156,7 +157,7 @@ class Debugger:
         for loc in self.debug_info.locations:
             addr = self.calc_address(loc.address)
             self.addr_map[addr] = loc
-            self.logger.debug('%s at 0x%x', loc, addr)
+            self.logger.debug("%s at 0x%x", loc, addr)
 
     def validate_memory(self, obj):
         """ Validate memory given an object file """
@@ -164,9 +165,9 @@ class Debugger:
             vdata = image.data
             adata = self.read_mem(image.address, len(vdata))
             if vdata == adata:
-                self.logger.info('memory image %s validated!', image)
+                self.logger.info("memory image %s validated!", image)
             else:
-                self.logger.warning('Memory image %s mismatch!', image)
+                self.logger.warning("Memory image %s mismatch!", image)
 
     @property
     def has_symbols(self):
@@ -176,22 +177,23 @@ class Debugger:
     def calc_address(self, address):
         """ Calculate the actual address based on section and offset """
         if isinstance(address, DebugAddress):
-            section = self.obj.get_section(address.section)
-            return section.address + address.offset
+            address = self.obj.get_symbol_id_value(address.symbol_id)
         elif isinstance(address, FpOffsetAddress):
-            return self.get_fp() + address.offset.offset
+            address = self.get_fp() + address.offset.offset
         else:  # pragma: no cover
             raise NotImplementedError(str(address))
+        return address
 
     def find_pc(self):
         """ Given the current program counter (pc) determine the source """
         pc = self.get_pc()
-        #if pc in self.addr_map:
+        # if pc in self.addr_map:
         minkey = min(self.addr_map.keys(), key=lambda k: abs(k - pc))
         debug = self.addr_map[minkey]
-        self.logger.info('Found program counter at %s with delta %i'
-                          % (debug, minkey - pc))
-        #debug = self.addr_map[pc]
+        self.logger.info(
+            "Found program counter at %s with delta %i" % (debug, minkey - pc)
+        )
+        # debug = self.addr_map[pc]
         loc = debug.loc
         return loc.filename, loc.row
 
@@ -217,7 +219,7 @@ class Debugger:
             loc = debug.loc
             if loc.filename == filename and loc.row == row:
                 return self.calc_address(debug.address)
-        self.logger.warning('Could not find address for %s:%i', filename, row)
+        self.logger.warning("Could not find address for %s:%i", filename, row)
 
     # Registers:
     def get_register_values(self, registers):
@@ -236,7 +238,7 @@ class Debugger:
         raise NotImplementedError()
 
     def set_register(self, register, value):
-        self.logger.info('Setting register {} to {}'.format(register, value))
+        self.logger.info("Setting register {} to {}".format(register, value))
         # TODO!
 
     # Memory:
@@ -283,51 +285,52 @@ class Debugger:
 
         # Debug integer type, always 8 bytes, this is safe here
         # because this type must never be loaded!
-        int_type = DebugBaseType('int', 8, 1)
+        int_type = DebugBaseType("int", 8, 1)
 
         # See what to do:
         if isinstance(expr, c3nodes.Literal):
             if isinstance(expr.val, int):
                 val = TmpValue(expr.val, False, int_type)
             else:
-                raise CompilerError('Cannot use {}'.format(expr))
+                raise CompilerError("Cannot use {}".format(expr))
         elif isinstance(expr, c3nodes.Binop):
             a = self.eval_c3_expr(expr.a)
             b = self.eval_c3_expr(expr.b)
             if not isinstance(a.typ, DebugBaseType):
-                raise CompilerError('{} of wrong type'.format(a))
+                raise CompilerError("{} of wrong type".format(a))
             if not isinstance(b.typ, DebugBaseType):
-                raise CompilerError('{} of wrong type'.format(b))
+                raise CompilerError("{} of wrong type".format(b))
             opmp = {
-                '+': operator.add,
-                '-': operator.sub,
-                '*': operator.mul,
-                '/': operator.truediv,
-                '%': operator.mod,
+                "+": operator.add,
+                "-": operator.sub,
+                "*": operator.mul,
+                "/": operator.truediv,
+                "%": operator.mod,
             }
             v = opmp[expr.op](a.value, b.value)
             val = TmpValue(v, False, int_type)
         elif isinstance(expr, c3nodes.Index):
             index = self.eval_c3_expr(expr.i)
             if not isinstance(index.typ, DebugBaseType):
-                raise CompilerError('{} of wrong type'.format(index))
+                raise CompilerError("{} of wrong type".format(index))
             base = self.eval_c3_expr(expr.base, rval=False)
             if not base.lval:
-                raise CompilerError('{} is no location'.format(base))
+                raise CompilerError("{} is no location".format(base))
             if not isinstance(base.typ, DebugArrayType):
-                raise CompilerError('{} is no array'.format(base))
+                raise CompilerError("{} is no array".format(base))
             element_size = self.sizeof(base.typ.element_type)
             addr = base.value + index.value * element_size
             val = TmpValue(addr, True, base.typ.element_type)
         elif isinstance(expr, c3nodes.Member):
             base = self.eval_c3_expr(expr.base, rval=False)
             if not base.lval:
-                raise CompilerError('{} is no location'.format(base))
+                raise CompilerError("{} is no location".format(base))
             if not isinstance(base.typ, DebugStructType):
-                raise CompilerError('{} is no struct'.format(base))
+                raise CompilerError("{} is no struct".format(base))
             if not base.typ.has_field(expr.field):
                 raise CompilerError(
-                    '{} has no member {}'.format(base, expr.field))
+                    "{} has no member {}".format(base, expr.field)
+                )
             field = base.typ.get_field(expr.field)
             addr = base.value + field[2]
             val = TmpValue(addr, True, field[1])
@@ -335,24 +338,23 @@ class Debugger:
             ptr = self.eval_c3_expr(expr.ptr)
             if not isinstance(ptr.typ, DebugPointerType):
                 raise CompilerError(
-                    'Cannot dereference non-pointer type {}'.format(ptr))
+                    "Cannot dereference non-pointer type {}".format(ptr)
+                )
             val = TmpValue(ptr.value, True, ptr.typ.pointed_type)
         elif isinstance(expr, c3nodes.Unop):
-            if expr.op == '&':
+            if expr.op == "&":
                 rhs = self.eval_c3_expr(expr.a, rval=False)
                 if not rhs.lval:
                     raise CompilerError(
-                        'Cannot take address of {}'.format(expr.a))
+                        "Cannot take address of {}".format(expr.a)
+                    )
                 typ = DebugPointerType(rhs.typ)
                 val = TmpValue(rhs.value, False, typ)
-            elif expr.op in ['+', '-']:
+            elif expr.op in ["+", "-"]:
                 rhs = self.eval_c3_expr(expr.a)
                 if not isinstance(rhs.typ, (DebugBaseType, DebugPointerType)):
-                    raise CompilerError('{} of wrong type'.format(rhs))
-                opmp = {
-                    '-': operator.neg,
-                    '+': operator.pos,
-                }
+                    raise CompilerError("{} of wrong type".format(rhs))
+                opmp = {"-": operator.neg, "+": operator.pos}
                 v = opmp[expr.op](rhs.value)
                 val = TmpValue(v, False, rhs.typ)
             else:  # pragma: no cover
@@ -370,10 +372,11 @@ class Debugger:
                 addr = self.calc_address(var.address)
                 val = TmpValue(addr, True, var.typ)
             else:
-                raise CompilerError('Cannot evaluate {}'.format(expr), None)
+                raise CompilerError("Cannot evaluate {}".format(expr), None)
         else:  # pragma: no cover
-            raise NotImplementedError('Cannot evaluate constant {}'
-                                      .format(expr), None)
+            raise NotImplementedError(
+                "Cannot evaluate constant {}".format(expr), None
+            )
         if rval and val.lval:
             # Load variable now!
             loaded_val = self.load_value(val.value, val.typ)
@@ -384,12 +387,12 @@ class Debugger:
         """ Load specific type from an address """
         # Load variable now!
         if not isinstance(typ, (DebugBaseType, DebugPointerType)):
-            raise CompilerError('Cannot load {}'.format(typ))
+            raise CompilerError("Cannot load {}".format(typ))
         if isinstance(typ, DebugBaseType):
             size = typ.size
         else:
-            size = self.arch.info.get_size('ptr')  # Pointer size!
-        fmts = {8: '<Q', 4: '<I', 2: '<H', 1: '<B'}
+            size = self.arch.info.get_size("ptr")  # Pointer size!
+        fmts = {8: "<Q", 4: "<I", 2: "<H", 1: "<B"}
         fmt = fmts[size]
         loaded = self.read_mem(addr, size)
         if loaded is None:

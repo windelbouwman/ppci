@@ -18,14 +18,30 @@ def rotl(v, count, bits):
     """ Rotate v left count bits """
     mask = (1 << bits) - 1
     count = count % bits
-    return (((v << count) & mask) | (v >> (bits - count)))
+    return ((v << count) & mask) | (v >> (bits - count))
+
+
+def reverse_bits(v, bits):
+    """ Do bit reversal operation.
+
+    Example input (8 bits case):
+        11100001
+        10000111
+    """
+    y = 0
+    pos = bits - 1
+    while pos > 0:
+        y += (v & 1) << pos
+        v >>= 1
+        pos -= 1
+    return y
 
 
 def rotr(v, count, bits):
     """ Rotate v right count bits """
     mask = (1 << bits) - 1
     count = count % bits
-    return ((v >> count) | ((v << (bits - count)) & mask))
+    return (v >> count) | ((v << (bits - count)) & mask)
 
 
 def to_signed(value, bits):
@@ -73,6 +89,12 @@ def popcnt(v: int, bits: int) -> int:
     return count
 
 
+def value_to_bytes_big_endian(value: int, size: int):
+    """ Pack integer value into bytes """
+    byte_numbers = reversed(range(size))
+    return bytes((value >> (x * 8)) & 0xFF for x in byte_numbers)
+
+
 def value_to_bits(v, bits):
     """ Convert a value to a list of booleans """
     b = []
@@ -90,7 +112,7 @@ def bits_to_bytes(bits):
     for i in range(0, len(bits), 8):
         v = 0
         for j in range(8):
-            if bits[i+j]:
+            if bits[i + j]:
                 v = v | (1 << j)
         m.append(v)
     return bytes(m)
@@ -110,7 +132,7 @@ def encode_imm32(v):
 
 def align(value, m):
     """ Increase value to a multiple of m """
-    while ((value % m) != 0):
+    while (value % m) != 0:
         value = value + 1
     return value
 
@@ -120,8 +142,11 @@ def wrap_negative(value, bits):
     upper_limit = (1 << (bits)) - 1
     lower_limit = -(1 << (bits - 1))
     if value not in range(lower_limit, upper_limit + 1):
-        raise ValueError('Cannot encode {} in {} bits [{},{}]'.format(
-            value, bits, lower_limit, upper_limit))
+        raise ValueError(
+            "Cannot encode {} in {} bits [{},{}]".format(
+                value, bits, lower_limit, upper_limit
+            )
+        )
     mask = (1 << bits) - 1
     bit_value = value & mask  # Performing bitwise and makes it 2 complement.
     assert bit_value >= 0
@@ -181,14 +206,15 @@ class BitView:
                     p2 = bitpos2
                 # print('p1, p2=', p1, p2)
                 bitsize = p2 - p1
-                bitmask = ((1 << bitsize) - 1)
+                bitmask = (1 << bitsize) - 1
 
                 # Determine the mask:
                 mask = bitmask << (p1 - bitpos1)
 
                 # Determine the new value of the bits:
-                bits = (
-                    bitmask & (value >> (p1 - key.start))) << (p1 - bitpos1)
+                bits = (bitmask & (value >> (p1 - key.start))) << (
+                    p1 - bitpos1
+                )
 
                 # print('mask', hex(mask), 'bitsize=', bitsize, hex(bits))
 
@@ -196,7 +222,7 @@ class BitView:
                 idx = self.begin + j
 
                 # Clear bits:
-                self.data[idx] &= (0xff ^ mask)
+                self.data[idx] &= 0xFF ^ mask
 
                 # Set bits:
                 self.data[idx] |= bits

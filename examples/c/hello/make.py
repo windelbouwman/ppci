@@ -1,5 +1,5 @@
 import logging
-from ppci.api import cc, COptions
+from ppci.api import cc
 
 logging.basicConfig(level=logging.DEBUG)
 with open('main.c', 'r') as f:
@@ -9,4 +9,3 @@ print('Object file created:', obj)
 
 with open('hello.oj', 'w') as f:
     obj.save(f)
-

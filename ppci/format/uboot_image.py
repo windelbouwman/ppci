@@ -11,6 +11,7 @@ IH_MAGIC = 0x27051956
 
 class Compression(enum.Enum):
     """ Compression types """
+
     NONE = 0
     GZIP = 1
     BZIP2 = 2
@@ -21,6 +22,7 @@ class Compression(enum.Enum):
 
 class OperatingSystem(enum.Enum):
     """ Operating system """
+
     INVALID = 0
     OPENBSD = 1
     NETBSD = 2
@@ -31,6 +33,7 @@ class OperatingSystem(enum.Enum):
 
 class Architecture(enum.Enum):
     """ Computer architecture """
+
     INVALID = 0
     ALPHA = 1
     ARM = 2
@@ -61,26 +64,27 @@ class Architecture(enum.Enum):
 
 class ApplicationType(enum.Enum):
     """ Application type """
+
     INVALID = 0
     STANDALONE = 1
     KERNEL = 2
 
 
 class ImageHeader(Header):
-    _byte_order = '>'
+    _byte_order = ">"
     _fields = (
-        ('ih_magic', 'I'),  # image header magic number
-        ('ih_hcrc', 'I'),  # image header crc
-        ('ih_time', 'I'),  # image creation
-        ('ih_size', 'I'),  # image data size
-        ('ih_load', 'I'),  # data load address
-        ('ih_ep', 'I'),  # entry point address
-        ('ih_dcrc', 'I'),  # data crc
-        ('ih_os', 'B'),  # operating system
-        ('ih_arch', 'B'),  # cpu architecture
-        ('ih_type', 'B'),  # image type
-        ('ih_comp', 'B'),  # compression type
-        ('ih_name', '32s'),  # image name
+        ("ih_magic", "I"),  # image header magic number
+        ("ih_hcrc", "I"),  # image header crc
+        ("ih_time", "I"),  # image creation
+        ("ih_size", "I"),  # image data size
+        ("ih_load", "I"),  # data load address
+        ("ih_ep", "I"),  # entry point address
+        ("ih_dcrc", "I"),  # data crc
+        ("ih_os", "B"),  # operating system
+        ("ih_arch", "B"),  # cpu architecture
+        ("ih_type", "B"),  # image type
+        ("ih_comp", "B"),  # compression type
+        ("ih_name", "32s"),  # image name
     )
 
 
@@ -89,9 +93,14 @@ def crc32(data):
 
 
 def write_uboot_image(
-        f, data: bytes, image_name='foobar', load_address=0x100,
-        entry_point=0x100, os=OperatingSystem.INVALID,
-        arch=Architecture.OPENRISC):
+    f,
+    data: bytes,
+    image_name="foobar",
+    load_address=0x100,
+    entry_point=0x100,
+    os=OperatingSystem.INVALID,
+    arch=Architecture.OPENRISC,
+):
     """ Write uboot image to file """
     header = ImageHeader()
     header.ih_magic = IH_MAGIC
@@ -105,7 +114,7 @@ def write_uboot_image(
     header.id_arch = arch.value
     header.ih_type = ApplicationType.KERNEL.value
     header.ih_comp = Compression.NONE.value
-    header.ih_name = image_name.encode('ascii')
+    header.ih_name = image_name.encode("ascii")
 
     # Update header crc:
     header.ih_hcrc = crc32(header.serialize())

@@ -9,11 +9,13 @@ from ..binutils.dbg.cli import DebugCli
 
 
 parser = argparse.ArgumentParser(
-    description=__doc__, parents=(march_parser, base_parser))
+    description=__doc__, parents=(march_parser, base_parser)
+)
 parser.add_argument(
-    '--driver',
-    help='debug driver to use. Specify in the format: module:class',
-    default='ppci.binutils.dbg:DummyDebugDriver')
+    "--driver",
+    help="debug driver to use. Specify in the format: module:class",
+    default="ppci.binutils.dbg:DummyDebugDriver",
+)
 
 
 def dbg(args=None):
@@ -21,7 +23,7 @@ def dbg(args=None):
     args = parser.parse_args(args)
     with LogSetup(args):
         march = get_arch_from_args(args)
-        driver_module_name, driver_class_name = args.driver.split(':')
+        driver_module_name, driver_class_name = args.driver.split(":")
         driver_module = importlib.import_module(driver_module_name)
         driver_class = getattr(driver_module, driver_class_name)
         driver = driver_class()
@@ -30,5 +32,5 @@ def dbg(args=None):
         cli.cmdloop()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     dbg()

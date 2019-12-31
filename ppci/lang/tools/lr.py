@@ -11,20 +11,22 @@ class Action:
 
 class Shift(Action):
     """ Shift over the next token and go to the given state """
+
     def __init__(self, to_state):
         self.to_state = to_state
 
     def __repr__(self):
-        return 'Shift({})'.format(self.to_state)
+        return "Shift({})".format(self.to_state)
 
 
 class Reduce(Action):
     """ Reduce according to the given rule """
+
     def __init__(self, rule):
         self.rule = rule
 
     def __repr__(self):
-        return 'Reduce({})'.format(self.rule)
+        return "Reduce({})".format(self.rule)
 
 
 class Accept(Action):
@@ -32,7 +34,7 @@ class Accept(Action):
         self.rule = rule
 
     def __repr__(self):
-        return 'Accept({})'.format(self.rule)
+        return "Accept({})".format(self.rule)
 
 
 class Item:
@@ -42,6 +44,7 @@ class Item:
         in this production called the 'dot' and a look ahead
         symbol that must follow this item.
     """
+
     def __init__(self, production, dotpos, look_ahead):
         self.production = production
         self.dotpos = dotpos
@@ -84,15 +87,16 @@ class Item:
 
     def __repr__(self):
         prod = self.production
-        predot = ' '.join(prod.symbols[0:self.dotpos])
-        postdot = ' '.join(prod.symbols[self.dotpos:])
+        predot = " ".join(prod.symbols[0 : self.dotpos])
+        postdot = " ".join(prod.symbols[self.dotpos :])
         args = (prod.name, predot, postdot, self.look_ahead)
-        return '[{} -> {} . {} -> {}]'.format(*args)
+        return "[{} -> {} . {} -> {}]".format(*args)
 
 
 class State:
     """ A state in the parsing machine. A state contains a set of items and
     a state number """
+
     def __init__(self, items, number):
         self.items = items
         self.number = number
@@ -103,6 +107,7 @@ class LrParser:
     """ LR parser automata. This class takes goto and action table
         and can then process a sequence of tokens.
     """
+
     def __init__(self, grammar, action_table, goto_table):
         self.action_table = action_table
         self.goto_table = goto_table
@@ -110,7 +115,7 @@ class LrParser:
 
     def parse(self, lexer):
         """ Parse an iterable with tokens """
-        assert hasattr(lexer, 'next_token')
+        assert hasattr(lexer, "next_token")
         stack = [0]
         r_data_stack = []
         look_ahead = lexer.next_token()
@@ -118,11 +123,12 @@ class LrParser:
 
         # TODO: exit on this condition:
         while stack != [0, self.grammar.start_symbol, 0]:
-            state = stack[-1]   # top of stack
+            state = stack[-1]  # top of stack
             key = (state, look_ahead.typ)
             if key not in self.action_table:
                 raise ParserException(
-                    'Error parsing at character {0}'.format(look_ahead))
+                    "Error parsing at character {0}".format(look_ahead)
+                )
             action = self.action_table[key]
             if isinstance(action, Reduce):
                 f_args = []
@@ -210,8 +216,9 @@ class LrParserBuilder:
     """
         Construct goto and action tables according to LALR algorithm
     """
+
     def __init__(self, grammar):
-        self.logger = logging.getLogger('pcc')
+        self.logger = logging.getLogger("pcc")
         self.grammar = grammar
         self._first = None  # Cached first set
 
@@ -281,10 +288,10 @@ class LrParserBuilder:
 
     def generate_parser(self):
         """ Generates a parser from the grammar """
-        self.logger.debug('Generating parser from {}'.format(self.grammar))
+        self.logger.debug("Generating parser from {}".format(self.grammar))
         self.generate_tables()
         p = LrParser(self.grammar, self.action_table, self.goto_table)
-        self.logger.debug('Parser generated')
+        self.logger.debug("Parser generated")
         return p
 
     def gen_canonical_set(self, iis):
@@ -299,6 +306,7 @@ class LrParserBuilder:
                 worklist.append(s)
                 indici[s] = len(indici)
                 states.add(s)
+
         addSt(iis)
 
         while worklist:
@@ -323,8 +331,7 @@ class LrParserBuilder:
                     # Automatically resolve and do the shift action!
                     # Simple, but almost always what you want!!
                     self.action_table[key] = action
-                elif isinstance(action2, Shift) and \
-                        isinstance(action, Reduce):
+                elif isinstance(action2, Shift) and isinstance(action, Reduce):
                     pass
                 else:
                     a1 = str(action)
@@ -332,8 +339,10 @@ class LrParserBuilder:
                     prod = self.grammar.productions[action.rule]
                     prod2 = self.grammar.productions[action2.rule]
                     raise ParserGenerationException(
-                        'LR conflict {} vs {} ({} vs {})'.format(
-                            a1, a2, prod, prod2))
+                        "LR conflict {} vs {} ({} vs {})".format(
+                            a1, a2, prod, prod2
+                        )
+                    )
         else:
             self.action_table[key] = action
 
@@ -350,12 +359,12 @@ class LrParserBuilder:
 
         self.grammar.check_symbols()
         iis = self.initial_item_set()
-        self.logger.debug('Initial item set: {} items'.format(len(iis)))
+        self.logger.debug("Initial item set: {} items".format(len(iis)))
 
         # First generate all item sets by using the nextItemset function:
         states, transitions, indici = self.gen_canonical_set(iis)
-        self.logger.debug('Number of states: {}'.format(len(states)))
-        self.logger.debug('Number of transitions: {}'.format(len(transitions)))
+        self.logger.debug("Number of states: {}".format(len(states)))
+        self.logger.debug("Number of transitions: {}".format(len(transitions)))
 
         # Fill action table:
         for state in states:
@@ -367,15 +376,19 @@ class LrParserBuilder:
                     nextstate = transitions[(state_nr, item.Next)]
                     self.set_action(state_nr, item.Next, Shift(nextstate))
                 if item.is_reduce:
-                    if item.production.name == self.grammar.start_symbol \
-                            and item.look_ahead == EOF:
+                    if (
+                        item.production.name == self.grammar.start_symbol
+                        and item.look_ahead == EOF
+                    ):
                         # Rule 3: accept:
                         act = Accept(
-                            self.grammar.productions.index(item.production))
+                            self.grammar.productions.index(item.production)
+                        )
                     else:
                         # Rule 2, reduce item:
                         act = Reduce(
-                            self.grammar.productions.index(item.production))
+                            self.grammar.productions.index(item.production)
+                        )
                     self.set_action(state_nr, item.look_ahead, act)
 
             # Fill the goto table:
@@ -384,6 +397,6 @@ class LrParserBuilder:
                 if key in transitions:
                     self.goto_table[key] = transitions[key]
 
-        self.logger.debug('Goto table: {}'.format(len(self.goto_table)))
-        self.logger.debug('Action table: {}'.format(len(self.action_table)))
+        self.logger.debug("Goto table: {}".format(len(self.goto_table)))
+        self.logger.debug("Action table: {}".format(len(self.action_table)))
         return self.action_table, self.goto_table

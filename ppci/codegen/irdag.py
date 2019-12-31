@@ -24,7 +24,7 @@ def prepare_function_info(arch, function_info, ir_function):
     """ Fill function info with labels for all basic blocks """
     # First define labels and phis:
 
-    function_info.epilog_label = Label(ir_function.name + '_epilog')
+    function_info.epilog_label = Label(ir_function.name + "_epilog")
 
     for ir_block in ir_function:
         # Put label into map:
@@ -33,12 +33,13 @@ def prepare_function_info(arch, function_info, ir_function):
         # Create virtual registers for phi-nodes:
         for phi in ir_block.phis:
             vreg = function_info.frame.new_reg(
-                arch.get_reg_class(ty=phi.ty), twain=phi.name)
+                arch.get_reg_class(ty=phi.ty), twain=phi.name
+            )
             function_info.phi_map[phi] = vreg
 
     function_info.arg_vregs = []
     function_info.arg_types = [a.ty for a in ir_function.arguments]
-    if hasattr(arch, 'determine_arg_locations'):
+    if hasattr(arch, "determine_arg_locations"):
         arg_locs = arch.determine_arg_locations(function_info.arg_types)
     else:
         arg_locs = range(len(ir_function.arguments))
@@ -47,7 +48,8 @@ def prepare_function_info(arch, function_info, ir_function):
         if arg.ty in arch.info.value_classes:
             # New vreg:
             vreg = function_info.frame.new_reg(
-                arch.info.value_classes[arg.ty], twain=arg.name)
+                arch.info.value_classes[arg.ty], twain=arg.name
+            )
         else:
             # Allocate space on stack for this argument:
             # vreg = function_info.frame.alloc(arg.ty.size, 1)
@@ -58,7 +60,8 @@ def prepare_function_info(arch, function_info, ir_function):
     if isinstance(ir_function, ir.Function):
         if ir_function.return_ty in arch.info.value_classes:
             function_info.rv_vreg = function_info.frame.new_reg(
-                arch.get_reg_class(ty=ir_function.return_ty), twain='retval')
+                arch.get_reg_class(ty=ir_function.return_ty), twain="retval"
+            )
         else:
             function_info.rv_vreg = None
 
@@ -66,6 +69,7 @@ def prepare_function_info(arch, function_info, ir_function):
 class FunctionInfo:
     """ Keeps track of global function data when generating code for part
     of a functions. """
+
     def __init__(self, frame):
         self.frame = frame
         self.value_map = {}  # mapping from ir-value to dag node
@@ -90,18 +94,19 @@ def depth_first_order(function):
 
 class Operation:
     """ A single operation with a type """
+
     def __init__(self, op, ty):
         self.op = op
         self.ty = ty
         # assert ty, str(op)+str(ty)
-        if op == 'MOV' and ty is None:
-            raise AssertionError('MOV must not have type none')
+        if op == "MOV" and ty is None:
+            raise AssertionError("MOV must not have type none")
 
     def __str__(self):
-        if self.ty is None or self.op in ['LABEL', 'CALL']:
+        if self.ty is None or self.op in ["LABEL", "CALL"]:
             return self.op.upper()
         else:
-            return '{}{}'.format(self.op, str(self.ty)).upper()
+            return "{}{}".format(self.op, str(self.ty)).upper()
 
 
 def make_map(cls):
@@ -110,10 +115,10 @@ def make_map(cls):
         functions. For example if a function is called do_phi it will be
         registered into f_map under key ir.Phi.
     """
-    f_map = getattr(cls, 'f_map')
+    f_map = getattr(cls, "f_map")
     for name, func in list(cls.__dict__.items()):
-        if name.startswith('do_'):
-            tp_name = ''.join(x.capitalize() for x in name[2:].split('_'))
+        if name.startswith("do_"):
+            tp_name = "".join(x.capitalize() for x in name[2:].split("_"))
             ir_class = getattr(ir, tp_name)
             f_map[ir_class] = func
     return cls
@@ -122,13 +127,14 @@ def make_map(cls):
 @make_map
 class SelectionGraphBuilder:
     """ Create a selectiongraph from a function for instruction selection """
-    logger = logging.getLogger('selection-graph-builder')
+
+    logger = logging.getLogger("selection-graph-builder")
     f_map = {}
 
     def __init__(self, arch):
         self.arch = arch
         # size_map = {8: ir.i8, 16: ir.i16, 32: ir.i32, 64: ir.i64}
-        self.ptr_ty = arch.info.type_infos['ptr']
+        self.ptr_ty = arch.info.type_infos["ptr"]
 
     def build(self, ir_function: ir.SubRoutine, function_info, debug_db):
         """ Create a selection graph for the given function.
@@ -144,22 +150,26 @@ class SelectionGraphBuilder:
 
         # Create maps for global variables:
         for variable in itertools.chain(
-                ir_function.module.variables, ir_function.module.functions, ir_function.module.externals):
-            val = self.new_node('LABEL', ir.ptr)
+            ir_function.module.variables,
+            ir_function.module.functions,
+            ir_function.module.externals,
+        ):
+            val = self.new_node("LABEL", ir.ptr)
             val.value = variable.name
             self.add_map(variable, val.new_output(variable.name))
 
-        self.current_token = self.new_node('ENTRY', None).new_output(
-            'token', kind=SGValue.CONTROL)
+        self.current_token = self.new_node("ENTRY", None).new_output(
+            "token", kind=SGValue.CONTROL
+        )
 
         # Create temporary registers for aruments:
         for arg, vreg in zip(ir_function.arguments, function_info.arg_vregs):
             if isinstance(vreg, StackLocation):
-                param_node = self.new_node('FPREL', ir.ptr, value=vreg)
+                param_node = self.new_node("FPREL", ir.ptr, value=vreg)
                 output = param_node.new_output(arg.name)
                 output.wants_vreg = False
             else:
-                param_node = self.new_node('REG', arg.ty, value=vreg)
+                param_node = self.new_node("REG", arg.ty, value=vreg)
                 output = param_node.new_output(arg.name)
                 output.vreg = vreg
 
@@ -185,10 +195,11 @@ class SelectionGraphBuilder:
         self.current_block = ir_block
 
         # Create start node:
-        entry_node = self.new_node('ENTRY', None)
+        entry_node = self.new_node("ENTRY", None)
         entry_node.value = ir_block
         self.current_token = entry_node.new_output(
-            'token', kind=SGValue.CONTROL)
+            "token", kind=SGValue.CONTROL
+        )
 
         # Generate series of trees:
         for instruction in ir_block:
@@ -203,11 +214,11 @@ class SelectionGraphBuilder:
         function_info.block_tails[ir_block] = self.current_token.node
 
         # Create end node:
-        sgnode = self.new_node('EXIT', None)
+        sgnode = self.new_node("EXIT", None)
         sgnode.add_input(self.current_token)
 
     def do_jump(self, node):
-        sgnode = self.new_node('JMP', None)
+        sgnode = self.new_node("JMP", None)
         sgnode.value = self.function_info.label_map[node.target]
         self.debug_db.map(node, sgnode)
         self.chain(sgnode)
@@ -215,7 +226,7 @@ class SelectionGraphBuilder:
     def chain(self, sgnode):
         if self.current_token is not None:
             sgnode.add_input(self.current_token)
-        self.current_token = sgnode.new_output('ctrl', kind=SGValue.CONTROL)
+        self.current_token = sgnode.new_output("ctrl", kind=SGValue.CONTROL)
 
     def new_node(self, name, ty, *args, value=None):
         """ Create a new selection graph node, and add it to the graph """
@@ -234,7 +245,8 @@ class SelectionGraphBuilder:
     def new_vreg(self, ty):
         """ Generate a new temporary fitting for the given type """
         return self.function_info.frame.new_reg(
-            self.arch.info.value_classes[ty])
+            self.arch.info.value_classes[ty]
+        )
 
     def add_map(self, node, sgvalue):
         assert isinstance(node, ir.Value)
@@ -249,13 +261,13 @@ class SelectionGraphBuilder:
         res = self.get_value(node.result)
         vreg = self.function_info.rv_vreg
         if vreg:
-            mov_node = self.new_node('MOV', node.result.ty, res, value=vreg)
+            mov_node = self.new_node("MOV", node.result.ty, res, value=vreg)
             self.chain(mov_node)
         else:  # pragma: no cover
-            raise NotImplementedError('Pass pointer as first arg instead')
+            raise NotImplementedError("Pass pointer as first arg instead")
 
         # Jump to epilog:
-        sgnode = self.new_node('JMP', None)
+        sgnode = self.new_node("JMP", None)
         sgnode.value = self.function_info.epilog_label
         self.chain(sgnode)
 
@@ -265,15 +277,18 @@ class SelectionGraphBuilder:
         rhs = self.get_value(node.b)
         assert node.a.ty is node.b.ty
         cond = node.cond
-        sgnode = self.new_node('CJMP', node.a.ty, lhs, rhs)
-        sgnode.value = cond, self.function_info.label_map[node.lab_yes],\
-            self.function_info.label_map[node.lab_no]
+        sgnode = self.new_node("CJMP", node.a.ty, lhs, rhs)
+        sgnode.value = (
+            cond,
+            self.function_info.label_map[node.lab_yes],
+            self.function_info.label_map[node.lab_no],
+        )
         self.chain(sgnode)
         self.debug_db.map(node, sgnode)
 
     def do_exit(self, node):
         # Jump to epilog:
-        sgnode = self.new_node('JMP', None)
+        sgnode = self.new_node("JMP", None)
         sgnode.value = self.function_info.epilog_label
         self.chain(sgnode)
 
@@ -293,9 +308,9 @@ class SelectionGraphBuilder:
         slot = self.function_info.frame.alloc(node.amount, node.alignment)
         # offset_output = offset.new_output('offset')
         # offset_output.wants_vreg = False
-        sgnode = self.new_node('FPREL', ir.ptr, value=slot)
+        sgnode = self.new_node("FPREL", ir.ptr, value=slot)
 
-        output = sgnode.new_output('alloc')
+        output = sgnode.new_output("alloc")
         output.wants_vreg = False
         self.add_map(node, output)
         if self.debug_db.contains(node):
@@ -304,16 +319,20 @@ class SelectionGraphBuilder:
         # self.debug_db.map(node, sgnode)
 
     def do_copy_blob(self, node):
-        pass
+        """ Create a memcpy node. """
+        dst = self.get_address(node.dst)
+        src = self.get_address(node.src)
+        sgnode = self.new_node("MOVB", None, dst, src, value=node.amount)
+        self.chain(sgnode)
 
     def get_address(self, ir_address):
         """ Determine address for load or store. """
         if isinstance(ir_address, ir.GlobalValue):
             # A global variable may be contained in another module
             # That is why it is created here, and not in the prepare step
-            sgnode = self.new_node('LABEL', ir.ptr)
+            sgnode = self.new_node("LABEL", ir.ptr)
             sgnode.value = ir_address.name
-            address = sgnode.new_output('address')
+            address = sgnode.new_output("address")
         else:
             address = self.get_value(ir_address)
         return address
@@ -321,10 +340,7 @@ class SelectionGraphBuilder:
     def do_load(self, node):
         """ Create dag node for load operation """
         address = self.get_address(node.address)
-        if isinstance(node.ty, ir.BlobDataTyp):
-            sgnode = self.new_node('MOVB', None, address)
-        else:
-            sgnode = self.new_node('LDR', node.ty, address)
+        sgnode = self.new_node("LDR", node.ty, address)
         # Make sure a data dependence is added to this node
         self.debug_db.map(node, sgnode)
         self.chain(sgnode)
@@ -336,9 +352,9 @@ class SelectionGraphBuilder:
         value = self.get_value(node.value)
         if node.value.ty.is_blob:
             size = node.value.ty.size
-            sgnode = self.new_node('MOVB', None, address, value, value=size)
+            sgnode = self.new_node("MOVB", None, address, value, value=size)
         else:
-            sgnode = self.new_node('STR', node.value.ty, address, value)
+            sgnode = self.new_node("STR", node.value.ty, address, value)
         self.chain(sgnode)
         self.debug_db.map(node, sgnode)
 
@@ -348,7 +364,7 @@ class SelectionGraphBuilder:
             value = node.value
         else:  # pragma: no cover
             raise NotImplementedError(str(type(node.value)))
-        sgnode = self.new_node('CONST', node.ty)
+        sgnode = self.new_node("CONST", node.ty)
         self.debug_db.map(node, sgnode)
         sgnode.value = value
         output = sgnode.new_output(node.name)
@@ -358,12 +374,12 @@ class SelectionGraphBuilder:
     def do_literal_data(self, node):
         """ Literal data is stored after a label """
         label = self.function_info.frame.add_constant(node.data)
-        sgnode = self.new_node('LABEL', ir.ptr, value=label)
+        sgnode = self.new_node("LABEL", ir.ptr, value=label)
         self.add_map(node, sgnode.new_output(node.name))
 
     def do_unop(self, node):
         """ Visit an unary operator and create a DAG node """
-        names = {'-': 'NEG', '~': 'INV'}
+        names = {"-": "NEG", "~": "INV"}
         op = names[node.operation]
         a = self.get_value(node.a)
         sgnode = self.new_node(op, node.ty, a)
@@ -372,9 +388,18 @@ class SelectionGraphBuilder:
 
     def do_binop(self, node):
         """ Visit a binary operator and create a DAG node """
-        names = {'+': 'ADD', '-': 'SUB', '|': 'OR', '<<': 'SHL',
-                 '*': 'MUL', '&': 'AND', '>>': 'SHR', '/': 'DIV',
-                 '%': 'REM', '^': 'XOR'}
+        names = {
+            "+": "ADD",
+            "-": "SUB",
+            "|": "OR",
+            "<<": "SHL",
+            "*": "MUL",
+            "&": "AND",
+            ">>": "SHR",
+            "/": "DIV",
+            "%": "REM",
+            "^": "XOR",
+        }
         op = names[node.operation]
         a = self.get_value(node.a)
         b = self.get_value(node.b)
@@ -387,7 +412,7 @@ class SelectionGraphBuilder:
         from_ty = node.src.ty
         if from_ty is ir.ptr:
             from_ty = self.ptr_ty
-        op = '{}TO'.format(str(from_ty).upper())
+        op = "{}TO".format(str(from_ty).upper())
         a = self.get_value(node.src)
         sgnode = self.new_node(op, node.ty, a)
         self.add_map(node, sgnode.new_output(node.name))
@@ -404,7 +429,8 @@ class SelectionGraphBuilder:
                 loc = self.new_vreg(argument.ty)
                 args.append((argument.ty, loc))
                 arg_sgnode = self.new_node(
-                    'MOV', argument.ty, arg_val, value=loc)
+                    "MOV", argument.ty, arg_val, value=loc
+                )
                 self.chain(arg_sgnode)
             # reg_out = arg_sgnode.new_output('arg')
             # reg_out.vreg = loc
@@ -419,12 +445,12 @@ class SelectionGraphBuilder:
             fptr = self.get_value(node.callee)
 
             fptr_vreg = self.new_vreg(ir.ptr)
-            fptr_sgnode = self.new_node('MOV', ir.ptr, fptr, value=fptr_vreg)
+            fptr_sgnode = self.new_node("MOV", ir.ptr, fptr, value=fptr_vreg)
             self.chain(fptr_sgnode)
             call_target = fptr_vreg
 
         # Perform the actual call:
-        sgnode = self.new_node('CALL', None)
+        sgnode = self.new_node("CALL", None)
         sgnode.value = (call_target, args, rv)
         self.debug_db.map(node, sgnode)
         # for i in inputs:
@@ -443,21 +469,22 @@ class SelectionGraphBuilder:
         # New register for copy of result:
         ret_val = self.function_info.frame.new_reg(
             self.arch.info.value_classes[node.ty],
-            '{}_result'.format(node.name))
+            "{}_result".format(node.name),
+        )
 
         rv = (node.ty, ret_val)
         self._make_call(node, args, rv)
 
         # When using the call as an expression, use the return value vreg:
-        sgnode = self.new_node('REG', node.ty, value=ret_val)
-        output = sgnode.new_output('res')
+        sgnode = self.new_node("REG", node.ty, value=ret_val)
+        output = sgnode.new_output("res")
         output.vreg = ret_val
         self.add_map(node, output)
 
     def do_phi(self, node):
         """ Refer to the correct copy of the phi node """
         vreg = self.function_info.phi_map[node]
-        sgnode = self.new_node('REG', node.ty, value=vreg)
+        sgnode = self.new_node("REG", node.ty, value=vreg)
         output = sgnode.new_output(node.name)
         output.vreg = vreg
         self.add_map(node, output)
@@ -476,7 +503,7 @@ class SelectionGraphBuilder:
                 from_val = phi.get_value(ir_block)
                 val = self.get_value(from_val)
                 vreg1 = self.new_vreg(phi.ty)
-                sgnode = self.new_node('MOV', phi.ty, val, value=vreg1)
+                sgnode = self.new_node("MOV", phi.ty, val, value=vreg1)
                 self.chain(sgnode)
                 val_map[from_val] = vreg1
 
@@ -493,9 +520,9 @@ class SelectionGraphBuilder:
                 #    continue
 
                 # Create reg node:
-                sgnode1 = self.new_node('REG', phi.ty, value=vreg1)
+                sgnode1 = self.new_node("REG", phi.ty, value=vreg1)
                 val = sgnode1.new_output(vreg1.name)
 
                 # Create move node:
-                sgnode = self.new_node('MOV', phi.ty, val, value=vreg)
+                sgnode = self.new_node("MOV", phi.ty, val, value=vreg)
                 self.chain(sgnode)

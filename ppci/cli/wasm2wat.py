@@ -9,16 +9,21 @@ from .base import base_parser, LogSetup
 from ..wasm import read_wasm
 
 
-parser = argparse.ArgumentParser(
-    description=__doc__,
-    parents=[base_parser])
+parser = argparse.ArgumentParser(description=__doc__, parents=[base_parser])
 parser.add_argument(
-    'wasm', metavar='wasm file', type=argparse.FileType('rb'),
-    help='wasm file to read')
+    "wasm",
+    metavar="wasm file",
+    type=argparse.FileType("rb"),
+    help="wasm file to read",
+)
 parser.add_argument(
-    '-o', '--output', metavar='wat file', type=argparse.FileType('w'),
+    "-o",
+    "--output",
+    metavar="wat file",
+    type=argparse.FileType("w"),
     default=sys.stdout,
-    help='File to write the WAT file to, default is stdout')
+    help="File to write the WAT file to, default is stdout",
+)
 
 
 def wasm2wat(args=None):
@@ -30,5 +35,5 @@ def wasm2wat(args=None):
         args.output.close()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     wasm2wat()

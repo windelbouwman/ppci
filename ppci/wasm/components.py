@@ -40,27 +40,29 @@ from ..lang.sexpr import parse_sexpr
 from .io import FileReader, FileWriter
 
 
-this_is_js = lambda: False  # For PyScript
+def this_is_js():
+    return False  # For PyScript
 
-logger = logging.getLogger('wasm')
+
+logger = logging.getLogger("wasm")
 
 # The toplevel field names that can be in a module, in their preferred order.
 
 SECTION_IDS = {  # Note: order matters!
-    'custom': 0,
-    'type': 1,
-    'import': 2,
-    'function': 3,  # this section maps funcs to types
-    'table': 4,
-    'memory': 5,
-    'global': 6,
-    'export': 7,
-    'start': 8,
-    'elem': 9,
-    'func': 10,  # the field is called func,
-    'code': 10,  # but the section is called code
-    'data': 11,
-    }
+    "custom": 0,
+    "type": 1,
+    "import": 2,
+    "function": 3,  # this section maps funcs to types
+    "table": 4,
+    "memory": 5,
+    "global": 6,
+    "export": 7,
+    "start": 8,
+    "elem": 9,
+    "func": 10,  # the field is called func,
+    "code": 10,  # but the section is called code
+    "data": 11,
+}
 
 if sys.version_info < (3, 6):
     SECTION_IDS = OrderedDict(sorted(SECTION_IDS.items(), key=lambda i: i[1]))
@@ -69,14 +71,14 @@ if sys.version_info < (3, 6):
 def check_id(id):
     if isinstance(id, int):
         if not id >= 0:
-            raise ValueError('Integer id must be >= 0.')
+            raise ValueError("Integer id must be >= 0.")
     elif isinstance(id, str):
-        if not id.startswith('$'):
-            raise ValueError('String id must start with $.')
+        if not id.startswith("$"):
+            raise ValueError("String id must start with $.")
     elif isinstance(id, Ref):
         pass
     else:
-        raise ValueError('Id must be int or str.')
+        raise ValueError("Id must be int or str.")
     return id
 
 
@@ -104,18 +106,18 @@ class WASMComponent:
                 return self._from_reader(input[0])
             elif isinstance(input[0], tuple):
                 return self._from_tuple(input[0])
-            elif isinstance(input[0], str) and '(' in input[0]:
+            elif isinstance(input[0], str) and "(" in input[0]:
                 return self._from_string(input[0])
             elif isinstance(input[0], bytes):
                 return self._from_bytes(input[0])
-            elif hasattr(input[0], 'read'):
+            elif hasattr(input[0], "read"):
                 return self._from_file(input[0])
 
         # Else, more direct instantiation
         self._from_args(*input)
 
     def __repr__(self):
-        return '<WASM-%s>' % (self.__class__.__name__)
+        return "<WASM-%s>" % (self.__class__.__name__)
 
     def show(self):
         """ Print the S-expression of the component.
@@ -137,21 +139,21 @@ class WASMComponent:
                 text = str(sub)  # or repr ...
             charcount += len(text)
             texts.append(text)
-            haslf = haslf or '\n' in text
+            haslf = haslf or "\n" in text
         # Put on one line or multiple lines
         if multiline or haslf or charcount > 70:
             lines = []
             indent = 4
             for text in texts:
                 for line in text.splitlines():
-                    if line.startswith(('(else', '(end')):
+                    if line.startswith(("(else", "(end")):
                         indent -= 4
-                    lines.append(' ' * indent + line)
-                    if line.startswith(('(block', '(loop', '(if', '(else')):
+                    lines.append(" " * indent + line)
+                    if line.startswith(("(block", "(loop", "(if", "(else")):
                         indent += 4
-            return '\n'.join(lines)
+            return "\n".join(lines)
         else:
-            return ' '.join(texts)
+            return " ".join(texts)
 
     # From ...
 
@@ -199,16 +201,24 @@ class Ref:
     space must be one of 'type', 'func', 'memory', 'table', 'global', 'local'
     index can be none
     """
+
     # TODO: idea:
     # wb: store reference to the object itself instead of an index?
     def __init__(self, space, index=None, name=None):
         valid_spaces = [
-            'type', 'func', 'memory', 'table', 'global', 'local', 'label']
+            "type",
+            "func",
+            "memory",
+            "table",
+            "global",
+            "local",
+            "label",
+        ]
         if space not in valid_spaces:
-            raise ValueError('space must be one of {}'.format(valid_spaces))
+            raise ValueError("space must be one of {}".format(valid_spaces))
         self.space = space
         if index is None and name is None:
-            raise ValueError('You must provide index or name for a Ref')
+            raise ValueError("You must provide index or name for a Ref")
         self.index = index
         self.name = name
 
@@ -220,8 +230,9 @@ class Ref:
             return str(self.index)
 
     def __repr__(self):
-        return 'Ref(space={},index={},name={})'.format(
-            self.space, self.index, self.name)
+        return "Ref(space={},index={},name={})".format(
+            self.space, self.index, self.name
+        )
 
     def resolve(self, id_maps):
         if self.index is None:
@@ -229,7 +240,7 @@ class Ref:
             if self.name in id_map:
                 return id_map[self.name]
             else:
-                raise ValueError('Cannot resolve {}'.format(repr(self)))
+                raise ValueError("Cannot resolve {}".format(repr(self)))
         else:
             return self.index
 
@@ -237,7 +248,7 @@ class Ref:
     def is_zero(self):
         """ Check if we refer to element 0 """
         if self.name:
-            return self.name == '$0'
+            return self.name == "$0"
         else:
             return self.index == 0
 
@@ -256,7 +267,7 @@ class Module(WASMComponent):
     text, tuples, or Definition objects.
     """
 
-    __slots__ = ('id', 'definitions')  # id is only for documentation purposes
+    __slots__ = ("id", "definitions")  # id is only for documentation purposes
 
     def _from_args(self, *definitions):
         self._from_tuple(definitions)
@@ -266,16 +277,17 @@ class Module(WASMComponent):
         """
 
         from .wat import load_tuple
+
         load_tuple(self, t)
 
     def to_string(self):
         # TODO: idea: first construct tuples, then pretty print these tuples
         # to strings.
-        id_str = ' ' + self.id if self.id else ''
-        defs_str = ''
+        id_str = " " + self.id if self.id else ""
+        defs_str = ""
         if self.definitions:
-            defs_str = '\n%s\n' % self._get_sub_string(self.definitions, True)
-        return '(module' + id_str + defs_str + ')\n'
+            defs_str = "\n%s\n" % self._get_sub_string(self.definitions, True)
+        return "(module" + id_str + defs_str + ")\n"
 
     def to_bytes(self):
         """ Get the bytes that represent the binary WASM for this module.
@@ -289,6 +301,7 @@ class Module(WASMComponent):
         """
         # if not this_is_js():  (Artifact from trying PyScript)
         from ..utils.hexdump import hexdump
+
         hexdump(self.to_bytes())
 
     def to_file(self, f):
@@ -296,7 +309,7 @@ class Module(WASMComponent):
         self._to_writer(FileWriter(f))
 
     def _to_writer(self, f):
-        f.write(b'\x00asm')
+        f.write(b"\x00asm")
         f.write_u32(1)  # version, must be 1 for now
 
         # todo: allow custom section(s)
@@ -308,7 +321,7 @@ class Module(WASMComponent):
 
         # Iterate over (possible) sections
         for section_name, section_id in SECTION_IDS.items():
-            if section_name == 'code':
+            if section_name == "code":
                 continue  # we have 'func' instead
 
             # Prepare file to write this section to.
@@ -316,12 +329,12 @@ class Module(WASMComponent):
             # these variable-sized ints make this difficult.
             f2 = FileWriter(BytesIO())
 
-            if section_name == 'function':
-                if len(definitions['func']) == 0:
+            if section_name == "function":
+                if len(definitions["func"]) == 0:
                     continue
                 # Special section that binds sigs to imports and implementation
-                f2.write_vu32(len(definitions['func']))
-                for d in definitions['func']:
+                f2.write_vu32(len(definitions["func"]))
+                for d in definitions["func"]:
                     type_id = d.ref.index
                     f2.write_vu32(type_id)
 
@@ -330,10 +343,10 @@ class Module(WASMComponent):
                 if len(section_defs) == 0:
                     continue
 
-                if section_name == 'start':
-                    assert len(section_defs) == 1, 'Expected 0 or 1 start defs'
+                if section_name == "start":
+                    assert len(section_defs) == 1, "Expected 0 or 1 start defs"
                     section_defs[0]._to_writer(f2)
-                elif section_name == 'custom':
+                elif section_name == "custom":
                     for d in section_defs:
                         f3 = FileWriter(BytesIO())
                         d._to_writer(f3)
@@ -348,17 +361,18 @@ class Module(WASMComponent):
                     for index, d in enumerate(section_defs):
                         # Funcs need their param index/name space
                         # Note that id in Type.params can be int/str, not None
-                        if section_name == 'func':
-                            typedefs = definitions['type']
+                        if section_name == "func":
+                            typedefs = definitions["type"]
                             typedef = typedefs[d.ref.index]
                         # Write it!
                         d._to_writer(f2)
 
             # Write this section to our main file object
             payload = f2.f.getvalue()
-            logger.debug('Writing section %s of %s bytes' %
-                         (section_id, len(payload)))
-            if section_name != 'custom':
+            logger.debug(
+                "Writing section %s of %s bytes" % (section_id, len(payload))
+            )
+            if section_name != "custom":
                 f.write_vu7(section_id)
                 f.write_vu32(len(payload))
             f.write(payload)
@@ -367,20 +381,23 @@ class Module(WASMComponent):
 
         # Check header and version
         data = reader.read(4)
-        if data != b'\x00asm':
-            raise ValueError('Magic wasm marker is invalid')
+        if data != b"\x00asm":
+            raise ValueError("Magic wasm marker is invalid")
         version = reader.read_u32()
         assert version == 1, version
 
         # Prepare
         section_id_to_name = {}
         for name, id in SECTION_IDS.items():
-            if name != 'code':  # use "func" instead
+            if name != "code":  # use "func" instead
                 section_id_to_name[id] = name
         type4func = {}
         id_maps = {
-            'type': {}, 'func': {}, 'table': {}, 'memory': {},
-            'global': {},
+            "type": {},
+            "func": {},
+            "table": {},
+            "memory": {},
+            "global": {},
         }
 
         # todo: we may assign id's inside the _from_reader() methods,
@@ -397,29 +414,30 @@ class Module(WASMComponent):
             section_nbytes = reader.read_uint()
             section_name = section_id_to_name[section_id]
             section_data = reader.read(section_nbytes)
-            logger.debug('Loading %s section', section_name)
+            logger.debug("Loading %s section", section_name)
             reader2 = FileReader(BytesIO(section_data))
 
-            if section_name == 'function':
+            if section_name == "function":
                 # Read mapping of func id to type id (both indexes)
                 nfuncs = reader2.read_uint()
                 for i in range(nfuncs):
                     type4func[i] = reader2.read_uint()
-            elif section_name == 'start':  # There is (at most) 1 start def
+            elif section_name == "start":  # There is (at most) 1 start def
                 definitions.append(Start(reader2))
-            elif section_name == 'custom':
+            elif section_name == "custom":
                 name_len = reader2.read_uint()
-                definitions.append(Custom(reader2.read(name_len).decode(),
-                                          reader2.read()))
+                definitions.append(
+                    Custom(reader2.read(name_len).decode(), reader2.read())
+                )
             else:
                 ndefs = reader2.read_uint()  # for this section
                 for i in range(ndefs):
                     Cls = DEFINITION_CLASSES[section_name]
                     d = Cls(reader2)
-                    if section_name == 'func':
-                        d.ref = Ref('type', index=type4func[i])
+                    if section_name == "func":
+                        d.ref = Ref("type", index=type4func[i])
                     definitions.append(d)
-                    if section_name == 'import':
+                    if section_name == "import":
                         id_map = id_maps[d.kind]
                         d.id = len(id_map)
                         id_map[d.id] = d.id
@@ -428,8 +446,10 @@ class Module(WASMComponent):
                         d.id = len(id_map)
                         id_map[d.id] = d.id
 
-        logger.info('Loaded WASM module from binary with %i definitions' %
-                    len(definitions))
+        logger.info(
+            "Loaded WASM module from binary with %i definitions"
+            % len(definitions)
+        )
         self.definitions = definitions
         self.id = None
 
@@ -442,10 +462,10 @@ class Module(WASMComponent):
         if isinstance(i, int):
             return self.definitions[i]
         elif isinstance(i, str):
-            i = 'func' if i == 'code' else i
+            i = "func" if i == "code" else i
             return [d for d in self.definitions if d.__name__ == i]
         else:
-            raise IndexError('Module can only be indexed with int and str')
+            raise IndexError("Module can only be indexed with int and str")
 
     def add_definition(self, d):
         """ Add a definition to the module.
@@ -461,80 +481,76 @@ class Module(WASMComponent):
         definitions = dict((name, []) for name in SECTION_IDS)
         for d in self.definitions:
             definitions[d.__name__].append(d)
-        assert not definitions.pop('code')  # use func instead
-        assert not definitions.pop('function')  # this section is implicit
+        assert not definitions.pop("code")  # use func instead
+        assert not definitions.pop("function")  # this section is implicit
         return definitions
 
     def show_interface(self):
         """ Show the (signature of) imports and exports in a human
         friendly manner.
         """
-        types = self['type']
-        imports = self['import']
-        exports = self['export']
-        functions = self['func']
-        n_func_imports = sum(c.kind == 'func' for c in imports)
-        print('Imports:')
+        types = self["type"]
+        imports = self["import"]
+        exports = self["export"]
+        functions = self["func"]
+        n_func_imports = sum(c.kind == "func" for c in imports)
+        print("Imports:")
         for c in imports:
-            if c.kind == 'func':
+            if c.kind == "func":
                 sig = types[c.info[0].index]
-                params_s = ', '.join([p[1] for p in sig.params])
-                result_s = ', '.join([r for r in sig.result])
+                params_s = ", ".join([p[1] for p in sig.params])
+                result_s = ", ".join([r for r in sig.result])
                 print(
-                    '  {}.{}:'.format(c.modname, c.name).ljust(20),
-                    '[{}] -> [{}]'.format(params_s, result_s))
+                    "  {}.{}:".format(c.modname, c.name).ljust(20),
+                    "[{}] -> [{}]".format(params_s, result_s),
+                )
             else:
-                print('  {}:'.format(c.kind).ljust(20), '"{}"'.format(c.name))
+                print("  {}:".format(c.kind).ljust(20), '"{}"'.format(c.name))
 
-        print('Exports:')
+        print("Exports:")
         for c in exports:
-            if c.kind == 'func':
+            if c.kind == "func":
                 func = functions[c.ref.index - n_func_imports]
                 sig = types[func.ref.index]
-                params_s = ', '.join([p[1] for p in sig.params])
-                result_s = ', '.join([r for r in sig.result])
+                params_s = ", ".join([p[1] for p in sig.params])
+                result_s = ", ".join([r for r in sig.result])
                 print(
-                    '  {}:'.format(c.name).ljust(20),
-                    '[{}] -> [{}]'.format(params_s, result_s))
+                    "  {}:".format(c.name).ljust(20),
+                    "[{}] -> [{}]".format(params_s, result_s),
+                )
             else:
-                print('  {}:'.format(c.kind).ljust(20), '"{}"'.format(c.name))
+                print("  {}:".format(c.kind).ljust(20), '"{}"'.format(c.name))
 
 
 def str2int(x):
-    return int(x, 16) if x.startswith('0x') else int(x)
+    return int(x, 16) if x.startswith("0x") else int(x)
 
 
 class Instruction(WASMComponent):
     """ Class ro represent an instruction (an opcode plus arguments). """
 
-    __slots__ = ('opcode', 'args')
+    __slots__ = ("opcode", "args")
 
     def _from_args(self, opcode, *args):
         # Memory instructions have keyword args in text format :/
-        if '.load' in opcode or '.store' in opcode:
+        if ".load" in opcode or ".store" in opcode:
             # Determine default args
             offset_arg = 0
-            align_arg = 2 if '32.' in opcode else 3
-            opcode2 = opcode.split('.')[-1]
-            for align, nbytes in [(0, '8'), (1, '16'), (2, '32'), (3, '64')]:
+            align_arg = 2 if "32." in opcode else 3
+            opcode2 = opcode.split(".")[-1]
+            for align, nbytes in [(0, "8"), (1, "16"), (2, "32"), (3, "64")]:
                 if nbytes in opcode2:
                     align_arg = align
             # Parse keyword args
             for arg in args:
                 if isinstance(arg, str):
-                    if arg.startswith('align='):
-                        align_arg = str2int(arg.split('=')[-1])
+                    if arg.startswith("align="):
+                        align_arg = str2int(arg.split("=")[-1])
                         # Store alignment as power of 2:
-                        log2 = {
-                            1: 0,
-                            2: 1,
-                            4: 2,
-                            8: 3,
-                            16: 4
-                        }
+                        log2 = {1: 0, 2: 1, 4: 2, 8: 3, 16: 4}
                         align_arg = log2[align_arg]
-                    elif arg.startswith('offset='):
-                        offset_arg = str2int(arg.split('=')[-1])
+                    elif arg.startswith("offset="):
+                        offset_arg = str2int(arg.split("=")[-1])
             args = align_arg, offset_arg
         else:
             for arg in args:
@@ -544,7 +560,7 @@ class Instruction(WASMComponent):
         self.args = args
 
     def __repr__(self):
-        return '<Instruction %s>' % self.opcode
+        return "<Instruction %s>" % self.opcode
 
     def __getitem__(self, i):
         # Make it feel a bit like a named tuple
@@ -552,21 +568,24 @@ class Instruction(WASMComponent):
 
     def to_string(self):
         args = self.args
-        if '.load' in self.opcode or '.store' in self.opcode:
+        if ".load" in self.opcode or ".store" in self.opcode:
             if args[1] == 0:  # zero offset
-                args = ('align=%i' % 2**args[0], )
+                args = ("align=%i" % 2 ** args[0],)
             else:
-                args = ('align=%i' % 2**args[0], 'offset=%i' % args[1])
-        elif self.opcode == 'call_indirect':
+                args = ("align=%i" % 2 ** args[0], "offset=%i" % args[1])
+        elif self.opcode == "call_indirect":
             if args[1].index == 0:  # zero'th table
-                args = ('(type %s)' % args[0], ) 
+                args = ("(type %s)" % args[0],)
             else:
-                args = ('(type %s)' % args[0], '(const.i64 %i)' % args[1].index)
+                args = (
+                    "(type %s)" % args[0],
+                    "(const.i64 %i)" % args[1].index,
+                )
         subtext = self._get_sub_string(args)
-        if '\n' in subtext:
-            return '(' + self.opcode + '\n' + subtext + '\n)'
+        if "\n" in subtext:
+            return "(" + self.opcode + "\n" + subtext + "\n)"
         else:
-            return '(' + self.opcode + ' ' * bool(subtext) + subtext + ')'
+            return "(" + self.opcode + " " * bool(subtext) + subtext + ")"
 
     # This is a list of functions to write argument of different types:
     wfm = {
@@ -599,26 +618,34 @@ class Instruction(WASMComponent):
         for o, arg in zip(operands, args):
             if o in self.wfm:
                 self.wfm[o](f, arg)
-            elif o == 'byte':
+            elif o == "byte":
                 f.write(bytes([arg]))
-            elif o == 'br_table':
-                assert self.opcode == 'br_table'
+            elif o == "br_table":
+                assert self.opcode == "br_table"
                 f.write_vu32(len(arg) - 1)
                 for x in arg:
                     f.write_vu32(x.index)
             else:
-                raise TypeError('Unknown instruction arg %r' % o)
+                raise TypeError("Unknown instruction arg %r" % o)
 
     # This is a list of functions to read specific argument types:
     rfm = {
         ArgType.TYPE: lambda reader: reader.read_type(),
         ArgType.U32: lambda reader: reader.read_uint(),
-        ArgType.LABELIDX: lambda reader: Ref('label', index=reader.read_uint()),
-        ArgType.LOCALIDX: lambda reader: Ref('local', index=reader.read_uint()),
-        ArgType.GLOBALIDX: lambda reader: Ref('global', index=reader.read_uint()),
-        ArgType.FUNCIDX: lambda reader: Ref('func', index=reader.read_uint()),
-        ArgType.TYPEIDX: lambda reader: Ref('type', index=reader.read_uint()),
-        ArgType.TABLEIDX: lambda reader: Ref('table', index=reader.read_uint()),
+        ArgType.LABELIDX: lambda reader: Ref(
+            "label", index=reader.read_uint()
+        ),
+        ArgType.LOCALIDX: lambda reader: Ref(
+            "local", index=reader.read_uint()
+        ),
+        ArgType.GLOBALIDX: lambda reader: Ref(
+            "global", index=reader.read_uint()
+        ),
+        ArgType.FUNCIDX: lambda reader: Ref("func", index=reader.read_uint()),
+        ArgType.TYPEIDX: lambda reader: Ref("type", index=reader.read_uint()),
+        ArgType.TABLEIDX: lambda reader: Ref(
+            "table", index=reader.read_uint()
+        ),
         ArgType.I32: lambda reader: reader.read_int(),
         ArgType.I64: lambda reader: reader.read_int(),
         ArgType.F32: lambda reader: reader.read_f32(),
@@ -634,13 +661,13 @@ class Instruction(WASMComponent):
         for operand in operands:
             if operand in self.rfm:
                 arg = self.rfm[operand](reader)
-            elif operand == 'byte':
+            elif operand == "byte":
                 arg = reader.read_byte()
-            elif operand == 'br_table':
+            elif operand == "br_table":
                 count = reader.read_uint()
                 vec = []
                 for _ in range(count + 1):
-                    idx = Ref('label', index=reader.read_uint())
+                    idx = Ref("label", index=reader.read_uint())
                     vec.append(idx)
                 arg = vec
             else:  # pragma: no cover
@@ -655,7 +682,7 @@ class BlockInstruction(Instruction):
     result type. It can optionally have an id.
     """
 
-    __slots__ = ('id', )  # id can be None
+    __slots__ = ("id",)  # id can be None
 
     def _from_args(self, opcode, *args):
         id = None
@@ -663,19 +690,19 @@ class BlockInstruction(Instruction):
             id, *args = args
         self.id = id
         return super()._from_args(opcode, *args)
-    
+
     def _from_reader(self, reader):
         self.id = None
         return super()._from_reader(reader)
-    
+
     def to_string(self):
-        idtext = '' if self.id is None else ' ' + self.id
+        idtext = "" if self.id is None else " " + self.id
         a0 = self.args[0]
-        subtext = '' if a0 is 'emptyblock' else ' (result ' + str(a0) + ')'
-        return '(' + self.opcode + idtext + subtext + ')'
+        subtext = "" if a0 is "emptyblock" else " (result " + str(a0) + ")"
+        return "(" + self.opcode + idtext + subtext + ")"
 
 
-## Definition classes
+# Definition classes
 
 
 class Definition(WASMComponent):
@@ -717,7 +744,7 @@ class Type(Definition):
 
     """
 
-    __slots__ = ('id', 'params', 'result')
+    __slots__ = ("id", "params", "result")
 
     def _from_args(self, id, params, result):
         assert isinstance(id, (int, str))
@@ -731,28 +758,28 @@ class Type(Definition):
         assert len(self.result) <= 1  # for now
 
     def to_string(self):
-        s = '(type %s (func' % self.id
+        s = "(type %s (func" % self.id
         last_anon = False
         for i in range(len(self.params)):
             id, typ = self.params[i]
             if isinstance(id, int):
                 assert id == i
                 if last_anon:
-                    s += ' ' + typ
+                    s += " " + typ
                 else:
-                    s += ' (param %s' % typ
+                    s += " (param %s" % typ
                     last_anon = True
             else:
-                s += ')' if last_anon else ''
-                s += ' (param %s %s)' % (id, typ)
+                s += ")" if last_anon else ""
+                s += " (param %s %s)" % (id, typ)
                 last_anon = False
-        s += ')' if last_anon else ''
+        s += ")" if last_anon else ""
         if self.result:
-            s += ' (result ' + ' '.join(self.result) + ')'
-        return s + '))'
+            s += " (result " + " ".join(self.result) + ")"
+        return s + "))"
 
     def _to_writer(self, f):
-        f.write(b'\x60')  # form
+        f.write(b"\x60")  # form
         f.write_vu32(len(self.params))  # params
         for _, paramtype in self.params:
             f.write_type(paramtype)
@@ -762,7 +789,7 @@ class Type(Definition):
 
     def _from_reader(self, reader):
         form = reader.read(1)
-        assert form == b'\x60'
+        assert form == b"\x60"
         num_params = reader.read_uint()
         self.params = [(i, reader.read_type()) for i in range(num_params)]
         num_returns = reader.read_uint()
@@ -793,10 +820,10 @@ class Import(Definition):
         * global: (typ, mutable)
     """
 
-    __slots__ = ('modname', 'name', 'kind', 'id', 'info')
+    __slots__ = ("modname", "name", "kind", "id", "info")
 
     def _from_args(self, modname, name, kind, id, info):
-        assert kind in ('func', 'table', 'memory', 'global')
+        assert kind in ("func", "table", "memory", "global")
         assert isinstance(info, tuple)
         self.modname = modname
         self.name = name
@@ -806,45 +833,49 @@ class Import(Definition):
 
     def to_string(self):
         # Get description
-        if self.kind == 'func':
-            desc = ['(type %s)' % self.info[0]]
-        elif self.kind == 'table':
-            desc = ['anyfunc']
+        if self.kind == "func":
+            desc = ["(type %s)" % self.info[0]]
+        elif self.kind == "table":
+            desc = ["anyfunc"]
             if self.info[2] is not None:
-                desc = [str(self.info[1]), str(self.info[2]), 'anyfunc']
+                desc = [str(self.info[1]), str(self.info[2]), "anyfunc"]
             elif self.info[1] != 0:
-                desc = [str(self.info[1]), 'anyfunc']
-        elif self.kind == 'memory':
+                desc = [str(self.info[1]), "anyfunc"]
+        elif self.kind == "memory":
             desc = [self.info[0]] if self.info[1] is None else list(self.info)
-        elif self.kind == 'global':
-            fmt = '(mut %s)' if self.info[1] else '%s'  # mutable?
+        elif self.kind == "global":
+            fmt = "(mut %s)" if self.info[1] else "%s"  # mutable?
             desc = [fmt % self.info[0]]
         # Populate description more
-        if not (self.kind in ('memory', 'table') and self.id == '$0'):
+        if not (self.kind in ("memory", "table") and self.id == "$0"):
             desc.insert(0, self.id)
         # Compose
         return '(import "%s" "%s" (%s %s))' % (
-            self.modname, self.name, self.kind, ' '.join(str(i) for i in desc))
+            self.modname,
+            self.name,
+            self.kind,
+            " ".join(str(i) for i in desc),
+        )
 
     def _to_writer(self, f):
         f.write_str(self.modname)
         f.write_str(self.name)
-        if self.kind == 'func':
-            f.write(b'\x00')
+        if self.kind == "func":
+            f.write(b"\x00")
             # type-index, not func-
             int_ref = self.info[0].index
             f.write_vu32(int_ref)
-        elif self.kind == 'table':
-            f.write(b'\x01')
+        elif self.kind == "table":
+            f.write(b"\x01")
             table_kind, min, max = self.info
             f.write_type(table_kind)  # always 0x70 anyfunc in v1
             f.write_limits(min, max)
-        elif self.kind == 'memory':
-            f.write(b'\x02')
+        elif self.kind == "memory":
+            f.write(b"\x02")
             min, max = self.info
             f.write_limits(min, max)
-        elif self.kind == 'global':
-            f.write(b'\x03')
+        elif self.kind == "global":
+            f.write(b"\x03")
             typ, mutable = self.info
             f.write_type(typ)
             f.write(bytes([int(mutable)]))
@@ -856,19 +887,19 @@ class Import(Definition):
         self.name = reader.read_str()
         kind_id = reader.read_byte()
         if kind_id == 0:
-            self.kind = 'func'
-            self.info = (Ref('type', index=reader.read_uint()), )
+            self.kind = "func"
+            self.info = (Ref("type", index=reader.read_uint()),)
         elif kind_id == 1:
-            self.kind = 'table'
+            self.kind = "table"
             table_kind = reader.read_type()
             min, max = reader.read_limits()
             self.info = table_kind, min, max
         elif kind_id == 2:
-            self.kind = 'memory'
+            self.kind = "memory"
             min, max = reader.read_limits()
             self.info = min, max
         elif kind_id == 3:
-            self.kind = 'global'
+            self.kind = "global"
             self.info = reader.read_type(), bool(reader.read_byte())
         else:  # pragma: no cover
             raise NotImplementedError()
@@ -898,23 +929,22 @@ class Table(Definition):
 
     """
 
-    __slots__ = ('id', 'kind', 'min', 'max')
-
+    __slots__ = ("id", "kind", "min", "max")
 
     def _from_args(self, id, kind, min, max):
         self.id = check_id(id)
-        assert kind in ('anyfunc', )  # More kinds in future versions
+        assert kind in ("anyfunc",)  # More kinds in future versions
         self.kind = kind
         self.min = min
         self.max = max
 
     def to_string(self):
-        id = '' if self.id == '$0' else ' %s' % self.id
+        id = "" if self.id == "$0" else " %s" % self.id
         if self.max is None:
-            minmax = '' if self.min == 0 else ' %i' % self.min
+            minmax = "" if self.min == 0 else " %i" % self.min
         else:
-            minmax = ' %i %i' % (self.min, self.max)
-        return '(table%s%s %s)' % (id, minmax, self.kind)
+            minmax = " %i %i" % (self.min, self.max)
+        return "(table%s%s %s)" % (id, minmax, self.kind)
 
     def _to_writer(self, f):
         f.write_type(self.kind)  # always 0x70 anyfunc in v1
@@ -922,7 +952,7 @@ class Table(Definition):
 
     def _from_reader(self, reader):
         self.kind = reader.read_type()
-        assert self.kind == 'anyfunc'
+        assert self.kind == "anyfunc"
         self.min, self.max = reader.read_limits()
 
 
@@ -943,7 +973,7 @@ class Memory(Definition):
 
     """
 
-    __slots__ = ('id', 'min', 'max')
+    __slots__ = ("id", "min", "max")
 
     def _from_args(self, id, min, max=None):
         # assert isinstance(id, str)  # otherwise hard to dinstinguis from ints
@@ -952,10 +982,10 @@ class Memory(Definition):
         self.max = max
 
     def to_string(self):
-        id = '' if self.id == '$0' else ' %s' % self.id
-        min = ' %i' % self.min
-        max = '' if self.max is None else ' %i' % self.max
-        return '(memory%s%s%s)' % (id, min, max)
+        id = "" if self.id == "$0" else " %s" % self.id
+        min = " %i" % self.min
+        max = "" if self.max is None else " %i" % self.max
+        return "(memory%s%s%s)" % (id, min, max)
 
     def _to_writer(self, f):
         f.write_limits(self.min, self.max)
@@ -976,7 +1006,7 @@ class Global(Definition):
 
     """
 
-    __slots__ = ('id', 'typ', 'mutable', 'init')
+    __slots__ = ("id", "typ", "mutable", "init")
 
     def _from_args(self, id, typ, mutable, init):
         assert isinstance(init, list)
@@ -986,11 +1016,11 @@ class Global(Definition):
         self.init = init
 
     def to_string(self):
-        init = ' '.join(i.to_string() for i in self.init)
+        init = " ".join(i.to_string() for i in self.init)
         if self.mutable:
-            return '(global %s (mut %s) %s)' % (self.id, self.typ, init)
+            return "(global %s (mut %s) %s)" % (self.id, self.typ, init)
         else:
-            return '(global %s %s %s)' % (self.id, self.typ, init)
+            return "(global %s %s %s)" % (self.id, self.typ, init)
 
     def _to_writer(self, f):
         f.write_type(self.typ)
@@ -1023,11 +1053,11 @@ class Export(Definition):
       corresponding to kind).
     """
 
-    __slots__ = ('name', 'kind', 'ref')  # (export "name" (func $ref))
+    __slots__ = ("name", "kind", "ref")  # (export "name" (func $ref))
 
     def _from_args(self, name, kind, ref):
         assert isinstance(ref, Ref)
-        assert kind in ('func', 'table', 'memory', 'global')
+        assert kind in ("func", "table", "memory", "global")
         self.name = name
         self.kind = kind
         self.ref = ref
@@ -1037,7 +1067,7 @@ class Export(Definition):
 
     def _to_writer(self, f):
         f.write_str(self.name)
-        type_id = {'func': 0, 'table': 1, 'memory': 2, 'global': 3}[self.kind]
+        type_id = {"func": 0, "table": 1, "memory": 2, "global": 3}[self.kind]
         f.write(bytes([type_id]))
         assert self.ref.space == self.kind
         int_ref = self.ref.index
@@ -1046,7 +1076,7 @@ class Export(Definition):
     def _from_reader(self, reader):
         self.name = reader.read_str()
         kind_id = reader.read_byte()
-        self.kind = ['func', 'table', 'memory', 'global'][kind_id]
+        self.kind = ["func", "table", "memory", "global"][kind_id]
         self.ref = Ref(self.kind, index=reader.read_uint())
 
 
@@ -1061,20 +1091,20 @@ class Start(Definition):
 
     """
 
-    __slots__ = ('ref', )
+    __slots__ = ("ref",)
 
     def _from_args(self, ref):
         self.ref = check_id(ref)
 
     def to_string(self):
-        return '(start %s)' % self.ref
+        return "(start %s)" % self.ref
 
     def _to_writer(self, f):
-        assert self.ref.space == 'func'
+        assert self.ref.space == "func"
         f.write_vu32(self.ref.index)
 
     def _from_reader(self, reader):
-        self.ref = Ref('func', index=reader.read_uint())
+        self.ref = Ref("func", index=reader.read_uint())
 
 
 class Func(Definition):
@@ -1102,11 +1132,11 @@ class Func(Definition):
 
     # todo: force local ids to be either int or str?
 
-    __slots__ = ('id', 'ref', 'locals', 'instructions')  # ref to type
+    __slots__ = ("id", "ref", "locals", "instructions")  # ref to type
 
     def _from_args(self, id, ref, locals, instructions):
         if not isinstance(ref, Ref):
-            raise TypeError('ref must be of type Ref')
+            raise TypeError("ref must be of type Ref")
         assert isinstance(locals, (tuple, list))
         assert isinstance(instructions, (tuple, list))
         assert all(isinstance(el, tuple) and len(el) == 2 for el in locals)
@@ -1117,14 +1147,15 @@ class Func(Definition):
         if instructions and isinstance(instructions[0], Instruction):
             self.instructions = instructions  # assume all are instructions
         else:
-            blocktypes = ('block', 'loop', 'if')
+            blocktypes = ("block", "loop", "if")
             self.instructions = [
                 (BlockInstruction if i[0] in blocktypes else Instruction)(*i)
-                for i in instructions]
+                for i in instructions
+            ]
 
     def to_string(self):
         """ Render function def as text """
-        s = ''
+        s = ""
         last_anon = False
         for i in range(len(self.locals)):
             id, typ = self.locals[i]
@@ -1132,20 +1163,20 @@ class Func(Definition):
                 if id is not None:
                     assert id == i
                 if last_anon:
-                    s += ' ' + typ
+                    s += " " + typ
                 else:
-                    s += ' (local %s' % typ
+                    s += " (local %s" % typ
                     last_anon = True
             else:
-                s += ')' if last_anon else ''
-                s += ' (local %s %s)' % (id, typ)
+                s += ")" if last_anon else ""
+                s += " (local %s %s)" % (id, typ)
                 last_anon = False
-        s += ')' if last_anon else ''
+        s += ")" if last_anon else ""
         locals_str = s
 
-        s = '(func %s (type %s)' % (self.id, self.ref) + locals_str + '\n'
+        s = "(func %s (type %s)" % (self.id, self.ref) + locals_str + "\n"
         s += self._get_sub_string(self.instructions, True)
-        s += '\n)'
+        s += "\n)"
         return s
 
     def _to_writer(self, f):
@@ -1171,7 +1202,7 @@ class Func(Definition):
         # Instructions:
         for instruction in self.instructions:
             instruction._to_writer(f3)
-        f3.write(b'\x0b')  # end
+        f3.write(b"\x0b")  # end
         body = f3.f.getvalue()
         f.write_vu32(len(body))  # number of bytes in body
         f.write(body)
@@ -1205,11 +1236,12 @@ class Elem(Definition):
     Attributes:
 
     * ref: the table id that this element applies to.
-    * offset: the element offset, expressed as an instruction list (i.e. [i32.const, end])
+    * offset: the element offset, expressed as an instruction list
+      (i.e. [i32.const, end])
     * refs: a list of function references.
     """
 
-    __slots__ = ('ref', 'offset', 'refs')
+    __slots__ = ("ref", "offset", "refs")
 
     def _from_args(self, ref, offset, refs):
         # Check
@@ -1222,30 +1254,30 @@ class Elem(Definition):
         self.refs = refs
 
     def to_string(self):
-        ref = '' if self.ref.is_zero else ' %s' % self.ref
-        offset = ' '.join(i.to_string() for i in self.offset)
-        refs_as_str = ' '.join(str(i) for i in self.refs)
-        return '(elem%s %s %s)' % (ref, offset, refs_as_str)
+        ref = "" if self.ref.is_zero else " %s" % self.ref
+        offset = " ".join(i.to_string() for i in self.offset)
+        refs_as_str = " ".join(str(i) for i in self.refs)
+        return "(elem%s %s %s)" % (ref, offset, refs_as_str)
 
     def _to_writer(self, f):
-        assert self.ref.space == 'table'
+        assert self.ref.space == "table"
         f.write_vu32(self.ref.index)
         # Encode offset as expression followed by end instruction
         f.write_expression(self.offset)
         # Encode as u32 length followed by func indices:
         f.write_vu32(len(self.refs))
         for ref in self.refs:
-            assert ref.space == 'func'
+            assert ref.space == "func"
             f.write_vu32(ref.index)
 
     def _from_reader(self, reader):
-        self.ref = Ref('table', index=reader.read_uint())
+        self.ref = Ref("table", index=reader.read_uint())
         self.offset = reader.read_expression()
 
         count = reader.read_uint()
         indexes = []
         for _ in range(count):
-            indexes.append(Ref('func', index=reader.read_uint()))
+            indexes.append(Ref("func", index=reader.read_uint()))
         self.refs = indexes
 
 
@@ -1264,13 +1296,13 @@ class Data(Definition):
     * data: the binary data as a bytes object.
     """
 
-    __slots__ = ('ref', 'offset', 'data')
+    __slots__ = ("ref", "offset", "data")
 
     def _from_args(self, ref, offset, data):
         # Check
         assert isinstance(offset, list)
         if not isinstance(data, bytes):
-            raise TypeError('data must be bytes')
+            raise TypeError("data must be bytes")
         # Set
         self.ref = check_id(ref)
         assert isinstance(self.ref, Ref)
@@ -1278,13 +1310,13 @@ class Data(Definition):
         self.data = data
 
     def to_string(self):
-        ref = '' if self.ref.is_zero else ' %s' % self.ref
-        offset = ' '.join(i.to_string() for i in self.offset)
+        ref = "" if self.ref.is_zero else " %s" % self.ref
+        offset = " ".join(i.to_string() for i in self.offset)
         data_as_str = bytes2datastring(self.data)  # repr(self.data)[2:-1]
         return '(data%s %s "%s")' % (ref, offset, data_as_str)
 
     def _to_writer(self, f):
-        assert self.ref.space == 'memory'
+        assert self.ref.space == "memory"
         f.write_vu32(self.ref.index)
 
         # Encode offset as expression followed by end instruction
@@ -1295,7 +1327,7 @@ class Data(Definition):
         f.write(self.data)
 
     def _from_reader(self, reader):
-        self.ref = Ref('memory', index=reader.read_uint())
+        self.ref = Ref("memory", index=reader.read_uint())
         self.offset = reader.read_expression()
         self.data = reader.read_bytes()
 
@@ -1303,9 +1335,9 @@ class Data(Definition):
 class Custom(Definition):
     """ Custom binary data.
     """
-    
-    __slots__ = ('name', 'data')
-    
+
+    __slots__ = ("name", "data")
+
     def _from_args(self, name, data):
         assert isinstance(name, str)
         assert isinstance(data, bytes)
@@ -1313,18 +1345,20 @@ class Custom(Definition):
         self.data = data
 
     def to_string(self):
-        raise NotImplementedError('Cannot convert custom section to string.')
-    
+        raise NotImplementedError("Cannot convert custom section to string.")
+
     def _to_writer(self, f):
         f.write_str(self.name)
         f.write(self.data)
 
     def _from_reader(self, reader):
-        raise NotImplementedError()  # Module does it, because need nbytes of section
+        # Module does it, because need nbytes of section
+        raise NotImplementedError()
 
 
 # Do some validation on the classes
 DEFINITION_CLASSES = {}  # classes that represent a WASM module definition
+
 
 def _validate():
     names1 = set()
@@ -1334,15 +1368,22 @@ def _validate():
                 names1.add(name.lower())
                 DEFINITION_CLASSES[name.lower()] = value
 
-    names2 = set(SECTION_IDS).difference(['code', 'function'])
+    names2 = set(SECTION_IDS).difference(["code", "function"])
     if names1 != names2:
-        raise RuntimeError('Class validation failed:' +
-            '\n  Unknown field clases: %s' % names1.difference(names2) +
-            '\n  Missing field classes: %s' % names2.difference(names1)
-            )
+        raise RuntimeError(
+            "Class validation failed:"
+            + "\n  Unknown field clases: %s" % names1.difference(names2)
+            + "\n  Missing field classes: %s" % names2.difference(names1)
+        )
+
 
 _validate()
 
-__all__ = ['WASMComponent', 'Instruction', 'BlockInstruction',
-           'Module', 'Definition']
+__all__ = [
+    "WASMComponent",
+    "Instruction",
+    "BlockInstruction",
+    "Module",
+    "Definition",
+]
 __all__ += [cls.__name__ for cls in DEFINITION_CLASSES.values()]

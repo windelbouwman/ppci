@@ -28,7 +28,8 @@ class Or1kArch(Architecture):
     r11 -> return value
 
     """
-    name = 'or1k'
+
+    name = "or1k"
 
     def __init__(self, options=None):
         super().__init__(options=options)
@@ -39,27 +40,40 @@ class Or1kArch(Architecture):
 
         self.info = ArchInfo(
             type_infos={
-                ir.i8: TypeInfo(1, 1), ir.u8: TypeInfo(1, 1),
-                ir.i16: TypeInfo(2, 2), ir.u16: TypeInfo(2, 2),
-                ir.i32: TypeInfo(4, 4), ir.u32: TypeInfo(4, 4),
-                'int': ir.i32, 'ptr': ir.u32,
+                ir.i8: TypeInfo(1, 1),
+                ir.u8: TypeInfo(1, 1),
+                ir.i16: TypeInfo(2, 2),
+                ir.u16: TypeInfo(2, 2),
+                ir.i32: TypeInfo(4, 4),
+                ir.u32: TypeInfo(4, 4),
+                ir.f32: TypeInfo(4, 4),
+                ir.f64: TypeInfo(8, 8),
+                "int": ir.i32,
+                "ptr": ir.u32,
+                ir.ptr: ir.u32,
             },
             endianness=Endianness.BIG,
-            register_classes=registers.register_classes)
+            register_classes=registers.register_classes,
+        )
 
         self.gdb_registers = registers.gdb_registers
         self.gdb_pc = registers.PC
 
     def determine_arg_locations(self, arg_types):
         """ Given a set of argument types, determine location for argument """
-        l = []
+        locations = []
         regs = [
-            registers.r3, registers.r4, registers.r5, registers.r6,
-            registers.r7, registers.r8]
+            registers.r3,
+            registers.r4,
+            registers.r5,
+            registers.r6,
+            registers.r7,
+            registers.r8,
+        ]
         for a in arg_types:
             r = regs.pop(0)
-            l.append(r)
-        return l
+            locations.append(r)
+        return locations
 
     def determine_rv_location(self, ret_type):
         return registers.r11
@@ -74,7 +88,8 @@ class Or1kArch(Architecture):
 
         # setup frame pointer:
         yield instructions.Addi(
-            registers.r2, registers.r1, instructions.Immediate(0))
+            registers.r2, registers.r1, instructions.Immediate(0)
+        )
 
         # Save link register:
         yield instructions.Sw(-4, registers.r2, registers.r9)
@@ -92,13 +107,15 @@ class Or1kArch(Architecture):
         # Adjust stack
         stack_size = 8 + frame.stacksize + len(frame.used_regs) * 4
         yield instructions.Addi(
-            registers.r1, registers.r1, instructions.Immediate(-stack_size))
+            registers.r1, registers.r1, instructions.Immediate(-stack_size)
+        )
 
     def gen_epilogue(self, frame):
         """ Return epilogue sequence for a frame. """
         # Restore stack pointer:
         yield instructions.Ori(
-            registers.r1, registers.r2, instructions.Immediate(0))
+            registers.r1, registers.r2, instructions.Immediate(0)
+        )
 
         # Restore callee saved registers:
         saved_registers_space = 0
@@ -123,7 +140,7 @@ class Or1kArch(Architecture):
         # Add final literal pool:
         for instruction in self.litpool(frame):
             yield instruction
-        yield Alignment(4)   # Align at 4 bytes
+        yield Alignment(4)  # Align at 4 bytes
 
     def gen_call(self, frame, label, args, rv):
         arg_types = [a[0] for a in args]
@@ -136,7 +153,7 @@ class Or1kArch(Architecture):
                 arg_regs.append(arg_loc)
                 yield self.move(arg_loc, arg)
             else:  # pragma: no cover
-                raise NotImplementedError('Parameters in memory not impl')
+                raise NotImplementedError("Parameters in memory not impl")
 
         yield RegisterUseDef(uses=arg_regs)
 
@@ -156,8 +173,9 @@ class Or1kArch(Architecture):
         arg_types = [a[0] for a in args]
         arg_locs = self.determine_arg_locations(arg_types)
 
-        arg_regs = set(l for l in arg_locs if isinstance(
-            l, registers.Or1kRegister))
+        arg_regs = set(
+            l for l in arg_locs if isinstance(l, registers.Or1kRegister)
+        )
         yield RegisterUseDef(defs=arg_regs)
 
         for arg_loc, arg2 in zip(arg_locs, args):
@@ -165,7 +183,7 @@ class Or1kArch(Architecture):
             if isinstance(arg_loc, registers.Or1kRegister):
                 yield self.move(arg, arg_loc)
             else:  # pragma: no cover
-                raise NotImplementedError('Parameters in memory not impl')
+                raise NotImplementedError("Parameters in memory not impl")
 
     def gen_function_exit(self, rv):
         live_out = set()
@@ -179,7 +197,7 @@ class Or1kArch(Architecture):
         """ Generate instructions for literals """
         if frame.constants:
             # Align at 4 bytes
-            yield SectionInstruction('rodata')
+            yield SectionInstruction("rodata")
             yield Alignment(4)
 
             # Add constant literals:
@@ -188,12 +206,13 @@ class Or1kArch(Architecture):
                 if isinstance(value, bytes):
                     for byte in value:
                         yield Db(byte)
-                    yield Alignment(4)   # Align at 4 bytes
+                    yield Alignment(4)  # Align at 4 bytes
                 else:  # pragma: no cover
                     raise NotImplementedError(
-                        'Constant of type {}'.format(value))
+                        "Constant of type {}".format(value)
+                    )
 
-            yield SectionInstruction('code')
+            yield SectionInstruction("code")
 
     def move(self, dst, src):
         """ Generate a move from src to dst """

@@ -1,4 +1,3 @@
-
 """ Contains disassembler stuff. """
 
 from ..arch.data_instructions import DByte
@@ -6,6 +5,7 @@ from ..arch.data_instructions import DByte
 
 class Disassembler:
     """ Base disassembler for some architecture """
+
     def __init__(self, arch):
         self.arch = arch
         for instruction in arch.isa.instructions:

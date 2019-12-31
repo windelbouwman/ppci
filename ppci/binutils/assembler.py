@@ -10,29 +10,33 @@ from ..lang.tools.earley import EarleyParser
 from ..lang.tools.baselex import BaseLexer, EPS, EOF
 from ..common import make_num
 from ..arch.generic_instructions import Label, Alignment, SectionInstruction
-from ..arch.generic_instructions import DebugData
+from ..arch.generic_instructions import DebugData, Global
 from ..arch.encoding import Operand, Syntax, Register
 from ..common import CompilerError, SourceLocation
 from .debuginfo import DebugLocation, DebugDb
 
-id_regex = r'[A-Za-z_][A-Za-z\d_]*'
+id_regex = r"[A-Za-z_][A-Za-z\d_]*"
 id_matcher = re.compile(id_regex)
 
 
 class AsmLexer(BaseLexer):
     """ Lexer capable of lexing a single line """
+
     def __init__(self, kws=()):
         tok_spec = [
-            ('REAL', r'\d+\.\d+', lambda typ, val: (typ, float(val))),
-            ('BINNUMBER', r'(0b|%)[0-1]+', self.handle_number),
-            ('HEXNUMBER', r'(0x|\$)[0-9a-fA-F]+', self.handle_number),
-            ('NUMBER', r'\d+', self.handle_number),
-            ('ID', id_regex, self.handle_id),
-            ('SKIP', r'[ \t]', None),
-            ('GLYPH', '|'.join(re.escape(c) for c in Syntax.GLYPHS),
-                lambda typ, val: (val, val)),
-            ('STRING', r"'.*?'", lambda typ, val: (typ, val[1:-1])),
-            ('COMMENT', r";.*", None)
+            ("REAL", r"\d+\.\d+", lambda typ, val: (typ, float(val))),
+            ("BINNUMBER", r"(0b|%)[0-1]+", self.handle_number),
+            ("HEXNUMBER", r"(0x|\$)[0-9a-fA-F]+", self.handle_number),
+            ("NUMBER", r"\d+", self.handle_number),
+            ("ID", id_regex, self.handle_id),
+            ("SKIP", r"[ \t]", None),
+            (
+                "GLYPH",
+                "|".join(re.escape(c) for c in Syntax.GLYPHS),
+                lambda typ, val: (val, val),
+            ),
+            ("STRING", r"'.*?'", lambda typ, val: (typ, val[1:-1])),
+            ("COMMENT", r";.*", None),
         ]
         super().__init__(tok_spec)
         self.kws = set(kws)
@@ -49,29 +53,30 @@ class AsmLexer(BaseLexer):
     def handle_number(self, typ, val):
         """ Handle a number during lexing """
         val = make_num(val)
-        typ = 'NUMBER'
+        typ = "NUMBER"
         return typ, val
 
 
 class AsmParser:
     """ Base parser for assembler language """
+
     def __init__(self):
         # Construct a parser given a grammar:
-        terminals = ['ID', 'NUMBER', EPS, 'COMMENT', EOF] + Syntax.GLYPHS
+        terminals = ["ID", "NUMBER", EPS, "COMMENT", EOF] + Syntax.GLYPHS
         self.g = Grammar()
         self.g.add_terminals(terminals)
 
         # Global structure of assembly line:
-        self.g.add_production('asmline', ['asmline2'])
+        self.g.add_production("asmline", ["asmline2"])
         # self.g.add_production('asmline', ['asmline2', 'COMMENT'])
         self.g.add_production(
-            'asmline2',
-            ['$str$', ':', 'instruction'], self.handle_label_ins)
-        self.g.add_production('asmline2', ['instruction'], self.handle_ins)
-        self.g.add_production('asmline2', ['$str$', ':'], self.handle_label)
-        self.g.add_production('asmline2', ['directive'])
-        self.g.add_production('asmline2', [])
-        self.g.start_symbol = 'asmline'
+            "asmline2", ["$str$", ":", "instruction"], self.handle_label_ins
+        )
+        self.g.add_production("asmline2", ["instruction"], self.handle_ins)
+        self.g.add_production("asmline2", ["$str$", ":"], self.handle_label)
+        self.g.add_production("asmline2", ["directive"])
+        self.g.add_production("asmline2", [])
+        self.g.start_symbol = "asmline"
 
     def handle_ins(self, i):
         # if i:
@@ -87,15 +92,16 @@ class AsmParser:
 
     def parse(self, lexer):
         """ Entry function to parser """
-        if not hasattr(self, 'p'):
+        if not hasattr(self, "p"):
             self.p = EarleyParser(self.g)
         self.p.parse(lexer)
 
 
 class BaseAssembler:
     """ Assembler base class, inherited by assemblers specific for a target """
-    str_id = '$str$'
-    int_id = '$int$'
+
+    str_id = "$str$"
+    int_id = "$int$"
 
     def __init__(self):
         self.in_macro = False
@@ -108,20 +114,25 @@ class BaseAssembler:
         # Register basic types:
         self.typ2nt[int] = self.int_id
         self.typ2nt[str] = self.str_id
-        self.add_rule(self.str_id, ['ID'], lambda rhs: rhs[0].val)
-        self.add_rule(self.int_id, ['NUMBER'], lambda rhs: rhs[0].val)
-        self.add_rule(self.int_id, ['-', 'NUMBER'], lambda rhs: -rhs[1].val)
+        self.add_rule(self.str_id, ["ID"], lambda rhs: rhs[0].val)
+        self.add_rule(self.int_id, ["NUMBER"], lambda rhs: rhs[0].val)
+        self.add_rule(self.int_id, ["-", "NUMBER"], lambda rhs: -rhs[1].val)
 
         # Common parser rules:
         # num = register_argument('amount',
         self.add_instruction(
-            ['align', self.int_id], lambda rhs: Alignment(rhs[1]))
+            ["align", self.int_id], lambda rhs: Alignment(rhs[1])
+        )
         self.add_instruction(
-            ['section', self.str_id], lambda rhs: SectionInstruction(rhs[1]))
-        self.add_rule('directive', ['repeat', self.int_id], self.p_repeat)
-        self.add_rule('directive', ['endrepeat'], self.p_endrepeat)
-        self.add_keyword('repeat')
-        self.add_keyword('endrepeat')
+            ["section", self.str_id], lambda rhs: SectionInstruction(rhs[1])
+        )
+        self.add_instruction(
+            ["global", self.str_id], lambda rhs: Global(rhs[1])
+        )
+        self.add_rule("directive", ["repeat", self.int_id], self.p_repeat)
+        self.add_rule("directive", ["endrepeat"], self.p_endrepeat)
+        self.add_keyword("repeat")
+        self.add_keyword("endrepeat")
 
     def add_keyword(self, keyword):
         """ Add a keyword to the grammar """
@@ -138,12 +149,14 @@ class BaseAssembler:
     def add_instruction(self, rhs, f, priority=0):
         """ Add an instruction to the grammar """
         rhs2 = self.resolve_rhs(rhs)
-        self.add_rule('instruction', rhs2, f, priority=priority)
+        self.add_rule("instruction", rhs2, f, priority=priority)
 
     def add_rule(self, lhs, rhs, f, priority=0):
         """ Helper function to add a rule, why this is required? """
+
         def f_wrap(*args):
             return f(args)
+
         self.parser.g.add_production(lhs, rhs, f_wrap, priority=priority)
 
     # Functions to automate the adding of instructions to asm syntax:
@@ -153,7 +166,8 @@ class BaseAssembler:
         for instruction in isa.instructions:
             if instruction.syntax:
                 self.generate_syntax_rule(
-                    instruction, 'instruction', instruction.syntax)
+                    instruction, "instruction", instruction.syntax
+                )
         # self.parser.g.dump()
 
     def generate_syntax_rule(self, cls, nt, stx):
@@ -177,6 +191,7 @@ class BaseAssembler:
             # Create new class:
             usable = [args[idx] for idx in prop_list]
             return cls(*usable)
+
         self.add_rule(nt, rhs, cs, stx.priority)
 
     def resolve_rhs(self, rhs):
@@ -204,7 +219,7 @@ class BaseAssembler:
 
         if isinstance(arg_cls, tuple):
             assert len(arg_cls) > 0
-            nt = 'w00t{}'.format(id(arg_cls))
+            nt = "w00t{}".format(id(arg_cls))
             assert nt not in self.typ2nt.values()
             self.typ2nt[arg_cls] = nt
             for con in arg_cls:
@@ -219,7 +234,7 @@ class BaseAssembler:
             # TODO: figure a nice way for this:
 
             # create a non-terminal name:
-            nt = '$reg_cls_{}$'.format(arg_cls.__name__.lower())
+            nt = "$reg_cls_{}$".format(arg_cls.__name__.lower())
 
             # Store nt for later:
             self.typ2nt[arg_cls] = nt
@@ -232,8 +247,10 @@ class BaseAssembler:
 
     def make_register_rule_function(self, nt, register):
         """ Create a function that can be used for a register grammar rule """
+
         def cs(_):
             return register
+
         rhs = self.resolve_rhs(self.split_text(register.name))
         self.add_rule(nt, rhs, cs)
         for aka in register.aka:
@@ -263,7 +280,7 @@ class BaseAssembler:
             self.parser.parse(self.lexer)
         except CompilerError:
             loc = SourceLocation(self.filename, self.line_no, 1, 0)
-            raise CompilerError('Unable to assemble: {}'.format(line), loc)
+            raise CompilerError("Unable to assemble: {}".format(line), loc)
 
     def assemble(self, asmsrc, stream, diag, debug=False):
         """ Assemble the source snippet into the given output stream """
@@ -272,8 +289,8 @@ class BaseAssembler:
         self.filename = None
         if isinstance(asmsrc, str):
             pass
-        elif hasattr(asmsrc, 'read'):
-            if hasattr(asmsrc, 'name'):
+        elif hasattr(asmsrc, "read"):
+            if hasattr(asmsrc, "name"):
                 self.filename = asmsrc.name
             asmsrc2 = asmsrc.read()
             asmsrc.close()
@@ -287,7 +304,7 @@ class BaseAssembler:
         self.line_no = 0
         debug_data = []
         debug_db = DebugDb()
-        for line in asmsrc.split('\n'):
+        for line in asmsrc.split("\n"):
             if debug and self.filename:
                 loc = SourceLocation(self.filename, self.line_no, 1, 1)
                 label_name = debug_db.new_label()

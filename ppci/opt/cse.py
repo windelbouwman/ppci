@@ -6,6 +6,7 @@ class CommonSubexpressionEliminationPass(BlockPass):
     """
         Replace common sub expressions (cse) with the previously defined one.
     """
+
     def on_block(self, block):
         ins_map = {}
         stats = 0
@@ -25,4 +26,4 @@ class CommonSubexpressionEliminationPass(BlockPass):
             else:
                 ins_map[k] = i
         if stats > 0:
-            self.logger.debug('Replaced %i instructions', stats)
+            self.logger.debug("Replaced %i instructions", stats)

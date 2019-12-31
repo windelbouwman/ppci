@@ -85,7 +85,7 @@ class IrDagTestCase(unittest.TestCase):
         """ Check that if blocks are in function in strange order, the dag
         builder works """
         module = ir.Module('dut')
-        function = ir.Procedure('tst')
+        function = ir.Procedure('tst', ir.Binding.GLOBAL)
         module.add_function(function)
         block1 = ir.Block('b1')
         block2 = ir.Block('b2')
@@ -141,10 +141,10 @@ class IrDagTestCase(unittest.TestCase):
         """
         builder = Builder()
         module = ir.Module('fuzz')
-        global_tick = ir.Variable('global_tick', 4, 4)
+        global_tick = ir.Variable('global_tick', ir.Binding.GLOBAL, 4, 4)
         module.add_variable(global_tick)
         builder.module = module
-        function = builder.new_procedure('sleep')
+        function = builder.new_procedure('sleep', ir.Binding.GLOBAL)
         ms = ir.Parameter('ms', ir.i32)
         function.add_parameter(ms)
         builder.set_function(function)

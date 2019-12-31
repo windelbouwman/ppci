@@ -10,7 +10,7 @@ import argparse
 import io
 from ppci.api import get_current_arch
 from ppci.lang.c import CLexer, CParser, COptions, CContext, CSemantics
-from ppci.lang.c import types, declarations
+from ppci.lang.c.nodes import types, declarations
 from ppci.lang.c.preprocessor import prepare_for_parsing
 
 parser = argparse.ArgumentParser(
@@ -24,7 +24,7 @@ arch = get_current_arch()
 coptions = COptions()
 ccontext = CContext(coptions, arch.info)
 semantics = CSemantics(ccontext)
-cparser = CParser(ccontext, semantics)
+cparser = CParser(coptions, semantics)
 clexer = CLexer(COptions())
 f = io.StringIO(args.source)
 tokens = clexer.lex(f, '<snippet>')

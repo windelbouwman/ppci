@@ -1,4 +1,3 @@
-
 """
 The selection graph is a graph representation of the control and data flow
 of a function or a basic block.
@@ -8,12 +7,13 @@ from collections import namedtuple
 from ..utils.collections import OrderedSet
 
 
-SGEdge = namedtuple('SGEdge', ['src', 'dst', 'name', 'kind'])
-SGGroup = namedtuple('SGGroup', ['name'])
+SGEdge = namedtuple("SGEdge", ["src", "dst", "name", "kind"])
+SGGroup = namedtuple("SGGroup", ["name"])
 
 
 class SelectionGraph:
     """ Directed acyclic graph of to be selected instructions """
+
     # TODO: can this derive from graph class?
     def __init__(self):
         self.roots = []
@@ -26,8 +26,8 @@ class SelectionGraph:
     def add_node(self, node):
         """ Add a node to the graph """
         self.nodes.add(node)
-        if hasattr(node, 'group'):
-            self.groups.add(getattr(node, 'group'))
+        if hasattr(node, "group"):
+            self.groups.add(getattr(node, "group"))
 
     def get_group(self, group):
         """ Get all nodes of a group """
@@ -57,6 +57,7 @@ class SGValue:
 
     it has one single source, and can have multiple usages.
     """
+
     DATA = 0
     CONTROL = 1
     MEMORY = 2
@@ -92,7 +93,7 @@ class SGValue:
         return self.node.name.ty
 
     def __repr__(self):
-        return 'SGValue(name={},vreg={})'.format(self.name, self.vreg)
+        return "SGValue(name={},vreg={})".format(self.name, self.vreg)
 
 
 class SGNode:
@@ -105,6 +106,7 @@ class SGNode:
         than one value. For instance the 'div' x86 instruction produces both
         the quotient and the remainer.
     """
+
     def __init__(self, op):
         self.name = op
         self.value = None
@@ -112,7 +114,7 @@ class SGNode:
         self.outputs = []
 
     def __repr__(self):
-        return '{} [{}]'.format(self.name, self.value)
+        return "{} [{}]".format(self.name, self.value)
 
     def is_machine_instruction(self):
         return False
@@ -158,8 +160,8 @@ class SGNode:
     def new_output(self, name, kind=SGValue.DATA):
         """ Create a new output value with a name and the given kind """
         if self.name.ty is None and kind == SGValue.DATA:
-                # self.name.op not in ['ENTRY', 'EXIT'] and \
-            raise ValueError('{} cannot produce output'.format(self))
+            # self.name.op not in ['ENTRY', 'EXIT'] and \
+            raise ValueError("{} cannot produce output".format(self))
         val = SGValue(name, kind, self)
         self.add_output(val)
         return val

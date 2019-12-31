@@ -14,6 +14,7 @@ from .astnodes import SignedIntegerType, UnsignedIntegerType, FloatType
 
 class SemanticError(CompilerError):
     """ Error thrown when a semantic issue is observed """
+
     pass
 
 
@@ -22,6 +23,7 @@ class Scope:
 
     It also has a parent scope,
     when looking for a symbol, also the parent scopes are checked. """
+
     def __init__(self, parent=None):
         self.symbols = {}
         self.parent = parent
@@ -29,7 +31,8 @@ class Scope:
     def __iter__(self):
         # Iterate in a deterministic manner:
         return itertools.chain(
-            self.types, self.constants, self.variables, self.functions)
+            self.types, self.constants, self.variables, self.functions
+        )
 
     @property
     def syms(self):
@@ -86,7 +89,7 @@ class Scope:
         self.symbols[sym.name] = sym
 
     def __repr__(self):
-        return 'Scope with {} symbols'.format(len(self.symbols))
+        return "Scope with {} symbols".format(len(self.symbols))
 
 
 def create_top_scope(arch_info):
@@ -97,29 +100,29 @@ def create_top_scope(arch_info):
     scope = Scope()
 
     # stdlib types:
-    scope.add_symbol(UnsignedIntegerType('uint64_t', 8))
-    scope.add_symbol(UnsignedIntegerType('uint32_t', 4))
-    scope.add_symbol(UnsignedIntegerType('uint16_t', 2))
-    scope.add_symbol(UnsignedIntegerType('uint8_t', 1))
-    scope.add_symbol(SignedIntegerType('int64_t', 8))
-    scope.add_symbol(SignedIntegerType('int32_t', 4))
-    scope.add_symbol(SignedIntegerType('int16_t', 2))
-    scope.add_symbol(SignedIntegerType('int8_t', 1))
+    scope.add_symbol(UnsignedIntegerType("uint64_t", 8))
+    scope.add_symbol(UnsignedIntegerType("uint32_t", 4))
+    scope.add_symbol(UnsignedIntegerType("uint16_t", 2))
+    scope.add_symbol(UnsignedIntegerType("uint8_t", 1))
+    scope.add_symbol(SignedIntegerType("int64_t", 8))
+    scope.add_symbol(SignedIntegerType("int32_t", 4))
+    scope.add_symbol(SignedIntegerType("int16_t", 2))
+    scope.add_symbol(SignedIntegerType("int8_t", 1))
 
     # buildin types:
-    int_type = SignedIntegerType('int', arch_info.get_size('int'))
-    byte_type = UnsignedIntegerType('byte', 1)
+    int_type = SignedIntegerType("int", arch_info.get_size("int"))
+    byte_type = UnsignedIntegerType("byte", 1)
     scope.add_symbol(int_type)
-    scope.add_symbol(FloatType('double', 8, 52))
-    scope.add_symbol(FloatType('float', 4, 23))
-    scope.add_symbol(BaseType('void', 0))
-    scope.add_symbol(BaseType('bool', arch_info.get_size('int')))
+    scope.add_symbol(FloatType("double", 8, 52))
+    scope.add_symbol(FloatType("float", 4, 23))
+    scope.add_symbol(BaseType("void", 0))
+    scope.add_symbol(BaseType("bool", arch_info.get_size("int")))
     scope.add_symbol(byte_type)
 
     # Construct string type from others:
-    len_field = StructField('len', int_type)
-    txt = StructField('txt', ArrayType(byte_type, 0))
+    len_field = StructField("len", int_type)
+    txt = StructField("txt", ArrayType(byte_type, 0))
     string_type = PointerType(StructureType([len_field, txt]))
-    string_def_type = DefinedType('string', string_type, True, None)
+    string_def_type = DefinedType("string", string_type, True, None)
     scope.add_symbol(string_def_type)
     return scope
