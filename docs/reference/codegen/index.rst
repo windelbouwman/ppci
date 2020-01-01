@@ -48,7 +48,7 @@ Canonicalize
 ~~~~~~~~~~~~
 
 During this phase, the IR-code is made simpler. Also unsupported
-operations are rewritten into function calls. For example soft floating
+operations are rewritten into function calls. For example, soft floating
 point is introduced here.
 
 .. toctree::
