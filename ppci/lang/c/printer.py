@@ -242,15 +242,24 @@ class CPrinter:
             else:
                 thing = self.gen_expr(expr.sizeof_typ)
             return "sizeof({})".format(thing)
-        elif isinstance(expr, expressions.InitializerList):
-            thing = ", ".join(self.gen_expr(e) for e in expr.elements)
-            return "{" + thing + "}"
         elif isinstance(expr, expressions.ArrayInitializer):
             thing = ", ".join(self.gen_expr(e) for e in expr.values)
+            return "{" + thing + "}"
+        elif isinstance(expr, expressions.StructInitializer):
+            thing = ", ".join(
+                ".{}={}".format(f, self.gen_expr(e)) for f,e in expr.values.items()
+            )
+            return "{" + thing + "}"
+        elif isinstance(expr, expressions.UnionInitializer):
+            thing = ".{}={}".format(expr.field, self.gen_expr(expr.value))
             return "{" + thing + "}"
         elif isinstance(expr, expressions.Cast):
             return "({})({})".format(
                 self.render_type(expr.to_typ), self.gen_expr(expr.expr)
+            )
+        elif isinstance(expr, expressions.CompoundLiteral):
+            return "({}) {{ {} }}".format(
+                self.render_type(expr.typ), self.gen_expr(expr.init)
             )
         elif isinstance(expr, expressions.BuiltInOffsetOf):
             return "offsetof({}, {})".format(

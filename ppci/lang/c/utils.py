@@ -112,7 +112,7 @@ def replace_escape_codes(txt: str):
     """ Replace escape codes inside the given text """
     prog = re.compile(
         r"(\\[0-7]{1,3})|(\\x[0-9a-fA-F]+)|"
-        r'(\\[\'"?\\abfnrtv])|(\\u[0-9a-fA-F]{4})|(\\U[0-9a-fA-F]{8})'
+        r'(\\[\'"?\\abfnrtve])|(\\u[0-9a-fA-F]{4})|(\\U[0-9a-fA-F]{8})'
     )
     pos = 0
     endpos = len(txt)
@@ -139,6 +139,7 @@ def replace_escape_codes(txt: str):
                     "r": "\r",
                     "t": "\t",
                     "v": "\v",
+                    "e": "\x1B",  # Non-standard escape character
                     "\\": "\\",
                     '"': '"',
                     "'": "'",

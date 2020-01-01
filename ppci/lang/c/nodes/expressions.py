@@ -253,20 +253,6 @@ class CompoundLiteral(CExpression):
         self.init = init
 
 
-class InitializerList(Expression):
-    """ A c style initializer list """
-
-    def __init__(self, elements, loc):
-        super().__init__(loc)
-        self.elements = elements
-
-    def __repr__(self):
-        return "Initializer list"
-
-    def __len__(self):
-        return len(self.elements)
-
-
 class BuiltIn(CExpression):
     """ Build in function """
 

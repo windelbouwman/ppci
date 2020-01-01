@@ -28,5 +28,5 @@ class CSynthesizerTestCase(unittest.TestCase):
         synthesizer.syn_module(ir_module)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

@@ -3,13 +3,25 @@
 # pylint: disable=R0903
 
 
-from ...generic.nodes import Statement, Compound
+from ...generic.nodes import Statement
 
 
 class CStatement(Statement):
     """ Base C statement """
 
     pass
+
+
+class Compound(CStatement):
+    """ Statement consisting of a sequence of other statements """
+
+    def __init__(self, statements, location):
+        super().__init__(location)
+        self.statements = statements
+        assert all(isinstance(s, Statement) for s in self.statements)
+
+    def __repr__(self):
+        return "Compound"
 
 
 class If(CStatement):

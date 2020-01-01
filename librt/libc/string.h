@@ -13,6 +13,7 @@ void* memcpy(void* destination, const void* source, size_t num);
 void* memmove(void* destination, const void* source, size_t num);
 char* strcpy(char* destination, const char* source);
 char* strncpy(char* destination, const char* source, size_t num);
+char* strdup(const char *str1);
 
 // Concatenation:
 char* strcat(char* destination, const char* source);
@@ -29,4 +30,7 @@ const char * strchr(const char * str, int character);
 // Other:
 void* memset(void* ptr, int value, size_t num);
 size_t strlen(const char* str);
+
+char *strerror(int errnum);
+
 #endif

@@ -9,14 +9,15 @@ from ppci.lang.c import CTokenPrinter
 
 class CPreProcessorTestCase(unittest.TestCase):
     """ Test the preprocessor functioning """
+
     def setUp(self):
         coptions = COptions()
-        coptions.enable('verbose')
+        coptions.enable("verbose")
         self.preprocessor = CPreProcessor(coptions)
 
     def preprocess(self, src, expected=None):
         f = io.StringIO(src)
-        tokens = self.preprocessor.process_file(f, 'dummy.t')
+        tokens = self.preprocessor.process_file(f, "dummy.t")
         tokens = list(tokens)
         print(tokens)
 
@@ -28,7 +29,7 @@ class CPreProcessorTestCase(unittest.TestCase):
 
     def test_empty(self):
         """ Test the obvious empty case! """
-        self.preprocess('', '')
+        self.preprocess("", "")
 
     def test_simple_define(self):
         src = r"""
@@ -137,7 +138,8 @@ class CPreProcessorTestCase(unittest.TestCase):
             self.preprocess(src)
         self.assertEqual(2, cm.exception.loc.row)
         self.assertEqual(
-            'this is not yet implemented 1234 #&!*^', cm.exception.msg)
+            "this is not yet implemented 1234 #&!*^", cm.exception.msg
+        )
 
     def test_intermediate_example(self):
         """ Check a medium hard example """
@@ -391,23 +393,23 @@ class CPreProcessorTestCase(unittest.TestCase):
         __COUNTER__
         __COUNTER__
         __COUNTER__"""
-        expected = '''# 1 "dummy.t"
+        expected = """# 1 "dummy.t"
 
         "dummy.t";2
         3;"dummy.t"
         0
         1
-        2'''
+        2"""
         self.preprocess(src, expected)
 
-    @mock.patch('time.strftime', lambda fmt: '"mastah"')
+    @mock.patch("time.strftime", lambda fmt: '"mastah"')
     def test_builtin_time_macros(self):
         """ Test builtin macros __DATE__ and __TIME__ """
         src = r"""
         __DATE__;__TIME__;"""
-        expected = '''# 1 "dummy.t"
+        expected = """# 1 "dummy.t"
 
-        "mastah";"mastah";'''
+        "mastah";"mastah";"""
         self.preprocess(src, expected)
 
     def test_empty_arguments(self):
@@ -484,7 +486,7 @@ class CPreProcessorTestCase(unittest.TestCase):
         X_w1024"""
         self.preprocess(src, expected)
 
-    @unittest.skip('TODO!')
+    @unittest.skip("TODO!")
     def test_argument_prescan2(self):
         """ Example from gnu argument prescan website.
 
@@ -512,5 +514,5 @@ class CPreProcessorTestCase(unittest.TestCase):
         self.preprocess(src, expected)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

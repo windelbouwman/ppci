@@ -397,7 +397,7 @@ class CLexer(HandLexerBase):
 
     def _handle_escape_character(self):
         # Escape char!
-        if self.accept("'\"?\\abfnrtv"):
+        if self.accept("'\"?\\abfnrtve"):
             pass
         elif self.accept(self.octal_numbers):
             self.accept(self.octal_numbers)

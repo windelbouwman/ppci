@@ -35,39 +35,38 @@ this_dir = os.path.dirname(os.path.abspath(__file__))
 def create_test_function(cls, filename):
     """ Create a test function for a single snippet """
     test_t_directory, snippet_filename = os.path.split(filename)
-    test_function_name = 'test_' + snippet_filename.replace('.', '_')
+    test_function_name = "test_" + snippet_filename.replace(".", "_")
 
     def test_function(self):
         coptions = COptions()
-        coptions.enable('trigraphs')
+        coptions.enable("trigraphs")
         coptions.add_include_path(test_t_directory)
-        libc_dir = os.path.join(
-            this_dir, '..', '..', '..', 'librt', 'libc')
+        libc_dir = os.path.join(this_dir, "..", "..", "..", "librt", "libc")
         coptions.add_include_path(libc_dir)
 
         output_file = io.StringIO()
-        with open(filename, 'r') as f:
+        with open(filename, "r") as f:
             preprocess(f, output_file, coptions)
         # TODO: check output for correct values:
         print(output_file.getvalue())
 
     if hasattr(cls, test_function_name):
-        raise ValueError('Duplicate test {}'.format(test_function_name))
+        raise ValueError("Duplicate test {}".format(test_function_name))
 
     setattr(cls, test_function_name, test_function)
 
 
 def mcpp_populate(cls):
-    if 'MCPP_DIR' in os.environ:
-        mcpp_directory = os.path.normpath(os.environ['MCPP_DIR'])
-        test_t_directory = os.path.join(mcpp_directory, 'test-t')
-        files = sorted(glob.iglob(os.path.join(test_t_directory, 'n_*.t')))
+    if "MCPP_DIR" in os.environ:
+        mcpp_directory = os.path.normpath(os.environ["MCPP_DIR"])
+        test_t_directory = os.path.join(mcpp_directory, "test-t")
+        files = sorted(glob.iglob(os.path.join(test_t_directory, "n_*.t")))
         black_list = [
-            'n_token.t',  # contains C++ token '::'
-            'n_cnvucn.t',  # contains chinese chars # TODO
-            'n_ucn1.t',  # non utf8 chars # TODO
-            'n_3_4.t',  # raises an error on purpose.
-            'n_8.t',  # raises error as an example
+            "n_token.t",  # contains C++ token '::'
+            "n_cnvucn.t",  # contains chinese chars # TODO
+            "n_ucn1.t",  # non utf8 chars # TODO
+            "n_3_4.t",  # raises an error on purpose.
+            "n_8.t",  # raises error as an example
         ]
         for fullfile in files:
             filename = os.path.split(fullfile)[1]
@@ -76,8 +75,8 @@ def mcpp_populate(cls):
             create_test_function(cls, fullfile)
     else:
         warnings.warn(
-            'Please specify MCPP_DIR if you wish to run the mcpp tests.'
-            'For example: export MCPP_DIR=~/SVN/mcpp-code'
+            "Please specify MCPP_DIR if you wish to run the mcpp tests."
+            "For example: export MCPP_DIR=~/SVN/mcpp-code"
         )
     return cls
 
@@ -87,5 +86,5 @@ class McppTestCase(unittest.TestCase):
     pass
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main(verbosity=2)

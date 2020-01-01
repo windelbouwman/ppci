@@ -1,50 +1,29 @@
 import unittest
-from functools import reduce
-import operator
 import io
 from ppci.common import CompilerError
-from ppci.lang.c import CBuilder, render_ast, CContext
-from ppci.lang.c import parse_type, print_ast
-from ppci.lang.c.options import COptions
-from ppci.lang.c.utils import replace_escape_codes
+from ppci.lang.c import CBuilder, render_ast, print_ast, COptions
 from ppci.arch.example import ExampleArch
-from ppci.arch import get_arch
 from ppci import ir
 from ppci.irutils import Verifier
 
 
-class CUtilitiesTestCase(unittest.TestCase):
-    def test_escape_strings(self):
-        """ Test string escape codes """
-        src = r'\' \" \? \\ \a \b \f \n \r \t \v \0 \001'
-        expected = '\' " ? \\ \a \b \f \n \r \t \v \0 \1'
-        result = replace_escape_codes(src)
-        self.assertEqual(expected, result)
-
-    def test_escape_unicode(self):
-        """ Test string escape unicodes """
-        src = r'H \xfe \u1234 \U00010123'
-        expected = 'H \xfe \u1234 \U00010123'
-        result = replace_escape_codes(src)
-        self.assertEqual(expected, result)
-
-
 class CFrontendTestCase(unittest.TestCase):
     """ Test if various C-snippets build correctly """
+
     def setUp(self):
         arch = ExampleArch()
         self.builder = CBuilder(arch.info, COptions())
 
     def do(self, src):
-        # self._print_ast(src)
         self._do_compile(src)
+        self._print_ast(src)
 
     def _do_compile(self, src):
         f = io.StringIO(src)
         try:
             ir_module = self.builder.build(f, None)
         except CompilerError as compiler_error:
-            lines = src.split('\n')
+            lines = src.split("\n")
             compiler_error.render(lines)
             raise
         assert isinstance(ir_module, ir.Module)
@@ -52,14 +31,13 @@ class CFrontendTestCase(unittest.TestCase):
 
     def _print_ast(self, src):
         # Try to parse ast as well:
-        f = io.StringIO(src)
         tree = self.builder._create_ast(src, None)
         print(tree)
-        print('C-AST:')
+        print("C-AST:")
         print_ast(tree)
 
         # Print rendered c:
-        print('re-rendered C:')
+        print("re-rendered C:")
         render_ast(tree)
 
     def expect_errors(self, src, errors):
@@ -285,7 +263,7 @@ class CFrontendTestCase(unittest.TestCase):
         src = """
         struct z { float foo : 3; };
         """
-        self.expect_errors(src, [(2, 'Invalid type for bit-field')])
+        self.expect_errors(src, [(2, "Invalid type for bit-field")])
 
     def test_offsetof(self):
         """ Test offsetof """
@@ -333,7 +311,6 @@ class CFrontendTestCase(unittest.TestCase):
         """
         self.do(src)
 
-    @unittest.skip('TODO')
     def test_anonymous_union_member(self):
         """ Test anonymous union member access. """
         src = """
@@ -384,7 +361,7 @@ class CFrontendTestCase(unittest.TestCase):
         union S { int x;};
         int B = sizeof(struct S);
         """
-        self.expect_errors(src, [(3, 'Wrong tag kind')])
+        self.expect_errors(src, [(3, "Wrong tag kind")])
 
     def test_enum(self):
         """ Test enum usage """
@@ -427,9 +404,25 @@ class CFrontendTestCase(unittest.TestCase):
         """ Test compund literal """
         src = """
         typedef struct { int x; } X_t;
+
         X_t main() {
          return (X_t){2};
         }
+        """
+        self.do(src)
+
+    @unittest.skip("fixme")
+    def test_global_compound_literal(self):
+        """ Test pointer to global compund literals.
+
+        Points of interest:
+        - compound literals can empty initializer lists.
+        """
+        src = """
+        int *p = (int[]){1,2,3,4};
+        struct S2 { int a; };
+        struct S2* ps2 = &((struct S2){.a=2});
+        // TODO: struct S2* ps2 = &((struct S2){});
         """
         self.do(src)
 
@@ -528,7 +521,7 @@ class CFrontendTestCase(unittest.TestCase):
           case 34: break;
         }
         """
-        self.expect_errors(src, [(3, 'Case statement outside')])
+        self.expect_errors(src, [(3, "Case statement outside")])
 
     def test_loose_default(self):
         """ Test loose default statement """
@@ -537,7 +530,7 @@ class CFrontendTestCase(unittest.TestCase):
           default: break;
         }
         """
-        self.expect_errors(src, [(3, 'Default statement outside')])
+        self.expect_errors(src, [(3, "Default statement outside")])
 
     def test_void_function(self):
         """ Test calling of a void function """
@@ -598,7 +591,7 @@ class CFrontendTestCase(unittest.TestCase):
         char a = 2;
         char a = 3; // Not cool!
         """
-        self.expect_errors(src, [(3, 'Invalid redefinition')])
+        self.expect_errors(src, [(3, "Invalid redefinition")])
 
     def test_function_double_definition(self):
         """ Test double definition raises an error. """
@@ -610,7 +603,7 @@ class CFrontendTestCase(unittest.TestCase):
           return a + b;
         }
         """
-        self.expect_errors(src, [(5, 'invalid redefinition')])
+        self.expect_errors(src, [(5, "invalid redefinition")])
 
     def test_softfloat_bug(self):
         """ Bug encountered in softfloat library """
@@ -743,41 +736,5 @@ class CFrontendTestCase(unittest.TestCase):
         self.do(src)
 
 
-@unittest.skip('fixme')
-class CTypeInitializerTestCase(unittest.TestCase):
-    """ Test if C-types are correctly initialized """
-    def setUp(self):
-        arch = get_arch('x86_64')
-        coptions = COptions()
-        self.context = CContext(coptions, arch.info)
-
-    def pack_value(self, ty, value):
-        mem = self.context.gen_global_ival(ty, value)
-        return reduce(operator.add, mem)
-
-    def test_int_array(self):
-        """ Test array initialization """
-        src = "short[4]"
-        ty = parse_type(src, self.context)
-        self.assertEqual(8, self.context.sizeof(ty))
-        mem = self.pack_value(ty, [1, 2, 3, 4])
-        self.assertEqual(bytes([1, 0, 2, 0, 3, 0, 4, 0]), mem)
-
-    def test_struct(self):
-        src = "struct { char x; short y; }"
-        ty = parse_type(src, self.context)
-        self.assertEqual(4, self.context.sizeof(ty))
-        mem = self.pack_value(ty, [3, 4])
-        self.assertEqual(bytes([3, 0, 4, 0]), mem)
-
-    def test_packed_struct(self):
-        """ Check how a packed struct is initialized """
-        src = "struct { unsigned x: 5; short y : 10; }"
-        ty = parse_type(src, self.context)
-        self.assertEqual(2, self.context.sizeof(ty))
-        mem = self.pack_value(ty, [5, 2])
-        self.assertEqual(bytes([69, 0]), mem)
-
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

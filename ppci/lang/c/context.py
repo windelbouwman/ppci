@@ -138,11 +138,19 @@ class CContext:
         else:  # pragma: no cover
             raise NotImplementedError(str(typ))
 
-    def layout_struct(self, kind, fields):
-        """ Layout the fields in the struct """
-        offsets = {}
-        offset = 0  # Offset in bits
-        for field in fields:
+    def layout_struct(self, typ):
+        """ Layout the fields in the struct.
+
+        Things to take in account:
+        - alignment
+        - bit packing
+        - anonynous types
+        """
+        kind = "struct" if isinstance(typ, types.StructType) else "union"
+
+        bit_offsets = {}
+        bit_offset = 0  # Offset in bits
+        for field in typ.fields:
             # Calculate bit size:
             if field.bitsize:
                 bitsize = self.eval_expr(field.bitsize)
@@ -152,24 +160,32 @@ class CContext:
                 alignment = self.alignment(field.typ) * 8
 
             # alignment handling:
-            offset += required_padding(offset, alignment)
+            bit_offset += required_padding(bit_offset, alignment)
 
-            offsets[field] = offset
+            # We are now at the position of this field
+            if field.name is None:
+                # If the field is anonymous, fill the offsets of named subfields:
+                assert isinstance(field.typ, types.StructOrUnionType)
+                _, sub_field_bit_offsets = self.layout_struct(field.typ)
+                for sub_field, sub_field_bit_offset in sub_field_bit_offsets.items():
+                    bit_offsets[sub_field] = bit_offset + sub_field_bit_offset
+            else:
+                bit_offsets[field] = bit_offset
+
             if kind == "struct":
-                offset += bitsize
+                bit_offset += bitsize
 
         # TODO: should we take care here of maximum alignment as well?
         # Finally align at 8 bits:
-        offset += required_padding(offset, 8)
-        assert offset % 8 == 0
-        offset //= 8
-        return offset, offsets
+        bit_offset += required_padding(bit_offset, 8)
+        assert bit_offset % 8 == 0
+        byte_size = bit_offset // 8
+        return byte_size, bit_offsets
 
     def get_field_offsets(self, typ):
         """ Get a dictionary with offset of fields """
         if typ not in self._field_offsets:
-            kind = "struct" if isinstance(typ, types.StructType) else "union"
-            size, offsets = self.layout_struct(kind, typ.fields)
+            size, offsets = self.layout_struct(typ)
             self._field_offsets[typ] = size, offsets
         return self._field_offsets[typ]
 

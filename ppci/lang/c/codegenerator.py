@@ -154,9 +154,6 @@ class CCodeGenerator:
 
     def gen_global_ival(self, typ, ival):
         """ Create memory image for initial value of global variable """
-        # Handle arguments:
-        # ival = self._make_ival(typ, ival)
-
         # Check initial value type:
         if not isinstance(ival, expressions.Expression):
             raise TypeError("ival must be an Expression")

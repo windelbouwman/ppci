@@ -13,10 +13,11 @@ def relpath(*args):
 
 class CastXmlTestCase(unittest.TestCase):
     """ Try out cast xml parsing. """
+
     def test_test8(self):
         reader = CastXmlReader()
-        reader.process(relpath('..', '..', 'data', 'c', 'test8.xml'))
+        reader.process(relpath("..", "..", "data", "c", "test8.xml"))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()
