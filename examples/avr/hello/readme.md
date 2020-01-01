@@ -1,5 +1,5 @@
 
-This builds the hello world example for avr.
+This builds the hello world example for AVR.
 
 to build:
 
