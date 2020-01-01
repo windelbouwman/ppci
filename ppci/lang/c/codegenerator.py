@@ -194,6 +194,30 @@ class CCodeGenerator:
         )
         self.builder.module.add_variable(text_var)
         return text_var
+    
+    def gen_global_compound_literal(self, expr: expressions.CompoundLiteral):
+        """ Generate a global variable for a compound literal.
+
+        See also:
+        - https://en.cppreference.com/w/c/language/compound_literal
+        """
+
+        value_data = self.gen_global_ival(
+            expr.typ, expr.init
+        )
+
+        amount = self.context.sizeof(expr.typ)
+        alignment = self.context.alignment(expr.typ)
+
+        # Create name:
+        name = "__compound_{}".format(self.static_counter)
+        self.static_counter += 1
+
+        compound_literal_variable = ir.Variable(
+            name, ir.Binding.LOCAL, amount, alignment, value=value_data
+        )
+        self.builder.module.add_variable(compound_literal_variable)
+        return compound_literal_variable
 
     def gen_global_initialize_array(self, typ, ival):
         """ Properly fill an array with initial values """
@@ -1703,3 +1727,33 @@ class LinkTimeExpressionEvaluator(ConstantExpressionEvaluator):
         text_var = self.codegenerator.gen_global_string_constant(expr)
         cval = (ir.ptr, text_var.name)
         return cval
+
+    def eval_compound_literal(self, expr: expressions.CompoundLiteral):
+        """ Evaluate a constant compound literal. """
+        compound_literal_var = self.codegenerator.gen_global_compound_literal(expr)
+        cval = (ir.ptr, compound_literal_var.name)
+        return cval
+    
+    def eval_take_address(self, expr):
+        """ Evaluate the '&' operator. """
+        if isinstance(expr, expressions.VariableAccess):
+            declaration = expr.variable.declaration
+            if isinstance(
+                declaration,
+                (
+                    declarations.VariableDeclaration,
+                    declarations.ParameterDeclaration,
+                    declarations.ConstantDeclaration,
+                    declarations.FunctionDeclaration,
+                ),
+            ):
+                value = self.codegenerator.ir_var_map[declaration]
+                cval = (ir.ptr, value.name)
+            else:  # pragma: no cover
+                raise NotImplementedError()
+        elif isinstance(expr, expressions.CompoundLiteral):
+            cval = self.eval_compound_literal(expr)
+        else:  # pragma: no cover
+            raise NotImplementedError()
+        return cval
+        

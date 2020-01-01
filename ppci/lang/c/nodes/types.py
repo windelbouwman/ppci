@@ -216,7 +216,7 @@ class StructOrUnionType(CType):
     def _set_fields(self, fields):
         self._fields = fields
         if fields:
-            self._field_map = {f.name: f for f in fields}
+            self._field_map = {f.name: f for f in self.get_named_fields()}
 
     fields = property(_get_fields, _set_fields)
 
@@ -224,7 +224,7 @@ class StructOrUnionType(CType):
         """ Create a list of fields, including those in anonymous members. """
         fields = []
         for field in self.fields:
-            if field.name is None:
+            if field.is_anonymous:
                 if isinstance(field.typ, StructOrUnionType):
                     fields.extend(field.typ.get_named_fields())
             else:
@@ -271,6 +271,11 @@ class Field:
             return "Struct-field .{}".format(self.name)
         else:
             return "Struct-field .{} : {}".format(self.name, self.bitsize)
+
+    @property
+    def is_anonymous(self):
+        """ Test if this is an anonymous field. """
+        return self.name is None
 
     @property
     def is_bitfield(self):

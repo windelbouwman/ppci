@@ -535,10 +535,6 @@ class CParser(RecursiveDescentParser):
             expr = self.parse_constant_expression()
             initializer = self.semantics.coerce(expr, typ)
 
-        if typ.is_array and typ.size is None:
-            # Fill size of array if it was unknown
-            typ.size = len(initializer.values)
-
         return initializer
 
     def parse_array_string_initializer(self, typ):
@@ -581,13 +577,12 @@ class CParser(RecursiveDescentParser):
             init_cursor, typ, location, False
         )
 
-        while True:
+        # TODO: an initializer list must not be empty, or can it be empty?
+        # TBD: this might depend upon an option / gcc behavior
+        while self.peek != '}':
             self.parse_initializer_list_element(init_cursor)
 
             if not self.has_consumed(","):
-                break
-
-            if self.peek == "}":
                 break
 
         self.consume("}")
@@ -1099,7 +1094,7 @@ class CParser(RecursiveDescentParser):
                 self.consume(")")
                 if self.peek == "{":
                     init = self.parse_initializer_list(to_typ)
-                    expr = expressions.CompoundLiteral(to_typ, init, loc)
+                    expr = self.semantics.on_compound_literal(to_typ, init, loc)
                 else:
                     casted_expr = self.parse_primary_expression()
                     expr = self.semantics.on_cast(to_typ, casted_expr, loc)

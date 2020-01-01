@@ -411,7 +411,6 @@ class CFrontendTestCase(unittest.TestCase):
         """
         self.do(src)
 
-    @unittest.skip("fixme")
     def test_global_compound_literal(self):
         """ Test pointer to global compund literals.
 
@@ -419,10 +418,11 @@ class CFrontendTestCase(unittest.TestCase):
         - compound literals can empty initializer lists.
         """
         src = """
-        int *p = (int[]){1,2,3,4};
+        int *pa1 = (int[]){1,2,3,4};
+        int *pa2 = (int[4]){1,2,3,4};
         struct S2 { int a; };
-        struct S2* ps2 = &((struct S2){.a=2});
-        // TODO: struct S2* ps2 = &((struct S2){});
+        struct S2* ps1 = &((struct S2){.a=2});
+        struct S2* ps2 = &((struct S2){});
         """
         self.do(src)
 
@@ -678,6 +678,8 @@ class CFrontendTestCase(unittest.TestCase):
         };
         char x = '\2';
         int* ptr = (int*)0x1000;
+        int data;
+        int* ptr2 = &data;
         struct rec d = {.b = 2, .c = {[2] = 3}, .d.x=100};
         int e[] = {1, [2]=3, [0] = 2, [6]=2.2};
         int f[] = {1,2,[5]=6};

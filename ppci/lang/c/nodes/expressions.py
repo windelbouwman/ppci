@@ -244,8 +244,12 @@ class StringLiteral(Literal):
 
 class CompoundLiteral(CExpression):
     """ Compound literal available since C99.
+
     For example:
     (char[]){'a', 'b'}
+
+    See also:
+    - https://en.cppreference.com/w/c/language/compound_literal
     """
 
     def __init__(self, typ, init, location):

@@ -158,19 +158,17 @@ class CSemantics:
         if self.scope.is_definition(variable.name):
             self.error("Invalid redefinition.", variable.location)
 
+        self.patch_size_from_initializer(variable.typ, expression)
         variable.initial_value = expression
 
-        # Fill array size from elements!
-        if (
-            isinstance(variable.typ, types.ArrayType)
-            and variable.typ.size is None
-        ):
-            if isinstance(expression, expressions.InitializerList):
-                variable.typ.size = len(expression.elements)
-            # elif isinstance(expression, expressions.StringLiteral):
-            #     variable.typ.size = len(expression.value) + 1
-            else:
-                pass
+    def patch_size_from_initializer(self, typ, initializer):
+        """ Fill array size from elements! """
+
+        if typ.is_array and typ.size is None:
+            if isinstance(initializer, expressions.ArrayInitializer):
+                typ.size = len(initializer.values)
+            else:  # pragma: no cover
+                raise NotImplementedError("What else could be used to init an array?")
 
     def new_init_cursor(self):
         return init.InitCursor(self.context)
@@ -666,6 +664,12 @@ class CSemantics:
         """ Check explicit casting """
         return expressions.Cast(casted_expr, to_typ, False, location)
 
+    def on_compound_literal(self, typ, init, location):
+        """ Check the consistency of compound literals. """
+        self.patch_size_from_initializer(typ, init)
+        expr = expressions.CompoundLiteral(typ, init, location)
+        return expr
+
     def on_array_index(self, base, index, location):
         """ Check array indexing """
         index = self.coerce(index, self.int_type)
@@ -856,7 +860,7 @@ class CSemantics:
             # expr.typ = types.PointerType(variable.typ)
             lvalue = False
         else:  # pragma: no cover
-            self.not_impl("Access to {}".format(variable), location)
+            self.not_impl("Access to {}".format(declaration), location)
 
         expr = expressions.VariableAccess(symbol, typ, lvalue, location)
         return expr
