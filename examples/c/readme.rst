@@ -16,7 +16,7 @@ or with gcc:
     $ gcc -c sample1.c
 
 
-You can also dump an syntax tree with pycparsing or the ppci cparser:
+You can also dump a syntax tree with pycparsing or the ppci cparser:
 
 .. code:: bash
 

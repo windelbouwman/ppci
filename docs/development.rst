@@ -170,7 +170,7 @@ To run for example wasm test spec tests:
 Building the docs
 -----------------
 
-The docs can be build locally by using `sphinx`_.
+The docs can be built locally by using `sphinx`_.
 Sphinx can be invoked directly:
 
 .. _sphinx: http://www.sphinx-doc.org/en/stable/

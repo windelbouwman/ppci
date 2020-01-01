@@ -17,8 +17,9 @@ prone task.
 
 One way to achieve this is to to write a specification file for a specific
 processor and generate from this file the different tools.
-The goal of a machine description file is to describe a file and generate
-tools like assemblers, disassemblers, linkers, debuggers and simulators.
+The goal of a machine description file is to describe various aspects of a
+CPU architecture and generate from it tools like assemblers, disassemblers,
+linkers, debuggers and simulators.
 
 .. graphviz::
 
@@ -102,7 +103,7 @@ Specific Language (DSL). Examples of these are:
 * cgen (gnu)
 * LISA (Aachen)
 * nML (Berlin)
-* SLED (Specifying representations of machine instructions (norman ramsey and Mary F. Fernandez))
+* SLED (Specifying representations of machine instructions (Norman Ramsey and Mary F. Fernandez))
 
 http://www.cs.tufts.edu/~nr/toolkit/
 
