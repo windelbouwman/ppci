@@ -91,6 +91,7 @@ class CParser(RecursiveDescentParser):
             "struct",
             "union",
             "enum",
+            "asm",
             "__builtin_va_arg",
             "__builtin_va_start",
             "__builtin_va_copy",
@@ -808,19 +809,19 @@ class CParser(RecursiveDescentParser):
             "continue": self.parse_continue_statement,
             "goto": self.parse_goto_statement,
             "return": self.parse_return_statement,
+            "asm": self.parse_asm_statement,
             "{": self.parse_compound_statement,
             ";": self.parse_empty_statement,
         }
         if self.peek in m:
             statement = m[self.peek]()
+        elif self.peek == "ID" and self.look_ahead(1).val == ":":
+            statement = self.parse_label()
         else:
             # Expression statement!
-            if self.peek == "ID" and self.look_ahead(1).val == ":":
-                statement = self.parse_label()
-            else:
-                expression = self.parse_expression()
-                statement = self.semantics.on_expression_statement(expression)
-                self.consume(";")
+            expression = self.parse_expression()
+            statement = self.semantics.on_expression_statement(expression)
+            self.consume(";")
         return statement
 
     def parse_label(self):
@@ -868,9 +869,23 @@ class CParser(RecursiveDescentParser):
         return self.semantics.on_switch_exit(expression, statement, location)
 
     def parse_case_statement(self):
-        """ Parse a case """
+        """ Parse a case.
+
+        For example:
+        'case 5:'
+
+        Or, a gnu extension:
+
+        'case 5 ... 10:'
+        """
         location = self.consume("case").loc
         value = self.parse_expression()
+        if self.peek == "...":
+            # gnu extension!
+            self.consume("...")
+            value2 = self.parse_expression()
+            value = (value, value2)
+
         self.consume(":")
         statement = self.parse_statement()
         return self.semantics.on_case(value, statement, location)
@@ -962,6 +977,21 @@ class CParser(RecursiveDescentParser):
             value = self.parse_expression()
         self.consume(";")
         return self.semantics.on_return(value, location)
+
+    def parse_asm_statement(self):
+        """ Parse an inline assembly statement.
+
+        See also: https://gcc.gnu.org/onlinedocs/gcc/Extended-Asm.html
+        """
+        location = self.consume("asm").loc
+        # TODO qualifiers
+        self.consume("(")
+        template = self.consume("STRING").val
+        # Strip parenthesis from sourcecode:
+        template = template[1:-1]
+        # TODO: input / output parameters
+        self.consume(")")
+        return statements.InlineAssemblyCode(template, location)
 
     # Expression parts:
     def parse_condition(self):

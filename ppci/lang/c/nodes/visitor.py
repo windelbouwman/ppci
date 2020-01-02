@@ -62,10 +62,17 @@ class Visitor:
         elif isinstance(node, (statements.Label, statements.Default)):
             self.visit(node.statement)
         elif isinstance(node, (statements.Case,)):
+            self.visit(node.value)
+            self.visit(node.statement)
+        elif isinstance(node, (statements.RangeCase,)):
+            self.visit(node.value1)
+            self.visit(node.value2)
             self.visit(node.statement)
         elif isinstance(node, statements.Return):
             if node.value:
                 self.visit(node.value)
+        elif isinstance(node, statements.InlineAssemblyCode):
+            pass
         elif isinstance(node, statements.Empty):
             pass
         elif isinstance(

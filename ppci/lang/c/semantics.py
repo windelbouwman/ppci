@@ -498,8 +498,14 @@ class CSemantics:
         if not self.switch_stack:
             self.error("Case statement outside of a switch!", location)
 
-        value = self.coerce(value, self.switch_stack[-1])
-        return statements.Case(value, statement, location)
+        if isinstance(value, tuple):
+            value1, value2 = value
+            value1 = self.coerce(value1, self.switch_stack[-1])
+            value2 = self.coerce(value2, self.switch_stack[-1])
+            return statements.RangeCase(value1, value2, statement, location)
+        else:
+            value = self.coerce(value, self.switch_stack[-1])
+            return statements.Case(value, statement, location)
 
     def on_default(self, statement, location):
         """ Handle a default label """

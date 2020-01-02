@@ -179,6 +179,12 @@ class CPrinter:
             self._print("case {}:".format(statement.value))
             with self._indented(1):
                 self.gen_statement(statement.statement)
+        elif isinstance(statement, statements.RangeCase):
+            self._print(
+                "case {} ... {}:".format(statement.value1, statement.value2)
+            )
+            with self._indented(1):
+                self.gen_statement(statement.statement)
         elif isinstance(statement, statements.Default):
             self._print("default:")
             with self._indented(1):
@@ -204,6 +210,10 @@ class CPrinter:
                 )
             else:
                 self._print("return;")
+        elif isinstance(statement, statements.InlineAssemblyCode):
+            self._print("asm (")
+            self._print(statement.template)
+            self._print(");")
         elif isinstance(statement, statements.DeclarationStatement):
             self.gen_declaration(statement.declaration)
         elif isinstance(statement, statements.ExpressionStatement):

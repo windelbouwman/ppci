@@ -1143,6 +1143,16 @@ class Store(Instruction):
         return "store {}, {}".format(val, address)
 
 
+class InlineAsm(Instruction):
+    """ Inline assembly code. """
+    def __init__(self, template):
+        super().__init__()
+        self.template = template
+
+    def __str__(self):
+        return 'asm ({})'.format(self.template)
+
+
 class FinalInstruction(Instruction):
     """ Final instruction in a basic block """
 

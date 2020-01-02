@@ -479,9 +479,11 @@ class CCodeGenerator:
             statements.Return: self.gen_return,
             statements.Label: self.gen_label,
             statements.Case: self.gen_case,
+            statements.RangeCase: self.gen_range_case,
             statements.Default: self.gen_default,
             statements.Empty: self.gen_empty_statement,
             statements.Compound: self.gen_compound,
+            statements.InlineAssemblyCode: self.gen_inline_assembly,
             statements.ExpressionStatement: self.gen_expression_statement,
             statements.DeclarationStatement: self.gen_declaration_statement,
         }
@@ -676,6 +678,22 @@ class CCodeGenerator:
         self.builder.set_block(block)
         self.gen_stmt(stmt.statement)
 
+    def gen_range_case(self, stmt: statements.Case) -> None:
+        """ Generate code for range case label inside a switch statement """
+        block = self.builder.new_block()
+        assert self.switch_options is not None
+        # TODO: This could lead to a very big if-then-else chain?
+        value1 = self.context.eval_expr(stmt.value1)
+        value2 = self.context.eval_expr(stmt.value2)
+        for value in range(value1, value2 + 1):
+            if value in self.switch_options:
+                self.error("Case defined multiple times", stmt.location)
+            self.switch_options[value] = block
+
+        self.emit(ir.Jump(block))  # fall through
+        self.builder.set_block(block)
+        self.gen_stmt(stmt.statement)
+
     def gen_default(self, stmt: statements.Default) -> None:
         """ Generate code for case label inside a switch statement """
         block = self.builder.new_block()
@@ -738,6 +756,10 @@ class CCodeGenerator:
             self.emit(ir.Exit())
         new_block = self.builder.new_block()
         self.builder.set_block(new_block)
+
+    def gen_inline_assembly(self, stmt):
+        """ Generate code for inline assembly. """
+        self.emit(ir.InlineAsm(stmt.template))
 
     def gen_condition(self, condition, yes_block, no_block):
         """ Generate switch based on condition. """

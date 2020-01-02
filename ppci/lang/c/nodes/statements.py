@@ -113,6 +113,23 @@ class Case(CStatement):
         return "Case"
 
 
+class RangeCase(CStatement):
+    """ GNU Case statement.
+
+    For example:
+    'case 1 ... 4:'
+    """
+
+    def __init__(self, value1, value2, statement, location):
+        super().__init__(location)
+        self.value1 = value1
+        self.value2 = value2
+        self.statement = statement
+
+    def __repr__(self):
+        return "Range-Case"
+
+
 class Default(CStatement):
     """ Default statement """
 
@@ -187,4 +204,27 @@ class DeclarationStatement(CStatement):
         return "Declaration statement"
 
 
-__all__ = ["If", "Compound"]
+class InlineAssemblyCode(CStatement):
+    """ A piece of inlined assembly code """
+
+    def __init__(self, template, location):
+        super().__init__(location)
+        self.template = template
+
+    def __repr__(self):
+        return "Inline assembly"
+
+
+__all__ = [
+    "Break",
+    "Compound",
+    "Continue",
+    "Default",
+    "DoWhile",
+    "For",
+    "Goto",
+    "If",
+    "Return",
+    "Switch",
+    "While",
+]

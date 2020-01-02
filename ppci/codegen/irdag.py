@@ -358,6 +358,17 @@ class SelectionGraphBuilder:
         self.chain(sgnode)
         self.debug_db.map(node, sgnode)
 
+    def do_inline_asm(self, node):
+        """ Create selection graph node for inline asm code.
+
+        This is a little weird, as we really do not need to select
+        any instructions, but this special node will be filtered later
+        on.
+        """
+        sgnode = self.new_node('ASM', None, value=node.template)
+        self.chain(sgnode)
+        self.debug_db.map(node, sgnode)
+
     def do_const(self, node):
         """ Process constant instruction """
         if isinstance(node.value, (int, float)):

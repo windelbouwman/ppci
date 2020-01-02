@@ -280,7 +280,7 @@ class BaseAssembler:
             self.parser.parse(self.lexer)
         except CompilerError:
             loc = SourceLocation(self.filename, self.line_no, 1, 0)
-            raise CompilerError("Unable to assemble: {}".format(line), loc)
+            raise CompilerError("Unable to assemble: [{}]".format(line), loc)
 
     def assemble(self, asmsrc, stream, diag, debug=False):
         """ Assemble the source snippet into the given output stream """

@@ -525,6 +525,23 @@ class CFrontendTestCase(unittest.TestCase):
         """
         self.do(src)
 
+    def test_switch_gnu(self):
+        """ Test switch statement with gnu extension. """
+        src = """
+        void main() {
+          int b = 23;
+          switch (b) {
+            case 34 ... 40:
+              b = 1;
+              break;
+            case 342:
+              b = 2;
+              break;
+          }
+        }
+        """
+        self.do(src)
+
     def test_loose_case(self):
         """ Test loose case statement """
         src = """
@@ -760,6 +777,18 @@ class CFrontendTestCase(unittest.TestCase):
           "Hi",
           "Bonjour"
         };
+        """
+        self.do(src)
+
+    def test_inline_asm(self):
+        """ Test inline assembly code. """
+        src = """
+        void main() {
+          // This is example arch asm code:
+          asm (
+            "add r0, r1, r2"
+          );
+        }
         """
         self.do(src)
 

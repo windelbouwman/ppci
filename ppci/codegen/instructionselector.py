@@ -112,6 +112,7 @@ terminals = tuple(x + y for x in ops for y in data_types) + (
     "ENTRY",
     "ALLOCA",
     "FREEA",
+    "ASM",  # Inline assembly
 )
 
 
@@ -263,6 +264,7 @@ class InstructionSelector1:
 
         # Add special case nodes:
         self.sys.add_rule("stm", Tree("CALL"), 0, None, self.call_function)
+        self.sys.add_rule("stm", Tree("ASM"), 0, None, self.inline_asm)
 
         # Add all isa patterns:
         for pattern in arch.isa.patterns:
@@ -285,6 +287,25 @@ class InstructionSelector1:
     def call_function(self, context, tree):
         label, args, rv = tree.value
         for instruction in self.arch.gen_call(context.frame, label, args, rv):
+            context.emit(instruction)
+
+    def inline_asm(self, context, tree):
+        """ Run assembler on inline assembly code. """
+        from ..binutils.outstream import FunctionOutputStream
+        from ..common import DiagnosticsManager
+
+        # poor mans assembly api copied from api.py
+        template = tree.value
+        instructions = []
+        diag = DiagnosticsManager()
+        ostream = FunctionOutputStream(instructions.append)
+        assembler = self.arch.assembler
+        assembler.prepare()
+        assembler.assemble(template, ostream, diag)
+        assembler.flush()
+
+        # Emit inline assembly to output:
+        for instruction in instructions:
             context.emit(instruction)
 
     def memcp(self):
