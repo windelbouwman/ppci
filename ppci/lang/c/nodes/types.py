@@ -58,6 +58,11 @@ def is_struct(typ):
     return isinstance(typ, StructType)
 
 
+def is_struct_or_union(typ):
+    """ Check if the given type is either struct or union type. """
+    return isinstance(typ, StructOrUnionType)
+
+
 # A type system:
 class CType:
     """ Base class for all types """
@@ -124,6 +129,11 @@ class CType:
     def is_union(self):
         """ Check if this type is of union type """
         return is_union(self)
+    
+    @property
+    def is_struct_or_union(self):
+        """ Check if this type is either struct or union type. """
+        return is_struct_or_union(self)
 
     def pointer_to(self):
         """ Create a new pointer type to this type. """
@@ -214,26 +224,32 @@ class StructOrUnionType(CType):
         return self._fields
 
     def _set_fields(self, fields):
+        """ Set the fields of this type, updating the field map. """
         self._fields = fields
         if fields:
-            self._field_map = {f.name: f for f in self.get_named_fields()}
+            self._field_map = {f[-1].name: f for f in self.get_named_field_paths()}
 
     fields = property(_get_fields, _set_fields)
 
-    def get_named_fields(self):
-        """ Create a list of fields, including those in anonymous members. """
-        fields = []
+    def get_named_field_paths(self):
+        """ Create a list of field-paths, including those in anonymous members.
+
+        A field path is a sequence of fields to arrive at the named field.
+
+        """
+        field_paths = []
         for field in self.fields:
             if field.is_anonymous:
-                if isinstance(field.typ, StructOrUnionType):
-                    fields.extend(field.typ.get_named_fields())
+                if field.typ.is_struct_or_union:
+                    for sub_field_path in field.typ.get_named_field_paths():
+                        field_paths.append((field,) + sub_field_path)
             else:
-                fields.append(field)
-        return fields
+                field_paths.append((field,))
+        return field_paths
 
     def get_field_names(self):
         """ Get a list of valid field names. """
-        return [f.name for f in self.get_named_fields()]
+        return [f[-1].name for f in self.get_named_field_paths()]
 
     def has_field(self, name: str):
         """ Check if this type has the given field """
@@ -243,6 +259,13 @@ class StructOrUnionType(CType):
     def get_field(self, name: str):
         """ Get the field with the given name """
         assert isinstance(name, str)
+        return self._field_map[name][-1]
+    
+    def get_field_path(self, name: str):
+        """ Return the full path to a specific field.
+
+        This takes into account eventual anonymous struct members.
+        """
         return self._field_map[name]
 
 

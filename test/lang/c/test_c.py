@@ -694,6 +694,21 @@ class CFrontendTestCase(unittest.TestCase):
         """
         self.do(src)
 
+    def test_anonymous_struct_field_initialization(self):
+        """ Test designated initialization into an anonymous struct. """
+        src = """
+        struct rec {
+          struct {
+            int x;
+          };
+        };
+        struct rec d = {.x = 2};
+        void main() {
+            struct rec d = {.x = 2};
+        }
+        """
+        self.do(src)
+
     def test_function_pointer_passing(self):
         """ Test passing of function pointers """
         src = """

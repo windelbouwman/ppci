@@ -228,21 +228,17 @@ class CSemantics:
 
     def on_field_designator(self, init_cursor, field_name, location):
         """ Check field designator. """
-        init_level = init_cursor.level
-        typ = init_level.typ
+        typ = init_cursor.level.typ
 
-        if not (typ.is_struct or typ.is_union):
+        if not typ.is_struct_or_union:
             self.error(
                 "Cannot use designator in non-struct/union type", location
             )
 
         if typ.has_field(field_name):
-            field = typ.get_field(field_name)
+            init_cursor.select_field(field_name, location)
         else:
             self.error("No such field {}".format(field_name), location)
-
-        # Determine position of field inside the structure:
-        init_level.go_to_field(field)
 
     # Declarations:
     def on_typedef(self, typ, name, modifiers, location):
@@ -956,6 +952,8 @@ class CSemantics:
         elif isinstance(typ, types.EnumType):
             return 80
         elif isinstance(typ, types.PointerType):
+            return 83
+        elif isinstance(typ, types.FunctionType):
             return 83
         elif isinstance(typ, types.ArrayType):
             return 83

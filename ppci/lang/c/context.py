@@ -163,14 +163,14 @@ class CContext:
             bit_offset += required_padding(bit_offset, alignment)
 
             # We are now at the position of this field
+            bit_offsets[field] = bit_offset
+
             if field.name is None:
                 # If the field is anonymous, fill the offsets of named subfields:
-                assert isinstance(field.typ, types.StructOrUnionType)
+                assert field.typ.is_struct_or_union
                 _, sub_field_bit_offsets = self.layout_struct(field.typ)
                 for sub_field, sub_field_bit_offset in sub_field_bit_offsets.items():
                     bit_offsets[sub_field] = bit_offset + sub_field_bit_offset
-            else:
-                bit_offsets[field] = bit_offset
 
             if kind == "struct":
                 bit_offset += bitsize
@@ -199,19 +199,18 @@ class CContext:
 
     def has_field(self, typ, field_name):
         """ Check if the given type has the given field. """
-        if not isinstance(typ, types.StructOrUnionType):
+        if not typ.is_struct_or_union:
             raise TypeError("typ must be union or struct type")
 
-        return field_name in typ.get_field_names()
+        return typ.has_field(field_name)
 
     def get_field(self, typ, field_name):
         """ Get the given field. """
-        if not isinstance(typ, types.StructOrUnionType):
+        if not typ.is_struct_or_union:
             raise TypeError("typ must be union or struct type")
 
-        for field in typ.get_named_fields():
-            if field.name == field_name:
-                return field
+        if typ.has_field(field_name):
+            return typ.get_field(field_name)
         raise KeyError(field_name)
 
     def get_enum_value(self, enum_typ, enum_constant):
