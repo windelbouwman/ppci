@@ -247,7 +247,8 @@ class CPrinter:
             return "{" + thing + "}"
         elif isinstance(expr, expressions.StructInitializer):
             thing = ", ".join(
-                ".{}={}".format(f, self.gen_expr(e)) for f,e in expr.values.items()
+                ".{}={}".format(f, self.gen_expr(e))
+                for f, e in expr.values.items()
             )
             return "{" + thing + "}"
         elif isinstance(expr, expressions.UnionInitializer):

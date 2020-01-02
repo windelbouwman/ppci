@@ -168,7 +168,9 @@ class CSemantics:
             if isinstance(initializer, expressions.ArrayInitializer):
                 typ.size = len(initializer.values)
             else:  # pragma: no cover
-                raise NotImplementedError("What else could be used to init an array?")
+                raise NotImplementedError(
+                    "What else could be used to init an array?"
+                )
 
     def new_init_cursor(self):
         return init.InitCursor(self.context)
@@ -684,12 +686,13 @@ class CSemantics:
 
     def on_field_select(self, base, field_name, location):
         """ Check field select expression """
-        if not isinstance(base.typ, types.StructOrUnionType):
+        if not base.typ.is_struct_or_union:
             # Maybe we have a pointer to a struct?
             # If so, give a hint about this.
             hints = []
-            if isinstance(base.typ, types.PointerType) and isinstance(
-                base.typ.element_type, types.StructOrUnionType
+            if (
+                isinstance(base.typ, types.PointerType)
+                and base.typ.element_type.is_struct_or_union
             ):
                 lhs = expr_to_str(base)
                 hints.append(

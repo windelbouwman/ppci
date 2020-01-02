@@ -579,7 +579,7 @@ class CParser(RecursiveDescentParser):
 
         # TODO: an initializer list must not be empty, or can it be empty?
         # TBD: this might depend upon an option / gcc behavior
-        while self.peek != '}':
+        while self.peek != "}":
             self.parse_initializer_list_element(init_cursor)
 
             if not self.has_consumed(","):
@@ -1094,7 +1094,9 @@ class CParser(RecursiveDescentParser):
                 self.consume(")")
                 if self.peek == "{":
                     init = self.parse_initializer_list(to_typ)
-                    expr = self.semantics.on_compound_literal(to_typ, init, loc)
+                    expr = self.semantics.on_compound_literal(
+                        to_typ, init, loc
+                    )
                 else:
                     casted_expr = self.parse_primary_expression()
                     expr = self.semantics.on_cast(to_typ, casted_expr, loc)

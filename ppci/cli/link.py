@@ -21,7 +21,7 @@ parser.add_argument(
     "--library",
     help="Add library to use when searching for symbols.",
     type=argparse.FileType("r"),
-    action='append',
+    action="append",
     default=[],
     metavar="library-filename",
 )

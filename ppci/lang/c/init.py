@@ -104,7 +104,7 @@ class InitCursor:
         while self.level.at_end() and self.level.implicit:
             self.leave_compound()
             self.level.go_next()
-    
+
     def select_field(self, field_name, location):
         """ Select the given field name taking anonymous structs into account. """
         assert not self.is_toplevel

@@ -129,7 +129,7 @@ class CType:
     def is_union(self):
         """ Check if this type is of union type """
         return is_union(self)
-    
+
     @property
     def is_struct_or_union(self):
         """ Check if this type is either struct or union type. """
@@ -227,7 +227,9 @@ class StructOrUnionType(CType):
         """ Set the fields of this type, updating the field map. """
         self._fields = fields
         if fields:
-            self._field_map = {f[-1].name: f for f in self.get_named_field_paths()}
+            self._field_map = {
+                f[-1].name: f for f in self.get_named_field_paths()
+            }
 
     fields = property(_get_fields, _set_fields)
 
@@ -260,7 +262,7 @@ class StructOrUnionType(CType):
         """ Get the field with the given name """
         assert isinstance(name, str)
         return self._field_map[name][-1]
-    
+
     def get_field_path(self, name: str):
         """ Return the full path to a specific field.
 

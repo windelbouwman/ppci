@@ -194,7 +194,7 @@ class CCodeGenerator:
         )
         self.builder.module.add_variable(text_var)
         return text_var
-    
+
     def gen_global_compound_literal(self, expr: expressions.CompoundLiteral):
         """ Generate a global variable for a compound literal.
 
@@ -202,9 +202,7 @@ class CCodeGenerator:
         - https://en.cppreference.com/w/c/language/compound_literal
         """
 
-        value_data = self.gen_global_ival(
-            expr.typ, expr.init
-        )
+        value_data = self.gen_global_ival(expr.typ, expr.init)
 
         amount = self.context.sizeof(expr.typ)
         alignment = self.context.alignment(expr.typ)
@@ -1730,10 +1728,12 @@ class LinkTimeExpressionEvaluator(ConstantExpressionEvaluator):
 
     def eval_compound_literal(self, expr: expressions.CompoundLiteral):
         """ Evaluate a constant compound literal. """
-        compound_literal_var = self.codegenerator.gen_global_compound_literal(expr)
+        compound_literal_var = self.codegenerator.gen_global_compound_literal(
+            expr
+        )
         cval = (ir.ptr, compound_literal_var.name)
         return cval
-    
+
     def eval_take_address(self, expr):
         """ Evaluate the '&' operator. """
         if isinstance(expr, expressions.VariableAccess):
@@ -1756,4 +1756,3 @@ class LinkTimeExpressionEvaluator(ConstantExpressionEvaluator):
         else:  # pragma: no cover
             raise NotImplementedError()
         return cval
-        

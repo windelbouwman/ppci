@@ -91,9 +91,9 @@ class ConstantExpressionEvaluator:
         else:  # pragma: no cover
             raise NotImplementedError(str(expr))
         return value
-    
+
     def eval_take_address(self, expr):
-        raise NotImplementedError('take address operator: &')
+        raise NotImplementedError("take address operator: &")
 
     def eval_binop(self, expr):
         """ Evaluate binary operator. """

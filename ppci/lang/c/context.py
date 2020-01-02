@@ -169,7 +169,10 @@ class CContext:
                 # If the field is anonymous, fill the offsets of named subfields:
                 assert field.typ.is_struct_or_union
                 _, sub_field_bit_offsets = self.layout_struct(field.typ)
-                for sub_field, sub_field_bit_offset in sub_field_bit_offsets.items():
+                for (
+                    sub_field,
+                    sub_field_bit_offset,
+                ) in sub_field_bit_offsets.items():
                     bit_offsets[sub_field] = bit_offset + sub_field_bit_offset
 
             if kind == "struct":
