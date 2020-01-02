@@ -132,6 +132,17 @@ class CFrontendTestCase(unittest.TestCase):
         """
         self.do(src)
 
+    def test_for_statement_scope(self):
+        """ Test the scope of declarations inside a for loop. """
+        src = """
+        void print(int);
+        int main() {
+            for (int i=0;i<10;i++) print(i);
+            for (int i=0;i<10;i++) print(i);
+        }
+        """
+        self.do(src)
+
     def test_conditionals(self):
         src = """
         int main() {
@@ -263,7 +274,7 @@ class CFrontendTestCase(unittest.TestCase):
         src = """
         struct z { float foo : 3; };
         """
-        self.expect_errors(src, [(2, "Invalid type for bit-field")])
+        self.expect_errors(src, [(2, r"Invalid type \(float\) for bit-field")])
 
     def test_offsetof(self):
         """ Test offsetof """

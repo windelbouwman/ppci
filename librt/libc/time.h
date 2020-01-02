@@ -4,8 +4,18 @@
 
 #include <stdlib.h>
 
+// TODO: this is a weird hack to prevent clashes with /usr/include/bits/types/time_t.h
+#ifndef __time_t_defined
 typedef int time_t;
+#define __time_t_defined 1
+#endif
+
+// TODO: this is a weird hack to prevent clashes with /usr/include/bits/types/clock_t.h
+// TBD: what would be an effective strategy?
+#ifndef __clock_t_defined
 typedef int clock_t;
+#define __clock_t_defined 1
+#endif
 
 struct tm {
     int tm_sec;

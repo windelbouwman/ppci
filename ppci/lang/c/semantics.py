@@ -22,7 +22,7 @@ import logging
 from .nodes import nodes, types, declarations, statements, expressions
 from . import utils, init
 from .scope import Scope, RootScope
-from .printer import expr_to_str
+from .printer import expr_to_str, type_to_str
 
 
 class CSemantics:
@@ -65,7 +65,7 @@ class CSemantics:
         # Nice clean slate:
         assert not self.switch_stack
         self.current_function = function
-        self.scope = Scope(self.scope)
+        self.enter_scope()
 
         # Define function parameters:
         for argument in function.typ.arguments:
@@ -77,7 +77,7 @@ class CSemantics:
     def end_function(self, body):
         """ Called at the end of a function """
         # Pop scope and function
-        self.scope = self.scope.parent
+        self.leave_scope()
         function = self.current_function
         self.current_function = None
 
@@ -390,7 +390,12 @@ class CSemantics:
         else:
             # Bit fields must be of integer type:
             if not ctyp.is_integer:
-                self.error("Invalid type for bit-field", location)
+                self.error(
+                    "Invalid type ({}) for bit-field".format(
+                        type_to_str(ctyp)
+                    ),
+                    location,
+                )
 
         field = types.Field(ctyp, name, bitsize)
         return field
@@ -454,12 +459,20 @@ class CSemantics:
     def on_label(name, statement, location):
         return statements.Label(name, statement, location)
 
-    def enter_compound_statement(self, location):
+    def enter_scope(self):
+        """ Enter a new symbol scope. """
         self.scope = Scope(self.scope)
+
+    def leave_scope(self):
+        """ Leave a symbol scope. """
+        self.scope = self.scope.parent
+
+    def enter_compound_statement(self, location):
+        self.enter_scope()
         self.compounds.append([])
 
     def on_compound_statement(self, location):
-        self.scope = self.scope.parent
+        self.leave_scope()
         inner_statements = self.compounds.pop()
         return statements.Compound(inner_statements, location)
 
@@ -627,7 +640,9 @@ class CSemantics:
         elif op == "*":
             if not isinstance(a.typ, types.IndexableType):
                 self.error(
-                    "Cannot pointer derefence type {}".format(a.typ),
+                    "Cannot pointer derefence type {}".format(
+                        type_to_str(a.typ)
+                    ),
                     a.location,
                 )
             typ = a.typ.element_type
@@ -678,7 +693,8 @@ class CSemantics:
 
         if not isinstance(base.typ, types.IndexableType):
             self.error(
-                "Cannot index non array type {}".format(base.typ), location
+                "Cannot index non array type {}".format(type_to_str(base.typ)),
+                location,
             )
 
         typ = base.typ.element_type
@@ -701,7 +717,11 @@ class CSemantics:
                     )
                 )
             self.error(
-                "Selecting a field of non-struct type", location, hints=hints
+                "Selecting a field of non-struct type ({})".format(
+                    type_to_str(base.typ)
+                ),
+                location,
+                hints=hints,
             )
 
         if not base.lvalue:
@@ -942,6 +962,8 @@ class CSemantics:
         types.BasicType.SHORT: 40,
         types.BasicType.UCHAR: 31,
         types.BasicType.CHAR: 30,
+        # TODO: is void rank-able? for now give it a low rank.
+        types.BasicType.VOID: 0,
     }
 
     def _get_rank(self, typ, location):
@@ -950,7 +972,10 @@ class CSemantics:
                 return self.basic_ranks[typ.type_id]
             else:
                 self.error(
-                    "Cannot determine type rank for {}".format(typ), location
+                    "Cannot determine type rank for '{}'".format(
+                        type_to_str(typ)
+                    ),
+                    location,
                 )
         elif isinstance(typ, types.EnumType):
             return 80
@@ -962,7 +987,8 @@ class CSemantics:
             return 83
         else:
             self.error(
-                "Cannot determine type rank for {}".format(typ), location
+                "Cannot determine type rank for '{}'".format(type_to_str(typ)),
+                location,
             )
 
     def error(self, message, location, hints=None):

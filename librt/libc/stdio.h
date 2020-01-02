@@ -32,12 +32,16 @@ extern FILE *stdin;
 extern FILE *stdout;
 extern FILE *stderr;
 
-// File IO:
+// Character IO:
 int fgetc(FILE* stream);
 #define getc fgetc
 int fputc(int character, FILE* stream);
 #define putc fputc
+char* fgets(char* str, int num, FILE* stream);
 int fputs(const char* str, FILE* stream);
+int ungetc(int character, FILE* stream);
+
+// direct IO:
 size_t fread(void * ptr, size_t size, size_t count, FILE* stream);
 size_t fwrite(const void* ptr, size_t size, size_t count, FILE* stream);
 int fseek(FILE* stream, long int offset, int origin);

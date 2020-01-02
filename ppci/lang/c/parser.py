@@ -18,6 +18,7 @@ Sources of inspiration:
 import logging
 from ..tools.recursivedescent import RecursiveDescentParser
 from .nodes import statements, expressions
+from .printer import type_to_str
 
 
 LEFT_ASSOCIATIVE = "left-associative"
@@ -263,8 +264,8 @@ class CParser(RecursiveDescentParser):
         if type_specifiers:
             if typ:
                 self.error(
-                    "Type specifiers {} given in addition to type {}".format(
-                        type_specifiers, typ
+                    "Type specifiers {} given in addition to type '{}'".format(
+                        type_specifiers, type_to_str(typ)
                     ),
                     location,
                 )
@@ -919,6 +920,7 @@ class CParser(RecursiveDescentParser):
     def parse_for_statement(self):
         """ Parse a for statement """
         location = self.consume("for").loc
+        self.semantics.enter_scope()  # for loops have their own scope.
         self.consume("(")
         if self.peek == ";":
             initial = None
@@ -948,6 +950,7 @@ class CParser(RecursiveDescentParser):
         self.consume(")")
 
         body = self.parse_statement()
+        self.semantics.leave_scope()
         return self.semantics.on_for(initial, condition, post, body, location)
 
     def parse_return_statement(self):

@@ -33,6 +33,13 @@ def expr_to_str(expr):
     return printer.gen_expr(expr)
 
 
+def type_to_str(typ):
+    """ Render a type as text """
+    f = io.StringIO()
+    printer = CPrinter(f)
+    return printer.render_type(typ)
+
+
 class CPrinter:
     """ Render a C program as text
 

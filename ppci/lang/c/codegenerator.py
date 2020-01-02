@@ -1313,10 +1313,15 @@ class CCodeGenerator:
             self.emit(ir.Jump(end_block))
 
             self.builder.set_block(end_block)
-            ir_typ = self.get_ir_type(expr.typ)
-            value = self.emit(ir.Phi("phi", ir_typ))
-            value.set_incoming(final_yes_block, yes_value)
-            value.set_incoming(final_no_block, no_value)
+            if expr.typ.is_void:
+                assert yes_value is None
+                assert no_value is None
+                value = None
+            else:
+                ir_typ = self.get_ir_type(expr.typ)
+                value = self.emit(ir.Phi("phi", ir_typ))
+                value.set_incoming(final_yes_block, yes_value)
+                value.set_incoming(final_no_block, no_value)
         else:  # pragma: no cover
             raise NotImplementedError(str(expr.op))
         return value
