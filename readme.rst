@@ -12,7 +12,9 @@ explore, extend, etc.)!
 The project contains the following:
 
 - A compiler, an assembler, a linker and a build system
-- Language front-ends: Brainfuck, C, c3, WebAssembly
+- Language front-ends: C, Brainfuck, WebAssembly,
+  `C3 <https://ppci.readthedocs.io/en/latest/reference/lang/c3.html>`_
+  (PPCI's own systems language, intended to address some pitfalls of C)
 - CPU backends: 6500, arm, avr, m68k, microblaze, msp430, openrisc, risc-v, stm8,
   x86_64, xtensa
 - Other backends: WebAssembly, Python
