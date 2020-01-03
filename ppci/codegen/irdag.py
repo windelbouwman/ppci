@@ -365,7 +365,25 @@ class SelectionGraphBuilder:
         any instructions, but this special node will be filtered later
         on.
         """
-        sgnode = self.new_node('ASM', None, value=node.template)
+
+        input_registers = []
+        for input_value in node.input_values:
+            arg_val = self.get_value(input_value)
+            reg_loc = self.new_vreg(input_value.ty)
+            mov_sgnode = self.new_node(
+                "MOV", input_value.ty, arg_val, value=reg_loc
+            )
+            self.chain(mov_sgnode)
+            input_registers.append(reg_loc)
+
+        # TODO: fill output registers
+        output_registers = []
+
+        sgnode = self.new_node(
+            "ASM",
+            None,
+            value=(node.template, output_registers, input_registers),
+        )
         self.chain(sgnode)
         self.debug_db.map(node, sgnode)
 

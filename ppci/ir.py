@@ -1148,6 +1148,20 @@ class InlineAsm(Instruction):
     def __init__(self, template):
         super().__init__()
         self.template = template
+        self.input_values = []
+    
+    def add_input_variable(self, value):
+        """ Add an value as input to this assembly stuff. """
+        self.input_values.append(value)
+        self.add_use(value)
+
+    def replace_use(self, old, new):
+        super().replace_use(old, new)
+        if old in self.input_values:
+            idx = self.input_values.index(old)
+            self.del_use(old)
+            self.input_values[idx] = new
+            self.add_use(new)
 
     def __str__(self):
         return 'asm ({})'.format(self.template)

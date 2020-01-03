@@ -212,7 +212,20 @@ class CPrinter:
                 self._print("return;")
         elif isinstance(statement, statements.InlineAssemblyCode):
             self._print("asm (")
-            self._print(statement.template)
+            with self._indented(1):
+                self._print(statement.template)
+                self._print(":")
+                outputs = ",".join(
+                    "{} ({})".format(constraint, self.gen_expr(expression))
+                    for constraint, expression in statement.output_operands
+                )
+                self._print(outputs)
+                self._print(":")
+                inputs = ",".join(
+                    "{} ({})".format(constraint, self.gen_expr(expression))
+                    for constraint, expression in statement.input_operands
+                )
+                self._print(inputs)
             self._print(");")
         elif isinstance(statement, statements.DeclarationStatement):
             self.gen_declaration(statement.declaration)

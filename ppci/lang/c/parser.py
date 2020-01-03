@@ -978,20 +978,49 @@ class CParser(RecursiveDescentParser):
         self.consume(";")
         return self.semantics.on_return(value, location)
 
+    # Inline assembly section!
     def parse_asm_statement(self):
         """ Parse an inline assembly statement.
 
         See also: https://gcc.gnu.org/onlinedocs/gcc/Extended-Asm.html
         """
         location = self.consume("asm").loc
+        valid_qualifiers = ["volatile", "inline", "goto"]
+        # while self.peek in
         # TODO qualifiers
         self.consume("(")
         template = self.consume("STRING").val
         # Strip parenthesis from sourcecode:
         template = template[1:-1]
+
         # TODO: input / output parameters
+        output_operands = self.parse_asm_operands()
+        input_operands = self.parse_asm_operands()
+
         self.consume(")")
-        return statements.InlineAssemblyCode(template, location)
+        return self.semantics.on_asm(
+            template, output_operands, input_operands, location
+        )
+
+    def parse_asm_operands(self):
+        """ Parse a series of assembly operands. Empty list is allowed. """
+        operands = []
+        if self.has_consumed(":"):
+            if self.peek not in [")", ":"]:
+                operand = self.parse_asm_operand()
+                operands.append(operand)
+                while self.has_consumed(","):
+                    operand = self.parse_asm_operand()
+                    operands.append(operand)
+        return operands
+
+    def parse_asm_operand(self):
+        """ Parse a single asm operand. """
+        constraint = self.consume("STRING").val[1:-1]
+        self.consume("(")
+        variable = self.parse_expression()
+        self.consume(")")
+        return (constraint, variable)
 
     # Expression parts:
     def parse_condition(self):

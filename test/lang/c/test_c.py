@@ -783,10 +783,13 @@ class CFrontendTestCase(unittest.TestCase):
     def test_inline_asm(self):
         """ Test inline assembly code. """
         src = """
-        void main() {
+        void main(int a) {
           // This is example arch asm code:
+          int res;
           asm (
             "add r0, r1, r2"
+            : // TODO: "=r" (res)
+            : "r" (a)
           );
         }
         """

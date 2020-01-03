@@ -89,6 +89,19 @@ class RegisterUseDef(VirtualInstruction):
             self.add_def(df)
 
 
+class InlineAssembly(VirtualInstruction):
+    """ This is a placeholder instruction with some inline assembly code.
+    """
+    def __init__(self, template, output_registers, input_registers):
+        super().__init__()
+        self.template = template
+        self.output_registers = output_registers
+        self.input_registers = input_registers
+
+        # Mark input registers as used:
+        self.extra_uses.extend(input_registers)
+
+
 class Comment(PseudoInstruction):
     """ Assembly language comment """
 

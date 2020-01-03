@@ -544,6 +544,35 @@ class CSemantics:
                 self.error("Must return a value from this function", location)
         return statements.Return(value, location)
 
+    def on_asm(self, template, output_operands, input_operands, location):
+        output_operands2 = []
+        for constraint, asm_output_expr in output_operands:
+            assert constraint == "=r"
+
+            # Output must be l-value:
+            if not asm_output_expr.lvalue:
+                self.error("Expected lvalue", asm_output_expr.location)
+
+            output_operands2.append(asm_output_expr)
+
+        input_operands2 = []
+        for constraint, asm_input_expr in input_operands:
+            if constraint == "r":
+                asm_input_expr = self.coerce(
+                    asm_input_expr, self.get_type(["int"])
+                )
+            else:
+                raise NotImplementedError(
+                    "Inline asm constraint not implemented: {}".format(
+                        constraint
+                    )
+                )
+            input_operands2.append(asm_input_expr)
+
+        return statements.InlineAssemblyCode(
+            template, output_operands2, input_operands2, location
+        )
+
     # Expressions!
     def on_string(self, value, location):
         """ React on string literal """
@@ -654,17 +683,7 @@ class CSemantics:
             typ = a.typ.element_type
             expr = expressions.UnaryOperator(op, a, typ, True, location)
         elif op == "&":
-            if isinstance(a, expressions.VariableAccess) and isinstance(
-                a.variable.declaration, declarations.FunctionDeclaration
-            ):
-                # Function pointer:
-                expr = a
-            else:
-                # L-value access:
-                if not a.lvalue:
-                    self.error("Expected lvalue", a.location)
-                typ = types.PointerType(a.typ)
-                expr = expressions.UnaryOperator(op, a, typ, False, location)
+            expr = self.on_take_address(a, location)
         elif op == "!":
             a = self.coerce(a, self.int_type)
             expr = expressions.UnaryOperator(
@@ -672,6 +691,20 @@ class CSemantics:
             )
         else:  # pragma: no cover
             raise NotImplementedError(str(op))
+        return expr
+
+    def on_take_address(self, a, location):
+        if isinstance(a, expressions.VariableAccess) and isinstance(
+            a.variable.declaration, declarations.FunctionDeclaration
+        ):
+            # Function pointer:
+            expr = a
+        else:
+            # L-value access:
+            if not a.lvalue:
+                self.error("Expected lvalue", a.location)
+            typ = types.PointerType(a.typ)
+            expr = expressions.UnaryOperator("&", a, typ, False, location)
         return expr
 
     def on_sizeof(self, typ, location):

@@ -63,7 +63,7 @@ from ..arch.encoding import Instruction
 from .burg import BurgSystem
 from .irdag import FunctionInfo, prepare_function_info
 from .dagsplit import DagSplitter
-from ..arch.generic_instructions import RegisterUseDef
+from ..arch.generic_instructions import RegisterUseDef, InlineAssembly
 
 
 data_types = [str(t).upper() for t in ir.all_types]
@@ -291,22 +291,10 @@ class InstructionSelector1:
 
     def inline_asm(self, context, tree):
         """ Run assembler on inline assembly code. """
-        from ..binutils.outstream import FunctionOutputStream
-        from ..common import DiagnosticsManager
-
-        # poor mans assembly api copied from api.py
-        template = tree.value
-        instructions = []
-        diag = DiagnosticsManager()
-        ostream = FunctionOutputStream(instructions.append)
-        assembler = self.arch.assembler
-        assembler.prepare()
-        assembler.assemble(template, ostream, diag)
-        assembler.flush()
-
-        # Emit inline assembly to output:
-        for instruction in instructions:
-            context.emit(instruction)
+        template, output_registers, input_registers = tree.value
+        context.emit(
+            InlineAssembly(template, output_registers, input_registers)
+        )
 
     def memcp(self):
         """ Invoke memcpy arch function """

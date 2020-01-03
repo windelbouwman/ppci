@@ -9,6 +9,7 @@ from ..irutils import Verifier, split_block
 from ..arch.arch import Architecture
 from ..arch.generic_instructions import Label, Comment, Global, DebugData
 from ..arch.generic_instructions import RegisterUseDef, VirtualInstruction
+from ..arch.generic_instructions import InlineAssembly
 from ..arch.generic_instructions import ArtificialInstruction, Alignment
 from ..arch.encoding import Instruction
 from ..arch.data_instructions import DZero, DByte
@@ -257,6 +258,13 @@ class CodeGenerator:
                     pass
                 elif isinstance(instruction, ArtificialInstruction):
                     output_stream.emit(instruction)
+                elif isinstance(instruction, InlineAssembly):
+                    self._generate_inline_assembly(
+                        instruction.template,
+                        instruction.output_registers,
+                        instruction.input_registers,
+                        output_stream,
+                    )
                 else:  # pragma: no cover
                     raise NotImplementedError(str(instruction))
             else:
@@ -278,6 +286,28 @@ class CodeGenerator:
                 # print(tmp, di)
                 # frame.live_ranges(tmp)
                 # print('live ranges:', lr)
+
+    def _generate_inline_assembly(
+        self, template, output_registers, input_registers, ostream
+    ):
+        """ Emit inline assembly template to outstream.
+        """
+        from ..common import DiagnosticsManager
+
+        # poor mans assembly api copied from api.py
+
+        # Replace template variables with actual registers:
+        for index, input_register in enumerate(input_registers):
+            template_variable = "%{}".format(index)
+            template = template.replace(template_variable, str(input_register))
+
+        diag = DiagnosticsManager()
+        assembler = self.arch.assembler
+        assembler.prepare()
+        assembler.assemble(template, ostream, diag)
+        # TODO: this flush action might be troublesome, since it might emit
+        # a literal pool on ARM.
+        assembler.flush()
 
     def _mark_global(self, output_stream, value):
         # Indicate static or global variable.
