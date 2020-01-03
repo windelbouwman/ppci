@@ -288,7 +288,7 @@ class CodeGenerator:
                 # print('live ranges:', lr)
 
     def _generate_inline_assembly(
-        self, template, output_registers, input_registers, ostream
+        self, assembly_source, output_registers, input_registers, ostream
     ):
         """ Emit inline assembly template to outstream.
         """
@@ -297,14 +297,20 @@ class CodeGenerator:
         # poor mans assembly api copied from api.py
 
         # Replace template variables with actual registers:
-        for index, input_register in enumerate(input_registers):
-            template_variable = "%{}".format(index)
-            template = template.replace(template_variable, str(input_register))
+        mapping = {
+            "%{}".format(index): str(register)
+            for index, register in enumerate(
+                output_registers + input_registers
+            )
+        }
+
+        for k, v in mapping.items():
+            assembly_source = assembly_source.replace(k, v)
 
         diag = DiagnosticsManager()
         assembler = self.arch.assembler
         assembler.prepare()
-        assembler.assemble(template, ostream, diag)
+        assembler.assemble(assembly_source, ostream, diag)
         # TODO: this flush action might be troublesome, since it might emit
         # a literal pool on ARM.
         assembler.flush()

@@ -10,6 +10,8 @@ Release 1.0 (Planned)
 Release 0.5.8 (Upcoming)
 ------------------------
 
+* Add inline asm support to C frontend.
+
 Release 0.5.7 (Dec 31, 2019)
 ----------------------------
 
