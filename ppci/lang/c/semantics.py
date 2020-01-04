@@ -544,7 +544,9 @@ class CSemantics:
                 self.error("Must return a value from this function", location)
         return statements.Return(value, location)
 
-    def on_asm(self, template, output_operands, input_operands, location):
+    def on_asm(
+        self, template, output_operands, input_operands, clobbers, location
+    ):
         output_operands2 = []
         for constraint, asm_output_expr in output_operands:
             assert constraint == "=r"
@@ -553,7 +555,7 @@ class CSemantics:
             if not asm_output_expr.lvalue:
                 self.error("Expected lvalue", asm_output_expr.location)
 
-            output_operands2.append(asm_output_expr)
+            output_operands2.append((constraint, asm_output_expr))
 
         input_operands2 = []
         for constraint, asm_input_expr in input_operands:
@@ -567,10 +569,26 @@ class CSemantics:
                         constraint
                     )
                 )
-            input_operands2.append(asm_input_expr)
+            input_operands2.append((constraint, asm_input_expr))
+
+        clobbers2 = []
+        for clobber_register_name in clobbers:
+            clobber_register_name = clobber_register_name[1:-1]
+            if self.context.arch_info.has_register(clobber_register_name):
+                clobber_register = self.context.arch_info.get_register(
+                    clobber_register_name
+                )
+                clobbers2.append(clobber_register)
+            else:
+                self.error(
+                    "target machine does not have register {}".format(
+                        clobber_register_name
+                    ),
+                    location,
+                )
 
         return statements.InlineAssemblyCode(
-            template, output_operands2, input_operands2, location
+            template, output_operands2, input_operands2, clobbers2, location
         )
 
     # Expressions!

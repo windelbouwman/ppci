@@ -989,17 +989,15 @@ class CParser(RecursiveDescentParser):
         # while self.peek in
         # TODO qualifiers
         self.consume("(")
-        template = self.consume("STRING").val
-        # Strip parenthesis from sourcecode:
-        template = template[1:-1]
+        template = self.consume("STRING").val[1:-1]
 
-        # TODO: input / output parameters
         output_operands = self.parse_asm_operands()
         input_operands = self.parse_asm_operands()
+        clobbers = self.parse_clobbers()
 
         self.consume(")")
         return self.semantics.on_asm(
-            template, output_operands, input_operands, location
+            template, output_operands, input_operands, clobbers, location
         )
 
     def parse_asm_operands(self):
@@ -1021,6 +1019,17 @@ class CParser(RecursiveDescentParser):
         variable = self.parse_expression()
         self.consume(")")
         return (constraint, variable)
+
+    def parse_clobbers(self):
+        clobbers = []
+        if self.has_consumed(":"):
+            if self.peek != ")":
+                clobber = self.consume("STRING").val
+                clobbers.append(clobber)
+                while self.has_consumed(","):
+                    clobber = self.consume("STRING").val
+                    clobbers.append(clobber)
+        return clobbers
 
     # Expression parts:
     def parse_condition(self):

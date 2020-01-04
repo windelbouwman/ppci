@@ -92,7 +92,7 @@ class RegisterUseDef(VirtualInstruction):
 class InlineAssembly(VirtualInstruction):
     """ This is a placeholder instruction with some inline assembly code.
     """
-    def __init__(self, template, output_registers, input_registers):
+    def __init__(self, template, output_registers, input_registers, clobbers):
         super().__init__()
         self.template = template
         self.output_registers = output_registers
@@ -100,6 +100,10 @@ class InlineAssembly(VirtualInstruction):
 
         # Mark input registers as used:
         self.extra_uses.extend(input_registers)
+
+        # Note that this variable overrides the clobbers member which is
+        # used by the register allocator.
+        self.clobbers = clobbers
 
 
 class Comment(PseudoInstruction):

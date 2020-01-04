@@ -759,10 +759,10 @@ class CCodeGenerator:
 
     def gen_inline_assembly(self, stmt):
         """ Generate code for inline assembly. """
-        inline_asm = ir.InlineAsm(stmt.template)
+        inline_asm = ir.InlineAsm(stmt.template, stmt.clobbers)
 
         # First load, all asm operands:
-        for asm_input_expr in stmt.input_operands:
+        for _, asm_input_expr in stmt.input_operands:
             asm_input_ir = self.gen_expr(asm_input_expr, rvalue=True)
             inline_asm.add_input_variable(asm_input_ir)
 

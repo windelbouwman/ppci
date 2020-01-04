@@ -1145,9 +1145,10 @@ class Store(Instruction):
 
 class InlineAsm(Instruction):
     """ Inline assembly code. """
-    def __init__(self, template):
+    def __init__(self, template, clobbers):
         super().__init__()
         self.template = template
+        self.clobbers = clobbers
         self.input_values = []
     
     def add_input_variable(self, value):

@@ -74,7 +74,7 @@ class Visitor:
         elif isinstance(node, statements.InlineAssemblyCode):
             for _, output in node.output_operands:
                 self.visit(output)
-            for input_operand in node.input_operands:
+            for _, input_operand in node.input_operands:
                 self.visit(input_operand)
         elif isinstance(node, statements.Empty):
             pass

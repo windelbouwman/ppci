@@ -40,6 +40,7 @@ class ArchInfo:
         assert isinstance(endianness, Endianness)
         self.endianness = endianness
         self.register_classes = register_classes
+        self._registers_by_name = {}
 
         mapping = {}
         for register_class in self.register_classes:
@@ -47,7 +48,17 @@ class ArchInfo:
                 if ty in mapping:
                     raise ValueError("Duplicate type assignment {}".format(ty))
                 mapping[ty] = register_class.typ
+            for register in register_class.registers:
+                self._registers_by_name[register.name] = register
         self.value_classes = mapping
+
+    def get_register(self, name):
+        """ Retrieve the machine register by name. """
+        return self._registers_by_name[name]
+    
+    def has_register(self, name):
+        """ Test if this architecture has a register with the given name. """
+        return name in self._registers_by_name
 
     def get_type_info(self, typ):
         """ Retrieve type information for the given type """

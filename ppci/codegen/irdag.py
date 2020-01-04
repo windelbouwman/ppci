@@ -382,7 +382,7 @@ class SelectionGraphBuilder:
         sgnode = self.new_node(
             "ASM",
             None,
-            value=(node.template, output_registers, input_registers),
+            value=(node.template, output_registers, input_registers, node.clobbers),
         )
         self.chain(sgnode)
         self.debug_db.map(node, sgnode)

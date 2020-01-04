@@ -207,11 +207,14 @@ class DeclarationStatement(CStatement):
 class InlineAssemblyCode(CStatement):
     """ A piece of inlined assembly code """
 
-    def __init__(self, template, output_operands, input_operands, location):
+    def __init__(
+        self, template, output_operands, input_operands, clobbers, location
+    ):
         super().__init__(location)
         self.template = template
         self.output_operands = output_operands
         self.input_operands = input_operands
+        self.clobbers = clobbers
 
     def __repr__(self):
         return "Inline assembly"

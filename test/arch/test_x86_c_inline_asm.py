@@ -9,10 +9,14 @@ class InlineAsmTestCase(unittest.TestCase):
         src = """
         int foo(int a, int b, char c) {
             asm (
-                "xor %0, %1"
+                "mov rsi, %0\n"
+                "xor rsi, %1\n"
+                "and rsi, %1\n"
                 :
                 : "r" (a), "r" (c)
+                : "rsi"
             );
+            return b;
         }
         """
         march = get_arch('x86_64')

@@ -1306,7 +1306,7 @@ def string_concat(tokens):
     for token in tokens:
         if token.typ == "STRING":
             if string_token:
-                string_token.val += token.val
+                string_token.val = string_token.val[:-1] + token.val[1:]
             else:
                 string_token = token
         else:
