@@ -16,6 +16,9 @@ class TestSamplesOnVexpress(unittest.TestCase):
     section reset
     mov sp, 0xF0000   ; setup stack pointer
     ; copy initial data
+    global __data_load_start
+    global __data_start
+    global __data_end
     ldr r1, =__data_load_start
     ldr r2, =__data_start
     ldr r3, =__data_end
@@ -27,7 +30,8 @@ class TestSamplesOnVexpress(unittest.TestCase):
     cmp r2, r3
     blt __copy_loop
 
-
+    global main_main
+    global bsp_exit
     BL main_main      ; Branch to sample start
     BL bsp_exit       ; do exit stuff
     local_loop:
@@ -96,10 +100,17 @@ class TestSamplesOnCortexM3O2(unittest.TestCase):
     cmp r2, r3
     blt __copy_loop
 
+    global main_main
+    global bsp_exit
+
     BL main_main     ; Branch to sample start
     BL bsp_exit      ; do exit stuff
     local_loop:
     B local_loop
+
+    global __data_load_start
+    global __data_start
+    global __data_end
 
     __data_load_start_value:
     dcd =__data_load_start

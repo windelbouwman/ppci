@@ -32,6 +32,9 @@ class TestSamplesOnMsp430(unittest.TestCase):
         dw reset_handler ; 15 = reset
 
       section code
+        global main_main
+        global bsp_exit
+
         reset_handler:
           mov.w #0x980, sp       ; setup stack pointer
           call #__init
@@ -40,9 +43,14 @@ class TestSamplesOnMsp430(unittest.TestCase):
         end_inf_loop:
           jmp end_inf_loop
 
+        global bsp_putc
         bsp_putc:
           mov.b r12, 0x67(r2)  ; write to uart0 tx buf
           ret
+
+        global __data_load_start
+        global __data_start
+        global __data_end
 
         __init:
           mov.w #__data_load_start, r11
