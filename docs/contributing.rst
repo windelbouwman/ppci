@@ -10,6 +10,7 @@ This section is intended for contributors of ppci.
     support
     communication
     development
+    testing
     todo
 
 

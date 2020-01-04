@@ -166,6 +166,22 @@ class CFrontendTestCase(unittest.TestCase):
         """
         self.do(src)
 
+    def test_ternary_operator(self):
+        """ Test ternary operator with functions. """
+        src = """
+        int foo(int x) { return x + 1; }
+        int bar(int x) { return x - 1; }
+        void p1(int x);
+        void p2(int x);
+
+        void main(int b) {
+          int a;
+          a = (b ? foo : bar)(22); // ternary usage with function pointers
+          (b ? p1 : p2)(33);  // ternary usage with void type
+        }
+        """
+        self.do(src)
+
     def test_comma_operator(self):
         """ Test comma operator """
         src = """

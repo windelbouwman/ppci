@@ -1003,6 +1003,14 @@ class CSemantics:
 
         The common type is a type they can both be cast to.
         """
+        # Auto cast to pointer to function.
+        # TBD: this is probably not the best place to do this?
+        if isinstance(typ1, types.FunctionType):
+            typ1 = types.PointerType(typ1)
+
+        if isinstance(typ2, types.FunctionType):
+            typ2 = types.PointerType(typ1)
+
         return max([typ1, typ2], key=lambda t: self._get_rank(t, location))
 
     basic_ranks = {
@@ -1037,8 +1045,6 @@ class CSemantics:
         elif isinstance(typ, types.EnumType):
             return 80
         elif isinstance(typ, types.PointerType):
-            return 83
-        elif isinstance(typ, types.FunctionType):
             return 83
         elif isinstance(typ, types.ArrayType):
             return 83

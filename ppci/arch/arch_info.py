@@ -48,8 +48,9 @@ class ArchInfo:
                 if ty in mapping:
                     raise ValueError("Duplicate type assignment {}".format(ty))
                 mapping[ty] = register_class.typ
-            for register in register_class.registers:
-                self._registers_by_name[register.name] = register
+            if register_class.registers:
+                for register in register_class.registers:
+                    self._registers_by_name[register.name] = register
         self.value_classes = mapping
 
     def get_register(self, name):
