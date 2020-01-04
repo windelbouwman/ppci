@@ -57,12 +57,6 @@ To run the unit tests with the compiler, use `pytest`_:
 
     $ python -m pytest -v test/
 
-Or use the unittest module:
-
-.. code:: bash
-
-    $ python -m unittest discover -s test
-
 Or, yet another way, use tox:
 
 .. code:: bash
@@ -78,6 +72,13 @@ run tox, simply run in the root directory:
 
     $ tox
 
+Note that those command will **not work properly**:
+
+.. code:: bash
+
+    $ python -m unittest discover -s  # will not recursively discover test cases
+    $ python setup.py test  # does not work and is deprecated
+
 Long tests
 ~~~~~~~~~~
 
@@ -86,14 +87,36 @@ you want to run these, you can use this:
 
 .. code:: bash
 
-    $ LONGTESTS=1 python -m pytest test/
+    $ LONGTESTS=all python -m pytest test/
+
+Valid values for the LONGTESTS variable (note that multiple values can be
+seperated by comma's):
+
++-----------------+-------------------------------------------+
+| value           | meaning                                   |
++=================+===========================================+
+| all             | Go all in, run all tests possible         |
++-----------------+-------------------------------------------+
+| any             | Run some extra tests which take           |
+|                 | somewhat longer                           |
++-----------------+-------------------------------------------+
+| python          | Convert sample snippets to python         |
++-----------------+-------------------------------------------+
+| jit             | Run a tricky test in which code is jitted |
++-----------------+-------------------------------------------+
+| wasm            | Convert sample snippets to wasm           |
++-----------------+-------------------------------------------+
+| riscv,msp430,   | Convert sample snippets to                |
+| avr,microblaze, | code for the given architecture           |
+| xtensa,arm      |                                           |
++-----------------+-------------------------------------------+
 
 Some targets need iverilog to emulate a certain processor. If you want to run
 these, use this:
 
 .. code:: bash
 
-    $ LONGTESTS=1 IVERILOG=1 python -m pytest test/
+    $ LONGTESTS=all IVERILOG=1 python -m pytest test/
 
 Profiling
 ~~~~~~~~~
