@@ -17,6 +17,7 @@ valid_programs = [
     "hexdump",
     "hexutil",
     "java",
+    "ld",
     "link",
     "llc",
     "mkuimage",
@@ -35,12 +36,16 @@ valid_programs = [
     "yacc",
 ]
 
+aliases = {
+    'ld': 'link'
+}
 
 def main():
     if len(sys.argv) < 2:
         print_help_message()
     else:
         subcommand = sys.argv[1]
+        subcommand = aliases.get(subcommand, subcommand)
         cmd_args = sys.argv[2:]
         if subcommand in valid_programs:
             m = importlib.import_module("ppci.cli." + subcommand)
