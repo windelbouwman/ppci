@@ -51,3 +51,15 @@ Below is a list of features / tasks that need to be done.
   - Investigate polyhedral optimization
 
 - Add better support for harvard architecture cpu's like avr, 8051 and PIC.
+
+Issue trackers
+--------------
+
+On github, there is a list of open issues which need attention:
+
+https://github.com/windelbouwman/ppci-mirror/issues
+
+On bitbucket, there is another todo list:
+
+https://bitbucket.org/windel/ppci/issues
+

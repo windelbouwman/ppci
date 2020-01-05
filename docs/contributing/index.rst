@@ -12,6 +12,7 @@ This section is intended for contributors of ppci.
     development
     testing
     todo
+    releasing
 
 
 Contributors

@@ -13,7 +13,7 @@ Table of contents
     reference/index
     compiler
     faq
-    contributing
+    contributing/index
     changelog
 
 

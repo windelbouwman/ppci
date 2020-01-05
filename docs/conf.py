@@ -53,7 +53,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = 'ppci'
-copyright = '2019, Windel Bouwman'
+copyright = '2020, Windel Bouwman'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -117,7 +117,10 @@ html_theme = 'alabaster'
 # further.  For a list of options available for each theme, see the
 # documentation.
 html_theme_options = {
-    'github_button': False,
+    'github_user': 'windelbouwman',
+    'github_repo': 'ppci-mirror',
+    'github_banner': True,
+    'travis_button': True,
 }
 
 # Add any paths that contain custom themes here, relative to this directory.
@@ -280,26 +283,6 @@ texinfo_documents = [
 #texinfo_no_detailmenu = False
 
 
-from pygments.lexer import RegexLexer
-from pygments import token
-import ppci.lang.c3
-
-
-class C3Lexer(RegexLexer):
-    # TODO: fix this lexer:
-    name = 'c3'
-    aliases = ['c3']
-    filenames = ['*.c3']
-    tokens = {
-        'root': [
-            (r'\s+', token.Text),
-            (r'function', token.Keyword.Reserved),
-            (r'[a-z]+', token.Name),
-            (r'.*', token.Text)
-        ]
-    }
-
-from sphinx.highlighting import lexers
 from sphinx import directives
 
 
