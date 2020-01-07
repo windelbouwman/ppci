@@ -581,6 +581,7 @@ class Linker:
 
     def do_relocations(self):
         """ Perform the correct relocation as listed """
+        self.logger.debug("Performing {} linker relocations".format(len(self.dst.relocations)))
         for reloc in self.dst.relocations:
             self._do_relocation(reloc)
 
@@ -590,7 +591,6 @@ class Linker:
         This involves hammering some specific bits in the section data
         according to symbol location and relocation location in the file.
         """
-        self.logger.debug("Performing linker relaxation")
         sym_value = self.get_symbol_value(relocation.symbol_id)
         section = self.dst.get_section(relocation.section)
 

@@ -17,10 +17,10 @@ Faq
 
 *Cool project, I want to contribute to this project, what can I do?*
 
-    Great! Please :doc:`see this page<support>`.
+    Great! Please :doc:`see this page<contributing/support>`.
     If you are not sure where to begin, please contact me fist.
-    For a list of tasks, refer to :doc:`the todo page<todo>`. For hints on 
-    development see :doc:`the development page<development>`.
+    For a list of tasks, refer to :doc:`the todo page<contributing/todo>`. For hints on 
+    development see :doc:`the development page<contributing/development>`.
 
 
 *Why would one want to make a compiler for such a weird language such as C?*

@@ -1,7 +1,7 @@
 import unittest
 
 from sample_helpers import add_samples, build
-from helper_util import has_qemu, qemu, relpath
+from helper_util import has_qemu, qemu, relpath, create_qemu_launch_script
 from helper_util import do_long_tests, make_filename
 from ppci.format import uboot_image
 
@@ -32,9 +32,12 @@ class OpenRiscSamplesTestCase(unittest.TestCase):
                 f, bindata,
                 arch=uboot_image.Architecture.OPENRISC)
 
-        if has_qemu():
-            output = qemu([
+        qemu_cmd = [
                 'qemu-system-or1k', '-nographic',
                 '-M', 'or1k-sim', '-m', '16',
-                '-kernel', img_filename])
+                '-kernel', img_filename]
+
+        create_qemu_launch_script(base_filename + '.sh', qemu_cmd)
+        if has_qemu():
+            output = qemu(qemu_cmd)
             self.assertEqual(expected_output, output)

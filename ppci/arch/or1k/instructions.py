@@ -662,7 +662,7 @@ def pattern_const32(context, tree):
     size=4,
     cycles=1,
     energy=1,
-    condition=lambda t: t.value in range(0, 0xFFFF),
+    condition=lambda t: t.value in range(0, 0x10000),
 )
 @orbis32.pattern(
     "reg",
@@ -670,7 +670,7 @@ def pattern_const32(context, tree):
     size=4,
     cycles=1,
     energy=1,
-    condition=lambda t: t.value in range(0, 0xFFFF),
+    condition=lambda t: t.value in range(0, 0x10000),
 )
 @orbis32.pattern(
     "reg",
@@ -678,7 +678,7 @@ def pattern_const32(context, tree):
     size=4,
     cycles=1,
     energy=1,
-    condition=lambda t: t.value in range(0, 0xFFFF),
+    condition=lambda t: t.value in range(0, 0x10000),
 )
 @orbis32.pattern(
     "reg",
@@ -686,13 +686,13 @@ def pattern_const32(context, tree):
     size=4,
     cycles=1,
     energy=1,
-    condition=lambda t: t.value in range(0, 0xFFFF),
+    condition=lambda t: t.value in range(0, 0x10000),
 )
 def pattern_const16(context, tree):
     # Play clever with the r0 register (always assumed 0)
     d = context.new_reg(Or1kRegister)
     cnst = tree.value
-    context.emit(Addi(d, registers.r0, Immediate(cnst)))
+    context.emit(Ori(d, registers.r0, Immediate(cnst)))
     return d
 
 
@@ -748,14 +748,14 @@ def pattern_u8tou32(context, tree, c0):
 def pattern_i32tou8(context, tree, c0):
     d = context.new_reg(Or1kRegister)
     context.emit(Extbz(d, c0))  # zero extend
-    return c0
+    return d
 
 
 @orbis32.pattern("reg", "I32TOI8(reg)", size=4, cycles=1, energy=1)
 def pattern_i32toi8(context, tree, c0):
     d = context.new_reg(Or1kRegister)
     context.emit(Extbs(d, c0))
-    return c0
+    return d
 
 
 # 32 -- 16 bits relations
@@ -781,11 +781,11 @@ def pattern_u16_to_u32(context, tree, c0):
 def pattern_u32_to_u16(context, tree, c0):
     d = context.new_reg(Or1kRegister)
     context.emit(Exthz(d, c0))  # zero extend
-    return c0
+    return d
 
 
 @orbis32.pattern("reg", "I32TOI16(reg)", size=4, cycles=1, energy=1)
 def pattern_i32_to_i16(context, tree, c0):
     d = context.new_reg(Or1kRegister)
     context.emit(Exths(d, c0))  # sign extend
-    return c0
+    return d

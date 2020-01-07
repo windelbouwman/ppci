@@ -1,17 +1,24 @@
 """ Command line interface using prompt_toolkit. """
 
 import logging
+from asyncio import get_event_loop
+from prompt_toolkit import __version__ as ptk_version
+
+# Check version of prompt toolkit:
+if not ptk_version.startswith('3.'):
+    print('We require prompt toolkit version 3.x, we currently have: {}'.format(ptk_version))
 
 from prompt_toolkit import Application
 from prompt_toolkit.buffer import Buffer
-from prompt_toolkit.styles import style_from_pygments
+from prompt_toolkit.styles.pygments import style_from_pygments_cls
 from prompt_toolkit.lexers import PygmentsLexer
-from prompt_toolkit.key_binding.key_bindings import KeyBindings
+from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.keys import Keys
+from prompt_toolkit.layout import Layout
 from prompt_toolkit.layout.containers import HSplit, Window, VSplit
 from prompt_toolkit.layout.controls import BufferControl
 from prompt_toolkit.layout.controls import FormattedTextControl
-from prompt_toolkit.layout.margins import NumberredMargin, ScrollbarMargin
+from prompt_toolkit.layout.margins import NumberedMargin, ScrollbarMargin
 from prompt_toolkit.layout.margins import Margin
 from prompt_toolkit.layout.processors import Processor, Transformation
 from prompt_toolkit.widgets import Frame
@@ -129,7 +136,7 @@ class PtDebugCli:
                 lexer=src_lexer,
                 input_processors=[self.locals_processor],
             ),
-            left_margins=[self.current_address_margin, NumberredMargin()],
+            left_margins=[self.current_address_margin, NumberedMargin()],
             right_margins=[ScrollbarMargin(display_arrows=True)],
             cursorline=True,
         )
@@ -138,8 +145,8 @@ class PtDebugCli:
             content=BufferControl(buffer=self.register_buffer), width=20
         )
 
-        title_text = "Welcome to the ppci debugger version {}".format(
-            ppci_version
+        title_text = "Welcome to the ppci debugger version {} running in prompt_toolkit {}".format(
+            ppci_version, ptk_version
         )
 
         help_text = (
@@ -148,7 +155,7 @@ class PtDebugCli:
         )
 
         # Application layout:
-        layout = HSplit(
+        body = HSplit(
             [
                 Window(
                     content=FormattedTextControl(text=title_text), height=1
@@ -157,7 +164,7 @@ class PtDebugCli:
                     [
                         HSplit(
                             [
-                                Frame(body=source_code_window),
+                                Frame(body=source_code_window, title='source-code'),
                                 Window(
                                     content=BufferControl(
                                         buffer=self.logs_buffer
@@ -176,8 +183,9 @@ class PtDebugCli:
                 Window(content=FormattedTextControl(help_text), height=1),
             ]
         )
+        layout = Layout(body)
 
-        style = style_from_pygments(get_style_by_name("vim"))
+        style = style_from_pygments_cls(get_style_by_name("vim"))
 
         log_handler = MyHandler(self.logs_buffer)
         fmt = logging.Formatter(fmt=logformat)
@@ -185,6 +193,8 @@ class PtDebugCli:
         log_handler.setLevel(logging.DEBUG)
         logging.getLogger().setLevel(logging.DEBUG)
         logging.getLogger().addHandler(log_handler)
+
+        self._event_loop = get_event_loop()
 
         self.application = Application(
             layout=layout, style=style, key_bindings=kb, full_screen=True
@@ -199,7 +209,7 @@ class PtDebugCli:
             ("class:status", "STATUS={} ".format(self.debugger.status))
         )
         tokens.append(
-            ("class:status", "PC={} ".format(self.debugger.get_pc()))
+            ("class:status", "PC={:08X} ".format(self.debugger.get_pc()))
         )
         if self.debugger.has_symbols:
             loc = self.debugger.find_pc()
@@ -217,9 +227,9 @@ class PtDebugCli:
             self.display_registers()
             self.highlight_source()
             self.evaluate_locals()
-            self.cli.request_redraw()
+            self.application.invalidate()
 
-        self._event_loop.call_from_executor(callback)
+        self._event_loop.call_soon_threadsafe(callback)
 
     def evaluate_locals(self):
         # Locals:

@@ -79,44 +79,7 @@ Note that those command will **not work properly**:
     $ python -m unittest discover -s  # will not recursively discover test cases
     $ python setup.py test  # does not work and is deprecated
 
-Long tests
-~~~~~~~~~~
-
-There are a series of test snippets located in the test/samples folder. If
-you want to run these, you can use this:
-
-.. code:: bash
-
-    $ LONGTESTS=all python -m pytest test/
-
-Valid values for the LONGTESTS variable (note that multiple values can be
-seperated by comma's):
-
-+-----------------+-------------------------------------------+
-| value           | meaning                                   |
-+=================+===========================================+
-| all             | Go all in, run all tests possible         |
-+-----------------+-------------------------------------------+
-| any             | Run some extra tests which take           |
-|                 | somewhat longer                           |
-+-----------------+-------------------------------------------+
-| python          | Convert sample snippets to python         |
-+-----------------+-------------------------------------------+
-| jit             | Run a tricky test in which code is jitted |
-+-----------------+-------------------------------------------+
-| wasm            | Convert sample snippets to wasm           |
-+-----------------+-------------------------------------------+
-| riscv,msp430,   | Convert sample snippets to                |
-| avr,microblaze, | code for the given architecture           |
-| xtensa,arm      |                                           |
-+-----------------+-------------------------------------------+
-
-Some targets need iverilog to emulate a certain processor. If you want to run
-these, use this:
-
-.. code:: bash
-
-    $ LONGTESTS=all IVERILOG=1 python -m pytest test/
+:doc:`Read more about testing <testing>`.
 
 Profiling
 ~~~~~~~~~
@@ -131,64 +94,6 @@ pyprof2calltree.
     $ pip install pyprof2calltree
     $ pyprof2calltree -i profiled.out -k
 
-Debugging tests
-~~~~~~~~~~~~~~~
-
-To debug test cases, a handy trick is to use pudb (when not using fancy ide
-like vscode or pycharm). To do this, specify the debugger to use with pytest
-like this:
-
-.. code:: bash
-
-    $ pytest -v --pdb --pdbcls pudb.debugger:Debugger --capture=no
-
-Debugging dynamic code
-~~~~~~~~~~~~~~~~~~~~~~
-
-Sometimes, the python interpreter might crash due to playing with dynamically
-injected code. To debug this, we can use gdb for example.
-
-.. code:: bash
-
-    $ gdb --args python script.py
-    (gdb) run
-
-Once the program crashes, one can disassemble and print info:
-
-.. code:: bash
-
-    (gdb) bt
-    (gdb) disassemble /r 0x7fff000, 0x7fff200
-    (gdb) info registers
-
-Debugging python code
-~~~~~~~~~~~~~~~~~~~~~
-
-Alternatively, when facing a python exception, one might want to try the pudb
-debugger like this:
-
-.. code:: bash
-
-    python -m pudb crashing_script.py
-
-3rd party test suites
-~~~~~~~~~~~~~~~~~~~~~
-
-There exist many different compiler validation suites. Some of them are pure validation sets,
-others are part of a compiler toolchain. In order to use these test suites, a series of test
-suite adapter files exists.
-
-Available test adapters:
-
-* mcpp (set `MCPP_DIR`) `test/lang/c/test_mcpp_test_suite.py`
-* wasm spec (set `WASM_SPEC_DIR`) `test/wasm/test_suite_full.py`
-* fortran compiler validation system 2.1 (set `FCVS_DIR`) `test/lang/fortran/test_fortran_test_suite.py`
-
-To run for example wasm test spec tests:
-
-.. code:: bash
-
-    $ WASM_SPEC_DIR=~/GIT/spec python -m pytest test/wasm/test_suite_full -v
 
 Building the docs
 -----------------

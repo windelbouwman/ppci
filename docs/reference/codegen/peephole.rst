@@ -31,15 +31,15 @@ like this:
 
 Another example is this code for the msp430 architecture:
 
-.. code-block:: asm
+.. code-block::
 
     mov.w @r3, r2    ; load from address pointed to by r3 into r2
-    add.w #2, r3  ; increment r3 by 2.
+    add.w #2, r3     ; increment r3 by 2.
 
 These two instructions can be combined into one instruction which has the
 same effect:
 
-.. code-block:: asm
+.. code-block::
 
     mov.w @r3+, r2  ; post increment r3 by 2 after load
 

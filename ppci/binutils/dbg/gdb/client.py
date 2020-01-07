@@ -159,6 +159,7 @@ class GdbDebugDriver(DebugDriver):
     def stop(self):
         if self.status == DebugState.RUNNING:
             self._sendbrk()
+            self.status = DebugState.STOPPED
         else:
             self.logger.warning("Cannot stop if not running")
 
@@ -321,10 +322,23 @@ class GdbDebugDriver(DebugDriver):
 
     def _unpack_register(self, register, data):
         """ Fetch a register from some data """
-        fmts = {8: "<Q", 4: "<I", 2: "<H", 1: "<B"}
+        from ....arch.arch_info import Endianness
+        if self.arch.info.endianness == Endianness.BIG:
+            endian_fmt = '>'
+        else:
+            endian_fmt = '<'
+
+        fmts = {
+            8: "{}Q".format(endian_fmt),
+            4: "{}I".format(endian_fmt),
+            2: "{}H".format(endian_fmt),
+            1: "{}B".format(endian_fmt)
+        }
+
         size = register.bitsize // 8
         if len(data) == size:
             if size == 3:
+                # TODO: endianess!
                 value = data[0] + (data[1] << 8) + (data[2] << 16)
             else:
                 value, = struct.unpack(fmts[size], data)

@@ -90,6 +90,39 @@ def run_qemu(kernel, machine='lm3s811evb', dump_file=None, dump_range=None):
     return qemu(args)
 
 
+def create_qemu_launch_script(filename, qemu_cmd):
+    """ Create a shell script for a qemu command.
+    
+    This can be used to launch qemu manually for a specific test example.
+    """
+
+    # Add additional options for qemu when running from command line:
+    qemu_cmd = qemu_cmd + [
+        '-serial', 'stdio',  # route serial port to stdout.
+        # '-S',  # Halt on startup
+        # '-gdb', 'tcp::1234',  # open gdb port
+        '-D', 'trace.txt', '-d', 'in_asm,exec,int,op_opt,cpu', # Extensive tracing
+        '-singlestep',  # make sure we step a single instruction at a time.
+    ]
+
+    if '-nographic' in qemu_cmd:
+        qemu_cmd.remove('-nographic')
+
+    with open(filename, 'w') as f:
+        print("#!/bin/bash", file=f)
+        print("", file=f)
+        print("# *** automatically generated QEMU launch file! ***", file=f)
+        print("", file=f)
+        print("{}".format(' '.join(qemu_cmd)), file=f)
+        print("", file=f)
+    
+    if sys.platform == 'linux':
+        # chmod +x:
+        import stat
+        st = os.stat(filename)
+        os.chmod(filename, st.st_mode | stat.S_IEXEC)
+
+
 def qemu(args):
     """ Run qemu with given arguments and capture serial output """
     # Listen to the control socket:
