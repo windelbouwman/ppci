@@ -9,7 +9,7 @@ from ppci.api import c3_to_ir, bf_to_ir, optimize, c_to_ir
 from ppci.utils.reporting import HtmlReportGenerator
 from ppci.lang.c import COptions
 from ppci.wasm import ir_to_wasm
-from ppci.ir_link import ir_link
+from ppci.irutils import ir_link
 
 
 @unittest.skipUnless(do_long_tests('wasm'), 'skipping slow tests')
