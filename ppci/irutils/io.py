@@ -18,6 +18,12 @@ from ..utils.binary_txt import bin2asc, asc2bin
 
 def to_json(module):
     """ Convert an IR-module to json format.
+
+    Args:
+        module: the IR-module intended for serialization.
+    
+    Returns:
+        A JSON string representing the module.
     """
     d = to_dict(module)
     return json.dumps(d, indent=2, sort_keys=True)
@@ -31,6 +37,12 @@ def to_dict(module):
 
 def from_json(json_txt):
     """ Construct a module from valid json.
+
+    Args:
+        json_txt: A string with valid JSON.
+    
+    Returns:
+        The IR-module as represented by JSON.
     """
     return from_dict(json_txt)
 
@@ -269,9 +281,13 @@ class DictWriter:
             }
         elif isinstance(instruction, ir.Phi):
             json_phi_inputs = []
-            for inp in instruction.inputs:
-                # print(inp)
-                pass
+            for phi_input_block, phi_input_value in instruction.inputs.items():
+                json_phi_input = {
+                    "block": self.write_block_ref(phi_input_block),
+                    "value": self.write_value_ref(phi_input_value),
+                }
+                json_phi_inputs.append(json_phi_input)
+
             json_instruction = {
                 "kind": "phi",
                 "name": instruction.name,
@@ -305,14 +321,20 @@ class DictWriter:
         return block.name
 
 
+class Scope:
+    def __init__(self):
+        self.value_map = {}
+        self.block_map = {}
+
+
 class DictReader:
     """ Construct IR-module from given json.
     """
 
     def __init__(self):
-        self.subroutines = []
-        self.value_map = {}
-        self.block_map = {}
+        # self.subroutines = []
+        self.scopes = []
+        self.undefined_values = {}
 
     def construct(self, json_txt):
         d = json.loads(json_txt)
@@ -320,6 +342,8 @@ class DictReader:
         json_externals = d["externals"]
         json_variables = d["variables"]
         json_subroutines = d["subroutines"]
+
+        self.enter_scope()
 
         module = ir.Module(name)
 
@@ -334,6 +358,9 @@ class DictReader:
         for json_subroutine in json_subroutines:
             subroutine = self.construct_subroutine(json_subroutine)
             module.add_function(subroutine)
+
+        assert not self.undefined_values
+        self.leave_scope()
 
         return module
 
@@ -479,6 +506,11 @@ class DictReader:
             name = json_instruction["name"]
             ty = self.get_type(json_instruction["type"])
             instruction = ir.Phi(name, ty)
+            for json_phi_input in json_instruction["inputs"]:
+                instruction.set_incoming(
+                    self.get_block_ref(json_phi_input["block"]),
+                    self.get_value_ref(json_phi_input["value"], ty=ty),
+                )
             self.register_value(instruction)
         elif itype == "jump":
             target = self.get_block_ref(json_instruction["target"])
@@ -528,26 +560,32 @@ class DictReader:
         return typ
 
     def register_value(self, value):
-        if value.name in self.value_map:
-            old_value = self.value_map[value.name]
+        if value.name in self.undefined_values:
+            old_value = self.undefined_values.pop(value.name)
             old_value.replace_by(value)
-        self.value_map[value.name] = value
+        assert value.name not in self.scopes[-1].value_map
+        self.scopes[-1].value_map[value.name] = value
 
-    def get_value_ref(self, name):
+    def get_value_ref(self, name, ty=ir.ptr):
         """ Retrieve reference to a value.
         """
-        if name in self.value_map:
-            value = self.value_map[name]
+        for scope in reversed(self.scopes):
+            if name in scope.value_map:
+                value = scope.value_map[name]
+                break
         else:
-            value = ir.Undefined(name, ir.ptr)
-            self.value_map[name] = value
+            if name in self.undefined_values:
+                value = self.undefined_values[name]
+            else:
+                value = ir.Undefined(name, ty)
+                self.undefined_values[name] = value
         return value
 
     def enter_scope(self):
-        pass
+        self.scopes.append(Scope())
 
     def leave_scope(self):
-        pass
+        self.scopes.pop()
 
     # def register_block(self, block):
     #     if block.name in self.block_map:
@@ -558,19 +596,20 @@ class DictReader:
     #     self.block_map[block.name] = block
 
     def new_block(self, name, subroutine):
-        if name in self.block_map:
-            block = self.block_map[name]
+        if name in self.scopes[-1].block_map:
+            block = self.scopes[-1].block_map[name]
             assert block.function is None
         else:
             block = ir.Block(name)
+            self.scopes[-1].block_map[name] = block
 
         block.function = subroutine
         return block
 
     def get_block_ref(self, name):
-        if name in self.block_map:
-            block = self.block_map[name]
+        if name in self.scopes[-1].block_map:
+            block = self.scopes[-1].block_map[name]
         else:
             block = ir.Block(name)
-            self.block_map[name] = block
+            self.scopes[-1].block_map[name] = block
         return block

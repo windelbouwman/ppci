@@ -85,9 +85,9 @@ def serialization_roundtrip(ir_module):
     ir_module2 = from_json(d)
 
     # TODO:
-    # f = io.StringIO()
-    # print_module(ir_module2, file=f)
-    # txt2 = f.getvalue()
-    # assert txt1 == txt2
+    f = io.StringIO()
+    print_module(ir_module2, file=f)
+    txt2 = f.getvalue()
+    assert txt1 == txt2
     # ir_module2 = read_module(f)
     # assert ir_module == ir_module2
