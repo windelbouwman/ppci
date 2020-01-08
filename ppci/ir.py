@@ -965,9 +965,14 @@ class Phi(LocalValue):
         self.inputs = {}
 
     def __str__(self):
+        # Make sure we output predictable output:
+        pairs = [
+            (block.name, value.name) for block, value in self.inputs.items()
+        ]
+        pairs.sort()
         inputs = ", ".join(
-            "{}: {}".format(block.name, value.name)
-            for block, value in self.inputs.items()
+            "{}: {}".format(block_name, value_name)
+            for block_name, value_name in pairs
         )
         return "{} {} = phi {}".format(self.ty, self.name, inputs)
 
