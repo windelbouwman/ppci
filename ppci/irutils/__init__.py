@@ -6,6 +6,7 @@ from .writer import Writer, print_module
 from .reader import Reader, read_module
 from .builder import Builder, split_block
 from .link import ir_link
+from .io import to_json, from_json
 
 
 __all__ = [

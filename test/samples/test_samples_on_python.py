@@ -8,6 +8,7 @@ from helper_util import do_long_tests, make_filename
 from ppci.api import c3_to_ir, bf_to_ir, ir_to_python, optimize, c_to_ir
 from ppci.utils.reporting import HtmlReportGenerator
 from ppci.lang.c import COptions
+from ppci.irutils import print_module, read_module, to_json, from_json
 
 
 @unittest.skipUnless(do_long_tests('python'), 'skipping slow tests')
@@ -48,8 +49,11 @@ class TestSamplesOnPython(unittest.TestCase):
             else:  # pragma: no cover
                 raise NotImplementedError(
                     'Language {} not implemented'.format(lang))
+            
+            # Test roundtrip of ir_modules
 
             for ir_module in ir_modules:
+                serialization_roundtrip(ir_module)
                 optimize(ir_module, level=self.opt_level, reporter=reporter)
 
             with open(sample_filename, 'w') as f:
@@ -67,3 +71,23 @@ class TestSamplesOnPython(unittest.TestCase):
 
 class TestSamplesOnPythonO2(TestSamplesOnPython):
     opt_level = 2
+
+
+def serialization_roundtrip(ir_module):
+    f = io.StringIO()
+    print_module(ir_module, file=f)
+    txt1 = f.getvalue()
+    print(txt1)
+
+    # Round trip via json:
+    d = to_json(ir_module)
+    # print(d)
+    ir_module2 = from_json(d)
+
+    # TODO:
+    # f = io.StringIO()
+    # print_module(ir_module2, file=f)
+    # txt2 = f.getvalue()
+    # assert txt1 == txt2
+    # ir_module2 = read_module(f)
+    # assert ir_module == ir_module2

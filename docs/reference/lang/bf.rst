@@ -19,7 +19,7 @@ into IR-code:
     <BLANKLINE>
     external procedure bsp_putc(u8);
     <BLANKLINE>
-    variable data (30000 bytes aligned at 4)
+    global variable data (30000 bytes aligned at 4)
     <BLANKLINE>
     global procedure main() {
       main_block0: {

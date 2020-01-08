@@ -19,6 +19,7 @@ The hierarchy is as follows:
 import json
 import binascii
 from ..common import CompilerError, make_num, get_file
+from ..utils.binary_txt import bin2asc, asc2bin
 from . import debuginfo
 
 
@@ -366,38 +367,6 @@ def print_object(obj):
         print(reloc)
     for image in obj.images:
         print(image)
-
-
-def chunks(data, size=30):
-    """ Split iterable thing into n-sized chunks """
-    for i in range(0, len(data), size):
-        yield data[i : i + size]
-
-
-def bin2asc(data):
-    """ Encode binary data as ascii. If it is a large data set, then use a
-        list of hex characters.
-    """
-    if len(data) > 30:
-        res = []
-        for part in chunks(data):
-            res.append(binascii.hexlify(part).decode("ascii"))
-        return res
-    else:
-        return binascii.hexlify(data).decode("ascii")
-
-
-def asc2bin(data):
-    """ Decode ascii into binary """
-    if isinstance(data, str):
-        return bytearray(binascii.unhexlify(data.encode("ascii")))
-    elif isinstance(data, list):
-        res = bytearray()
-        for part in data:
-            res.extend(binascii.unhexlify(part.encode("ascii")))
-        return res
-    else:  # pragma: no cover
-        raise NotImplementedError(str(type(data)))
 
 
 def serialize(x):

@@ -1081,8 +1081,8 @@ class Variable(GlobalValue):
         self.value = value
 
     def __str__(self):
-        return "variable {} ({} bytes aligned at {})".format(
-            self.name, self.amount, self.alignment
+        return "{} variable {} ({} bytes aligned at {})".format(
+            self.binding, self.name, self.amount, self.alignment
         )
 
 

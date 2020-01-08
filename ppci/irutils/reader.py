@@ -40,16 +40,24 @@ class Reader:
             ("NUMBER", r"\d+"),
             ("ID", r"[A-Za-z][A-Za-z\d_]*"),
             ("SKIP", r"\s+"),
-            ("OTHER", r"[\.,=:;\-\?+*\[\]/\(\)]|>|<|{|}|&|\^|\|"),
+            (
+                "OTHER",
+                r"[\.,:;\-\?\+*\[\]/\(\)]|!=|==|<=|>=|>|<|=|{|}|&|\^|\|",
+            ),
         ]
         tok_re = "|".join("(?P<%s>%s)" % pair for pair in tok_spec)
         gettok = re.compile(tok_re).match
         keywords = [
+            "module",
+            "external",
             "global",
             "local",
+            "variable",
             "function",
-            "module",
             "procedure",
+        ]
+
+        instructions = [
             "store",
             "load",
             "cast",
@@ -58,6 +66,8 @@ class Reader:
             "exit",
             "return",
         ]
+
+        keywords += instructions
 
         def tokenize():
             for line in lines:
@@ -68,8 +78,8 @@ class Reader:
                     typ = mo.lastgroup
                     val = mo.group(typ)
                     if typ == "ID":
-                        if val in keywords:
-                            typ = val
+                        # if val in keywords:
+                        # typ = val
                         yield (typ, val)
                     elif typ == "OTHER":
                         typ = val
@@ -89,12 +99,8 @@ class Reader:
         self.tokens = tokenize()
         self.token = self.tokens.__next__()
 
-        try:
-            module = self.parse_module()
-            return module
-        except IrParseException as e:
-            print(e)
-            raise Exception(str(e))
+        module = self.parse_module()
+        return module
 
     def next_token(self):
         t = self.token
@@ -103,49 +109,103 @@ class Reader:
         return t
 
     @property
-    def peak(self):
+    def peek(self):
         return self.token[0]
 
     def consume(self, typ):
-        if self.peak == typ:
+        if self.peek == typ:
             return self.next_token()
         else:
             raise IrParseException(
-                'Expected "{}" got "{}"'.format(typ, self.peak)
+                'Expected "{}" got "{}"'.format(typ, self.peek)
+            )
+
+    def at_keyword(self, keyword):
+        """ Test if we are at some keyword. """
+        return self.token == ("ID", keyword)
+
+    def consume_keyword(self, keyword):
+        val = self.consume("ID")[1]
+        if val != keyword:
+            raise IrParseException(
+                'Expected "{}" got "{}"'.format(keyword, val)
             )
 
     def parse_module(self):
         """ Entry for recursive descent parser """
-        self.consume("module")
+        self.consume_keyword("module")
         name = self.consume("ID")[1]
         module = ir.Module(name)
         self.consume(";")
-        while self.peak != "eof":
-            if self.peak == "local":
-                self.consume("local")
-                binding = ir.Binding.LOCAL
+        while self.peek != "eof":
+            if self.at_keyword("external"):
+                self.parse_external(module)
             else:
-                self.consume("global")
-                binding = ir.Binding.GLOBAL
+                self.parse_declaration(module)
 
-            if self.peak in ["function", "procedure"]:
-                module.add_function(self.parse_function(binding))
-            else:
-                raise IrParseException(
-                    "Expected function got {}".format(self.peak)
-                )
         return module
+
+    def parse_external(self, module):
+        """ Parse external variable. """
+        self.consume_keyword("external")
+        if self.at_keyword("function"):
+            self.consume_keyword("function")
+            return_type = self.parse_type()
+            name = self.parse_id()
+            argument_types = self.parse_braced_types()
+            external = ir.ExternalFunction(name, argument_types, return_type)
+        elif self.at_keyword("procedure"):
+            self.consume_keyword("procedure")
+            name = self.parse_id()
+            argument_types = self.parse_braced_types()
+            external = ir.ExternalProcedure(name, argument_types)
+        elif self.at_keyword("variable"):
+            self.consume_keyword("variable")
+            name = self.parse_id()
+            external = ir.ExternalVariable(name)
+        else:
+            raise NotImplementedError(str(self.peek))
+        self.consume(";")
+        module.add_external(external)
+
+    def parse_braced_types(self):
+        argument_types = []
+        self.consume("(")
+        if self.peek != ")":
+            argument_type = self.parse_type()
+            argument_types.append(argument_type)
+            while self.peek == ",":
+                self.consume(",")
+                argument_type = self.parse_type()
+                argument_types.append(argument_type)
+        self.consume(")")
+        return argument_types
+
+    def parse_declaration(self, module):
+        if self.at_keyword("local"):
+            self.consume_keyword("local")
+            binding = ir.Binding.LOCAL
+        else:
+            self.consume_keyword("global")
+            binding = ir.Binding.GLOBAL
+
+        if self.at_keyword("function") or self.at_keyword("procedure"):
+            module.add_function(self.parse_function(binding))
+        else:
+            raise IrParseException(
+                "Expected function got {}".format(self.peek)
+            )
 
     def parse_function(self, binding):
         """ Parse a function or procedure """
-        if self.peak == "function":
-            self.consume("function")
+        if self.at_keyword("function"):
+            self.consume_keyword("function")
             return_type = self.parse_type()
-            name = self.consume("ID")[1]
+            name = self.parse_id()
             function = ir.Function(name, binding, return_type)
         else:
-            self.consume("procedure")
-            name = self.consume("ID")[1]
+            self.consume_keyword("procedure")
+            name = self.parse_id()
             function = ir.Procedure(name, binding)
 
         # Setup maps:
@@ -153,19 +213,19 @@ class Reader:
         self.block_map = {}
 
         self.consume("(")
-        while self.peak != ")":
+        while self.peek != ")":
             ty = self.parse_type()
-            name = self.consume("ID")[1]
+            name = self.parse_id()
             param = ir.Parameter(name, ty)
             function.add_parameter(param)
             self.define_value(param)
-            if self.peak != ",":
+            if self.peek != ",":
                 break
             else:
                 self.consume(",")
         self.consume(")")
         self.consume("{")
-        while self.peak != "}":
+        while self.peek != "}":
             block = self.parse_block(function)
             self.block_map[block.name] = block
         self.consume("}")
@@ -174,9 +234,19 @@ class Reader:
 
     def parse_type(self):
         """ Parse a single type """
-        type_map = {t.name: t for t in ir.all_types}
-        type_name = self.consume("ID")[1]
-        return type_map[type_name]
+        if self.at_keyword("blob"):
+            self.consume_keyword("blob")
+            self.consume("<")
+            size = self.consume("NUMBER")[1]
+            self.consume(":")
+            alignment = self.consume("NUMBER")[1]
+            self.consume(">")
+            typ = ir.BlobDataTyp(size, alignment)
+        else:
+            type_map = {t.name: t for t in ir.all_types}
+            type_name = self.parse_id()
+            typ = type_map[type_name]
+        return typ
 
     def _get_block(self, name):
         """ Get or create the given block """
@@ -186,14 +256,14 @@ class Reader:
 
     def parse_block(self, function):
         """ Read a single block from file """
-        name = self.consume("ID")[1]
+        name = self.parse_id()
         block = self._get_block(name)
         function.add_block(block)
         if function.entry is None:
             function.entry = block
         self.consume(":")
         self.consume("{")
-        while self.peak != "}":
+        while self.peek != "}":
             ins = self.parse_statement()
             block.add_instruction(ins)
         self.consume("}")
@@ -219,81 +289,132 @@ class Reader:
     def parse_assignment(self):
         """ Parse an instruction with shape 'ty' 'name' '=' ... """
         ty = self.parse_type()
-        name = self.consume("ID")[1]
+        name = self.parse_id()
         self.consume("=")
-        if self.peak == "ID":
+        if self.peek == "ID":
             a = self.consume("ID")[1]
             if a == "phi":
                 ins = ir.Phi(name, ty)
-                b1 = self._get_block(self.consume("ID")[1])
+                b1 = self._get_block(self.parse_id())
                 self.consume(":")
-                v1 = self.find_val(self.consume("ID")[1])
+                v1 = self.find_val(self.parse_id())
                 ins.set_incoming(b1, v1)
-                while self.peak == ",":
+                while self.peek == ",":
                     self.consume(",")
-                    b1 = self._get_block(self.consume("ID")[1])
+                    b1 = self._get_block(self.parse_id())
                     self.consume(":")
-                    v1 = self.find_val(self.consume("ID")[1])
+                    v1 = self.find_val(self.parse_id())
                     ins.set_incoming(b1, v1)
+            elif a == "alloc":
+                size = self.parse_integer()
+                self.consume_keyword("bytes")
+                self.consume_keyword("aligned")
+                self.consume_keyword("at")
+                alignment = self.parse_integer()
+                ins = ir.Alloc(name, size, alignment)
+            elif a == "load":
+                address = self.parse_ref()
+                ins = ir.Load(address, name, ty)
+            elif a == "cast":
+                value = self.parse_ref()
+                ins = ir.Cast(value, name, ty)
+            elif a == "call":
+                ins = ir.FunctionCall()
             else:
-                if self.peak in ["+", "-"]:
+                if self.peek in ["+", "-"]:
                     # Go for binop
-                    op = self.consume(self.peak)[1]
-                    b = self.consume("ID")[1]
+                    op = self.consume(self.peek)[1]
+                    b = self.parse_id()
                     a = self.find_val(a)
                     b = self.find_val(b)
                     ins = ir.Binop(a, op, b, name, ty)
                 else:
-                    raise NotImplementedError(self.peak)
-        elif self.peak == "NUMBER":
+                    raise NotImplementedError(self.peek)
+        elif self.peek == "NUMBER":
             cn = self.consume("NUMBER")[1]
             ins = ir.Const(cn, name, ty)
+        elif self.peek == "&":
+            self.consume("&")
+            src = self.find_val(self.parse_id(), ty=ir.BlobDataTyp(1, 1))
+            assert ty is ir.ptr
+            ins = ir.AddressOf(src, name)
         else:  # pragma: no cover
-            raise NotImplementedError(self.peak)
+            raise NotImplementedError(self.peek)
         return ins
 
+    def parse_integer(self):
+        return self.consume("NUMBER")[1]
+
+    def parse_id(self):
+        return self.consume("ID")[1]
+
+    def parse_ref(self):
+        """ Parse a reference to another variable. """
+        return self.find_val(self.parse_id())
+
     def parse_cjmp(self):
-        self.consume("cjmp")
-        a = self.consume("ID")[1]
-        op = self.consume(self.peak)[0]
-        b = self.consume("ID")[1]
+        self.consume_keyword("cjmp")
+        a = self.parse_ref()
+        op = self.consume(self.peek)[0]
+        b = self.parse_ref()
         self.consume("?")
-        L1 = self.consume("ID")[1]
+        L1 = self.parse_id()
         L1 = self._get_block(L1)
         self.consume(":")
-        L2 = self.consume("ID")[1]
+        L2 = self.parse_id()
         L2 = self._get_block(L2)
-        a = self.find_val(a)
-        b = self.find_val(b)
         ins = ir.CJump(a, op, b, L1, L2)
         return ins
 
     def parse_jmp(self):
-        self.consume("jmp")
-        L1 = self.consume("ID")[1]
+        self.consume_keyword("jmp")
+        L1 = self.parse_id()
         L1 = self._get_block(L1)
         ins = ir.Jump(L1)
         return ins
 
     def parse_return(self):
-        self.consume("return")
-        v = self.find_val(self.consume("ID")[1])
+        self.consume_keyword("return")
+        v = self.find_val(self.parse_id())
         ins = ir.Return(v)
         return ins
 
+    def parse_function_arguments(self):
+        self.consume("(")
+        arguments = []
+        if self.peek != ")":
+            argument = self.parse_ref()
+            arguments.append(argument)
+            while self.peek == ",":
+                self.consume(",")
+                argument = self.parse_ref()
+                arguments.append(argument)
+        self.consume(")")
+        return arguments
+
     def parse_statement(self):
         """ Parse a single instruction line """
-        if self.peak == "jmp":
+        if self.at_keyword("jmp"):
             ins = self.parse_jmp()
-        elif self.peak == "cjmp":
+        elif self.at_keyword("cjmp"):
             ins = self.parse_cjmp()
-        elif self.peak == "return":
+        elif self.at_keyword("return"):
             ins = self.parse_return()
-        elif self.peak == "store":
-            raise Exception()
-        elif self.peak == "exit":
-            self.consume("exit")
+        elif self.at_keyword("store"):
+            self.consume_keyword("store")
+            value = self.parse_ref()
+            self.consume(",")
+            address = self.parse_ref()
+            ins = ir.Store(value, address)
+        elif self.at_keyword("exit"):
+            self.consume_keyword("exit")
             ins = ir.Exit()
+        elif self.at_keyword("call"):
+            self.consume_keyword("call")
+            callee = self.parse_ref()
+            # callee = name
+            arguments = self.parse_function_arguments()
+            ins = ir.ProcedureCall(callee, arguments)
         else:
             ins = self.parse_assignment()
             self.define_value(ins)
