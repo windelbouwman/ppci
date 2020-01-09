@@ -38,8 +38,17 @@ parser.add_argument(
     "-g", help="retain debug information", action="store_true", default=False
 )
 parser.add_argument(
-    '--relocatable',
-    "-r", help="Generate relocatable output", action="store_true", default=False
+    "--relocatable",
+    "-r",
+    help="Generate relocatable output",
+    action="store_true",
+    default=False,
+)
+parser.add_argument(
+    "--entry",
+    "-e",
+    help="Use entry as the starting symbol of execution of the program.",
+    default=None,
 )
 
 
@@ -48,24 +57,30 @@ def link(args=None):
     args = parser.parse_args(args)
     relocatable = args.relocatable
     with LogSetup(args):
-        obj = api.link(args.obj, layout=args.layout, debug=args.g, partial_link=relocatable)
+        obj = api.link(
+            args.obj,
+            layout=args.layout,
+            debug=args.g,
+            partial_link=relocatable,
+            entry=args.entry,
+        )
         if relocatable:
             with open(args.output, "w") as output:
                 obj.save(output)
         else:
             create_platform_executable(obj, args.output)
-            
+
 
 def create_platform_executable(obj, output_filename):
     """ Produce platform binary by spitting out exe/elf file. """
-    if sys.platform == 'linux':
+    if sys.platform == "linux":
         executable_filename = output_filename
-        api.objcopy(obj, None, 'elf', executable_filename)
+        api.objcopy(obj, None, "elf", executable_filename)
     else:
         # TODO: create windows exe.
         # raise NotImplementedError('Executable output not support for platform: {}'.format(sys.platform))
         executable_filename = output_filename
-        api.objcopy(obj, None, 'elf', executable_filename)
+        api.objcopy(obj, None, "elf", executable_filename)
 
 
 if __name__ == "__main__":
