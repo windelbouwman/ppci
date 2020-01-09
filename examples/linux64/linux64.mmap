@@ -1,3 +1,5 @@
+ENTRY(start)
+
 MEMORY code LOCATION=0x40000 SIZE=0x10000 {
     SECTION(reset)
     ALIGN(4)

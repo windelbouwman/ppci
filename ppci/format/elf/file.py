@@ -216,7 +216,13 @@ class ElfFile:
         elf_header.e_type = self.e_type
         elf_header.e_machine = self.e_machine
         elf_header.e_version = 1
-        elf_header.e_entry = 0x40000
+
+        if obj.entry_symbol_id is None:
+            logger.warning('ELF file without an entry symbol specified. This file might crash.')
+            elf_header.e_entry = 0
+        else:
+            elf_header.e_entry = obj.get_symbol_id_value(obj.entry_symbol_id)
+
         elf_header.e_phoff = 16 + self.header_types.ElfHeader.size
         elf_header.e_shoff = tmp_offset  # section header offset
         elf_header.e_flags = 0

@@ -19,10 +19,10 @@ class TestSamplesOnX86Linux(unittest.TestCase):
     startercode = """
     section reset
 
-    global bsp_putc
-    global main_main
-
+    global start
     start:
+        global bsp_putc
+        global main_main
         call main_main
         call bsp_exit
 
@@ -48,6 +48,7 @@ class TestSamplesOnX86Linux(unittest.TestCase):
         dd 0
     """
     arch_mmap = """
+    ENTRY(start)
     MEMORY code LOCATION=0x40000 SIZE=0x10000 {
         SECTION(reset)
         ALIGN(4)
@@ -102,11 +103,14 @@ class LinuxTests(unittest.TestCase):
         """
         src = io.StringIO("""
             section code
+            global start
+            start:
             mov rax, 60
             mov rdi, 42
             syscall
             """)
         mmap = """
+        ENTRY(start)
         MEMORY code LOCATION=0x40000 SIZE=0x10000 {
             SECTION(code)
         }

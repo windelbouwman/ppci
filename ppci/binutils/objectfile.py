@@ -220,6 +220,7 @@ class ObjectFile:
         self.image_map = {}
         self.debug_info = None
         self.arch = arch
+        self.entry_symbol_id = None  # object file entry point
 
     def __repr__(self):
         return "CodeObject of {} bytes".format(self.byte_size)
@@ -393,6 +394,9 @@ def serialize(x):
             res["debug"] = debuginfo.serialize(x.debug_info)
 
         res["arch"] = x.arch.make_id_str()
+
+        if x.entry_symbol_id is not None:
+            res['entry_symbol_id'] = x.entry_symbol_id
     elif isinstance(x, Image):
         res["name"] = x.name
         res["address"] = hex(x.address)
@@ -428,6 +432,9 @@ def deserialize(data):
 
     arch = get_arch(data["arch"])
     obj = ObjectFile(arch)
+
+    if 'entry_symbol_id' in data:
+        obj.entry_symbol_id = data['entry_symbol_id']
 
     for section in data["sections"]:
         section_object = Section(section["name"])

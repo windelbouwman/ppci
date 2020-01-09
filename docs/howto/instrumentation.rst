@@ -50,7 +50,7 @@ is target independent!
     <BLANKLINE>
     global function i32 my_add(i32 a, i32 b) {
       my_add_block0: {
-        blob<7:1> func_name = Literal b'6d795f61646400';
+        blob<7:1> func_name = literal '6d795f61646400';
         ptr name_ptr = &func_name;
         call trace(name_ptr);
         i32 op = a + b;

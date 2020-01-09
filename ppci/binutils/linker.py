@@ -111,6 +111,10 @@ class Linker:
         if debug:
             self.dst.debug_info = DebugInfo()
 
+        # Define entry symbol:
+        if layout and layout.entry:
+            self.dst.entry_symbol_id = self.inject_symbol(layout.entry.symbol_name, 'global', None, None).id
+
         # Define extra symbols:
         extra_symbols = extra_symbols or {}
         for symbol_name, value in extra_symbols.items():
@@ -177,8 +181,8 @@ class Linker:
     def inject_object(self, obj, debug):
         """ Paste object into destination object. """
         self.logger.debug("Merging %s", obj)
-        section_offsets = {}
 
+        section_offsets = {}
         for input_section in obj.sections:
             # Get or create the output section:
             output_section = self.dst.get_section(
@@ -235,6 +239,14 @@ class Linker:
                 reloc.addend,
             )
             self.dst.add_relocation(new_reloc)
+
+        # Merge entry symbol:
+        if obj.entry_symbol_id is not None:
+            if self.dst.entry_symbol_id is None:
+                self.dst.entry_symbol_id = symbol_id_mapping[obj.entry_symbol_id]
+            else:
+                # TODO: improve error message?
+                raise CompilerError('Multiple entry points defined')
 
         # Merge debug info:
         if debug and obj.debug_info:
