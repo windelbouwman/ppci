@@ -62,7 +62,10 @@ def create_platform_executable(obj, output_filename):
         executable_filename = output_filename
         api.objcopy(obj, None, 'elf', executable_filename)
     else:
-        raise NotImplementedError('Executable output not support for platform: {}'.format(sys.platform))
+        # TODO: create windows exe.
+        # raise NotImplementedError('Executable output not support for platform: {}'.format(sys.platform))
+        executable_filename = output_filename
+        api.objcopy(obj, None, 'elf', executable_filename)
 
 
 if __name__ == "__main__":

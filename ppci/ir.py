@@ -817,8 +817,8 @@ class LiteralData(LocalValue):
         assert isinstance(data, bytes), str(data)
 
     def __str__(self):
-        data = hexlify(self.data)
-        return "{} {} = Literal {}".format(self.ty, self.name, data)
+        data = hexlify(self.data).decode('ascii')
+        return "{} {} = literal '{}'".format(self.ty, self.name, data)
 
 
 class FunctionCall(LocalValue):
