@@ -152,6 +152,32 @@ class CCompileTask(OutputtingTask):
 
 
 @register_task
+class PascalCompileTask(OutputtingTask):
+    """ Task that compiles pascal code for some target into an object file """
+    def run(self):
+        arch = self.get_argument('arch')
+        sources = self.open_file_set(self.arguments['sources'])
+
+        if 'report' in self.arguments:
+            report_file = self.relpath(self.arguments['report'])
+            reporter = HtmlReportGenerator(
+                open(report_file, 'wt', encoding='utf8')
+            )
+        else:
+            reporter = DummyReportGenerator()
+
+        debug = bool(self.get_argument('debug', default=False))
+        opt = int(self.get_argument('optimize', default='0'))
+
+        with reporter:
+            obj = api.pascal(sources, arch, opt_level=opt, reporter=reporter)
+            obj = api.link(
+                (obj,), partial_link=True, reporter=reporter, debug=debug)
+
+        self.store_object(obj)
+
+
+@register_task
 class WasmCompileTask(OutputtingTask):
     """ Task that compiles a wasm module into an object file """
     def run(self):
