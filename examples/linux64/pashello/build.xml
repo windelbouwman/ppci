@@ -1,0 +1,41 @@
+
+<project name="hello" default="hello">
+    <import name="ppci.build.buildtasks" />
+
+    <target name="hello">
+        <assemble
+            arch="x86_64"
+            source="../glue.asm"
+            output="glue.oj" />
+
+        <pascalcompile
+            arch="x86_64"
+            sources="hello.pas"
+            output="hello.oj"
+            report="reportpas.html"
+            debug="true"
+            />
+
+        <c3compile
+            arch="x86_64"
+            sources="../../../librt/io.c3;../bsp.c3"
+            output="rest.oj"
+            report="report.html"
+            debug="true"
+            />
+
+        <link
+            output="main.oj"
+            layout="../linux64.mmap"
+            objects="hello.oj;glue.oj;rest.oj"
+            debug="true" />
+
+        <objcopy
+            objectfile="main.oj"
+            imagename="flash"
+            format="elf"
+            output="main" />
+    </target>
+
+</project>
+
