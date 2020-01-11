@@ -9,40 +9,75 @@ well as machine code generation functionality. With this library you can
 generate (working!) machine code using Python (and thus very easy to
 explore, extend, etc.)!
 
-The project contains the following:
+The project contains:
 
-- A compiler, an assembler, a linker and a build system
-- Language front-ends: C, Brainfuck, WebAssembly,
-  `C3 <https://ppci.readthedocs.io/en/latest/reference/lang/c3.html>`_
-  (PPCI's own systems language, intended to address some pitfalls of C)
-- CPU backends: 6500, arm, avr, m68k, microblaze, msp430, openrisc, risc-v, stm8,
-  x86_64, xtensa
-- Other backends: WebAssembly, Python
+- `Command line utilities <https://ppci.readthedocs.io/en/latest/reference/cli.html>`_:
+    - `ppci-cc <https://ppci.readthedocs.io/en/latest/reference/cli.html#ppci-cc>`_
+    - `ppci-ld <https://ppci.readthedocs.io/en/latest/reference/cli.html#ppci-ld>`_
+    - and many more.
+- Can be used with tools like make or other build tools.
+- `Language support <https://ppci.readthedocs.io/en/latest/reference/lang/index.html>`_:
+    - `C <https://ppci.readthedocs.io/en/latest/reference/lang/c.html>`_
+    - Pascal
+    - Python
+    - Brainfuck
+    - `C3 <https://ppci.readthedocs.io/en/latest/reference/lang/c3.html>`_
+      (PPCI's own systems language, intended to address some pitfalls of C)
+- CPU support:
+    - 6500
+    - arm
+    - avr
+    - m68k
+    - microblaze
+    - msp430
+    - openrisc
+    - risc-v
+    - stm8
+    - x86_64
+    - xtensa
+- Support for:
+    - `WebAssembly <https://ppci.readthedocs.io/en/latest/reference/wasm.html>`_
+    - JVM
+    - OCaml bytecode
+    - LLVM IR
+    - DWARF debugging format
+- `File formats <https://ppci.readthedocs.io/en/latest/reference/format/index.html>`_:
+    - ELF files
+    - COFF PE (EXE) files
+    - hex files
+    - S-record files
+- Uses well known human-readable and machine-processable formats like JSON and XML as
+  its tools' formats.
 
-.. warning::
+Usage
+-----
 
-    **This project is in alpha state and not ready for production use!**
+An example of commandline usage:
 
-You can try out PPCI at godbolt.org, a site which offers Web access to
-various compilers: https://godbolt.org/g/eooaPP
+.. code:: bash
 
-API
----
+    $ cd examples/linux64/hello-make
+    $ ppci-cc -c -O1 -o hello.o hello.c
+    ...
+    $ ppci-ld --entry main --layout linux64.ld hello.o -o hello
+    ...
+    $ ./hello
+    Hello, World!
 
-API example to compile c3 code:
+API example to compile C code:
 
 .. code-block:: python
 
     >>> import io
-    >>> from ppci.api import c3c, link
+    >>> from ppci.api import cc, link
     >>> source_file = io.StringIO("""
-    ... module main;
-    ... function void print(string txt) {
-    ... }
-    ... function void main() {
-    ...  print("Hello world");
-    ... }""")
-    >>> obj = c3c([source_file], [], 'arm')
+    ...  int printf(char* fmt) { }
+    ...  
+    ...  void main() {
+    ...     printf("Hello world!\n");
+    ...  }
+    ... """)
+    >>> obj = cc(source_file, 'arm')
     >>> obj = link([obj])
 
 Example how to assemble some assembly code:
@@ -75,6 +110,12 @@ Documentation can be found here:
 
 - https://ppci.readthedocs.io/
 
+.. warning::
+
+    **This project is in alpha state and not ready for production use!**
+
+You can try out PPCI at godbolt.org, a site which offers Web access to
+various compilers: https://godbolt.org/g/eooaPP
 
 |gitter|_
 |appveyor|_
