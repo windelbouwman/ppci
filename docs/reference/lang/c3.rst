@@ -184,7 +184,7 @@ Other
 -----
 
 C3 does not contain a preprocessor. For these kind of things it might be
-better to use a templating engine such as `ninja2 <http://jinja.pocoo.org/>`_.
+better to use a templating engine such as `Jinja2 <http://jinja.pocoo.org/>`_.
 
 Module reference
 ----------------
