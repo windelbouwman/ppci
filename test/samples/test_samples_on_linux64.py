@@ -17,8 +17,6 @@ class TestSamplesOnX86Linux(unittest.TestCase):
     opt_level = 0
     march = "x86_64"
     startercode = """
-    section reset
-
     global start
     start:
         global bsp_putc
@@ -50,8 +48,6 @@ class TestSamplesOnX86Linux(unittest.TestCase):
     arch_mmap = """
     ENTRY(start)
     MEMORY code LOCATION=0x40000 SIZE=0x10000 {
-        SECTION(reset)
-        ALIGN(4)
         SECTION(code)
     }
     MEMORY ram LOCATION=0x20000000 SIZE=0xA000 {

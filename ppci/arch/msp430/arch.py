@@ -32,7 +32,7 @@ from .registers import r10, r11, r12, r13, r14, r15
 from .registers import r4, r5, r6, r7, r8, r9, SP
 from .registers import r1, register_classes, Msp430Register
 from .instructions import isa, mov, Ret, Pop, call, MemSrcOffset, Mov
-from .instructions import push, Add, Sub, ConstSrc, RegDst
+from .instructions import push, Addw, Subw, ConstSrc, RegDst
 
 
 class Msp430Arch(Architecture):
@@ -93,7 +93,7 @@ class Msp430Arch(Architecture):
 
         # Adjust stack:
         if frame.stacksize:
-            yield Sub(
+            yield Subw(
                 ConstSrc(self.round_upwards(frame.stacksize)), RegDst(r1)
             )
 
@@ -104,7 +104,7 @@ class Msp430Arch(Architecture):
 
         # Adjust stack:
         if frame.stacksize:
-            yield Add(
+            yield Addw(
                 ConstSrc(self.round_upwards(frame.stacksize)), RegDst(r1)
             )
 
@@ -142,7 +142,7 @@ class Msp430Arch(Architecture):
         yield call(label, clobbers=self.caller_save)
 
         if saved_space:
-            yield Add(ConstSrc(saved_space), RegDst(SP))
+            yield Addw(ConstSrc(saved_space), RegDst(SP))
 
         if rv:
             retval_loc = self.determine_rv_location(rv[0])

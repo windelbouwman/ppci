@@ -38,6 +38,9 @@ def get_ctypes_type(debug_type):
             return ctypes.c_voidp
         else:
             return ctypes.POINTER(get_ctypes_type(debug_type.pointed_type))
+    elif isinstance(debug_type, debuginfo.DebugArrayType):
+        element_type = get_ctypes_type(debug_type.element_type)
+        return ctypes.ARRAY(element_type, debug_type.size)
     elif debug_type is None:
         return
     elif isinstance(debug_type, type):

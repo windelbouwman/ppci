@@ -399,10 +399,14 @@ def two_op_ins(mne, opc, b=0, dst_read=True, dst_write=True):
 
 Mov = two_op_ins("mov", 4, dst_read=False)
 Movb = two_op_ins("mov", 4, b=1, dst_read=False)
-Add = two_op_ins("add", 5)
-Addc = two_op_ins("addc", 6)
-Subc = two_op_ins("subc", 7)
-Sub = two_op_ins("sub", 8)
+Addw = two_op_ins("add", 5)
+Addb = two_op_ins("add", 5, b=1)
+Addcw = two_op_ins("addc", 6)
+Addcb = two_op_ins("addc", 6, b=1)
+Subcw = two_op_ins("subc", 7)
+Subcb = two_op_ins("subc", 7, b=1)
+Subw = two_op_ins("sub", 8)
+Subb = two_op_ins("sub", 8, b=1)
 Cmp = two_op_ins("cmp", 9, dst_write=False)
 Cmpb = two_op_ins("cmp", 9, b=1, dst_write=False)
 Dadd = two_op_ins("dadd", 10)
@@ -412,9 +416,9 @@ Bicw = two_op_ins("bic", 12)
 Bicb = two_op_ins("bic", 12, b=1)
 Bisw = two_op_ins("bis", 13)
 Bisb = two_op_ins("bis", 13, b=1)
-Xor = two_op_ins("xor", 14)
+Xorw = two_op_ins("xor", 14)
 Xorb = two_op_ins("xor", 14, b=1)
-And = two_op_ins("and", 15)
+Andw = two_op_ins("and", 15)
 Andb = two_op_ins("and", 15, b=1)
 
 
@@ -512,18 +516,34 @@ def pattern_jmp(context, tree):
 
 
 @isa.pattern("stm", "CJMPI16(reg, reg)", size=10)
-@isa.pattern("stm", "CJMPI8(reg, reg)", size=10)
-def pattern_cjmp(context, tree, lhs, rhs):
+def pattern_cjmp_i16(context, tree, lhs, rhs):
     op, true_tgt, false_tgt = tree.value
-    opnames = {"<": Jl, ">": Jl, "==": Jz, "!=": Jne, ">=": Jge, "<=": Jge}
-    op_ins = opnames[op]
-    if op in [">", "<="]:
+    emit_cmp(context, Cmp, lhs, rhs, op, true_tgt, false_tgt)
+
+
+@isa.pattern("stm", "CJMPI8(reg, reg)", size=10)
+def pattern_cjmp_i8(context, tree, lhs, rhs):
+    op, true_tgt, false_tgt = tree.value
+    emit_cmp(context, Cmpb, lhs, rhs, op, true_tgt, false_tgt)
+
+
+def emit_cmp(context, cmp_ins, lhs, rhs, op, true_tgt, false_tgt):
+    opnames = {
+        "<": (Jl, False),
+        ">": (Jl, True),
+        "==": (Jz, False),
+        "!=": (Jne, False),
+        ">=": (Jge, False),
+        "<=": (Jge, True),
+    }
+    op_ins, swap_ops = opnames[op]
+    if swap_ops:
         # Swap operands here!
         # This is really hairy code, but it should work!
         lhs, rhs = rhs, lhs
     jmp_ins = Jmp(false_tgt.name, jumps=[false_tgt])
     # cmp does a dummy dst - src
-    context.emit(Cmp(RegSrc(rhs), RegDst(lhs)))
+    context.emit(cmp_ins(RegSrc(rhs), RegDst(lhs)))
     context.emit(op_ins(true_tgt.name, jumps=[true_tgt, jmp_ins]))
     context.emit(jmp_ins)
 
@@ -592,7 +612,7 @@ def pattern_i16toi8(context, tree, c0):
     # Create a new register and mask it with 0xff:
     d = context.new_reg(Msp430Register)
     context.emit(mov(c0, d))
-    context.emit(And(ConstSrc(0xFF), RegDst(d)))
+    context.emit(Andw(ConstSrc(0xFF), RegDst(d)))
     return d
 
 
@@ -610,7 +630,7 @@ def pattern_u8toi16(context, tree, c0):
     """ byte to signed short """
     d = context.new_reg(Msp430Register)
     context.emit(mov(c0, d))
-    context.emit(And(ConstSrc(0xFF), RegDst(d)))
+    context.emit(Andw(ConstSrc(0xFF), RegDst(d)))
     return d
 
 
@@ -675,7 +695,16 @@ def pattern_rem_u16(context, tree, c0, c1):
 def pattern_and16(context, tree, c0, c1):
     dst = context.new_reg(Msp430Register)
     context.emit(mov(c0, dst))
-    context.emit(And(RegSrc(c1), RegDst(dst)))
+    context.emit(Andw(RegSrc(c1), RegDst(dst)))
+    return dst
+
+
+@isa.pattern("reg", "ANDI8(reg, reg)", size=4)
+@isa.pattern("reg", "ANDU8(reg, reg)", size=4)
+def pattern_and8(context, tree, c0, c1):
+    dst = context.new_reg(Msp430Register)
+    context.emit(mov(c0, dst))
+    context.emit(Andb(RegSrc(c1), RegDst(dst)))
     return dst
 
 
@@ -688,14 +717,46 @@ def pattern_or16(context, tree, c0, c1):
     return dst
 
 
+@isa.pattern("reg", "ORI8(reg, reg)", size=4)
+@isa.pattern("reg", "ORU8(reg, reg)", size=4)
+def pattern_or8(context, tree, c0, c1):
+    dst = context.new_reg(Msp430Register)
+    context.emit(mov(c0, dst))
+    context.emit(Bisb(RegSrc(c1), RegDst(dst)))
+    return dst
+
+
 @isa.pattern("reg", "SHRI16(reg, reg)", size=4)
+@isa.pattern("reg", "SHRU16(reg, reg)", size=4)
+@isa.pattern("reg", "SHRI8(reg, reg)", size=4)
+@isa.pattern("reg", "SHRU8(reg, reg)", size=4)
 def pattern_shr16(context, tree, c0, c1):
+    # TODO: deal with arithmatic / logical shift right.
+    # TODO: 8 / 16 bit difference?
     return call_intrinsic(context, "__shr", (c0, c1), clobbers=[r13])
 
 
 @isa.pattern("reg", "SHLI16(reg, reg)", size=4)
+@isa.pattern("reg", "SHLU16(reg, reg)", size=4)
 def pattern_shl16(context, tree, c0, c1):
     return call_intrinsic(context, "__shl", (c0, c1), clobbers=[r13])
+
+
+@isa.pattern("reg", "SHLI8(reg, reg)", size=4)
+@isa.pattern("reg", "SHLU8(reg, reg)", size=4)
+def pattern_shl8(context, tree, c0, c1):
+    d = call_intrinsic(context, "__shl", (c0, c1), clobbers=[r13])
+    context.emit(Andw(ConstSrc(0xFF), RegDst(d)))
+    return d
+
+
+@isa.pattern("reg", "ADDI8(reg, reg)", size=4, cycles=1, energy=1)
+@isa.pattern("reg", "ADDU8(reg, reg)", size=4, cycles=1, energy=1)
+def pattern_add8(context, tree, c0, c1):
+    d = context.new_reg(Msp430Register)
+    context.emit(mov(c0, d))
+    context.emit(Addb(RegSrc(c1), RegDst(d)))
+    return d
 
 
 @isa.pattern("reg", "ADDI16(reg, reg)", size=4, cycles=1, energy=1)
@@ -703,7 +764,7 @@ def pattern_shl16(context, tree, c0, c1):
 def pattern_add16(context, tree, c0, c1):
     d = context.new_reg(Msp430Register)
     context.emit(mov(c0, d))
-    context.emit(Add(RegSrc(c1), RegDst(d)))
+    context.emit(Addw(RegSrc(c1), RegDst(d)))
     return d
 
 
@@ -717,9 +778,18 @@ def pattern_add32(context, tree, c0, c1):
     c1h, c1l = c1
     context.emit(mov(c0h, dh))
     context.emit(mov(c0l, dl))
-    context.emit(Add(RegSrc(c1l), RegDst(dl)))
-    context.emit(Addc(RegSrc(c1h), RegDst(dh)))
+    context.emit(Addw(RegSrc(c1l), RegDst(dl)))
+    context.emit(Addcw(RegSrc(c1h), RegDst(dh)))
     return (dh, dl)
+
+
+@isa.pattern("reg", "SUBI8(reg, reg)", size=4)
+@isa.pattern("reg", "SUBU8(reg, reg)", size=4)
+def pattern_sub8(context, tree, c0, c1):
+    d = context.new_reg(Msp430Register)
+    context.emit(mov(c0, d))
+    context.emit(Subb(RegSrc(c1), RegDst(d)))
+    return d
 
 
 @isa.pattern("reg", "SUBI16(reg, reg)", size=4)
@@ -727,7 +797,7 @@ def pattern_add32(context, tree, c0, c1):
 def pattern_sub16(context, tree, c0, c1):
     d = context.new_reg(Msp430Register)
     context.emit(mov(c0, d))
-    context.emit(Sub(RegSrc(c1), RegDst(d)))
+    context.emit(Subw(RegSrc(c1), RegDst(d)))
     return d
 
 
@@ -740,9 +810,18 @@ def pattern_sub32(context, tree, c0, c1):
     c1h, c1l = c1
     context.emit(mov(c0h, dh))
     context.emit(mov(c0l, dl))
-    context.emit(Sub(RegSrc(c1l), RegDst(dl)))
-    context.emit(Subc(RegSrc(c1h), RegDst(dh)))
+    context.emit(Subw(RegSrc(c1l), RegDst(dl)))
+    context.emit(Subcw(RegSrc(c1h), RegDst(dh)))
     return (dh, dl)
+
+
+@isa.pattern("reg", "NEGI8(reg)", size=4)
+@isa.pattern("reg", "NEGU8(reg)", size=4)
+def pattern_neg8(context, tree, c0):
+    d = context.new_reg(Msp430Register)
+    context.emit(Mov(SmallConstSrc(0), RegDst(d)))
+    context.emit(Subb(RegSrc(c0), RegDst(d)))
+    return d
 
 
 @isa.pattern("reg", "NEGI16(reg)", size=4)
@@ -750,7 +829,15 @@ def pattern_sub32(context, tree, c0, c1):
 def pattern_neg16(context, tree, c0):
     d = context.new_reg(Msp430Register)
     context.emit(Mov(SmallConstSrc(0), RegDst(d)))
-    context.emit(Sub(RegSrc(c0), RegDst(d)))
+    context.emit(Subw(RegSrc(c0), RegDst(d)))
+    return d
+
+
+@isa.pattern("reg", "INVU8(reg)", size=4)
+def pattern_inv8(context, tree, c0):
+    d = context.new_reg(Msp430Register)
+    context.emit(mov(c0, d))
+    context.emit(Xorb(SmallConstSrc(-1), RegDst(d)))
     return d
 
 
@@ -758,7 +845,7 @@ def pattern_neg16(context, tree, c0):
 def pattern_inv16(context, tree, c0):
     d = context.new_reg(Msp430Register)
     context.emit(mov(c0, d))
-    context.emit(Xor(SmallConstSrc(-1), RegDst(d)))
+    context.emit(Xorw(SmallConstSrc(-1), RegDst(d)))
     return d
 
 
@@ -829,7 +916,7 @@ def pattern_fprel(context, tree):
     offset = tree.value.offset
     # frame pointer is r4:
     context.emit(mov(SP, d))
-    context.emit(Add(ConstSrc(offset), RegDst(d)))
+    context.emit(Addw(ConstSrc(offset), RegDst(d)))
     return d
 
 

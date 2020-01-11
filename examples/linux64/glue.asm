@@ -1,6 +1,4 @@
 
-section reset
-
 global main_main
 global bsp_exit
 

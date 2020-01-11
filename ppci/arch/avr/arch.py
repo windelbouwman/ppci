@@ -342,6 +342,22 @@ __shr16_2:
   pop r16
   ret
 
+; shift r24 right by r22 bits
+global __shr8
+__shr8:
+  push r16
+  mov r16, r22
+  cpi r16, 0
+  breq __shr8_2
+__shr8_1:
+  lsr r24
+  dec r16
+  cpi r16, 0
+  brne __shr8_1
+__shr8_2:
+  pop r16
+  ret
+
 ; shift r25:r24 left by r22 bits
 global __shl16
 __shl16:
@@ -356,6 +372,22 @@ __shl16_1:
   cpi r16, 0
   brne __shl16_1
 __shl16_2:
+  pop r16
+  ret
+
+; shift r24 left by r22 bits
+global __shl8
+__shl8:
+  push r16
+  mov r16, r22
+  cpi r16, 0
+  breq __shl8_2
+__shl8_1:
+  add r24, r24
+  dec r16
+  cpi r16, 0
+  brne __shl8_1
+__shl8_2:
   pop r16
   ret
 
