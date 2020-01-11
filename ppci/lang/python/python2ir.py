@@ -1,4 +1,4 @@
-""" Python to IR transpilation.
+""" Python to IR compilation.
 
 """
 
@@ -351,7 +351,14 @@ class PythonToIrCompiler:
             # print(dir(c), c.ops, c.comparators)
             assert len(c.ops) == len(c.comparators)
             assert len(c.ops) == 1
-            op_map = {ast.Gt: ">", ast.Lt: "<", ast.Eq: "=", ast.NotEq: "!="}
+            op_map = {
+                ast.Gt: ">",
+                ast.GtE: ">=",
+                ast.Lt: "<",
+                ast.LtE: "<=",
+                ast.Eq: "==",
+                ast.NotEq: "!=",
+            }
 
             a = self.gen_expr(c.left)
             op = op_map[type(c.ops[0])]

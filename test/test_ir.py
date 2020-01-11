@@ -118,24 +118,6 @@ class TestReader(unittest.TestCase):
             m = irutils.read_module(f)
             self.assertTrue(m)
 
-    def test_reading_of_python_to_ir(self):
-        from ppci.lang.python import python_to_ir
-
-        test = io.StringIO()
-        irutils.print_module(
-            python_to_ir(
-                io.StringIO(
-                    """
-def test() -> int:
-    a = 1
-    return a
-"""
-                )
-            ),
-            file=test,
-        )
-        irutils.read_module(io.StringIO(test.getvalue()))
-
 
 class TestIrToPython(unittest.TestCase):
     def test_add_example(self):
