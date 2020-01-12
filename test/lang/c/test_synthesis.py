@@ -2,7 +2,7 @@ import unittest
 import io
 
 from ppci import ir
-from ppci.irutils import Verifier
+from ppci.irutils import verify_module
 from ppci.lang.c import CBuilder
 from ppci.lang.c.options import COptions
 from ppci.arch.example import ExampleArch
@@ -23,7 +23,7 @@ class CSynthesizerTestCase(unittest.TestCase):
         f = io.StringIO(src)
         ir_module = builder.build(f, None)
         assert isinstance(ir_module, ir.Module)
-        Verifier().verify(ir_module)
+        verify_module(ir_module)
         synthesizer = CSynthesizer()
         synthesizer.syn_module(ir_module)
 

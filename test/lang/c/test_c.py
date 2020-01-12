@@ -4,7 +4,7 @@ from ppci.common import CompilerError
 from ppci.lang.c import CBuilder, render_ast, print_ast, COptions
 from ppci.arch.example import ExampleArch
 from ppci import ir
-from ppci.irutils import Verifier
+from ppci.irutils import verify_module
 
 
 class CFrontendTestCase(unittest.TestCase):
@@ -27,7 +27,7 @@ class CFrontendTestCase(unittest.TestCase):
             compiler_error.render(lines)
             raise
         assert isinstance(ir_module, ir.Module)
-        Verifier().verify(ir_module)
+        verify_module(ir_module)
 
     def _print_ast(self, src):
         # Try to parse ast as well:

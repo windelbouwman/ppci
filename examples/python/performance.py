@@ -5,10 +5,12 @@ import io
 from ppci.utils import codepage
 from ppci.lang.python import jit
 
-
-def heavy_math(a, b):
+# Enable this jit decorator to compile/load the python function as executable code.
+# @jit
+def heavy_math(a: int, b: int) -> int:
     x = a * b + 200
     y = x // 20 + b
+    z = 0
     for i in range(10):
         z = y * 4 + x * 2 + a * 3 + b * 8
         y = y + z // 100 + i

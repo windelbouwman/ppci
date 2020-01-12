@@ -3,7 +3,7 @@ import io
 from ppci.lang.pascal import PascalBuilder
 from ppci.arch.example import ExampleArch
 from ppci.common import DiagnosticsManager, CompilerError
-from ppci.irutils import Verifier
+from ppci.irutils import verify_module
 
 
 class BuildTestCaseBase(unittest.TestCase):
@@ -49,9 +49,8 @@ class BuildTestCaseBase(unittest.TestCase):
             self.diag.print_errors()
         # TODO:
         # self.assertTrue(ircode)
-        verifier = Verifier()
         for mod in ircode:
-            verifier.verify(mod)
+            verify_module(mod)
         self.assertEqual(0, len(self.diag.diags))
 
 
