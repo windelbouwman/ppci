@@ -1,16 +1,18 @@
 """
-Selected instructions use virtual registers and physical registers.
-Register allocation is the process of assigning a register to the virtual
-registers.
+Instructions generated during instruction selection phase use virtual
+registers and some physical registers (e.g. when an instruction expects
+arguments in particular register(s)). Register allocation is the process
+of assigning physical location (register or memory) to the remaining
+virtual registers.
 
 Some key concepts in the domain of register allocation are:
 
-- **virtual register**: A value which must be mapped to a physical register.
-- **physical register**: A real register
-- **interference graph**: A graph in which each node represents a register.
-  An edge indicates that the two registers cannot have the same register
-  assigned.
-- **pre-colored register**: A register that is already assigned a specific
+- **virtual register**: A location which must be mapped to a physical register.
+- **physical register**: A real CPU register
+- **interference graph**: A graph in which each node represents a location.
+  An edge indicates that the two locations cannot have the same physical
+  register assigned.
+- **pre-colored register**: A location that is already assigned a specific
   physical register.
 - **coalescing**: The process of merging two nodes in an interference graph
   which do not interfere and are connected by a move instruction.
@@ -25,7 +27,7 @@ Some key concepts in the domain of register allocation are:
 **Interference graph**
 
 Each instruction in the instruction list may use or define certain registers.
-A register is live between a use and define of a register. Registers that
+A register is live between a definition and a use of that register. Registers that
 are live at the same point in the program interfere with each other.
 An interference graph is a graph in which each node represents a register
 and each edge represents interference between those two registers.
@@ -36,9 +38,11 @@ In 1981 Chaitin presented the idea to use graph coloring for register
 allocation.
 
 In a graph a node can be colored if it has less neighbours than
-possible colors. This is true because when each neighbour has a different
-color, there is still a valid color left for the node itself.
+possible colors (referred to as K from now on). This is true because when
+each neighbour has a different color, there is still a valid color left for
+the node itself.
 
+The outline of the algorithm is:
 Given a graph, if a node can be colored, remove this node from the graph and
 put it on a stack. When added back to the graph, it can be given a color.
 Now repeat this process recursively with the remaining graph. When the
@@ -62,15 +66,15 @@ Coalescing a move instruction is easy when an interference graph is present.
 Two nodes that are used by a move instruction can be coalesced when they do
 not interfere.
 
-However, if we coalesc all moves, the graph can become incolorable, and
+However, if we coalesce too many moves, the graph can become uncolorable, and
 spilling has to be done. To prevent spilling, coalescing must be done
-conservatively.
+in a controlled manner.
 
-A conservative approach is the following: if the merged node has fewer than
-K nodes of significant degree, then the nodes can be coalesced. The prove for
+A conservative approach to the coalescing is the following: if the merged node has fewer than
+K neighbours, then the nodes can be coalesced. The reason for
 this is that when all nodes that can be colored are removed and the merged
-node and its non-colorable neighbours remain, the merged node can be colored.
-This ensures that the coalescing of the node does not have a negative
+node and its non-colored neighbours remain, the merged node can be colored.
+This ensures that the coalescing of the nodes does not have a negative
 effect on the colorability of the graph.
 
 [Briggs1994]_
@@ -85,7 +89,7 @@ The process consists of the following steps:
 
 - build an interference graph from the instruction list
 - remove trivial colorable nodes.
-- (optional) coalesc registers to remove redundant moves
+- (optional) coalesce registers to remove redundant moves
 - (optional) spill registers
 - select registers
 
@@ -95,7 +99,7 @@ See: https://en.wikipedia.org/wiki/Register_allocation
 
 **Graph coloring with more register classes**
 
-Most instruction sets are not ideal, and hence simple graph coloring cannot
+Most instruction sets are not uniform, and hence simple graph coloring cannot
 be used. The algorithm can be modified to work with several register
 classes that possibly interfere.
 
