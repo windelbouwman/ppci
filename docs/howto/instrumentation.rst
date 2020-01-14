@@ -41,7 +41,7 @@ is target independent!
 
 .. doctest:: instrumentation
 
-    >>> from ppci.instrument import add_tracer
+    >>> from ppci.irutils.instrument import add_tracer
     >>> add_tracer(module)
     >>> module.display()
     module main;

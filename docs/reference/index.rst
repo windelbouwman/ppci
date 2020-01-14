@@ -10,8 +10,7 @@ Reference
     lang/index
     binutils/index
     buildxml
-    ir
-    irutils
+    ir/index
     optimization
     codegen/index
     debug

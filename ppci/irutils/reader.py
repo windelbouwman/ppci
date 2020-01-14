@@ -1,4 +1,4 @@
-""" Parsing IR-code from a test form.
+""" Parsing IR-code from a textual form.
 """
 
 from binascii import unhexlify

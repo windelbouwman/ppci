@@ -1,3 +1,6 @@
+""" Writing IR-code into a textual format.
+"""
+
 from .verify import verify_module
 from .. import ir
 
@@ -6,7 +9,14 @@ IR_FORMAT_INDENT = 2
 
 
 def print_module(module, file=None, verify=True):
-    """ Print an ir-module as text """
+    """ Print an ir-module as text.
+
+    Args:
+        module (:class:`ir.Module`): The module to turn into textual format.
+        file: An optional file like object to write to. Defaults to stdout.
+        verify (bool): A boolean indicating whether or not the module should
+                       be verified before writing.
+    """
     Writer(file=file).write(module, verify=verify)
 
 

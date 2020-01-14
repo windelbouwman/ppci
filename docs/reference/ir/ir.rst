@@ -33,6 +33,8 @@ The IR-code is implemented in the ir package.
 .. autoclass:: ppci.ir.Module
     :members:
 
+**External declarations**
+
 .. autoclass:: ppci.ir.External
     :members:
 
@@ -45,10 +47,14 @@ The IR-code is implemented in the ir package.
 .. autoclass:: ppci.ir.ExternalFunction
     :members:
 
+**Global declarations**
+
+.. autoclass:: ppci.ir.Binding
+
 .. autoclass:: ppci.ir.Variable
 
 .. autoclass:: ppci.ir.SubRoutine
-    :members: add_block, remove_block
+    :members:
 
 .. autoclass:: ppci.ir.Procedure
     :members:
@@ -56,10 +62,10 @@ The IR-code is implemented in the ir package.
 .. autoclass:: ppci.ir.Function
     :members:
 
+**Basic block**
+
 .. autoclass:: ppci.ir.Block
-    :members: add_instruction, remove_instruction,
-              is_empty, is_closed,
-              predecessors, successors
+    :members:
 
 Types
 -----

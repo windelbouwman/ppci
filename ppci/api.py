@@ -185,7 +185,7 @@ OPT_LEVELS = ("0", "1", "2", "s")
 
 
 def optimize(ir_module, level=0, reporter=None):
-    """ Run a bag of tricks against the :doc:`ir-code<ir>`.
+    """ Run a bag of tricks against the :doc:`ir-code<ir/index>`.
 
     This is an in-place operation!
 

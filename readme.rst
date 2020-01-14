@@ -11,43 +11,22 @@ explore, extend, etc.)!
 
 The project contains:
 
-- `Command line utilities <https://ppci.readthedocs.io/en/latest/reference/cli.html>`_:
-    - `ppci-cc <https://ppci.readthedocs.io/en/latest/reference/cli.html#ppci-cc>`_
-    - `ppci-ld <https://ppci.readthedocs.io/en/latest/reference/cli.html#ppci-ld>`_
-    - and many more.
-- Can be used with tools like make or other build tools.
-- `Language support <https://ppci.readthedocs.io/en/latest/reference/lang/index.html>`_:
-    - `C <https://ppci.readthedocs.io/en/latest/reference/lang/c.html>`_
-    - Pascal
-    - Python
-    - Brainfuck
-    - `C3 <https://ppci.readthedocs.io/en/latest/reference/lang/c3.html>`_
-      (PPCI's own systems language, intended to address some pitfalls of C)
-- CPU support:
-    - 6500
-    - arm
-    - avr
-    - m68k
-    - microblaze
-    - msp430
-    - openrisc
-    - risc-v
-    - stm8
-    - x86_64
-    - xtensa
-- Support for:
-    - `WebAssembly <https://ppci.readthedocs.io/en/latest/reference/wasm.html>`_
-    - JVM
-    - OCaml bytecode
-    - LLVM IR
-    - DWARF debugging format
-- `File formats <https://ppci.readthedocs.io/en/latest/reference/format/index.html>`_:
-    - ELF files
-    - COFF PE (EXE) files
-    - hex files
-    - S-record files
-- Uses well known human-readable and machine-processable formats like JSON and XML as
-  its tools' formats.
+- Language frontends for C, Python, Pascal, Basic and Brainfuck
+- Code generation for several architectures: 6500, arm, avr, m68k, microblaze, msp430, openrisc, risc-v, stm8, x86_64, xtensa
+- Command line utilities, such as ppci-cc, ppci-ld and ppci-opt
+- WebAssembly, JVM, OCaml support
+- Support for ELF, EXE, S-record and hexfile formats
+- An intermediate representation (IR) which can be serialized in json
+- The project can be used as a library so you can script the compilation process
+
+Installation
+------------
+
+Since the compiler is a python package, you can install it with pip:
+
+.. code:: bash
+
+    $ pip install ppci
 
 Usage
 -----
@@ -102,6 +81,38 @@ Example of the low level api usage:
     >>> i = instructions.Pop(registers.rbx)
     >>> i.encode()
     b'['
+
+Functionality
+-------------
+
+- `Command line utilities <https://ppci.readthedocs.io/en/latest/reference/cli.html>`_:
+    - `ppci-cc <https://ppci.readthedocs.io/en/latest/reference/cli.html#ppci-cc>`_
+    - `ppci-ld <https://ppci.readthedocs.io/en/latest/reference/cli.html#ppci-ld>`_
+    - and many more.
+- Can be used with tools like make or other build tools.
+- `Language support <https://ppci.readthedocs.io/en/latest/reference/lang/index.html>`_:
+    - `C <https://ppci.readthedocs.io/en/latest/reference/lang/c.html>`_
+    - Pascal
+    - Python
+    - Basic
+    - Brainfuck
+    - `C3 <https://ppci.readthedocs.io/en/latest/reference/lang/c3.html>`_
+      (PPCI's own systems language, intended to address some pitfalls of C)
+- CPU support:
+    - 6500, arm, avr, m68k, microblaze, msp430, openrisc, risc-v, stm8, x86_64, xtensa
+- Support for:
+    - `WebAssembly <https://ppci.readthedocs.io/en/latest/reference/wasm.html>`_
+    - JVM
+    - OCaml bytecode
+    - LLVM IR
+    - DWARF debugging format
+- `File formats <https://ppci.readthedocs.io/en/latest/reference/format/index.html>`_:
+    - ELF files
+    - COFF PE (EXE) files
+    - hex files
+    - S-record files
+- Uses well known human-readable and machine-processable formats like JSON and XML as
+  its tools' formats.
 
 Documentation
 -------------

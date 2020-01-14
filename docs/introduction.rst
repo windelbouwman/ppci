@@ -10,21 +10,17 @@ The project contains:
 - A set of :ref:`command line utilities<commandline>`, such as ppci-cc and ppci-ld.
 - A :ref:`pythonic api<api>`
 - Language front-ends:
-    - :doc:`Brainfuck<reference/lang/bf>`
-    - :doc:`c3<reference/lang/c3>`
     - :doc:`C<reference/lang/c>`
+    - :doc:`Python<reference/lang/python>`
+    - :doc:`Brainfuck<reference/lang/bf>`
+    - :doc:`Pascal<reference/lang/pascal>`
+    - :doc:`c3<reference/lang/c3>`
+    - :doc:`Fortran<reference/lang/fortran>`
+    - :doc:`Basic<reference/lang/basic>`
 - Backends for various target architectures:
-    - :ref:`6500<mcs6500>`
-    - :ref:`arm`
-    - :ref:`avr`
-    - :ref:`m68k`
-    - :ref:`microblaze`
-    - :ref:`msp430`,
-    - :ref:`or1k`
-    - :ref:`ricv-v<riscv>`
-    - :ref:`stm8`
-    - :ref:`x86_64`
-    - :ref:`xtensa`
+    - :ref:`6500<mcs6500>`, :ref:`arm`, :ref:`avr`, :ref:`m68k`, :ref:`microblaze`
+    - :ref:`msp430`, :ref:`or1k`, :ref:`ricv-v<riscv>`, :ref:`stm8`
+    - :ref:`x86_64`, :ref:`xtensa`
 - Support for:
     - :ref:`WebAssembly<wasm>`
     - :ref:`java JVM<jvm>`

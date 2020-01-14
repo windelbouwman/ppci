@@ -1,8 +1,8 @@
 
 .. currentmodule:: ppci.irutils
 
-IR-code utilities
-=================
+Utilities
+=========
 
 The :mod:`ppci.irutils` module contains function to handle IR-code such
 as :func:`read_module` and :func:`verify_module`. Also the
@@ -11,6 +11,12 @@ as :func:`read_module` and :func:`verify_module`. Also the
 Module reference
 ----------------
 
-.. automodule:: ppci.irutils
+.. automodule:: ppci.irutils.link
     :members:
 
+
+.. automodule:: ppci.irutils.instrument
+    :members:
+
+.. automodule:: ppci.irutils.builder
+    :members:

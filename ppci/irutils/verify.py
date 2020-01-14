@@ -12,7 +12,11 @@ from .. import ir
 
 
 def verify_module(module: ir.Module):
-    """ Check if the module is properly constructed """
+    """ Check if the module is properly constructed
+
+    Args:
+        module: The module to verify.
+    """
     Verifier().verify(module)
 
 

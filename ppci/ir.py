@@ -270,7 +270,13 @@ class Value:
 
 
 class Binding:
-    """ Enum for public / private-ness of global values. """
+    """ Enum for public / private-ness of global values.
+
+    This can be used to keep value local to the module. This can
+    be useful when you compile two modules with symbols
+    with the same name. If the symbols are defined as local,
+    this will not cause a name clash during linking.
+    """
     GLOBAL = 'global'
     LOCAL = 'local'
 
@@ -333,14 +339,18 @@ class SubRoutine(GlobalValue):
     """ Base class of function and procedure. These two differ in that
     a function returns a value, where as a procedure does not.
 
+    A subroutine contains basic blocks which refer to each other,
+    forming a control flow graph (CFG). Each SubRoutine has a single
+    entry basic block.
+
     Design trade-off:
     In C, a void type is introduced to permit functions that return nothing
     (void). This seems somewhat artificial, but keeps things simple for the
     users. In pascal, the procedure and function types are explicit, and the
     void type is not needed. This is also the approach taken here.
 
-    So instead of a Function and Call types, we have Function, Procedure,
-    FunctionCall and ProcedureCall types.
+    So instead of a Function and Call types, we have :class:`Function`,
+    :class:`Procedure`, :class:`FunctionCall` and :class:`ProcedureCall` types.
     """
 
     logger = logging.getLogger("irfunc")
@@ -442,7 +452,11 @@ class SubRoutine(GlobalValue):
             block.delete()
 
     def add_block(self, block):
-        """ Add a block to this function """
+        """ Add a block to this function.
+
+        Args:
+            block (:class:`Block`): the basic block to add.
+        """
         # if block.name in self.block_names:
         #    raise ValueError(
         #        'A block with name {} already exists'.format(block.name))
@@ -469,7 +483,13 @@ class SubRoutine(GlobalValue):
 
 
 class Procedure(SubRoutine):
-    """ A procedure definition that does not return a value """
+    """ A procedure definition that does not return a value.
+
+    Args:
+        name (str): the name of the procedure
+        binding (:class:`Binding`): The linkage of this procedure
+
+    """
 
     def __str__(self):
         args = ", ".join("{} {}".format(a.ty, a.name) for a in self.arguments)
@@ -477,7 +497,16 @@ class Procedure(SubRoutine):
 
 
 class Function(SubRoutine):
-    """ Represents a function. """
+    """ Represents a function.
+
+    A function always returns a value.
+
+    Args:
+        name (str): the name of the procedure
+        binding (:class:`Binding`): The linkage of this procedure
+        return_ty: The return value of this function.
+
+    """
 
     def __init__(self, name, binding, return_ty):
         super().__init__(name, binding)
@@ -580,7 +609,7 @@ class Block:
 
     @property
     def phis(self):
-        """ Return all phi instructions of this block """
+        """ Return all :class:`Phi` instructions of this block """
         return [i for i in self.instructions if isinstance(i, Phi)]
 
     @property
@@ -958,7 +987,15 @@ def mul(a, b, name, ty):
 
 
 class Phi(LocalValue):
-    """ Imaginary phi instruction to make SSA possible. """
+    """ Imaginary phi instruction to make SSA possible.
+
+    The phi instruction takes a value input for each basic block
+    which can reach the basic block in which this phi instruction
+    is placed. So for each incoming branch, there is a value.
+
+    The phi instruction is an artificial instruction which allows
+    the IR-code to be in SSA form.
+    """
 
     def __init__(self, name, ty):
         super().__init__(name, ty)
@@ -1092,7 +1129,7 @@ class Variable(GlobalValue):
 
 
 class Parameter(LocalValue):
-    """ Parameter of a function """
+    """ Parameter of a :class:`SubRoutine`. """
 
     def __init__(self, name, ty):
         super().__init__(name, ty)
@@ -1102,7 +1139,14 @@ class Parameter(LocalValue):
 
 
 class Load(LocalValue):
-    """ Load a value from memory """
+    """ Load a value from memory.
+
+    Args:
+        address: The address to load the value from.
+        name: The name of the value after loading it from memory.
+        ty: The type of the value.
+        volatile: whether or not this memory access is volatile.
+    """
 
     address = value_use("address")
 
@@ -1174,13 +1218,22 @@ class InlineAsm(Instruction):
 
 
 class FinalInstruction(Instruction):
-    """ Final instruction in a basic block """
+    """ Final instruction in a basic block.
+
+    This instruction terminates the basic block.
+    No more instruction may appear after this
+    instruction.
+    """
 
     pass
 
 
 class Exit(FinalInstruction):
-    """ Instruction that exits the procedure. """
+    """ Instruction that exits the procedure.
+
+    Note that this instruction can only be used
+    in a :class:`Procedure`.
+    """
 
     def __init__(self):
         super().__init__()
@@ -1191,7 +1244,10 @@ class Exit(FinalInstruction):
 
 
 class Return(FinalInstruction):
-    """ This instruction returns a value and exits the function. """
+    """ This instruction returns a value and exits the function.
+
+    This instruction is only legal in a :class:`Function`.
+    """
 
     result = value_use("result")
 
@@ -1263,7 +1319,7 @@ class JumpBase(FinalInstruction):
 
 
 class Jump(JumpBase):
-    """ Jump statement to another block within the same function """
+    """ Jump statement to another :class:`Block` within the same function """
 
     target = block_use("target")
 
