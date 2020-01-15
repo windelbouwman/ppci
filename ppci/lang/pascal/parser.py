@@ -42,11 +42,20 @@ class Parser(RecursiveDescentParser):
         """ Parse a program """
         self.consume("program")
         name = self.consume("ID")
+        if self.has_consumed('('):
+            args = []
+            args.append(self.consume("ID"))
+            while self.has_consumed(','):
+                args.append(self.consume("ID"))
+            self.consume(')')
+            print('TODO', args)
+            # TODO: use args for ??
         self.consume(";")
         self.logger.debug("Parsing program %s", name.val)
         scope = Scope(context.root_scope)
         program = nodes.Program(name.val, scope, name.loc)
         self.current_scope = scope
+
         main_code = self.parse_block()
         program.main_code = main_code
         self.consume(".")
@@ -59,15 +68,29 @@ class Parser(RecursiveDescentParser):
         A block being constants, types, variables and statements.
         """
 
+        # Parse labels:
+        if self.has_consumed('label'):
+            labels = []
+            label = self.consume('NUMBER')
+            labels.append(label)
+            while self.has_consumed(','):
+                label = self.consume('NUMBER')
+                labels.append(label)
+            self.consume(';')
+
         # Handle a toplevel construct
         if self.peek == "const":
             self.parse_constant_definitions()
+
         if self.peek == "type":
             self.parse_type_definitions()
+
         if self.peek == "var":
             self.parse_variable_declarations()
+
         if self.peek == "aaaaaaaaaaaaaaa":
             self.parse_function_declarations()
+
         return self.parse_compound_statement()
 
     def parse_constant_definitions(self):

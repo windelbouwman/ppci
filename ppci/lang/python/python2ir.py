@@ -189,10 +189,7 @@ class PythonToIrCompiler:
         elif isinstance(statement, ast.Pass):
             pass  # No comments :)
         elif isinstance(statement, ast.Return):
-            value = self.gen_expr(statement.value)
-            self.emit(ir.Return(value))
-            void_block = self.builder.new_block()
-            self.builder.set_block(void_block)
+            self.gen_return(statement)
         elif isinstance(statement, ast.If):
             self.gen_if(statement)
         elif isinstance(statement, ast.While):
@@ -214,15 +211,34 @@ class PythonToIrCompiler:
 
     def gen_break(self, statement):
         break_block = self.block_stack[-1][1]
-        self.emit(ir.Jump(break_block))
+        self.builder.emit_jump(break_block)
         unreachable_block = self.builder.new_block()
         self.builder.set_block(unreachable_block)
 
     def gen_continue(self, statement):
         continue_block = self.block_stack[-1][0]
-        self.emit(ir.Jump(continue_block))
+        self.builder.emit_jump(continue_block)
         unreachable_block = self.builder.new_block()
         self.builder.set_block(unreachable_block)
+
+    def gen_return(self, statement):
+        """ Compile return statement. """
+        if self.builder.function.is_procedure:
+            if statement.value:
+                self.error(
+                    statement,
+                    "Cannot return a value from a function without return type.",
+                )
+            self.builder.emit_exit()
+        else:
+            if not statement.value:
+                self.error(
+                    statement, "Must return a value from this function."
+                )
+            value = self.gen_expr(statement.value)
+            self.builder.emit_return(value)
+        void_block = self.builder.new_block()
+        self.builder.set_block(void_block)
 
     def gen_if(self, statement):
         """ Compile a python if-statement. """
@@ -234,12 +250,12 @@ class PythonToIrCompiler:
         # Yes
         self.builder.set_block(ja_block)
         self.gen_statement(statement.body)
-        self.emit(ir.Jump(continue_block))
+        self.builder.emit_jump(continue_block)
 
         # Else:
         self.builder.set_block(else_block)
         self.gen_statement(statement.orelse)
-        self.emit(ir.Jump(continue_block))
+        self.builder.emit_jump(continue_block)
 
         self.builder.set_block(continue_block)
 
@@ -252,7 +268,7 @@ class PythonToIrCompiler:
         final_block = self.builder.new_block()
 
         # Test:
-        self.emit(ir.Jump(test_block))
+        self.builder.emit_jump(test_block)
         self.builder.set_block(test_block)
         self.gen_cond(statement.test, body_block, final_block)
 
@@ -260,7 +276,7 @@ class PythonToIrCompiler:
         self.enter_loop(test_block, final_block)
         self.builder.set_block(body_block)
         self.gen_statement(statement.body)
-        self.emit(ir.Jump(test_block))
+        self.builder.emit_jump(test_block)
         self.leave_loop()
 
         # The end:
@@ -282,7 +298,7 @@ class PythonToIrCompiler:
         # Determine start and end values:
         ra = statement.iter.args
         if len(ra) == 1:
-            i_init = self.emit(ir.Const(0, "i_init", ir.i64))
+            i_init = self.builder.emit_const(0, ir.i64)
             n2 = self.gen_expr(ra[0])
         elif len(ra) == 2:
             i_init = self.gen_expr(ra[0])
@@ -316,12 +332,12 @@ class PythonToIrCompiler:
         self.leave_loop()
 
         # Increment loop variable:
-        one = self.emit(ir.Const(1, "one", ir.i64))
+        one = self.builder.emit_const(1, ir.i64)
         i_inc = self.emit(ir.add(i_phi, one, "i_inc", ir.i64))
         i_phi.set_incoming(body_block, i_inc)
 
         # Jump to start again:
-        self.emit(ir.Jump(test_block))
+        self.builder.emit_jump(test_block)
 
         # The end:
         self.builder.set_block(final_block)
@@ -347,7 +363,7 @@ class PythonToIrCompiler:
             values = [self.gen_expr(v) for v in values]
             for target, value in zip(targets, values):
                 self.store_value(target, value)
-        else:
+        else:  # pragma: no cover
             self.not_impl(statement)
 
     def gen_aug_assign(self, statement):
@@ -361,7 +377,7 @@ class PythonToIrCompiler:
             assert isinstance(name, str)
             var = self.get_variable(target, name)
             assert var.lvalue
-            lhs = self.emit(ir.Load(var.value, "load", var.ty))
+            lhs = self.builder.emit_load(var.value, var.ty)
             rhs = self.gen_expr(statement.value)
             op = self.binop_map[type(statement.op)]
             value = self.emit(ir.Binop(lhs, op, rhs, "augassign", var.ty))
@@ -453,7 +469,7 @@ class PythonToIrCompiler:
         """ Compile name node access. """
         var = self.local_map[expr.id]
         if var.lvalue:
-            value = self.emit(ir.Load(var.value, "load", var.ty))
+            value = self.builder.emit_load(var.value, var.ty)
         else:
             value = var.value
         return value
@@ -480,7 +496,7 @@ class PythonToIrCompiler:
             op = self.binop_map[op_typ]
         else:
             self.not_impl(expr)
-        value = self.emit(ir.Binop(a, op, b, "add", ty))
+        value = self.builder.emit_binop(a, op, b, ty)
         return value
 
     def gen_call(self, expr):
@@ -508,9 +524,9 @@ class PythonToIrCompiler:
     def gen_num(self, expr):
         num = expr.n
         if isinstance(num, int):
-            value = self.emit(ir.Const(num, "num", ir.i64))
+            value = self.builder.emit_const(num, ir.i64)
         elif isinstance(num, float):
-            value = self.emit(ir.Const(num, "num", ir.f64))
+            value = self.builder.emit_const(num, ir.f64)
         else:  # pragma: no cover
             self.not_impl(expr)
         return value

@@ -389,6 +389,16 @@ class SubRoutine(GlobalValue):
         """ Get the names of all the blocks in this function """
         return (b.name for b in self.blocks)
 
+    @property
+    def is_procedure(self):
+        """ Test if this routine is a procedure. """
+        return isinstance(self, Procedure)
+
+    @property
+    def is_function(self):
+        """ Test if this routine is a function. """
+        return isinstance(self, Function)
+
     def is_leaf(self):
         """ Test if this procedure is a leaf function.
 

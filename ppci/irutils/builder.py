@@ -76,3 +76,29 @@ class Builder:
         assert self.block is not None
         self.block.add_instruction(instruction)
         return instruction
+
+    # Instruction helpers:
+    def emit_jump(self, block):
+        """ Emit a jump instruction to the given block. """
+        self.emit(ir.Jump(block))
+
+    def emit_return(self, value):
+        """ Emit a return instruction. """
+        self.emit(ir.Return(value))
+
+    def emit_exit(self):
+        """ Emit exit instruction. """
+        self.emit(ir.Exit())
+
+    def emit_load(self, address, ty):
+        """ Emit a load instruction. """
+        # TBD: rename all temporaries to tmp001 etc...
+        return self.emit(ir.Load(address, "tmp_load", ty))
+
+    def emit_binop(self, a, op, b, ty):
+        """ Emit a binary operation. """
+        return self.emit(ir.Binop(a, op, b, "add", ty))
+
+    def emit_const(self, value, ty):
+        """ Emit a constant. """
+        return self.emit(ir.Const(value, "num", ty))

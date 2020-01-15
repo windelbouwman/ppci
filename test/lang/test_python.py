@@ -48,6 +48,13 @@ def test() -> int:
   return 2
 """
 
+src6 = """
+def p1(a: int):
+    if a > 2:
+        return
+    
+"""
+
 
 @unittest.skipUnless(api.is_platform_supported(), 'skipping codepage tests')
 class PythonJitLoadingTestCase(unittest.TestCase):
@@ -118,6 +125,9 @@ class PythonToIrCompilerTestCase(unittest.TestCase):
 
     def test_snippet5(self):
         self.do(src5)
+
+    def test_snippet6(self):
+        self.do(src6)
 
 
 if __name__ == '__main__':

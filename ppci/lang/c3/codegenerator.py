@@ -126,9 +126,7 @@ class CodeGenerator:
             self.debug_db.enter(ir_var, dv)
 
     def emit(self, instruction, loc=None):
-        """
-            Emits the given instruction to the builder.
-            Can be muted for constants.
+        """ Emits the given instruction to the builder.
         """
         self.builder.emit(instruction)
         if loc:

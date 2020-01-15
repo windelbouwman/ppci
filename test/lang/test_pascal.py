@@ -131,6 +131,19 @@ class PascalTestCase(BuildTestCaseBase):
         """
         self.expect_ok(snippet)
 
+    def test_comments(self):
+        """ Test correct lexing of comments. """
+        snippet = """
+        { Comment 1 }
+        program hello1;
+
+        begin
+          { Comment 2 }
+            writeln('Hello world!');
+        end.
+        """
+        self.expect_ok(snippet)
+
 
 if __name__ == '__main__':
     unittest.main()

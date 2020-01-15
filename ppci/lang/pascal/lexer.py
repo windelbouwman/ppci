@@ -10,6 +10,7 @@ class Lexer(SimpleLexer):
 
     keywords = [
         "program",
+        "label",
         "type",
         "const",
         "var",
@@ -79,7 +80,7 @@ class Lexer(SimpleLexer):
     def handle_oldcomment(self, val):
         pass
 
-    @on(r"\{.*\}", flags=re.DOTALL, order=-1)
+    @on(r"\{.*?\}", flags=re.DOTALL, order=-1)
     def handle_comment(self, val):
         pass
 
