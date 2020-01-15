@@ -919,7 +919,7 @@ class CSemantics:
                         name, suggestion
                     )
                 )
-            self.error('Who is this "{}"?'.format(name), location, hints=hints)
+            self.error('Undeclared identifier: "{}"'.format(name), location, hints=hints)
         symbol = self.scope.get(name)
         declaration = symbol.declaration
         typ = declaration.typ
