@@ -42,13 +42,13 @@ class Parser(RecursiveDescentParser):
         """ Parse a program """
         self.consume("program")
         name = self.consume("ID")
-        if self.has_consumed('('):
+        if self.has_consumed("("):
             args = []
             args.append(self.consume("ID"))
-            while self.has_consumed(','):
+            while self.has_consumed(","):
                 args.append(self.consume("ID"))
-            self.consume(')')
-            print('TODO', args)
+            self.consume(")")
+            print("TODO", args)
             # TODO: use args for ??
         self.consume(";")
         self.logger.debug("Parsing program %s", name.val)
@@ -69,14 +69,14 @@ class Parser(RecursiveDescentParser):
         """
 
         # Parse labels:
-        if self.has_consumed('label'):
+        if self.has_consumed("label"):
             labels = []
-            label = self.consume('NUMBER')
+            label = self.consume("NUMBER")
             labels.append(label)
-            while self.has_consumed(','):
-                label = self.consume('NUMBER')
+            while self.has_consumed(","):
+                label = self.consume("NUMBER")
                 labels.append(label)
-            self.consume(';')
+            self.consume(";")
 
         # Handle a toplevel construct
         if self.peek == "const":

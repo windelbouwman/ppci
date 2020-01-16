@@ -2,17 +2,16 @@
 
 # pylint: disable=R0903
 
-
-from ...generic.nodes import Expression
+from ...common import SourceLocation
 from . import types
 
 
-class CExpression(Expression):
+class CExpression:
     """ Base C expression with a type and location """
 
-    def __init__(self, typ, lvalue, location):
-        super().__init__(location)
+    def __init__(self, typ, lvalue, location: SourceLocation):
         assert isinstance(typ, types.CType)
+        self.location = location
         self.typ = typ
         self.lvalue = lvalue
 
@@ -34,9 +33,9 @@ class TernaryOperator(CExpression):
 
     def __init__(self, a, op, b, c, typ, lvalue, location):
         super().__init__(typ, lvalue, location)
-        assert isinstance(a, Expression)
-        assert isinstance(b, Expression)
-        assert isinstance(c, Expression)
+        assert isinstance(a, CExpression)
+        assert isinstance(b, CExpression)
+        assert isinstance(c, CExpression)
         assert op == "?"
         self.a = a
         self.op = op
@@ -104,8 +103,8 @@ class BinaryOperator(CExpression):
 
     def __init__(self, a, op, b, typ, lvalue, location):
         super().__init__(typ, lvalue, location)
-        assert isinstance(a, Expression)
-        assert isinstance(b, Expression)
+        assert isinstance(a, CExpression)
+        assert isinstance(b, CExpression)
         self.a = a
         self.op = op
         self.b = b
@@ -119,7 +118,7 @@ class UnaryOperator(CExpression):
 
     def __init__(self, op, a, typ, lvalue, location):
         super().__init__(typ, lvalue, location)
-        assert isinstance(a, Expression)
+        assert isinstance(a, CExpression)
         self.a = a
         self.op = op
 

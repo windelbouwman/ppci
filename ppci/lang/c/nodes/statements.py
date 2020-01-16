@@ -3,13 +3,14 @@
 # pylint: disable=R0903
 
 
-from ...generic.nodes import Statement
+from ...generic.nodes import Node
 
 
-class CStatement(Statement):
+class CStatement(Node):
     """ Base C statement """
 
-    pass
+    def __init__(self, location):
+        self.location = location
 
 
 class Compound(CStatement):
@@ -18,7 +19,7 @@ class Compound(CStatement):
     def __init__(self, statements, location):
         super().__init__(location)
         self.statements = statements
-        assert all(isinstance(s, Statement) for s in self.statements)
+        assert all(isinstance(s, CStatement) for s in self.statements)
 
     def __repr__(self):
         return "Compound"

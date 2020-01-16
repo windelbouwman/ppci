@@ -25,13 +25,13 @@ into IR-code:
       main_block0: {
         blob<4:4> ptr_alloc = alloc 4 bytes aligned at 4;
         ptr ptr_addr = &ptr_alloc;
-        i32 one = 1;
-        i8 val_inc = cast one;
-        ptr ptr_incr = cast one;
-        i32 zero = 0;
-        ptr zero_ptr = cast zero;
-        i8 zero_ptr_0 = cast zero;
-        ptr array_max = 30000;
+        i32 num = 1;
+        i8 val_inc = cast num;
+        ptr ptr_incr = cast num;
+        i32 num_0 = 0;
+        ptr zero_ptr = cast num_0;
+        i8 zero_ptr_1 = cast num_0;
+        ptr num_2 = 30000;
         store zero_ptr, ptr_addr;
         jmp main_block2;
       }
@@ -41,12 +41,12 @@ into IR-code:
       }
     <BLANKLINE>
       main_block2: {
-        ptr ptr_val = load ptr_addr;
-        ptr cell_addr = data + ptr_val;
-        store zero, cell_addr;
-        ptr add = ptr_val + ptr_incr;
-        store add, ptr_addr;
-        cjmp add == array_max ? main_block1 : main_block2;
+        ptr tmp_load = load ptr_addr;
+        ptr tmp = data + tmp_load;
+        store num_0, tmp;
+        ptr tmp_3 = tmp_load + ptr_incr;
+        store tmp_3, ptr_addr;
+        cjmp tmp_3 == num_2 ? main_block1 : main_block2;
       }
     <BLANKLINE>
     }

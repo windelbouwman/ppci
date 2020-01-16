@@ -1232,7 +1232,7 @@ class CParser(RecursiveDescentParser):
             if self.token.typ == "ID" and self.token.val in self.typedefs:
                 return True
         return False
-    
+
     def parse_string(self):
         return self.consume("STRING").val
 

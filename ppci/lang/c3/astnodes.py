@@ -4,7 +4,7 @@ The tree is build by the parser.
 Then it is checked
 Finally code is generated from it.
 """
-from ..generic.nodes import Node, Statement, Compound, Type
+from ..generic.nodes import Node
 
 
 # pylint: disable=R0903
@@ -52,6 +52,12 @@ class Module(Symbol):
 
     def __repr__(self):
         return "MODULE {}".format(self.name)
+
+
+class Type(Node):
+    """ Base class of all types """
+
+    pass
 
 
 class NamedType(Type, Symbol):
@@ -423,6 +429,25 @@ class FunctionCall(Expression):
 
 
 # Statements
+class Statement(Node):
+    """ Base class of all statements """
+
+    def __init__(self, location):
+        self.location = location
+
+
+class Compound(Statement):
+    """ Statement consisting of a sequence of other statements """
+
+    def __init__(self, statements, location):
+        super().__init__(location)
+        self.statements = statements
+        assert all(isinstance(s, Statement) for s in self.statements)
+
+    def __repr__(self):
+        return "Compound"
+
+
 class Empty(Statement):
     """ Empty statement which does nothing! """
 

@@ -1297,7 +1297,7 @@ def string_convert(tokens):
 
     for token in tokens:
         # Strip double quotes from string:
-        if token.typ == 'STRING':
+        if token.typ == "STRING":
             token.val = token.val[1:-1]
 
         if token.typ in ["STRING", "CHAR"]:

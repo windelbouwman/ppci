@@ -4,6 +4,7 @@
 
 import logging
 import ast
+import contextlib
 import inspect
 from ... import ir, irutils
 from ...common import SourceLocation, CompilerError
@@ -186,28 +187,30 @@ class PythonToIrCompiler:
         if isinstance(statement, list):
             for inner_statement in statement:
                 self.gen_statement(inner_statement)
-        elif isinstance(statement, ast.Pass):
-            pass  # No comments :)
-        elif isinstance(statement, ast.Return):
-            self.gen_return(statement)
-        elif isinstance(statement, ast.If):
-            self.gen_if(statement)
-        elif isinstance(statement, ast.While):
-            self.gen_while(statement)
-        elif isinstance(statement, ast.Break):
-            self.gen_break(statement)
-        elif isinstance(statement, ast.Continue):
-            self.gen_continue(statement)
-        elif isinstance(statement, ast.For):
-            self.gen_for(statement)
-        elif isinstance(statement, ast.Assign):
-            self.gen_assign(statement)
-        elif isinstance(statement, ast.Expr):
-            self.gen_expr(statement.value)
-        elif isinstance(statement, ast.AugAssign):
-            self.gen_aug_assign(statement)
-        else:  # pragma: no cover
-            self.not_impl(statement)
+        else:
+            with self.use_location(statement):
+                if isinstance(statement, ast.Pass):
+                    pass  # No comments :)
+                elif isinstance(statement, ast.Return):
+                    self.gen_return(statement)
+                elif isinstance(statement, ast.If):
+                    self.gen_if(statement)
+                elif isinstance(statement, ast.While):
+                    self.gen_while(statement)
+                elif isinstance(statement, ast.Break):
+                    self.gen_break(statement)
+                elif isinstance(statement, ast.Continue):
+                    self.gen_continue(statement)
+                elif isinstance(statement, ast.For):
+                    self.gen_for(statement)
+                elif isinstance(statement, ast.Assign):
+                    self.gen_assign(statement)
+                elif isinstance(statement, ast.Expr):
+                    self.gen_expr(statement.value)
+                elif isinstance(statement, ast.AugAssign):
+                    self.gen_aug_assign(statement)
+                else:  # pragma: no cover
+                    self.not_impl(statement)
 
     def gen_break(self, statement):
         break_block = self.block_stack[-1][1]
@@ -333,7 +336,7 @@ class PythonToIrCompiler:
 
         # Increment loop variable:
         one = self.builder.emit_const(1, ir.i64)
-        i_inc = self.emit(ir.add(i_phi, one, "i_inc", ir.i64))
+        i_inc = self.builder.emit_add(i_phi, one, ir.i64)
         i_phi.set_incoming(body_block, i_inc)
 
         # Jump to start again:
@@ -451,18 +454,19 @@ class PythonToIrCompiler:
 
     def gen_expr(self, expr):
         """ Generate code for a single expression """
-        if isinstance(expr, ast.BinOp):
-            value = self.gen_binop(expr)
-        elif isinstance(expr, ast.Name):
-            value = self.gen_name(expr)
-        elif isinstance(expr, ast.Num):
-            value = self.gen_num(expr)
-        elif isinstance(expr, ast.Call):
-            value = self.gen_call(expr)
-        elif isinstance(expr, ast.Constant):
-            value = self.gen_constant(expr)
-        else:  # pragma: no cover
-            self.not_impl(expr)
+        with self.use_location(expr):
+            if isinstance(expr, ast.BinOp):
+                value = self.gen_binop(expr)
+            elif isinstance(expr, ast.Name):
+                value = self.gen_name(expr)
+            elif isinstance(expr, ast.Num):
+                value = self.gen_num(expr)
+            elif isinstance(expr, ast.Call):
+                value = self.gen_call(expr)
+            elif isinstance(expr, ast.Constant):
+                value = self.gen_constant(expr)
+            else:  # pragma: no cover
+                self.not_impl(expr)
         return value
 
     def gen_name(self, expr):
@@ -578,11 +582,16 @@ class PythonToIrCompiler:
         print(dir(node))
         self.error(node, "Cannot do {}".format(node))
 
-    def error(self, node, message):
-        """ Raise a nice error message as feedback """
+    def node_location(self, node):
+        """ Create a source code location for the given node. """
         location = SourceLocation(
             self._filename, node.lineno, node.col_offset + 1, 1
         )
+        return location
+
+    def error(self, node, message):
+        """ Raise a nice error message as feedback """
+        location = self.node_location(node)
         raise CompilerError(message, location)
 
     def emit(self, instruction):
@@ -614,3 +623,13 @@ class PythonToIrCompiler:
 
     def leave_loop(self):
         self.block_stack.pop()
+
+    @contextlib.contextmanager
+    def use_location(self, node):
+        """ Use the location of the node for all code generated
+        within the with clause.
+        """
+        location = self.node_location(node)
+        self.builder.push_location(location)
+        yield
+        self.builder.pop_location()

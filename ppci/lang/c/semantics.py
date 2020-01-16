@@ -917,7 +917,11 @@ class CSemantics:
                         name, suggestion
                     )
                 )
-            self.error('Undeclared identifier: "{}"'.format(name), location, hints=hints)
+            self.error(
+                'Undeclared identifier: "{}"'.format(name),
+                location,
+                hints=hints,
+            )
         symbol = self.scope.get(name)
         declaration = symbol.declaration
         typ = declaration.typ
@@ -940,10 +944,10 @@ class CSemantics:
         return expr
 
     # Helpers!
-    def coerce(self, expr: expressions.Expression, typ: types.CType):
+    def coerce(self, expr: expressions.CExpression, typ: types.CType):
         """ Try to fit the given expression into the given type """
         assert isinstance(typ, types.CType)
-        assert isinstance(expr, expressions.Expression)
+        assert isinstance(expr, expressions.CExpression)
         do_cast = False
         from_type = expr.typ
         to_type = typ

@@ -2,7 +2,9 @@
 
 """
 
+import contextlib
 from .. import ir
+from ..binutils.debuginfo import DebugLocation
 
 
 def split_block(block, pos=None, newname="splitblock"):
@@ -22,7 +24,13 @@ def split_block(block, pos=None, newname="splitblock"):
 
 
 class Builder:
-    """ Base class for ir code generators """
+    """ Helper class for IR-code generators.
+
+    This class can assist in the generation of IR-code.
+    It's purpose is to simplify the language frontend,
+    as well as to hide a bit of IR classes from the
+    frontends.
+    """
 
     def __init__(self):
         self.block = None
@@ -30,6 +38,8 @@ class Builder:
         self.function = None
         self.block_number = 0
         self.prepare()
+        self.location = None
+        self._location_stack = []
 
     def prepare(self):
         self.block = None
@@ -41,12 +51,14 @@ class Builder:
         self.module = module
 
     def new_function(self, name, binding, return_ty):
+        """ Create a new function. """
         assert self.module is not None
         function = ir.Function(name, binding, return_ty)
         self.module.add_function(function)
         return function
 
     def new_procedure(self, name, binding):
+        """ Create a new procedure. """
         assert self.module is not None
         procedure = ir.Procedure(name, binding)
         self.module.add_function(procedure)
@@ -75,6 +87,13 @@ class Builder:
         assert isinstance(instruction, ir.Instruction), str(instruction)
         assert self.block is not None
         self.block.add_instruction(instruction)
+
+        if self.location and self.module.debug_db:
+            # Associate debug info:
+            self.module.debug_db.enter(
+                instruction, DebugLocation(self.location)
+            )
+
         return instruction
 
     # Instruction helpers:
@@ -90,15 +109,74 @@ class Builder:
         """ Emit exit instruction. """
         self.emit(ir.Exit())
 
-    def emit_load(self, address, ty):
+    def emit_load(self, address, ty, volatile=False):
         """ Emit a load instruction. """
         # TBD: rename all temporaries to tmp001 etc...
-        return self.emit(ir.Load(address, "tmp_load", ty))
+        return self.emit(ir.Load(address, "tmp_load", ty, volatile=volatile))
 
     def emit_binop(self, a, op, b, ty):
-        """ Emit a binary operation. """
-        return self.emit(ir.Binop(a, op, b, "add", ty))
+        """ Emit a binary operation.
+
+        Args:
+            a: operand 1
+            op: the operation to perform.
+            b: operand 2, can be either a value or an int.
+            ty: The type of a, b and the result.
+        
+        Returns:
+            The result value of the binary operation.
+        """
+
+        # Auto-inject constant instruction.
+        if isinstance(b, int):
+            b = self.emit_const(b, ty)
+        return self.emit(ir.Binop(a, op, b, "tmp", ty))
+
+    def emit_add(self, a, b, ty):
+        """ Emit addition operation. """
+        return self.emit_binop(a, "+", b, ty)
+
+    def emit_mul(self, a, b, ty):
+        """ Emit multiplication operation. """
+        return self.emit_binop(a, "*", b, ty)
+
+    def emit_sub(self, a, b, ty):
+        """ Emit subtract operation. """
+        return self.emit_binop(a, "-", b, ty)
 
     def emit_const(self, value, ty):
         """ Emit a constant. """
         return self.emit(ir.Const(value, "num", ty))
+
+    def emit_cast(self, value, ty):
+        """ Emit a type cast instruction. """
+        return self.emit(ir.Cast(value, "typecast", ty))
+
+    # Debug helpers:
+    def set_location(self, location):
+        """ Set the current source code location.
+
+        All instructions emitted from now on will be associated
+        with the given sourcecode.
+        """
+        self.location = location
+
+    def push_location(self, location):
+        self._location_stack.append(location)
+        self.set_location(location)
+
+    def pop_location(self):
+        self._location_stack.pop()
+        if self._location_stack:
+            self.location = self._location_stack[-1]
+        else:
+            self.location = None
+
+    @contextlib.contextmanager
+    def use_location(self, location):
+        """ Use the location for all code generated
+        within a context.
+        """
+        self.push_location(location)
+        yield
+        self.pop_location()
