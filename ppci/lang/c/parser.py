@@ -989,7 +989,7 @@ class CParser(RecursiveDescentParser):
         # while self.peek in
         # TODO qualifiers
         self.consume("(")
-        template = self.consume("STRING").val[1:-1]
+        template = self.parse_string()
 
         output_operands = self.parse_asm_operands()
         input_operands = self.parse_asm_operands()
@@ -1014,7 +1014,7 @@ class CParser(RecursiveDescentParser):
 
     def parse_asm_operand(self):
         """ Parse a single asm operand. """
-        constraint = self.consume("STRING").val[1:-1]
+        constraint = self.parse_string()
         self.consume("(")
         variable = self.parse_expression()
         self.consume(")")
@@ -1024,10 +1024,10 @@ class CParser(RecursiveDescentParser):
         clobbers = []
         if self.has_consumed(":"):
             if self.peek != ")":
-                clobber = self.consume("STRING").val
+                clobber = self.parse_string()
                 clobbers.append(clobber)
                 while self.has_consumed(","):
-                    clobber = self.consume("STRING").val
+                    clobber = self.parse_string()
                     clobbers.append(clobber)
         return clobbers
 
@@ -1232,6 +1232,9 @@ class CParser(RecursiveDescentParser):
             if self.token.typ == "ID" and self.token.val in self.typedefs:
                 return True
         return False
+    
+    def parse_string(self):
+        return self.consume("STRING").val
 
 
 class DeclSpec:

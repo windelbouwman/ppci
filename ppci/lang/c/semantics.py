@@ -573,7 +573,6 @@ class CSemantics:
 
         clobbers2 = []
         for clobber_register_name in clobbers:
-            clobber_register_name = clobber_register_name[1:-1]
             if self.context.arch_info.has_register(clobber_register_name):
                 clobber_register = self.context.arch_info.get_register(
                     clobber_register_name
@@ -594,7 +593,6 @@ class CSemantics:
     # Expressions!
     def on_string(self, value, location):
         """ React on string literal """
-        value = value[1:-1]  # Strip of " chars.
         cstr_type = types.ArrayType(self.char_type, len(value) + 1)
         return expressions.StringLiteral(value, cstr_type, location)
 

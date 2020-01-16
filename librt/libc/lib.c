@@ -77,6 +77,12 @@ int printf(const char* txt, ...)
         itoa(v, buffer, 10);
         printf(buffer);
       }
+      else if (*txt == 'c')
+      {
+        txt++;
+        char c = va_arg(args, char);
+        bsp_putc(c);
+      }
       else
       {
         txt--;

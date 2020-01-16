@@ -1290,11 +1290,19 @@ def skip_ws(tokens):
 def string_convert(tokens):
     """ Phase 5 of compilation.
 
-    Process escaped string constants into unicode. """
-    # Process
+    Tasks:
+    - Strip quotes.
+    - Process escaped string constants into unicode.
+    """
+
     for token in tokens:
+        # Strip double quotes from string:
+        if token.typ == 'STRING':
+            token.val = token.val[1:-1]
+
         if token.typ in ["STRING", "CHAR"]:
             token.val = replace_escape_codes(token.val)
+
         yield token
 
 
@@ -1306,7 +1314,7 @@ def string_concat(tokens):
     for token in tokens:
         if token.typ == "STRING":
             if string_token:
-                string_token.val = string_token.val[:-1] + token.val[1:]
+                string_token.val = string_token.val + token.val
             else:
                 string_token = token
         else:

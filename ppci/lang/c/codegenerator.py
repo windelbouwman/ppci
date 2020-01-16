@@ -235,10 +235,14 @@ class CCodeGenerator:
             mem = mem + element_mem
 
         array_size = self.context.eval_expr(typ.size)
+        print(array_size)
 
         if len(ival.values) < array_size:
             extra_implicit = array_size - len(ival.values)
             mem = mem + implicit_value * extra_implicit
+        elif len(ival.values) > array_size:
+            mem = mem[:array_size]
+
         return mem
 
     def gen_global_initialize_union(self, typ, ival):
@@ -1600,6 +1604,7 @@ class CCodeGenerator:
 
     def gen_va_arg(self, expr: expressions.BuiltInVaArg):
         """ Generate code for a va_arg operation """
+        # TODO: how to deal with proper alignment?
         valist_ptrptr = self.gen_expr(expr.arg_pointer, rvalue=False)
         va_ptr = self.emit(ir.Load(valist_ptrptr, "va_ptr", ir.ptr))
         ir_typ = self.get_ir_type(expr.typ)
