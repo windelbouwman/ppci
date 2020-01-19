@@ -16,14 +16,23 @@ logger = logging.getLogger('util')
 
 def make_filename(s):
     """ Remove all invalid characters from a string for a valid filename.
-        And create a directory if none present.
+
+    And create a directory if none present.
     """
-    output_dir = relpath('listings')
+    folders = ['listings']
+    parts = list(map(only_valid_chars, s.split('.')))
+    assert parts
+    folders.extend(parts[:-1])
+    basename = parts[-1]
+    output_dir = relpath(*folders)
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
-    valid_chars = string.ascii_letters + string.digits
-    basename = ''.join(c for c in s if c in valid_chars)
     return os.path.join(output_dir, basename)
+
+
+def only_valid_chars(s):
+    valid_chars = string.ascii_letters + string.digits + '_'
+    return ''.join(c for c in s if c in valid_chars)
 
 
 def relpath(*args):

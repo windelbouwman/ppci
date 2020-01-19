@@ -12,3 +12,5 @@ MEMORY ram LOCATION=0xd8000000 SIZE=0x10000 {
  SECTION(data)
  DEFINESYMBOL(__data_end)
 }
+
+ENTRY(start2)

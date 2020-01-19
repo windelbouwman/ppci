@@ -5,6 +5,8 @@ section reset
 reset:
   j start1
 
+section code
+
 ; Should be 
 ; serial device is mapped at fd050020
   align 4
@@ -25,22 +27,6 @@ _data_end:
   dcd =__data_end
 
 start1:
-  l32r a4, thr
-
-  movi a5, 65  ; character 'A'
-  ; s8i a5, a4, 2
-
-  l32r a1, stackpointer ; Load stack pointer
-
-  ; addi a5, a5, 1 ; character A+1
-  ; s8i a5, a4, 2
-
-  ; call0 do_c
-  ; push a8
-  ; call0 do_c
-  ; pop a8
-  ; call0 do_c
-
   ; ====================
   ; Load initial data!
   l32r a6, _data_load_start ; src pointer
@@ -58,6 +44,10 @@ _load_loop:
 _load_done:
   ; ====================
 
+global start2
+start2:
+  l32r a1, stackpointer ; Load stack pointer
+
 global main_main
 global bsp_exit
   call0 main_main
@@ -65,10 +55,3 @@ global bsp_exit
 
 limbo:
   j limbo
-
-
-align 4
-do_c:
-  addi a5, a5, 1 ; character A+1
-  s8i a5, a4, 2
-  ret
