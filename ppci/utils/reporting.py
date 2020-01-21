@@ -18,6 +18,7 @@ from ..irutils import Writer
 from .graph2svg import Graph, LayeredLayout
 from ..codegen.selectiongraph import SGValue
 from ..binutils.outstream import TextOutputStream
+from ..binutils.debuginfo import DebugLocation
 
 
 class ReportGenerator(metaclass=abc.ABCMeta):
@@ -477,11 +478,11 @@ class HtmlReportGenerator(TextWritingReporter):
             self.print("</tr>")
             for idx, ins in enumerate(frame.instructions):
                 self.print("<tr>")
-                self.print("<td>{}</td>".format(idx))
-                self.print("<td>{}</td>".format(ins))
-                self.print("<td>{}</td>".format(str2(ins.used_registers)))
-                self.print("<td>{}</td>".format(str2(ins.defined_registers)))
-                self.print("<td>{}</td>".format(str2(ins.clobbers)))
+                self.tcell(idx)
+                self.tcell(ins)
+                self.tcell(str2(ins.used_registers))
+                self.tcell(str2(ins.defined_registers))
+                self.tcell(str2(ins.clobbers))
                 self.print("<td>", end="")
                 if ins.jumps:
                     self.print(str2(ins.jumps), end="")
@@ -529,3 +530,53 @@ class HtmlReportGenerator(TextWritingReporter):
 
     def dump_ig(self, ig):
         ig.to_dot()
+
+    def annotate_source(self, src, mod):
+        """ Annotate source code. """
+        self.print('<table border="1">')
+        self.print("<tr><th>Line</th><th>source</th></tr>")
+        lines = {}
+        for nr, line in enumerate(src, 1):
+            line = line.rstrip()
+            lines[nr] = line
+
+            # breakpoint()
+            self.print("<tr>")
+            self.tcell(nr)
+            self.tcell(line)
+            self.print("</tr>")
+
+        self.print("</table>")
+        if mod.debug_db:
+            self.print('<table border="1">')
+            for routine in mod.functions:
+                self.print("<tr>")
+                self.tcell(routine)
+                self.print("</tr>")
+                for block in routine:
+                    self.print("<tr>")
+                    self.tcell(block, indent=30)
+                    self.print("</tr>")
+                    for ins in block:
+                        # for ins, loc in mod.debug_db.mappings.items():
+                        self.print("<tr>")
+                        self.tcell(ins, indent=60)
+                        if ins in mod.debug_db.mappings:
+                            loc = mod.debug_db.mappings[ins]
+                            # self.print("<td>{}</td>".format(loc))
+                            if isinstance(loc, DebugLocation):
+                                # self.print("<td>{}</td>".format(loc))
+                                self.tcell(loc.loc.row)
+                                if loc.loc.row in lines:
+                                    line = lines[loc.loc.row]
+                                    self.tcell(line)
+                    self.print("</tr>")
+            self.print("</table>")
+
+    def tcell(self, txt, indent=0):
+        """ Inject a html table cell. """
+        if indent:
+            style = ' style="padding-left: {}px;"'.format(indent)
+        else:
+            style = ""
+        self.print("<td{}>{}</td>".format(style, txt))

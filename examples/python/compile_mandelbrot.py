@@ -8,14 +8,22 @@ import logging
 from ppci.lang.python import python_to_ir
 from ppci.irutils import verify_module, print_module
 from ppci.api import ir_to_object, link, cc, objcopy
+from ppci.utils.reporting import HtmlReportGenerator
 
 # logging.basicConfig(level=logging.INFO)
 
 def puts(txt: str):
 	pass
 
-with open('mandelbrot.py', 'r') as f:
-    mod = python_to_ir(f, imports = {'puts': puts})
+with open('mandelbrot_compilation_report.html', 'w') as f, HtmlReportGenerator(f) as reporter:
+    with open('mandelbrot.py', 'r') as f:
+        mod = python_to_ir(f, imports = {'puts': puts})
+    
+    with open('mandelbrot.py', 'r') as f:
+        src = list(f)
+    
+    reporter.annotate_source(src, mod)
+
 
 verify_module(mod)
 # print_module(mod)
