@@ -466,10 +466,6 @@ def pattern_reg(context, tree):
     return tree.value
 
 
-@isa.pattern("reg", "I32TOI32(reg)", size=0, cycles=0, energy=0)
-@isa.pattern("reg", "I32TOU32(reg)", size=0, cycles=0, energy=0)
-@isa.pattern("reg", "U32TOI32(reg)", size=0, cycles=0, energy=0)
-@isa.pattern("reg", "U32TOU32(reg)", size=0, cycles=0, energy=0)
 @isa.pattern("reg", "I32TOI8(reg)", size=0, cycles=0, energy=0)
 @isa.pattern("reg", "I32TOU8(reg)", size=0, cycles=0, energy=0)
 @isa.pattern("reg", "U32TOI8(reg)", size=0, cycles=0, energy=0)

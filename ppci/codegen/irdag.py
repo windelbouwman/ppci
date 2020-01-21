@@ -441,10 +441,20 @@ class SelectionGraphBuilder:
         from_ty = node.src.ty
         if from_ty is ir.ptr:
             from_ty = self.ptr_ty
-        op = "{}TO".format(str(from_ty).upper())
-        a = self.get_value(node.src)
-        sgnode = self.new_node(op, node.ty, a)
-        self.add_map(node, sgnode.new_output(node.name))
+
+        to_ty = node.ty
+        if to_ty is ir.ptr:
+            to_ty = self.ptr_ty
+        
+        if from_ty.is_integer and to_ty.is_integer and from_ty.bits == to_ty.bits:
+            src_value = self.get_value(node.src)
+            self.add_map(node, src_value)
+        else:        
+            # Determine if cast is required.
+            op = "{}TO".format(str(from_ty).upper())
+            a = self.get_value(node.src)
+            sgnode = self.new_node(op, node.ty, a)
+            self.add_map(node, sgnode.new_output(node.name))
 
     def _prep_call_arguments(self, node):
         """ Prepare call arguments into proper locations """

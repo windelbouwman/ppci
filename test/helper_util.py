@@ -24,6 +24,9 @@ def make_filename(s):
     assert parts
     folders.extend(parts[:-1])
     basename = parts[-1]
+    assert basename.startswith('test_')
+    basename = basename[5:]
+    assert basename
     output_dir = relpath(*folders)
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)

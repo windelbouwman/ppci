@@ -570,14 +570,6 @@ def pattern_cnst(context, tree):
     return tree.value
 
 
-@isa.pattern("cnst", "I16TOI16(cnst)", size=0, cycles=0, energy=0)
-@isa.pattern("cnst", "I16TOU16(cnst)", size=0, cycles=0, energy=0)
-@isa.pattern("cnst", "U16TOU16(cnst)", size=0, cycles=0, energy=0)
-@isa.pattern("cnst", "U16TOI16(cnst)", size=0, cycles=0, energy=0)
-def pattern_i16toi16_const(context, tree, c0):
-    return c0
-
-
 @isa.pattern("cnstsrc", "cnst", size=2, cycles=0, energy=0)
 def pattern_cnst_src(context, tree, c0):
     return ConstSrc(c0)
@@ -596,14 +588,6 @@ def pattern_const16(context, tree, c0):
 @isa.pattern("reg", "REGU16", size=0, cycles=0, energy=0)
 def pattern_reg16(context, tree):
     return tree.value
-
-
-@isa.pattern("reg", "I16TOI16(reg)", size=0, cycles=0, energy=0)
-@isa.pattern("reg", "I16TOU16(reg)", size=0, cycles=0, energy=0)
-@isa.pattern("reg", "U16TOU16(reg)", size=0, cycles=0, energy=0)
-@isa.pattern("reg", "U16TOI16(reg)", size=0, cycles=0, energy=0)
-def pattern_i16toi16(context, tree, c0):
-    return c0
 
 
 @isa.pattern("reg", "I16TOI8(reg)", size=0, cycles=0, energy=0)

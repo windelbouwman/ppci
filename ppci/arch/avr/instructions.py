@@ -836,14 +836,6 @@ def pattern_mov16(context, tree, c0):
     context.move(tree.value, c0)
 
 
-@avr_isa.pattern("reg16", "I16TOI16(reg16)", size=0)
-@avr_isa.pattern("reg16", "U16TOI16(reg16)", size=0)
-@avr_isa.pattern("reg16", "I16TOU16(reg16)", size=0)
-@avr_isa.pattern("reg16", "U16TOU16(reg16)", size=0)
-def pattern_i16toi16(context, tree, c0):
-    return c0
-
-
 @avr_isa.pattern("reg16", "U8TOI16(reg)", size=0)
 def pattern_u8toi16(context, tree, c0):
     context.move(r0, c0)

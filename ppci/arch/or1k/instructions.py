@@ -718,12 +718,6 @@ def pattern_reg(context, tree):
 
 
 # Data conversion patterns:
-@orbis32.pattern("reg", "U32TOI32(reg)", size=0, cycles=0, energy=0)
-@orbis32.pattern("reg", "I32TOI32(reg)", size=0, cycles=0, energy=0)
-@orbis32.pattern("reg", "U32TOU32(reg)", size=0, cycles=0, energy=0)
-@orbis32.pattern("reg", "I32TOU32(reg)", size=0, cycles=0, energy=0)
-def pattern_i32toi32(context, tree, c0):
-    return c0
 
 # 32 -- 8 bits relations
 

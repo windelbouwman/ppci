@@ -2187,39 +2187,6 @@ def pattern_reg8(context, tree):
     return tree.value
 
 
-# Unit conversions:
-@isa.pattern("reg64", "I64TOI64(reg64)", size=0)
-@isa.pattern("reg64", "I64TOU64(reg64)", size=0)
-@isa.pattern("reg64", "U64TOI64(reg64)", size=0)
-@isa.pattern("reg64", "U64TOU64(reg64)", size=0)
-def pattern_i64toi64(context, tree, c0):
-    return c0
-
-
-@isa.pattern("reg32", "I32TOI32(reg32)", size=0)
-@isa.pattern("reg32", "I32TOU32(reg32)", size=0)
-@isa.pattern("reg32", "U32TOI32(reg32)", size=0)
-@isa.pattern("reg32", "U32TOU32(reg32)", size=0)
-def pattern_i32toi32(context, tree, c0):
-    return c0
-
-
-@isa.pattern("reg16", "I16TOI16(reg16)", size=0)
-@isa.pattern("reg16", "I16TOU16(reg16)", size=0)
-@isa.pattern("reg16", "U16TOI16(reg16)", size=0)
-@isa.pattern("reg16", "U16TOU16(reg16)", size=0)
-def pattern_i16toi16(context, tree, c0):
-    return c0
-
-
-@isa.pattern("reg8", "I8TOI8(reg8)", size=0)
-@isa.pattern("reg8", "I8TOU8(reg8)", size=0)
-@isa.pattern("reg8", "U8TOU8(reg8)", size=0)
-@isa.pattern("reg8", "U8TOI8(reg8)", size=0)
-def pattern_8to8(context, tree, c0):
-    return c0
-
-
 # Conversions:
 @isa.pattern("reg16", "U64TOU16(reg64)", size=4)
 @isa.pattern("reg16", "I64TOU16(reg64)", size=4)

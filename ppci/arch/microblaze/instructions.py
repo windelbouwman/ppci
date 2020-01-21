@@ -512,14 +512,6 @@ def pattern_fprel(context, tree):
 
 
 # Data conversion patterns:
-@isa.pattern("reg", "U32TOI32(reg)", size=0, cycles=0, energy=0)
-@isa.pattern("reg", "I32TOI32(reg)", size=0, cycles=0, energy=0)
-@isa.pattern("reg", "U32TOU32(reg)", size=0, cycles=0, energy=0)
-@isa.pattern("reg", "I32TOU32(reg)", size=0, cycles=0, energy=0)
-def pattern_i32toi32(context, tree, reg):
-    return reg
-
-
 @isa.pattern("reg", "U32TOI16(reg)", size=0, cycles=0, energy=0)
 @isa.pattern("reg", "I32TOI16(reg)", size=0, cycles=0, energy=0)
 @isa.pattern("reg", "U32TOU16(reg)", size=0, cycles=0, energy=0)
