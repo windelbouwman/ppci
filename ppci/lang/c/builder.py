@@ -34,9 +34,7 @@ class CBuilder:
         if reporter:
             f = io.StringIO()
             print_ast(compile_unit, file=f)
-            reporter.heading(2, "C-ast")
-            reporter.message("Behold the abstract syntax tree of your C-code")
-            reporter.dump_raw_text(f.getvalue())
+            reporter.dump_source("C-ast", f.getvalue())
         cgen = CCodeGenerator(context)
         return cgen.gen_code(compile_unit)
 

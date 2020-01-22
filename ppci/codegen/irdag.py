@@ -382,7 +382,12 @@ class SelectionGraphBuilder:
         sgnode = self.new_node(
             "ASM",
             None,
-            value=(node.template, output_registers, input_registers, node.clobbers),
+            value=(
+                node.template,
+                output_registers,
+                input_registers,
+                node.clobbers,
+            ),
         )
         self.chain(sgnode)
         self.debug_db.map(node, sgnode)
@@ -445,11 +450,23 @@ class SelectionGraphBuilder:
         to_ty = node.ty
         if to_ty is ir.ptr:
             to_ty = self.ptr_ty
-        
-        if from_ty.is_integer and to_ty.is_integer and from_ty.bits == to_ty.bits:
+
+        if (
+            from_ty.is_integer
+            and to_ty.is_integer
+            and from_ty.bits == to_ty.bits
+            and (
+                self.arch.get_reg_class(ty=from_ty)
+                is self.arch.get_reg_class(ty=to_ty)
+            )
+        ):
+            # No cast required if:
+            # - both types are integer
+            # - the integer is the same size
+            # - both types use the same register class.
             src_value = self.get_value(node.src)
             self.add_map(node, src_value)
-        else:        
+        else:
             # Determine if cast is required.
             op = "{}TO".format(str(from_ty).upper())
             a = self.get_value(node.src)

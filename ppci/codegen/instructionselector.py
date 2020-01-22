@@ -293,7 +293,9 @@ class InstructionSelector1:
         """ Run assembler on inline assembly code. """
         template, output_registers, input_registers, clobbers = tree.value
         context.emit(
-            InlineAssembly(template, output_registers, input_registers, clobbers)
+            InlineAssembly(
+                template, output_registers, input_registers, clobbers
+            )
         )
 
     def memcp(self):

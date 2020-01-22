@@ -166,6 +166,11 @@ class XtensaAssemblyTestCase(AsmTestCaseBase):
         self.feed('s32i a6, a1, 28')
         self.check('626107')
 
+    def test_sext(self):
+        """ Test sign extend instruction encoding. """
+        self.feed('sext a6, a1, 8')
+        self.check('106123')
+
     def test_sll(self):
         self.feed('sll a6, a3')
         self.check('0063a1')
