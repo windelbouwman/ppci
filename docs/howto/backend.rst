@@ -7,11 +7,11 @@ to take a look at existing backends, like the backends for ARM and X86_64.
 
 A backend consists of the following parts:
 
-#. register descriptions
-#. instruction descriptions
-#. template descriptions
+#. Register descriptions
+#. Instruction descriptions
+#. Template descriptions
 #. Function calling machinery
-#. architecture description
+#. Architecture description
 
 
 Register description
@@ -41,7 +41,7 @@ It is also possible that these classes overlap.
 Tokens
 ------
 
-Tokens are the basic blocks of complete instructions. They correspond to
+Tokens are the basic building blocks of complete instructions. They correspond to
 byte sequences of parts of instructions. Good examples are the opcode token
 of typically one byte, the prefix token and the immediate tokens which
 optionally follow an opcode. Typically RISC machines will have instructions
@@ -73,7 +73,7 @@ instruction for a specific machine derives from
 :class:`ppci.arch.encoding.Instruction`.
 
 
-Lets take the nop example of stm8. This instruction can be defined like this:
+Lets take the ``nop`` example of stm8. This instruction can be defined like this:
 
 .. testcode:: encoding
 
@@ -85,13 +85,13 @@ Lets take the nop example of stm8. This instruction can be defined like this:
         patterns = {'opcode': 0x9d}
 
 
-Here the nop instruction is defined. It has a syntax of 'nop'.
+Here the "nop" instruction is defined. It has a syntax of ``nop``.
 The syntax is used for creating a nice string
 representation of the object, but also during parsing of assembly code.
 The tokens contains a list of what tokens this instruction contains.
 
-The patterns attribute contains a list of patterns. In this case
-the opcode field is set with the fixed pattern 0x9d.
+The ``patterns`` attribute contains a list of bitfield patterns. In this case
+the ``opcode`` field is set to the fixed pattern 0x9d.
 
 Instructions are also usable directly, like this:
 
@@ -108,7 +108,7 @@ Instructions are also usable directly, like this:
     b'\x9d'
 
 Often, an instruction does not have a fixed syntax. Often an argument
-can be specified, for example the stm8 adc instruction:
+can be specified, for example the stm8 ``adc`` instruction:
 
 .. testcode:: encoding
 
@@ -126,8 +126,8 @@ can be specified, for example the stm8 adc instruction:
         tokens = [Stm8Token, Stm8ByteToken]
         patterns = {'opcode': 0xa9, 'byte': imm}
 
-The 'imm' attribute now functions as a variable instruction part. When
-constructing the instruction, it must be given:
+The ``imm`` attribute now functions as a variable instruction part. When
+constructing the instruction, it must be given as an argument:
 
 .. doctest:: encoding
 
@@ -154,7 +154,7 @@ can be used to create an instruction from bytes:
     'adc a, 16'
 
 Another option of constructing instruction classes is adding different
-instruction classes to eachother:
+instruction classes to each other:
 
 .. testcode:: encoding
 
@@ -175,7 +175,7 @@ instruction classes to eachother:
 
 
 In the above example, two instruction classes are defined. When combined,
-the tokens, syntax and patterns are combined into the last instruction.
+the tokens, syntax and patterns are combined into the new instruction:
 
 .. doctest:: encoding
 
@@ -190,9 +190,9 @@ Relocations
 -----------
 
 Most instructions can be encoded directly, but some refer to a label
-which is not known at the time a single instruction is created. The answer
+which is not known at the time a separate instruction is created. The answer
 to this problem is relocation information. When generating instructions
-also relocation information is emitted. During link time, or during loading
+also relocation information is emitted. During link time, or during loading,
 the relocations are resolved and the instructions are patched.
 
 To define a relocation, subclass :class:`ppci.arch.encoding.Relocation`.
@@ -217,7 +217,7 @@ To define a relocation, subclass :class:`ppci.arch.encoding.Relocation`.
             return symbol_value
 
 
-To use this relocation, use it in an instructions 'relocations' function:
+To use this relocation, use it in instruction's ``relocations`` function:
 
 
 .. testcode:: encoding
@@ -237,7 +237,7 @@ In this case it is one relocation entry at offset 1 into the instruction.
 Instruction groups
 ------------------
 
-Instructions often not come alone. They are usually grouped into a set of
+Instructions often not come one by one. They are usually grouped into a set of
 instructions, or an instruction set architecture (ISA). An isa can be
 created and instructions can be added to it, like this:
 
@@ -269,8 +269,8 @@ The class Stm8Instruction and all of its subclasses will now be automatically
 added to the isa.
 
 Often there are some common instructions for data definition, such as
-the db instruction to define a byte. These are already defined in
-data_instructions. Isa's can be added to eachother to combine them, like this:
+the ``db`` instruction to define a byte. These are already defined in
+``data_instructions``. Isa's can be added to each other to combine them, like this:
 
 .. testcode:: encoding
 
@@ -278,8 +278,8 @@ data_instructions. Isa's can be added to eachother to combine them, like this:
     my_complete_isa = my_isa + data_isa
 
 
-Template matching
------------------
+Instruction selection patterns
+------------------------------
 
 In order for the compiler to know what instructions must be used when,
 use can be made of the built-in pattern matching for instruction selection.
@@ -290,7 +290,8 @@ for the backend.
 
     @my_isa.pattern('a', 'ADDU8(a, CONSTU8)', size=2, cycles=3, energy=2)
     def pattern_const(context, tree, c0):
-        assert reg is A
+# TODO: remove me, reg is not defined here and thus confusing
+#        assert reg is A
         value = tree[1].value
         context.emit(AdcByte(value))
         return A
@@ -299,8 +300,8 @@ In the function above a function is defined that matches the pattern for
 adding a constant to the accumulator (a) register.
 The instruction selector will use the
 information about size, cycles and energy to determine the best choice
-depending on what is given.
-If the compiler is run with optimize for size, the size argument will be
+depending on codegeneration options given. For example,
+if the compiler is run with option to optimize for size, the size argument will be
 weighted heavier in the determination of the choice of pattern.
 
 When a pattern is selected, the function is run, and the corresponding
@@ -329,9 +330,9 @@ Code generating functions
 +++++++++++++++++++++++++
 
 There are several functions that are expected to generate code. Code
-can be generated by implementing these functions as generators, but returning
+can be generated by implementing these functions as Python generators, but returning
 a list of instructions is also possible. All these functions names
-start with gen.
+start with ``gen_``.
 
 These functions are for prologue / epilogue:
 
@@ -342,7 +343,7 @@ For creating a call:
 
 * :meth:`ppci.arch.arch.Architecture.gen_call`
 
-During instruction selection phase, the gen_call function is
+During instruction selection phase, the ``gen_call`` function is
 called to generate code for function calls.
 
 The member functions
@@ -355,7 +356,7 @@ Architecture information
 ++++++++++++++++++++++++
 
 Most frontends also need some information, but not all about the target
-architecture. For this create architecture info into
+architecture. For this create architecture info object using
 :class:`ppci.arch.arch_info.ArchInfo`. This class holds information
 about basic type sizes, alignment and endianness of the architecture.
 
