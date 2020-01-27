@@ -240,7 +240,7 @@ Fge = make_fcmp("fge", 0b001, True)
 @rvfisa.pattern("freg", "CONSTF64", size=2)
 def pattern_const_f32(context, tree):
     float_const = struct.pack("f", tree.value)
-    c0, = struct.unpack("i", float_const)
+    (c0,) = struct.unpack("i", float_const)
     d = context.new_reg(RiscvRegister)
     context.emit(Li(d, c0))
     e = context.new_reg(RiscvFRegister)

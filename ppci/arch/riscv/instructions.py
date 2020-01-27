@@ -822,7 +822,7 @@ def pattern_const_i32(context, tree):
 @isa.pattern("reg", "CONSTF64", size=10)
 def pattern_const_f32(context, tree):
     float_const = struct.pack("f", tree.value)
-    c0, = struct.unpack("i", float_const)
+    (c0,) = struct.unpack("i", float_const)
     d = context.new_reg(RiscvRegister)
     context.emit(Li(d, c0))
     return d

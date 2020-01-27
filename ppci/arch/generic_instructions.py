@@ -92,6 +92,7 @@ class RegisterUseDef(VirtualInstruction):
 class InlineAssembly(VirtualInstruction):
     """ This is a placeholder instruction with some inline assembly code.
     """
+
     def __init__(self, template, output_registers, input_registers, clobbers):
         super().__init__()
         self.template = template

@@ -56,7 +56,7 @@ class ArchInfo:
     def get_register(self, name):
         """ Retrieve the machine register by name. """
         return self._registers_by_name[name]
-    
+
     def has_register(self, name):
         """ Test if this architecture has a register with the given name. """
         return name in self._registers_by_name

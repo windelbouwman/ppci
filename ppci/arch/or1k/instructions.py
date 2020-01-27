@@ -721,6 +721,7 @@ def pattern_reg(context, tree):
 
 # 32 -- 8 bits relations
 
+
 @orbis32.pattern("reg", "I8TOI32(reg)", size=4, cycles=1, energy=1)
 def pattern_i8toi32(context, tree, c0):
     d = context.new_reg(Or1kRegister)
