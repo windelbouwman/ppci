@@ -15,7 +15,7 @@ class CPreProcessorTestCase(unittest.TestCase):
         coptions.enable("verbose")
         self.preprocessor = CPreProcessor(coptions)
 
-    def preprocess(self, src, expected=None):
+    def preprocess(self, src: str, expected=None):
         f = io.StringIO(src)
         tokens = self.preprocessor.process_file(f, "dummy.t")
         tokens = list(tokens)
@@ -423,6 +423,29 @@ class CPreProcessorTestCase(unittest.TestCase):
 
         ;;
         ;;"""
+        self.preprocess(src, expected)
+
+    def test_stringify(self):
+        """ Test token stringification. """
+        src = r"""#define S(a) #a
+        S(word)
+        S("string")
+        S('a')
+        S('"')
+        S("aa\tbb")
+        S( 1)
+        S(  1    2    3  )
+        E"""
+        expected = r"""# 1 "dummy.t"
+
+        "word"
+        "\"string\""
+        "'a'"
+        "'\"'"
+        "\"aa\\tbb\""
+        "1"
+        "1 2 3"
+        E"""
         self.preprocess(src, expected)
 
     def test_token_glue(self):

@@ -553,8 +553,20 @@ class CPreProcessor:
         return new_line
 
     def stringify(self, hash_token, snippet, loc):
-        """ Handle the '#' stringify operator """
-        string_value = '"{}"'.format("".join(map(str, snippet)))
+        """ Handle the '#' stringify operator.
+
+        Take care of:
+        - single space between the tokens being stringified
+        - no spaces before first and after last token
+        - escape double quotes of strings and backslash inside strings.
+        """
+        def escape(t):
+            if t.typ in ['STRING', 'CHAR']:
+                return t.val.replace('\\', '\\\\').replace('"', '\\"')
+            else:
+                return t.val
+
+        string_value = '"{}"'.format(" ".join(map(escape, snippet)))
         return CToken("STRING", string_value, hash_token.space, False, loc)
 
     def concat(self, lhs, rhs):
