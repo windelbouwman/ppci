@@ -28,6 +28,8 @@ class CContext:
         self._enum_values = {}
         int_size = self.arch_info.get_size("int")
         int_alignment = self.arch_info.get_alignment("int")
+        long_size = max(int_size, 4)
+        long_alignment = max(int_alignment, 4)
         ptr_size = self.arch_info.get_size("ptr")
         double_size = self.arch_info.get_size(ir.f64)
         double_alignment = self.arch_info.get_alignment(ir.f64)
@@ -38,8 +40,8 @@ class CContext:
             BasicType.USHORT: (2, 2),
             BasicType.INT: (int_size, int_alignment),
             BasicType.UINT: (int_size, int_alignment),
-            BasicType.LONG: (4, 4),
-            BasicType.ULONG: (4, 4),
+            BasicType.LONG: (long_size, long_alignment),
+            BasicType.ULONG: (long_size, long_alignment),
             BasicType.LONGLONG: (8, 8),
             BasicType.ULONGLONG: (8, 8),
             BasicType.FLOAT: (4, 4),
