@@ -485,11 +485,21 @@ class CPreProcessorTestCase(unittest.TestCase):
         """ Check the behavior of variadic macros """
         src = r"""#define A(...) a __VA_ARGS__ b
         A(B)
-        A(2, 4,5)"""
+        A(2, 4,5)
+        A(  2  ,   4   ,  5  )
+        A(  2    9  ,   4   8 ,  5   8   )
+        A(2    9,4   8,5   8)
+        A(2,4,5)
+        E"""
         expected = """# 1 "dummy.t"
 
         a B b
-        a 2, 4,5 b"""
+        a 2, 4,5 b
+        a 2 , 4 , 5 b
+        a 2 9 , 4 8 , 5 8 b
+        a 2 9,4 8,5 8 b
+        a 2,4,5 b
+        E"""
         self.preprocess(src, expected)
 
     def test_argument_prescan(self):
@@ -507,6 +517,36 @@ class CPreProcessorTestCase(unittest.TestCase):
 
         X_BUFSIZE
         X_w1024"""
+        self.preprocess(src, expected)
+
+    def test_macro_arguments(self):
+        """ Test the amount of comma's in macro arguments.
+
+        Test both variadic and fixed count argument macros.
+        """
+        src = r"""
+        #define M(arg) w00t arg w44t
+        M(;)
+        M()
+
+        #define CALL(f, ...) (f)(__VA_ARGS__)
+        CALL(g0)
+        CALL(g0, 1)
+        CALL(g0, 1, 2)
+        CALL(g0, 1, 2, 3)
+        E"""
+        expected = r"""# 1 "dummy.t"
+
+
+        w00t ; w44t
+        w00t w44t
+
+
+        (g0)()
+        (g0)(1)
+        (g0)(1, 2)
+        (g0)(1, 2, 3)
+        E"""
         self.preprocess(src, expected)
 
     @unittest.skip("TODO!")
