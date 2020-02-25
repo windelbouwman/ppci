@@ -4,7 +4,7 @@ Code instrumentation
 
 This is a howto on code instrumentation. Code instrumentation is the action
 of adding extra code to your program. A good example is function call
-tracing. With function call tracing, you can call an extra function whenever
+tracing. With function call tracing, you can execute a custom action whenever
 a function is entered. It is also fun and easy to enter infinite recursions
 by doing so.
 
@@ -12,7 +12,7 @@ by doing so.
 Lets demonstrate how this works with an example!
 
 Say, we have a simple function, and would like to instrument this code.
-So, first define a function in C, called my_add, and turn it into IR-code:
+So, first define a function in C, called ``my_add``, and turn it into IR-code:
 
 .. doctest:: instrumentation
 
@@ -99,5 +99,4 @@ like this:
            ALIGN(4)
     <BLANKLINE>
 
-Notice here as well the extra call to the trace function!
-
+Notice here as well the extra call to the ``trace`` function.
