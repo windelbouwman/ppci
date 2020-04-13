@@ -2,7 +2,7 @@ import logging
 import struct
 from ...common import CompilerError
 from .symbol_table import Scope
-from . import nodes
+from .nodes import symbols, types
 
 
 class Context:
@@ -24,13 +24,13 @@ class Context:
         self.programs.append(program)
 
     def get_type(self, name, reveil_defined=True):
-        if isinstance(name, nodes.Type):
+        if isinstance(name, types.Type):
             typ = name
         else:
             typ = self.root_scope.get_symbol(name)
-            assert isinstance(typ, nodes.Type)
+            assert isinstance(typ, symbols.DefinedType)
 
-        if isinstance(typ, nodes.DefinedType) and reveil_defined:
+        if isinstance(typ, symbols.DefinedType) and reveil_defined:
             typ = self.get_type(typ.typ)
 
         return typ
@@ -40,23 +40,23 @@ class Context:
         a = self.get_type(a)
         b = self.get_type(b)
         if type(a) is type(b):
-            if isinstance(a, nodes.IntegerType):
+            if isinstance(a, types.IntegerType):
                 return a.bits == b.bits
-            elif isinstance(a, nodes.PointerType):
+            elif isinstance(a, types.PointerType):
                 # If a pointed type is detected, stop structural
                 # equivalence:
                 return self.equal_types(a.ptype, b.ptype, byname=True)
-            elif isinstance(a, nodes.DefinedType):
+            elif isinstance(a, symbols.DefinedType):
                 # Try by name in case of defined types:
                 return a.name == b.name
-            elif isinstance(a, nodes.StructureType):
+            elif isinstance(a, types.RecordType):
                 if len(a.fields) != len(b.fields):
                     return False
                 return all(
                     self.equal_types(am.typ, bm.typ)
                     for am, bm in zip(a.fields, b.fields)
                 )
-            elif isinstance(a, nodes.ArrayType):
+            elif isinstance(a, types.ArrayType):
                 return self.equal_types(a.element_type, b.element_type)
             else:
                 raise NotImplementedError(str(type(a)))
@@ -80,7 +80,7 @@ class Context:
             (intType, charType): intType,
             (charType, intType): intType,
             (charType, charType): charType,
-            (intType, nodes.PointerType): intType,
+            (intType, types.PointerType): intType,
         }
         typ_a = self.get_type(a.typ)
         typ_b = self.get_type(b.typ)
@@ -88,7 +88,7 @@ class Context:
         if self.equal_types(typ_a, typ_b):
             return typ_a
         # Handle pointers:
-        if isinstance(typ_a, nodes.PointerType) and self.equal_types(
+        if isinstance(typ_a, types.PointerType) and self.equal_types(
             typ_b, "integer"
         ):
             return typ_a
@@ -132,20 +132,80 @@ def create_top_scope(arch_info):
     scope = Scope()
 
     # buildin types:
-    int_type = nodes.SignedIntegerType("integer", arch_info.get_size("int"))
-    scope.add_symbol(int_type)
+    def register_type(name, typ):
+        typedef = symbols.DefinedType(name, typ, None)
+        scope.add_symbol(typedef)
 
-    char_type = nodes.SignedIntegerType("char", 1)
-    scope.add_symbol(char_type)
+    int_size = arch_info.get_size("int")
 
-    bool_type = nodes.SignedIntegerType("bool", arch_info.get_size("int"))
-    scope.add_symbol(bool_type)
+    int_type = types.SignedIntegerType(int_size)
+    char_type = types.SignedIntegerType(1)
+    register_type("integer", int_type)
+    register_type("char", char_type)
+    register_type("boolean", types.SignedIntegerType(int_size))
+
+    # TODO: floating point?
+    register_type("real", types.SignedIntegerType(int_size))
+
+    # TODO: text file type?
+    register_type("text", types.PointerType(int_size))
 
     # Construct string type from others:
-    len_field = nodes.StructField("len", int_type)
-    txt = nodes.StructField("txt", nodes.ArrayType(char_type, 0))
-    string_type = nodes.PointerType(nodes.StructureType([len_field, txt]))
-    string_def_type = nodes.DefinedType("string", string_type, True, None)
-    scope.add_symbol(string_def_type)
+    len_field = types.RecordField("len", int_type, None)
+    txt = types.RecordField(
+        "txt", types.ArrayType(char_type, 0, False, None), None
+    )
+    string_type = types.PointerType(types.RecordType([len_field, txt], None))
+    register_type("string", string_type)
+
+    max_int_value = 2 ** 31
+
+    max_int = symbols.Constant("maxint", None, max_int_value, None)
+    scope.add_symbol(max_int)
+
+    # built-in functionsL
+    def add_builtin_function(name):
+        f = symbols.Function(name, None)
+        scope.add_symbol(f)
+        f.typ = types.FunctionType([], None)
+
+    add_builtin_function("abs")
+    add_builtin_function("sqr")
+    add_builtin_function("sin")
+    add_builtin_function("cos")
+    add_builtin_function("exp")
+    add_builtin_function("ln")
+    add_builtin_function("sqrt")
+    add_builtin_function("arctan")
+
+    add_builtin_function("ord")
+    add_builtin_function("chr")
+    add_builtin_function("succ")
+    add_builtin_function("pred")
+    add_builtin_function("odd")
+
+    add_builtin_function("trunc")
+    add_builtin_function("round")
+
+    def add_builtin_procedure(name):
+        p = symbols.Procedure(name, None)
+        scope.add_symbol(p)
+        p.typ = types.ProcedureType([])
+
+    add_builtin_procedure("new")
+    add_builtin_procedure("dispose")
+    add_builtin_procedure("rewrite")
+    add_builtin_procedure("reset")
+    add_builtin_procedure("read")
+    add_builtin_procedure("readln")
+    add_builtin_procedure("write")
+    add_builtin_procedure("writeln")
+    add_builtin_procedure("get")
+    add_builtin_procedure("put")
+    add_builtin_function("eof")
+    add_builtin_function("eoln")
+
+    add_builtin_procedure("pack")
+    add_builtin_procedure("unpack")
 
     return scope

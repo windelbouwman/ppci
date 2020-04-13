@@ -290,8 +290,6 @@ for the backend.
 
     @my_isa.pattern('a', 'ADDU8(a, CONSTU8)', size=2, cycles=3, energy=2)
     def pattern_const(context, tree, c0):
-# TODO: remove me, reg is not defined here and thus confusing
-#        assert reg is A
         value = tree[1].value
         context.emit(AdcByte(value))
         return A

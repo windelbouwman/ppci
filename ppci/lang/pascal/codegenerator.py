@@ -5,7 +5,7 @@ from ... import ir
 from ... import irutils
 from ...common import CompilerError
 from ...binutils import debuginfo
-from . import nodes
+from .nodes import statements, expressions, types, symbols
 
 
 class CodeGenerator:
@@ -18,7 +18,6 @@ class CodeGenerator:
     Such as 'and' and 'or' statements are rewritten in conditional jumps.
     And structured datatypes are rewritten.
 
-    Type checking is done in one run with code generation.
     """
 
     logger = logging.getLogger("pascal.codegen")
@@ -31,10 +30,10 @@ class CodeGenerator:
         self.module_ok = False
         self.funcion_map = {}
 
-    def gencode(self, unit: nodes.Program, context):
+    def gencode(self, unit: symbols.Program, context):
         """ Generate code for a single unit """
         # return
-        assert isinstance(unit, nodes.Program)
+        assert isinstance(unit, symbols.Program)
         self.context = context
         self.builder.prepare()
         self.module_ok = True
@@ -76,6 +75,8 @@ class CodeGenerator:
         return self.builder.module
 
     def _define_builtins(self):
+        """ Create external symbols for the various runtime functions.
+        """
         io_print = ir.ExternalProcedure("io_print", [ir.ptr])
         self.builder.module.add_external(io_print)
         self.funcion_map["io_print"] = io_print
@@ -89,15 +90,15 @@ class CodeGenerator:
     def gen_global_ival(self, ival, typ):
         """ Create memory image for initial value """
         typ = self.context.get_type(typ)
-        if isinstance(typ, nodes.ArrayType):
-            assert isinstance(ival, nodes.ExpressionList)
+        if isinstance(typ, types.ArrayType):
+            assert isinstance(ival, expressions.ExpressionList)
             assert len(ival.expressions) == self.context.eval_const(typ.size)
             mem = bytes()
             for expr in ival.expressions:
                 mem = mem + self.gen_global_ival(expr, typ.element_type)
             return mem
-        elif isinstance(typ, nodes.StructureType):
-            assert isinstance(ival, nodes.NamedExpressionList)
+        elif isinstance(typ, types.RecordType):
+            assert isinstance(ival, expressions.NamedExpressionList)
             assert len(ival.expressions) == len(typ.fields)
             mem = bytes()
             for field, val in zip(typ.fields, ival.expressions):
@@ -105,15 +106,15 @@ class CodeGenerator:
                 expr = val[1]
                 mem = mem + self.gen_global_ival(expr, field.typ)
             return mem
-        elif isinstance(typ, nodes.FloatType):
+        elif isinstance(typ, types.FloatType):
             cval = self.context.eval_const(ival)
             cval = self.context.pack_float(cval, bits=typ.bits)
             return cval
-        elif isinstance(typ, nodes.SignedIntegerType):
+        elif isinstance(typ, types.SignedIntegerType):
             cval = self.context.eval_const(ival)
             cval = self.context.pack_int(cval, bits=typ.bits, signed=True)
             return cval
-        elif isinstance(typ, nodes.UnsignedIntegerType):
+        elif isinstance(typ, types.UnsignedIntegerType):
             cval = self.context.eval_const(ival)
             cval = self.context.pack_int(cval, bits=typ.bits, signed=False)
             return cval
@@ -162,16 +163,16 @@ class CodeGenerator:
         if self.debug_db.contains(typ):
             return self.debug_db.get(typ)
 
-        if isinstance(typ, nodes.BaseType):
+        if isinstance(typ, types.BaseType):
             dbg_typ = debuginfo.DebugBaseType(
                 typ.name, self.context.size_of(typ), 1
             )
             self.debug_db.enter(typ, dbg_typ)
-        elif isinstance(typ, nodes.PointerType):
+        elif isinstance(typ, types.PointerType):
             ptype = self.get_debug_type(typ.ptype)
             dbg_typ = debuginfo.DebugPointerType(ptype)
             self.debug_db.enter(typ, dbg_typ)
-        elif isinstance(typ, nodes.StructureType):
+        elif isinstance(typ, types.RecordType):
             dbg_typ = debuginfo.DebugStructType()
 
             # Enter the type here, so the cached value is taken when
@@ -181,7 +182,7 @@ class CodeGenerator:
                 offset = field.offset
                 field_typ = self.get_debug_type(field.typ)
                 dbg_typ.add_field(field.name, field_typ, offset)
-        elif isinstance(typ, nodes.ArrayType):
+        elif isinstance(typ, types.ArrayType):
             et = self.get_debug_type(typ.element_type)
             if isinstance(typ.size, int):
                 size = typ.size
@@ -252,7 +253,7 @@ class CodeGenerator:
                 # memory. Later, the mem2reg pass will extract these values.
                 # Move parameter into local copy:
                 self.emit(ir.Store(parameter, variable))
-            elif isinstance(sym, nodes.Variable):
+            elif isinstance(sym, symbols.Variable):
                 pass
             else:  # pragma: no cover
                 raise NotImplementedError(str(sym))
@@ -295,13 +296,13 @@ class CodeGenerator:
     def get_ir_type(self, cty):
         """ Given a certain type, get the corresponding ir-type """
         cty = self.context.get_type(cty)
-        if isinstance(cty, nodes.FloatType):
+        if isinstance(cty, types.FloatType):
             float_types = {32: ir.f32, 64: ir.f64}
             return float_types[cty.bits]
-        elif isinstance(cty, nodes.SignedIntegerType):
+        elif isinstance(cty, types.SignedIntegerType):
             signed_types = {8: ir.i8, 16: ir.i16, 32: ir.i32, 64: ir.i64}
             return signed_types[cty.bits]
-        elif isinstance(cty, nodes.UnsignedIntegerType):
+        elif isinstance(cty, types.UnsignedIntegerType):
             unsigned_types = {8: ir.u8, 16: ir.u16, 32: ir.u32, 64: ir.u64}
             return unsigned_types[cty.bits]
         elif self.context.equal_types(cty, "void"):  # pragma: no cover
@@ -310,45 +311,45 @@ class CodeGenerator:
         elif self.context.equal_types(cty, "bool"):
             # Implement booleans as integers:
             return self.get_ir_int()
-        elif isinstance(cty, nodes.PointerType):
+        elif isinstance(cty, types.PointerType):
             # A pointer is a pointer, no type info in ir.
             return ir.ptr
         else:  # pragma: no cover
             raise NotImplementedError(str(cty))
 
-    def gen_stmt(self, code: nodes.Statement):
+    def gen_stmt(self, code: statements.Statement):
         """ Generate code for a statement """
         try:
-            assert isinstance(code, nodes.Statement)
-            if isinstance(code, nodes.Compound):
+            assert isinstance(code, statements.Statement)
+            if isinstance(code, statements.Compound):
                 for statement in code.statements:
                     self.gen_stmt(statement)
-            elif isinstance(code, nodes.Empty):
+            elif isinstance(code, statements.Empty):
                 pass
-            elif isinstance(code, nodes.Assignment):
+            elif isinstance(code, statements.Assignment):
                 self.gen_assignment_stmt(code)
-            elif isinstance(code, nodes.VariableDeclaration):
+            elif isinstance(code, statements.VariableDeclaration):
                 self.gen_local_var_init(code.var)
-            elif isinstance(code, nodes.ExpressionStatement):
+            elif isinstance(code, statements.ExpressionStatement):
                 # This must be always a void function call
-                assert isinstance(code.ex, nodes.FunctionCall)
+                assert isinstance(code.ex, expressions.FunctionCall)
                 value = self.gen_function_call(code.ex)
                 assert self.context.equal_types("void", code.ex.typ)
                 assert value is None
-            elif isinstance(code, nodes.If):
+            elif isinstance(code, statements.If):
                 self.gen_if_stmt(code)
-            elif isinstance(code, nodes.Return):
+            elif isinstance(code, statements.Return):
                 self.gen_return_stmt(code)
-            elif isinstance(code, nodes.Exit):
+            elif isinstance(code, statements.Exit):
                 self.gen_exit_stmt(code)
-            elif isinstance(code, nodes.While):
+            elif isinstance(code, statements.While):
                 self.gen_while(code)
-            elif isinstance(code, nodes.For):
+            elif isinstance(code, statements.For):
                 self.gen_for_stmt(code)
-            elif isinstance(code, nodes.CaseOf):
+            elif isinstance(code, statements.CaseOf):
                 self.gen_case_of_stmt(code)
-            elif isinstance(code, nodes.Writeln):
-                self.gen_writeln(code)
+            elif isinstance(code, statements.ProcedureCall):
+                self.gen_procedure_call(code)
             else:  # pragma: no cover
                 raise NotImplementedError(str(code))
         except CompilerError as exc:
@@ -393,12 +394,12 @@ class CodeGenerator:
 
     def gen_expr_at(self, ptr, expr):
         """ Generate code at a pointer in memory """
-        if isinstance(expr, nodes.ExpressionList):
+        if isinstance(expr, expressions.ExpressionList):
             # We have list of expressions, recurse!
             for e in expr.expressions:
                 ptr = self.gen_expr_at(ptr, e)
             return ptr
-        elif isinstance(expr, nodes.NamedExpressionList):
+        elif isinstance(expr, expressions.NamedExpressionList):
             for _, e in expr.expressions:
                 ptr = self.gen_expr_at(ptr, e)
             return ptr
@@ -460,11 +461,11 @@ class CodeGenerator:
         # self.emit(ir.Jump(test_block))
         # self.builder.set_block(final_block)
 
-    def gen_case_of_stmt(self, switch: nodes.CaseOf):
+    def gen_case_of_stmt(self, switch: statements.CaseOf):
         """ Generate code for a case-of statement """
         ir_val = self.gen_expr_code(switch.expression, rvalue=True)
         tha_type = switch.expression.typ
-        assert isinstance(tha_type, nodes.IntegerType)
+        assert isinstance(tha_type, types.IntegerType)
 
         final_block = self.builder.new_block()
         test_block = self.builder.new_block()
@@ -485,7 +486,7 @@ class CodeGenerator:
             else:
                 # TODO: type check constant:
                 for option in option_values:
-                    loc = option.loc
+                    loc = option.location
                     self.builder.set_block(test_block)
                     o_val = self.gen_expr_code(option, rvalue=True)
                     o_val = self.do_coerce(option, tha_type, o_val)
@@ -503,31 +504,41 @@ class CodeGenerator:
         self.emit(ir.Jump(default_block))
         self.builder.set_block(final_block)
 
-    def gen_writeln(self, code):
-        for argument in code.parameters:
+    def gen_procedure_call(self, call: statements.ProcedureCall):
+        # TODO: generate other procedures as well.
+        self.gen_writeln(call.arguments)
+
+    def gen_writeln(self, arguments):
+        """ Compile time expansion of the writeln function.
+        """
+        self.gen_write(arguments)
+
+    def gen_write(self, arguments):
+        """ Compile time expansion of the write function.
+        """
+        for argument in arguments:
             val = self.gen_expr_code(argument, rvalue=True)
 
             if self.context.equal_types("string", argument.typ):
-                self.emit(
-                    ir.ProcedureCall(self.funcion_map["io_print"], [val])
-                )
+                self.emit_procedure_call("io_print", [val])
             elif isinstance(
-                self.context.get_type(argument.typ), nodes.IntegerType
+                self.context.get_type(argument.typ), types.IntegerType
             ):
                 val = self.do_coerce(
                     argument, self.context.get_type("integer"), val
                 )
-                self.emit(
-                    ir.ProcedureCall(self.funcion_map["io_print_int"], [val])
-                )
+                self.emit_procedure_call("io_print_int", [val])
             else:
                 raise NotImplementedError(str(argument.typ))
         # self.emit(ir.ProcedureCall('bsp_putc', [val]))
 
-    def gen_cond_code(self, expr: nodes.Expression, bbtrue, bbfalse):
+    def emit_procedure_call(self, function_name, arguments):
+        self.emit(ir.ProcedureCall(self.funcion_map[function_name], arguments))
+
+    def gen_cond_code(self, expr: expressions.Expression, bbtrue, bbfalse):
         """ Generate conditional logic.
             Implement sequential logical operators. """
-        if isinstance(expr, nodes.Binop):
+        if isinstance(expr, expressions.Binop):
             if expr.op == "or":
                 # Implement sequential logic:
                 second_block = self.builder.new_block()
@@ -544,7 +555,7 @@ class CodeGenerator:
                 lhs = self.gen_expr_code(expr.a, rvalue=True)
                 rhs = self.gen_expr_code(expr.b, rvalue=True)
                 common_type = self.context.get_common_type(
-                    expr.a, expr.b, expr.loc
+                    expr.a, expr.b, expr.location
                 )
                 lhs = self.do_coerce(expr.a, common_type, lhs)
                 rhs = self.do_coerce(expr.b, common_type, rhs)
@@ -558,25 +569,25 @@ class CodeGenerator:
                 }
                 self.emit(
                     ir.CJump(lhs, op_map[expr.op], rhs, bbtrue, bbfalse),
-                    loc=expr.loc,
+                    loc=expr.location,
                 )
             else:  # pragma: no cover
                 raise NotImplementedError(str(expr.op))
-            expr.typ = self.context.get_type("bool")
-        elif isinstance(expr, nodes.Literal):
+            expr.typ = self.context.get_type("boolean")
+        elif isinstance(expr, expressions.Literal):
             self.gen_expr_code(expr)
             if expr.val:
                 self.emit(ir.Jump(bbtrue), loc=expr.loc)
             else:
                 self.emit(ir.Jump(bbfalse), loc=expr.loc)
-        elif isinstance(expr, nodes.Unop) and expr.op == "not":
+        elif isinstance(expr, expressions.Unop) and expr.op == "not":
             # In case of not, simply swap true and false!
             self.gen_cond_code(expr.a, bbfalse, bbtrue)
-        elif isinstance(expr, nodes.Expression):
+        elif isinstance(expr, expressions.Expression):
             # Evaluate expression, make sure it is boolean and compare it
             # with true:
             value = self.gen_expr_code(expr, rvalue=True)
-            assert self.context.equal_types(expr.typ, "bool")
+            assert self.context.equal_types(expr.typ, "boolean")
             true_val = self.emit(
                 ir.Const(1, "true", self.get_ir_type(expr.typ))
             )
@@ -585,34 +596,36 @@ class CodeGenerator:
             raise NotImplementedError(str(expr))
 
         # Check that the condition is a boolean value:
-        if not self.context.equal_types(expr.typ, "bool"):
+        if not self.context.equal_types(expr.typ, "boolean"):
             self.error("Condition must be boolean", expr.loc)
 
-    def gen_expr_code(self, expr: nodes.Expression, rvalue=False) -> ir.Value:
+    def gen_expr_code(
+        self, expr: expressions.Expression, rvalue=False
+    ) -> ir.Value:
         """ Generate code for an expression. Return the generated ir-value """
-        assert isinstance(expr, nodes.Expression)
+        assert isinstance(expr, expressions.Expression)
         if expr.is_bool:
             value = self.gen_bool_expr(expr)
         else:
-            if isinstance(expr, nodes.Binop):
+            if isinstance(expr, expressions.Binop):
                 value = self.gen_binop(expr)
-            elif isinstance(expr, nodes.Unop):
+            elif isinstance(expr, expressions.Unop):
                 value = self.gen_unop(expr)
-            elif isinstance(expr, nodes.VariableAccess):
+            elif isinstance(expr, expressions.VariableAccess):
                 value = self.gen_var_access(expr)
-            elif isinstance(expr, nodes.Deref):
+            elif isinstance(expr, expressions.Deref):
                 value = self.gen_dereference(expr)
-            elif isinstance(expr, nodes.Member):
+            elif isinstance(expr, expressions.Member):
                 value = self.gen_member_expr(expr)
-            elif isinstance(expr, nodes.Index):
+            elif isinstance(expr, expressions.Index):
                 value = self.gen_index_expr(expr)
-            elif isinstance(expr, nodes.Literal):
+            elif isinstance(expr, expressions.Literal):
                 value = self.gen_literal_expr(expr)
-            elif isinstance(expr, nodes.TypeCast):
+            elif isinstance(expr, expressions.TypeCast):
                 value = self.gen_type_cast(expr)
-            elif isinstance(expr, nodes.Sizeof):
+            elif isinstance(expr, expressions.Sizeof):
                 value = self.gen_sizeof(expr)
-            elif isinstance(expr, nodes.FunctionCall):
+            elif isinstance(expr, expressions.FunctionCall):
                 value = self.gen_function_call(expr)
             else:  # pragma: no cover
                 raise NotImplementedError(str(expr))
@@ -627,13 +640,15 @@ class CodeGenerator:
             # a parameter.
 
             val_typ = self.context.get_type(expr.typ)
-            assert isinstance(val_typ, (nodes.PointerType, nodes.BaseType))
+            assert isinstance(val_typ, (types.PointerType, types.BaseType))
 
             # Determine loaded type:
             load_ty = self.get_ir_type(expr.typ)
 
             # Load the value:
-            value = self.emit(ir.Load(value, "load", load_ty), loc=expr.loc)
+            value = self.emit(
+                ir.Load(value, "load", load_ty), loc=expr.location
+            )
 
             # This expression is no longer an lvalue
             expr.lvalue = False
@@ -645,12 +660,12 @@ class CodeGenerator:
 
         type_size = self.context.size_of(expr.query_typ)
         return self.emit(
-            ir.Const(type_size, "sizeof", self.get_ir_int()), loc=expr.loc
+            ir.Const(type_size, "sizeof", self.get_ir_int()), loc=expr.location
         )
 
-    def gen_dereference(self, expr: nodes.Deref):
+    def gen_dereference(self, expr: expressions.Deref):
         """ dereference pointer type, which means *(expr) """
-        assert isinstance(expr, nodes.Deref)
+        assert isinstance(expr, expressions.Deref)
 
         # Make sure to have the rvalue of the pointer:
         deref_value = self.gen_expr_code(expr.ptr, rvalue=True)
@@ -659,7 +674,7 @@ class CodeGenerator:
         expr.lvalue = True
 
         ptr_typ = self.context.get_type(expr.ptr.typ)
-        assert isinstance(ptr_typ, nodes.PointerType)
+        assert isinstance(ptr_typ, types.PointerType)
         return deref_value
 
     def gen_unop(self, expr):
@@ -714,10 +729,10 @@ class CodeGenerator:
         expr.lvalue = False
         return phi
 
-    def gen_binop(self, expr: nodes.Binop):
+    def gen_binop(self, expr: expressions.Binop):
         """ Generate code for binary operation """
-        assert isinstance(expr, nodes.Binop)
-        assert expr.op not in nodes.Binop.cond_ops
+        assert isinstance(expr, expressions.Binop)
+        assert expr.op not in expressions.Binop.cond_ops
         expr.lvalue = False
 
         # Dealing with simple arithmatic
@@ -732,7 +747,7 @@ class CodeGenerator:
             ir.Binop(a_val, expr.op, b_val, "binop", a_val.ty), loc=expr.loc
         )
 
-    def gen_var_access(self, expr: nodes.VariableAccess):
+    def gen_var_access(self, expr: expressions.VariableAccess):
         """ Generate code for when an identifier was referenced """
         expr.lvalue = True
         expr.typ = expr.variable.typ
@@ -740,8 +755,8 @@ class CodeGenerator:
 
     def is_module_ref(self, expr):
         """ Determine whether a module is referenced """
-        if isinstance(expr, nodes.Member):
-            if isinstance(expr.base, nodes.Identifier):
+        if isinstance(expr, expressions.Member):
+            if isinstance(expr.base, expressions.Identifier):
                 target = self.context.resolve_symbol(expr.base)
                 return isinstance(target, nodes.Module)
             elif isinstance(expr, nodes.Member):
@@ -756,7 +771,7 @@ class CodeGenerator:
             # Damn, we are referring something inside another module!
             # Invoke scope machinery!
             target = self.context.resolve_symbol(expr)
-            if isinstance(target, nodes.Variable):
+            if isinstance(target, symbols.Variable):
                 expr.lvalue = True
                 value = self.context.var_map[target]
             else:  # pragma: no cover
@@ -769,7 +784,7 @@ class CodeGenerator:
         assert isinstance(base, ir.Value)
         expr.lvalue = expr.base.lvalue
         basetype = self.context.get_type(expr.base.typ)
-        assert isinstance(basetype, nodes.StructureType)
+        assert isinstance(basetype, types.RecordType)
         assert basetype.has_field(expr.field)
 
         # expr must be lvalue because we handle with addresses of variables
@@ -790,7 +805,7 @@ class CodeGenerator:
         idx = self.gen_expr_code(expr.i, rvalue=True)
 
         base_typ = self.context.get_type(expr.base.typ)
-        assert isinstance(base_typ, nodes.ArrayType)
+        assert isinstance(base_typ, types.ArrayType)
 
         # Make sure the index is an integer:
         assert self.context.equal_types("int", expr.i.typ)
@@ -859,22 +874,22 @@ class CodeGenerator:
         to_type = self.context.get_type(expr.to_type)
 
         # Evaluate types from pointer, unsigned, signed to floating point:
-        if isinstance(from_type, nodes.PointerType) and isinstance(
-            to_type, nodes.PointerType
+        if isinstance(from_type, types.PointerType) and isinstance(
+            to_type, types.PointerType
         ):
             return ar
-        elif isinstance(from_type, nodes.IntegerType) and isinstance(
-            to_type, nodes.PointerType
+        elif isinstance(from_type, types.IntegerType) and isinstance(
+            to_type, types.PointerType
         ):
             return self.emit(ir.Cast(ar, "int2ptr", ir.ptr))
-        elif isinstance(to_type, nodes.IntegerType) and isinstance(
-            from_type, nodes.PointerType
+        elif isinstance(to_type, types.IntegerType) and isinstance(
+            from_type, types.PointerType
         ):
             ir_to_type = self.get_ir_type(to_type)
             return self.emit(ir.Cast(ar, "ptr2int", ir_to_type))
         elif isinstance(
-            from_type, (nodes.IntegerType, nodes.FloatType)
-        ) and isinstance(to_type, (nodes.IntegerType, nodes.FloatType)):
+            from_type, (types.IntegerType, types.FloatType)
+        ) and isinstance(to_type, (types.IntegerType, types.FloatType)):
             # Any numeric cast
             return self.emit(ir.Cast(ar, "cast", self.get_ir_type(to_type)))
         else:  # pragma: no cover
@@ -886,7 +901,7 @@ class CodeGenerator:
         """ Generate code for a function call """
         # Lookup the function in question:
         target_func = self.context.resolve_symbol(expr.proc)
-        assert isinstance(target_func, nodes.Function)
+        assert isinstance(target_func, symbols.Function)
         ftyp = target_func.typ
         fname = target_func.package.name + "_" + target_func.name
         fname = self.funcion_map[fname]
@@ -920,7 +935,10 @@ class CodeGenerator:
             )
 
     def do_coerce(
-        self, expr: nodes.Expression, to_type: nodes.Type, ir_value: ir.Value
+        self,
+        expr: expressions.Expression,
+        to_type: types.Type,
+        ir_value: ir.Value,
     ):
         """ Try to convert expression into the given type.
 
@@ -929,7 +947,7 @@ class CodeGenerator:
         Raises an error is the conversion cannot be done.
         """
         from_type = expr.typ
-        loc = expr.loc
+        loc = expr.location
         from_type = self.context.get_type(from_type)
         to_type = self.context.get_type(to_type)
 
@@ -937,46 +955,46 @@ class CodeGenerator:
         if self.context.equal_types(from_type, to_type):
             # no cast required
             auto_cast = False
-        elif isinstance(from_type, nodes.PointerType) and isinstance(
-            to_type, nodes.PointerType
+        elif isinstance(from_type, types.PointerType) and isinstance(
+            to_type, types.PointerType
         ):
             # Pointers are pointers, no matter the pointed data.
             # But a conversion of type is still needed:
             auto_cast = True
-        elif isinstance(from_type, nodes.UnsignedIntegerType) and isinstance(
-            to_type, nodes.PointerType
+        elif isinstance(from_type, types.UnsignedIntegerType) and isinstance(
+            to_type, types.PointerType
         ):
             # Unsigned integers can be used as pointers without problem
             # Signed integers form a problem, because those can be negative
             # and thus must be casted explicitly.
             auto_cast = True
         elif (
-            isinstance(from_type, nodes.UnsignedIntegerType)
-            and isinstance(to_type, nodes.UnsignedIntegerType)
+            isinstance(from_type, types.UnsignedIntegerType)
+            and isinstance(to_type, types.UnsignedIntegerType)
             and from_type.bits <= to_type.bits
         ):
             auto_cast = True
         elif (
-            isinstance(from_type, nodes.SignedIntegerType)
-            and isinstance(to_type, nodes.SignedIntegerType)
+            isinstance(from_type, types.SignedIntegerType)
+            and isinstance(to_type, types.SignedIntegerType)
             and from_type.bits <= to_type.bits
         ):
             auto_cast = True
         elif (
-            isinstance(from_type, nodes.UnsignedIntegerType)
-            and isinstance(to_type, nodes.SignedIntegerType)
+            isinstance(from_type, types.UnsignedIntegerType)
+            and isinstance(to_type, types.SignedIntegerType)
             and from_type.bits < to_type.bits - 1
         ):
             auto_cast = True
         elif (
-            isinstance(from_type, nodes.UnsignedIntegerType)
-            and isinstance(to_type, nodes.FloatType)
+            isinstance(from_type, types.UnsignedIntegerType)
+            and isinstance(to_type, types.FloatType)
             and from_type.bits < to_type.fraction_bits
         ):
             auto_cast = True
         elif (
-            isinstance(from_type, nodes.SignedIntegerType)
-            and isinstance(to_type, nodes.FloatType)
+            isinstance(from_type, types.SignedIntegerType)
+            and isinstance(to_type, types.FloatType)
             and from_type.bits < to_type.fraction_bits
         ):
             auto_cast = True

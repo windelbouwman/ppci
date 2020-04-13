@@ -9,30 +9,65 @@ class Lexer(SimpleLexer):
     """ Generates a sequence of token from an input stream """
 
     keywords = [
-        "program",
-        "label",
-        "type",
-        "const",
-        "var",
+        "and",
+        "array",
         "begin",
-        "end",
         "case",
-        "of",
-        "if",
-        "then",
+        "const",
+        "div",
         "else",
-        "while",
+        "end",
+        "downto",
+        "false",
+        "file",
+        "forward",
+        "function",
+        "goto",
+        "if",
+        "in",
         "for",
         "do",
+        "label",
+        "mod",
+        "nil",
+        "not",
+        "of",
+        "or",
+        "packed",
+        "program",
+        "procedure",
+        "record",
+        "repeat",
+        "set",
+        "then",
         "to",
-        "downto",
-        "read",
-        "readln",
-        "write",
-        "writeln",
+        "true",
+        "type",
+        "until",
+        "var",
+        "while",
+        "with",
     ]
-    double_glyphs = (":=", "<>")
-    single_glyphs = (",", ";", "(", ")", ".", ":", "<", ">", "=")
+    double_glyphs = (":=", "<>", "<=", ">=", "..", "(.", ".)")
+    single_glyphs = (
+        ",",
+        ";",
+        "(",
+        ")",
+        ".",
+        ":",
+        "<",
+        ">",
+        "=",
+        "-",
+        "+",
+        "*",
+        "/",
+        "[",
+        "]",
+        "@",
+        "^",
+    )
     glyphs = double_glyphs + single_glyphs
     op_txt = "|".join(re.escape(g) for g in glyphs)
 
@@ -68,15 +103,19 @@ class Lexer(SimpleLexer):
             typ = "ID"
         return typ, val
 
-    @on(r"'.*?'")
+    @on(r"'(('')|[^'])*'")
     def handle_string(self, val):
         return "STRING", val[1:-1]
 
-    @on(r"\d+")
+    @on(r"-?\d+", order=-1)
     def handle_number(self, val):
         return "NUMBER", int(val)
 
-    @on(r"\(\*.*\*\)", flags=re.DOTALL, order=-2)
+    @on(r"-?\d+((\.\d+([eE][-+]?\d+)?)|([eE][-+]?\d+))", order=-2)
+    def handle_float_number(self, val):
+        return "NUMBER", float(val)
+
+    @on(r"\(\*.*?\*\)", flags=re.DOTALL, order=-2)
     def handle_oldcomment(self, val):
         pass
 
