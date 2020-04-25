@@ -11,6 +11,8 @@ class Expression:
     is_bool = False
 
     def __init__(self, typ, location):
+        if not isinstance(typ, Type):
+            raise ValueError("typ must be some Type")
         self.typ = typ
         self.location = location
 
@@ -39,7 +41,7 @@ class TypeCast(Expression):
     """ Type cast expression to another type """
 
     def __init__(self, to_type, x, location):
-        super().__init__(None, location)
+        super().__init__(to_type, location)
         self.to_type = to_type
         self.a = x
 
@@ -194,3 +196,10 @@ class FunctionCall(Expression):
 
     def __repr__(self):
         return "CALL {0} ".format(self.proc)
+
+
+class BuiltInFunctionCall(Expression):
+    def __init__(self, func, args, typ, location):
+        super().__init__(typ, location)
+        self.func = func
+        self.args = args

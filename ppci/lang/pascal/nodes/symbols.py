@@ -12,15 +12,16 @@ class Symbol:
     """ Symbol is the base class for all named things like variables,
         functions, constants and types and modules """
 
-    def __init__(self, name: str):
+    def __init__(self, name: str, typ):
         self.name = name
+        self.typ = typ
 
 
 class Program(Symbol):
     """ A module contains functions, types, consts and global variables """
 
     def __init__(self, name, inner_scope, location):
-        super().__init__(name)
+        super().__init__(name, None)
         self.location = location
         self.imports = []
         self.inner_scope = inner_scope
@@ -65,8 +66,7 @@ class DefinedType(Symbol):
 
     def __init__(self, name, typ, loc):
         assert isinstance(name, str)
-        super().__init__(name)
-        self.typ = typ
+        super().__init__(name, typ)
         self.loc = loc
 
     def __repr__(self):
@@ -77,8 +77,7 @@ class Constant(Symbol):
     """ Constant definition """
 
     def __init__(self, name, typ, value, location):
-        super().__init__(name)
-        self.typ = typ
+        super().__init__(name, typ)
         self.value = value
         self.location = location
 
@@ -90,9 +89,8 @@ class Variable(Symbol):
     """ A variable, either global or local """
 
     def __init__(self, name: str, typ, initial_value, location):
-        super().__init__(name)
+        super().__init__(name, typ)
         # assert isinstance(typ)
-        self.typ = typ
         self.initial_value = initial_value
         self.isLocal = False
         self.isParameter = False
@@ -105,8 +103,7 @@ class Variable(Symbol):
 
 class EnumValue(Symbol):
     def __init__(self, name: str, typ, value, location):
-        super().__init__(name)
-        self.typ = typ
+        super().__init__(name, typ)
         self.value = value
         self.location = location
 
@@ -117,23 +114,32 @@ class FormalParameter(Variable):
         self.isParameter = True
 
 
+class BuiltIn(Symbol):
+    def __init__(self, name, typ):
+        super().__init__(name, typ)
+
+
 # Procedure types
-class Function(Symbol):
+class SubRoutine(Symbol):
+    pass
+
+
+class Function(SubRoutine):
     """ Actual implementation of a function """
 
     def __init__(self, name: str, location):
-        super().__init__(name)
+        super().__init__(name, None)
         self.location = location
 
     def __repr__(self):
         return "Func {}".format(self.name)
 
 
-class Procedure(Symbol):
+class Procedure(SubRoutine):
     """ Actual implementation of a function """
 
     def __init__(self, name: str, location):
-        super().__init__(name)
+        super().__init__(name, None)
         self.location = location
 
     def __repr__(self):
@@ -142,6 +148,5 @@ class Procedure(Symbol):
 
 class RecordFieldProxy(Symbol):
     def __init__(self, name: str, typ, location):
-        super().__init__(name)
-        self.typ = typ
+        super().__init__(name, typ)
         self.location = location

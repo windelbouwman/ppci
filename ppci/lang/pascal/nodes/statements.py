@@ -66,25 +66,6 @@ class Assignment(Statement):
         return "ASSIGNMENT"
 
 
-class VariableDeclaration(Statement):
-    """ A declaration of a local variable """
-
-    def __init__(self, var, loc):
-        super().__init__(loc)
-        self.var = var
-
-
-class ExpressionStatement(Statement):
-    """ When an expression is used as a statement """
-
-    def __init__(self, ex, loc):
-        super().__init__(loc)
-        self.ex = ex
-
-    def __repr__(self):
-        return "Epression"
-
-
 class If(Statement):
     """ If statement """
 
@@ -127,8 +108,8 @@ class Repeat(Statement):
 
     def __init__(self, statement, condition, loc):
         super().__init__(loc)
-        self.condition = condition
         self.statement = statement
+        self.condition = condition
 
     def __repr__(self):
         return "REPEAT-statement"
@@ -178,6 +159,14 @@ class ProcedureCall(Statement):
         super().__init__(location)
         self.callee = callee
         self.arguments = arguments
+
+
+class BuiltinProcedureCall(Statement):
+    """ A builtin procedure call. """
+
+    def __init__(self, calls, location):
+        super().__init__(location)
+        self.calls = calls
 
 
 __all__ = ["If", "Compound"]

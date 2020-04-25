@@ -144,6 +144,28 @@ class PascalTestCase(BuildTestCaseBase):
         """
         self.expect_ok(snippet)
 
+    def test_recursive_function(self):
+        """ Test recursive function """
+        snippet = """
+        program exRecursion;
+         var
+          num, f: integer;
+         function fact(x: integer): integer;
+         begin
+          if x=0 then
+           fact := 1
+          else
+           fact := x * fact(x- 1);
+         end;
+        begin
+         writeln('enter number:');
+         readln(num);
+         f := fact(num);
+         writeln('Factorial', num, 'is:', f);
+        end.
+        """
+        self.expect_ok(snippet)
+
 
 if __name__ == '__main__':
     unittest.main()

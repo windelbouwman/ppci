@@ -16,6 +16,26 @@ class Type:
     def is_pointer(self):
         return isinstance(self, PointerType)
 
+    @property
+    def is_integer(self):
+        return isinstance(self, IntegerType)
+
+    @property
+    def is_real(self):
+        return isinstance(self, FloatType)
+
+    @property
+    def is_enum(self):
+        return isinstance(self, EnumType)
+
+    @property
+    def is_set(self):
+        return isinstance(self, SetType)
+
+    @property
+    def is_file(self):
+        return isinstance(self, FileType)
+
 
 class BaseType(Type):
     """ Built in type """
@@ -44,11 +64,11 @@ class SignedIntegerType(IntegerType):
     pass
 
 
-class SubRange(Type):
+class SubRange(IntegerType):
     """ integer that can fit values in the given range. """
 
     def __init__(self, lower, upper, location):
-        super().__init__()
+        super().__init__(4)
         self.lower = lower
         self.upper = upper
         self.location = location
@@ -79,8 +99,13 @@ class FunctionType(Type):
         self.return_type = return_type
 
     def __repr__(self):
-        params = ", ".join([str(v) for v in self.parameter_types])
-        return "{1} f({0})".format(params, self.return_type)
+        if self.parameter_types:
+            params = "({})".format(
+                ", ".join([str(v) for v in self.parameter_types])
+            )
+        else:
+            params = ""
+        return "f{}: {}".format(params, self.return_type)
 
 
 class ProcedureType(Type):
@@ -92,7 +117,8 @@ class PointerType(Type):
     """ A type that points to data of some other type """
 
     def __init__(self, ptype):
-        # assert isinstance(ptype, Type) or isinstance(ptype, Expression)
+        assert isinstance(ptype, Type)
+        # or isinstance(ptype, Expression)
         self.ptype = ptype
 
     def __repr__(self):
@@ -205,6 +231,15 @@ class ArrayType(Type):
         else:
             assert count == len(self.dimensions)
             return self.element_type
+
+
+class SetType(Type):
+    """ Set type. """
+
+    def __init__(self, element_type, location):
+        super().__init__()
+        self.element_type = element_type
+        self.location = location
 
 
 class FileType(PointerType):

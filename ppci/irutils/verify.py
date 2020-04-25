@@ -53,7 +53,7 @@ class Verifier:
                             function.return_ty,
                         )
                     )
-            if isinstance(block.last_instruction, ir.Exit):
+            elif isinstance(block.last_instruction, ir.Exit):
                 assert isinstance(function, ir.Procedure)
 
         # Verify the entry is in this function and is the first block:

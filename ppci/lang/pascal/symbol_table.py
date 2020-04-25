@@ -27,7 +27,7 @@ class Scope:
     @property
     def types(self):
         """ Returns all the types in this scope """
-        return [s for s in self.syms if isinstance(s, types.DefinedType)]
+        return [s for s in self.syms if isinstance(s, symbols.DefinedType)]
 
     @property
     def constants(self):
@@ -42,7 +42,7 @@ class Scope:
     @property
     def functions(self):
         """ Gets all the functions in the current scope """
-        return [s for s in self.syms if isinstance(s, symbols.Function)]
+        return [s for s in self.syms if isinstance(s, symbols.SubRoutine)]
 
     def __getitem__(self, key):
         return self.get_symbol(key)

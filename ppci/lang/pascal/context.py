@@ -58,48 +58,21 @@ class Context:
                 )
             elif isinstance(a, types.ArrayType):
                 return self.equal_types(a.element_type, b.element_type)
+            elif isinstance(a, types.EnumType):
+                return a is b
+            elif isinstance(a, types.SetType):
+                return self.equal_types(a.element_type, b.element_type)
             else:
                 raise NotImplementedError(str(type(a)))
 
         return False
 
-    def get_common_type(self, a, b, loc):
-        """ Determine the greatest common type.
+    def size_of(self, typ):
+        # TODO:
+        return 1
 
-        This is used for coercing binary operators.
-        For example
-            int + float -> float
-            byte + int -> int
-            byte + byte -> byte
-            pointer to x + int -> pointer to x
-        """
-        intType = self.get_type("integer")
-        charType = self.get_type("char")
-        table = {
-            (intType, intType): intType,
-            (intType, charType): intType,
-            (charType, intType): intType,
-            (charType, charType): charType,
-            (intType, types.PointerType): intType,
-        }
-        typ_a = self.get_type(a.typ)
-        typ_b = self.get_type(b.typ)
-
-        if self.equal_types(typ_a, typ_b):
-            return typ_a
-        # Handle pointers:
-        if isinstance(typ_a, types.PointerType) and self.equal_types(
-            typ_b, "integer"
-        ):
-            return typ_a
-
-        # Handle non-pointers:
-        key = (typ_a, typ_b)
-        if key not in table:
-            raise CompilerError(
-                "Types {} and {} do not commute".format(typ_a, typ_b), loc
-            )
-        return table[(typ_a, typ_b)]
+    def alignment(self, typ):
+        return 1
 
     def pack_string(self, txt):
         """ Pack a string an int as length followed by text data """
@@ -139,7 +112,7 @@ def create_top_scope(arch_info):
     int_size = arch_info.get_size("int")
 
     int_type = types.SignedIntegerType(int_size)
-    char_type = types.SignedIntegerType(1)
+    char_type = types.UnsignedIntegerType(1)
     register_type("integer", int_type)
     register_type("char", char_type)
     register_type("boolean", types.SignedIntegerType(int_size))
@@ -148,7 +121,7 @@ def create_top_scope(arch_info):
     register_type("real", types.SignedIntegerType(int_size))
 
     # TODO: text file type?
-    register_type("text", types.PointerType(int_size))
+    register_type("text", types.FileType(char_type, None))
 
     # Construct string type from others:
     len_field = types.RecordField("len", int_type, None)
@@ -158,16 +131,19 @@ def create_top_scope(arch_info):
     string_type = types.PointerType(types.RecordType([len_field, txt], None))
     register_type("string", string_type)
 
-    max_int_value = 2 ** 31
+    def add_constant(name, typ, value):
+        constant = symbols.Constant(name, typ, value, None)
+        scope.add_symbol(constant)
 
-    max_int = symbols.Constant("maxint", None, max_int_value, None)
-    scope.add_symbol(max_int)
+    max_int_value = 2 ** 31
+    add_constant("maxint", int_type, max_int_value)
 
     # built-in functionsL
     def add_builtin_function(name):
-        f = symbols.Function(name, None)
+        typ = types.FunctionType([], None)
+        f = symbols.BuiltIn(name, typ)
         scope.add_symbol(f)
-        f.typ = types.FunctionType([], None)
+        # f.builtin = name
 
     add_builtin_function("abs")
     add_builtin_function("sqr")
@@ -188,9 +164,10 @@ def create_top_scope(arch_info):
     add_builtin_function("round")
 
     def add_builtin_procedure(name):
-        p = symbols.Procedure(name, None)
+        typ = types.ProcedureType([])
+        p = symbols.BuiltIn(name, typ)
         scope.add_symbol(p)
-        p.typ = types.ProcedureType([])
+        # p.builtin = name
 
     add_builtin_procedure("new")
     add_builtin_procedure("dispose")
