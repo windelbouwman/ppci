@@ -115,7 +115,7 @@ code later on.
 
     from ppci import ir
     ir_module = ir.Module('toy')
-    ir_function = ir.Procedure('toy')
+    ir_function = ir.Procedure('toy', ir.Binding.GLOBAL)
     ir_module.add_function(ir_function)
     ir_block = ir.Block('entry')
     ir_function.entry = ir_block
@@ -146,6 +146,8 @@ x86_64, but you could as well use AVR or riscv here.
 
 .. code:: python
 
+    from ppci.irutils import Verifier
+    from ppci import api
     Verifier().verify(ir_module)
     obj1 = api.ir_to_object([ir_module], 'x86_64')
     obj = api.link([obj1])
