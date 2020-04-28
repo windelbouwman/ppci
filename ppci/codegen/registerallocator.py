@@ -111,9 +111,6 @@ classes that possibly interfere.
 
 The following class can be used to perform register allocation.
 
-.. autoclass:: ppci.codegen.registerallocator.GraphColoringRegisterAllocator
-    :members: alloc_frame, simplify, coalesc, freeze, is_colorable
-
 """
 
 import logging

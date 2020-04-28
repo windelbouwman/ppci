@@ -27,14 +27,14 @@ class CodeGenerator:
         self.diag = diag
         self.context = None
         self.debug_db = debuginfo.DebugDb()
-        self.function_map = {}
+        self.var_map = {}
 
     def gencode(self, unit: symbols.Program, context):
         """ Generate code for a single unit """
         assert isinstance(unit, symbols.Program)
         self.context = context
         self.builder.prepare()
-        self.function_map = {}
+        self.var_map = {}
         self.logger.info("Generating ir-code for %s", unit.name)
         self.builder.module = ir.Module(unit.name, debug_db=self.debug_db)
         self._define_builtins()
@@ -66,21 +66,21 @@ class CodeGenerator:
         """
         io_print = ir.ExternalProcedure("io_print", [ir.ptr])
         self.builder.module.add_external(io_print)
-        self.function_map["io_print"] = io_print
+        self.var_map["io_print"] = io_print
 
         io_print_int = ir.ExternalProcedure(
             "io_print_int", [self.get_ir_int()]
         )
         self.builder.module.add_external(io_print_int)
-        self.function_map["io_print_int"] = io_print_int
+        self.var_map["io_print_int"] = io_print_int
 
         bsp_putc = ir.ExternalProcedure("bsp_putc", [ir.u8])
         self.builder.module.add_external(bsp_putc)
-        self.function_map["io_print_char"] = bsp_putc
+        self.var_map["io_print_char"] = bsp_putc
 
         io_read_int = ir.ExternalProcedure("io_read_int", [self.get_ir_int()])
         self.builder.module.add_external(io_print_int)
-        self.function_map["read_int"] = io_read_int
+        self.var_map["read_int"] = io_read_int
 
     def gen_globals(self, unit):
         """ Generate global variables and modules """
@@ -100,7 +100,7 @@ class CodeGenerator:
             ir_var = ir.Variable(
                 var.name, ir.Binding.GLOBAL, size, alignment, value=cval
             )
-            self.context.var_map[var] = ir_var
+            self.var_map[var] = ir_var
             self.builder.module.add_variable(ir_var)
 
             # Create debug infos:
@@ -205,9 +205,11 @@ class CodeGenerator:
             self.gen_function(subroutine)
 
     def gen_function(self, subroutine):
-        """ Generate code for a function. This involves creating room
-            for parameters on the stack, and generating code for the function
-            body.
+        """ Generate code for a subroutine.
+        
+        This involves creating room
+        for parameters on the stack, and generating code for the function
+        body.
         """
         if isinstance(subroutine, symbols.Procedure):
             ir_function = self.builder.new_procedure(
@@ -220,7 +222,12 @@ class CodeGenerator:
                 subroutine.name, ir.Binding.GLOBAL, return_type
             )
 
-        self.function_map[subroutine.name] = ir_function
+        self.var_map[subroutine] = ir_function
+
+        # Generate inner sub programs:
+        for sym in subroutine.inner_scope:
+            if isinstance(sym, (symbols.Function, symbols.Procedure)):
+                self.gen_function(sym)
 
         self.builder.set_function(ir_function)
         first_block = self.new_block()
@@ -259,25 +266,27 @@ class CodeGenerator:
             return_value = self.emit_local(
                 "result_{}".format(subroutine.name), subroutine.typ.return_type
             )
-            self.context.var_map[subroutine] = return_value
+            self.var_map[(subroutine, "result")] = return_value
 
         # generate room for locals:
         for sym in subroutine.inner_scope:
-            var_name = "var_{}".format(sym.name)
-            variable = self.emit_local(var_name, sym.typ)
-            if sym.isParameter:
-                # Get the parameter from earlier:
-                parameter = param_map[sym]
+            if isinstance(sym, symbols.Variable):
+                var_name = "var_{}".format(sym.name)
+                variable = self.emit_local(var_name, sym.typ)
+                if sym in param_map:
+                    # Get the parameter from earlier:
+                    parameter = param_map[sym]
 
-                # For paramaters, allocate space and copy the value into
-                # memory. Later, the mem2reg pass will extract these values.
-                # Move parameter into local copy:
-                self.emit(ir.Store(parameter, variable))
-            elif isinstance(sym, symbols.Variable):
+                    # For paramaters, allocate space and copy the value into
+                    # memory. Later, the mem2reg pass will extract these values.
+                    # Move parameter into local copy:
+                    self.emit(ir.Store(parameter, variable))
+                self.var_map[sym] = variable
+            elif isinstance(sym, symbols.Function):
+                # inner function!
                 pass
             else:  # pragma: no cover
                 raise NotImplementedError(str(sym))
-            self.context.var_map[sym] = variable
 
             # Debug info:
             # dbg_typ = self.get_debug_type(sym.typ)
@@ -405,7 +414,7 @@ class CodeGenerator:
         """ Initialize a local variable """
         if var.ival is None:
             return
-        alloc = self.context.var_map[var]
+        alloc = self.var_map[var]
         self.gen_expr_at(alloc, var.ival)
 
     def gen_expr_at(self, ptr, expr):
@@ -545,15 +554,15 @@ class CodeGenerator:
             self.emit_procedure_call(func, args)
 
     def gen_subroutine_arguments(self, arguments):
-        args = []
-        for arg_expr in arguments:
-            arg_val = self.gen_expr_code(arg_expr, rvalue=True)
-            # self.context.equal_types(arg_expr.typ, arg_typ)
-            args.append(arg_val)
+        args = [
+            self.gen_expr_code(arg_expr, rvalue=True) for arg_expr in arguments
+        ]
         return args
 
     def emit_procedure_call(self, function_name, arguments):
-        callee = self.function_map[function_name]
+        # print(function_name, type(function_name))
+        callee = self.var_map[function_name]
+        # raise NotImplementedError(str(function_name))
         self.emit(ir.ProcedureCall(callee, arguments))
 
     def gen_cond_code(self, expr: expressions.Expression, bbtrue, bbfalse):
@@ -655,7 +664,15 @@ class CodeGenerator:
             # a parameter.
 
             val_typ = self.context.get_type(expr.typ)
-            assert isinstance(val_typ, (types.PointerType, types.BaseType))
+            assert isinstance(
+                val_typ,
+                (
+                    types.PointerType,
+                    types.BaseType,
+                    types.FunctionType,
+                    types.ProcedureType,
+                ),
+            )
 
             # Determine loaded type:
             load_ty = self.get_ir_type(expr.typ)
@@ -760,7 +777,7 @@ class CodeGenerator:
         """ Generate code for when an identifier was referenced """
         expr.lvalue = True
         expr.typ = expr.variable.typ
-        return self.context.var_map[expr.variable]
+        return self.var_map[expr.variable]
 
     def gen_member_expr(self, expr):
         """ Generate code for member expression such as struc.mem = 2
@@ -876,11 +893,11 @@ class CodeGenerator:
         """ Generate code for a function call """
         # Lookup the function in question:
         assert isinstance(expr, expressions.FunctionCall)
-        target_func = expr.proc
-        assert isinstance(target_func, symbols.Function)
+        target_func = expr.callee
+        # assert isinstance(target_func, symbols.Function)
         ftyp = target_func.typ
         fname = target_func.name
-        callee = self.function_map[fname]
+        callee = self.var_map[target_func]
 
         # Check arguments:
         ptypes = ftyp.parameter_types

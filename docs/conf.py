@@ -281,20 +281,3 @@ texinfo_documents = [
 
 # If true, do not generate a @detailmenu in the "Top" node's menu.
 #texinfo_no_detailmenu = False
-
-
-from sphinx import directives
-
-
-class C3CodeDirective(directives.CodeBlock):
-    def run(self):
-        r = super().run()
-        #c3code = r.textnode.text
-        #print(c3code, type(c3code))
-        return r
-
-
-def setup(app):
-    # pass
-    app.add_directive('c3code', C3CodeDirective)
-    #lexers['c3'] = C3Lexer()

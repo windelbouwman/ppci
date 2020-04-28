@@ -189,13 +189,13 @@ class NamedExpressionList(Expression):
 class FunctionCall(Expression):
     """ Call to a some function """
 
-    def __init__(self, proc, args, typ, location):
+    def __init__(self, callee, args, typ, location):
         super().__init__(typ, location)
-        self.proc = proc
+        self.callee = callee
         self.args = args
 
     def __repr__(self):
-        return "CALL {0} ".format(self.proc)
+        return "function-call {0} ".format(self.callee)
 
 
 class BuiltInFunctionCall(Expression):

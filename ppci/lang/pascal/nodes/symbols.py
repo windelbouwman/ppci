@@ -107,6 +107,9 @@ class EnumValue(Symbol):
         self.value = value
         self.location = location
 
+    def __repr__(self):
+        return "enum-value({})".format(self.value)
+
 
 class FormalParameter(Variable):
     def __init__(self, name: str, typ, loc):

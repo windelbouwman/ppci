@@ -16,21 +16,20 @@ class Context:
 
     def __init__(self, arch_info):
         self.root_scope = create_top_scope(arch_info)
-        self.var_map = {}
         self.programs = []
         self.units = []
 
     def add_program(self, program):
         self.programs.append(program)
 
-    def get_type(self, name, reveil_defined=True):
+    def get_type(self, name):
         if isinstance(name, types.Type):
             typ = name
         else:
             typ = self.root_scope.get_symbol(name)
             assert isinstance(typ, symbols.DefinedType)
 
-        if isinstance(typ, symbols.DefinedType) and reveil_defined:
+        if isinstance(typ, symbols.DefinedType):
             typ = self.get_type(typ.typ)
 
         return typ
@@ -46,6 +45,22 @@ class Context:
                 # If a pointed type is detected, stop structural
                 # equivalence:
                 return self.equal_types(a.ptype, b.ptype, byname=True)
+            elif isinstance(a, types.FunctionType):
+                return (
+                    len(a.parameter_types) == len(b.parameter_types)
+                    and all(
+                        self.equal_types(pa, pb)
+                        for pa, pb in zip(a.parameter_types, b.parameter_types)
+                    )
+                    and self.equal_types(a.return_type, b.return_type)
+                )
+            elif isinstance(a, types.ProcedureType):
+                return len(a.parameter_types) == len(
+                    b.parameter_types
+                ) and all(
+                    self.equal_types(pa, pb)
+                    for pa, pb in zip(a.parameter_types, b.parameter_types)
+                )
             elif isinstance(a, symbols.DefinedType):
                 # Try by name in case of defined types:
                 return a.name == b.name

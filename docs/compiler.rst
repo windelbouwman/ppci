@@ -46,6 +46,6 @@ IR-code
 The intermediate representation (IR) of a program de-couples the front end
 from the backend of the compiler.
 
-See :doc:`reference/ir` for details about all the available instructions.
+See :ref:`ir` for details about all the available instructions.
 
 

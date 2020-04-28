@@ -369,10 +369,11 @@ class Parser(RecursiveDescentParser):
         """ Parse type definitions.
 
         These have the form:
+
         'type'
-          'ID' '=' type-spec ';'
-          'ID' '=' type-spec ';'
-          ...
+        'ID' '=' type-spec ';'
+        'ID' '=' type-spec ';'
+        ...
         """
         self.consume("type")
         while self.peek == "ID":
@@ -464,17 +465,21 @@ class Parser(RecursiveDescentParser):
                 parameters = self.parse_formal_parameter_list()
                 for parameter in parameters:
                     self.add_symbol(parameter)
+                parameter_types = [p.typ for p in parameters]
             else:
                 parameters = None
+                parameter_types = []
 
             subroutine.parameters = parameters
 
             if is_function:
                 self.consume(":")
                 return_type = self.parse_type_spec()
-                subroutine.typ = types.FunctionType(parameters, return_type)
+                subroutine.typ = types.FunctionType(
+                    parameter_types, return_type
+                )
             else:
-                subroutine.typ = types.ProcedureType(parameters)
+                subroutine.typ = types.ProcedureType(parameter_types)
 
             self.consume(";")
 
@@ -525,20 +530,24 @@ class Parser(RecursiveDescentParser):
             elif self.peek == "function":
                 self.consume("function")
                 name = self.parse_id()
-                params = self.parse_formal_parameter_list()
+                parameter_types = [
+                    p.typ for p in self.parse_formal_parameter_list()
+                ]
                 self.consume(":")
                 return_type = self.parse_type_spec()
-                typ = types.FunctionType(params, return_type)
+                typ = types.FunctionType(parameter_types, return_type)
                 parameter = symbols.FormalParameter(name.val, typ, name.loc)
                 parameters.append(parameter)
             elif self.peek == "procedure":
                 self.consume("procedure")
                 name = self.parse_id()
                 if self.peek == "(":
-                    params = self.parse_formal_parameter_list()
+                    parameter_types = [
+                        p.typ for p in self.parse_formal_parameter_list()
+                    ]
                 else:
-                    params = None
-                typ = types.ProcedureType(params)
+                    parameter_types = []
+                typ = types.ProcedureType(parameter_types)
                 parameter = symbols.FormalParameter(name.val, typ, name.loc)
                 parameters.append(parameter)
             else:
@@ -576,11 +585,12 @@ class Parser(RecursiveDescentParser):
             statement = self.parse_with_statement()
         elif self.peek == "ID":
             symbol, location = self.parse_designator()
-            # print(symbol, type(symbol))
             if isinstance(symbol.typ, types.ProcedureType):
                 statement = self.parse_procedure_call(symbol, location)
-            else:
+            else:  # self.peek == ':=':
                 statement = self.parse_assignment(symbol, location)
+            # else:
+            #    self.error('Expected assignment or procedure call', loc=location)
         elif self.peek == "NUMBER":
             # label!
             label = self.consume("NUMBER")
@@ -607,7 +617,9 @@ class Parser(RecursiveDescentParser):
             )
         else:
             if self.peek == "(":
-                arguments = self.parse_actual_parameter_list()
+                arguments = self.parse_actual_parameter_list(
+                    symbol.typ.parameter_types
+                )
             else:
                 arguments = None
             statement = statements.ProcedureCall(symbol, arguments, location)
@@ -692,10 +704,8 @@ class Parser(RecursiveDescentParser):
         elif arg.typ.is_array and self.context.equal_types(
             "char", arg.typ.element_type
         ):
+            # TODO: how to handle strings?
             call = ("io_print", [arg])
-        elif arg.typ.is_integer:
-            arg = self.do_coerce(arg, self._integer_type)
-            call = ("io_print_int", [arg])
         elif arg.typ.is_enum:
             # arg = self.do_coerce(arg, self._integer_type)
             # call = ("io_print_int", [arg])
@@ -707,10 +717,13 @@ class Parser(RecursiveDescentParser):
             # TODO!
             call = None
         else:
-            self.error(
-                "Expected string, integer or char, got {}".format(arg.typ),
-                arg.location,
-            )
+            # Default to integer:
+            arg = self.do_coerce(arg, self._integer_type)
+            call = ("io_print_int", [arg])
+            # self.error(
+            #     "Expected string, integer or char, got {}".format(arg.typ),
+            #     arg.location,
+            # )
         return call
 
     def parse_assignment(self, symbol, location):
@@ -793,7 +806,7 @@ class Parser(RecursiveDescentParser):
 
     def parse_for(self) -> statements.For:
         """ Parse a for statement """
-        loc = self.consume("for").loc
+        location = self.consume("for").loc
         loop_var, _ = self.parse_designator()
         assert isinstance(loop_var, symbols.Variable)
         self.consume(":=")
@@ -807,7 +820,7 @@ class Parser(RecursiveDescentParser):
         stop = self.parse_expression()
         self.consume("do")
         statement = self.parse_statement()
-        return statements.For(loop_var, start, up, stop, statement, loc)
+        return statements.For(loop_var, start, up, stop, statement, location)
 
     def parse_with_statement(self):
         location = self.consume("with").loc
@@ -848,16 +861,22 @@ class Parser(RecursiveDescentParser):
         label = self.parse_expression()
         return statements.Goto(label, location)
 
-    def parse_actual_parameter_list(self):
+    def parse_actual_parameter_list(self, parameter_types):
         """ Parse a list of parameters """
-        self.consume("(")
-        parameters = self.parse_one_or_more(self.parse_actual_parameter, ",")
+        location = self.consume("(").loc
+        expressions = self.parse_expression_list()
         self.consume(")")
+        if len(expressions) != len(parameter_types):
+            self.error(
+                "Expected {} parameters, got {}".format(
+                    len(parameter_types), len(expressions)
+                ),
+                loc=location,
+            )
+        parameters = [
+            self.do_coerce(e, t) for e, t in zip(expressions, parameter_types)
+        ]
         return parameters
-
-    def parse_actual_parameter(self):
-        expr = self.parse_expression()
-        return expr
 
     def parse_return(self) -> statements.Return:
         """ Parse a return statement """
@@ -1076,10 +1095,7 @@ class Parser(RecursiveDescentParser):
             expr = expressions.Literal(text, typ, location)
         elif self.peek == "ID":
             symbol, location = self.parse_designator()
-            if isinstance(symbol.typ, types.FunctionType):
-                expr = self.parse_function_call(symbol, location)
-            else:
-                expr = self.parse_variable_access(symbol, location)
+            expr = self.parse_function_call(symbol, location)
         elif self.peek == "[":
             location = self.consume("[").loc
             elements = []
@@ -1111,14 +1127,17 @@ class Parser(RecursiveDescentParser):
     def parse_function_call(self, symbol, location):
         if isinstance(symbol, symbols.BuiltIn):
             expr = self.parse_builtin_function_call(symbol.name, location)
-        else:
-            if self.peek == "(":
-                args = self.parse_actual_parameter_list()
-            else:
-                args = None
+        elif self.peek == "(":
+            if not isinstance(symbol.typ, types.FunctionType):
+                self.error("Cannot call non-function", loc=location)
+
+            args = self.parse_actual_parameter_list(symbol.typ.parameter_types)
             expr = expressions.FunctionCall(
                 symbol, args, symbol.typ.return_type, location
             )
+        else:
+            expr = self.parse_variable_access(symbol, location)
+
         return expr
 
     def parse_builtin_function_call(self, func, location):
@@ -1221,6 +1240,9 @@ class Parser(RecursiveDescentParser):
         elif from_type.is_set and to_type.is_set:
             # TODO: how to handle sets?
             auto_cast = False
+        elif from_type.is_enum and to_type.is_subrange:
+            # TODO: do some extra checks?
+            auto_cast = True
         elif isinstance(from_type, types.UnsignedIntegerType) and isinstance(
             to_type, types.PointerType
         ):
@@ -1262,7 +1284,22 @@ class Parser(RecursiveDescentParser):
             to_type, types.IntegerType
         ):
             auto_cast = True
-
+        elif (
+            self.context.equal_types(from_type, self._string_type)
+            and to_type.is_array
+        ):
+            # TODO: how to handle strings?
+            auto_cast = True
+        elif (
+            from_type.is_function
+            and len(from_type.parameter_types) == 0
+            and self.context.equal_types(from_type.return_type, to_type)
+        ):
+            # Cool automatic invoke function when return type is wanted!
+            auto_cast = True
+            expr = expressions.FunctionCall(
+                expr, [], from_type.return_type, expr.location
+            )
         else:
             self.error(
                 "Cannot use '{}' as '{}'".format(from_type, to_type), loc=loc
@@ -1278,11 +1315,12 @@ class Parser(RecursiveDescentParser):
         """ Determine the greatest common type.
 
         This is used for coercing binary operators.
-        For example
-            int + float -> float
-            byte + int -> int
-            byte + byte -> byte
-            pointer to x + int -> pointer to x
+        For example:
+
+        - int + float -> float
+        - byte + int -> int
+        - byte + byte -> byte
+        - pointer to x + int -> pointer to x
         """
 
         typ_a = self.context.get_type(a.typ)

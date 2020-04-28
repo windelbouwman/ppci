@@ -29,12 +29,24 @@ class Type:
         return isinstance(self, EnumType)
 
     @property
+    def is_subrange(self):
+        return isinstance(self, SubRange)
+
+    @property
     def is_set(self):
         return isinstance(self, SetType)
 
     @property
     def is_file(self):
         return isinstance(self, FileType)
+
+    @property
+    def is_function(self):
+        return isinstance(self, FunctionType)
+
+    @property
+    def is_procedure(self):
+        return isinstance(self, ProcedureType)
 
 
 class BaseType(Type):
@@ -73,6 +85,9 @@ class SubRange(IntegerType):
         self.upper = upper
         self.location = location
 
+    def __repr__(self):
+        return "sub-range({}..{})".format(self.lower, self.upper)
+
 
 class FloatType(BaseType):
     """ Floating point base type """
@@ -90,11 +105,15 @@ class EnumType(Type):
         self.values = values
         self.location = location
 
+    def __repr__(self):
+        return "enum"
+
 
 class FunctionType(Type):
     """ Function blueprint, defines argument types and return type """
 
     def __init__(self, parameter_types, return_type):
+        super().__init__()
         self.parameter_types = parameter_types
         self.return_type = return_type
 
@@ -105,18 +124,29 @@ class FunctionType(Type):
             )
         else:
             params = ""
-        return "f{}: {}".format(params, self.return_type)
+        return "function-type{}: {}".format(params, self.return_type)
 
 
 class ProcedureType(Type):
-    def __init__(self, parameters):
-        self.parameters = parameters
+    def __init__(self, parameter_types):
+        super().__init__()
+        self.parameter_types = parameter_types
+
+    def __repr__(self):
+        if self.parameter_types:
+            params = "({})".format(
+                ", ".join([str(v) for v in self.parameter_types])
+            )
+        else:
+            params = ""
+        return "procedure-type{}".format(params)
 
 
 class PointerType(Type):
     """ A type that points to data of some other type """
 
     def __init__(self, ptype):
+        super().__init__()
         assert isinstance(ptype, Type)
         # or isinstance(ptype, Expression)
         self.ptype = ptype
@@ -165,6 +195,7 @@ class RecordType(Type):
     """ Struct type consisting of several named members """
 
     def __init__(self, fields, location):
+        super().__init__()
         self.fields = fields
         self.location = location
         # assert all(isinstance(field, RecordField) for field in fields)
@@ -206,13 +237,14 @@ class ArrayType(Type):
     """ Array type """
 
     def __init__(self, element_type, dimensions, packed, location):
+        super().__init__()
         self.element_type = element_type
         self.dimensions = dimensions
         self.packed = packed
         self.location = location
 
     def __repr__(self):
-        return "ARRAY {}".format(self.dimensions)
+        return "ARRAY {} of {}".format(self.dimensions, self.element_type)
 
     def indexed(self, count):
         """ Return the resulting time when indexing this array count times.
