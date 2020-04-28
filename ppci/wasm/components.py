@@ -698,7 +698,7 @@ class BlockInstruction(Instruction):
     def to_string(self):
         idtext = "" if self.id is None else " " + self.id
         a0 = self.args[0]
-        subtext = "" if a0 is "emptyblock" else " (result " + str(a0) + ")"
+        subtext = "" if a0 == "emptyblock" else " (result " + str(a0) + ")"
         return "(" + self.opcode + idtext + subtext + ")"
 
 
