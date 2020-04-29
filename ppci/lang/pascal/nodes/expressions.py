@@ -66,13 +66,13 @@ class Member(Expression):
 class Index(Expression):
     """ Index something, for example an array """
 
-    def __init__(self, base, indici, typ, location):
+    def __init__(self, base, index, typ, location):
         super().__init__(typ, location)
         self.base = base
-        self.indici = indici
+        self.index = index
 
     def __repr__(self):
-        return "Index {}".format(self.indici)
+        return "Index {}".format(self.index)
 
 
 class VariableAccess(Expression):

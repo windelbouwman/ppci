@@ -194,5 +194,9 @@ class BefungeInterpreter:
             return 0
 
 
+def compile_befunge(src):
+    pass
+
+
 run_befunge(hello_world)
 # run_befunge(quine)

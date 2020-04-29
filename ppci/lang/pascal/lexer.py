@@ -107,11 +107,11 @@ class Lexer(SimpleLexer):
     def handle_string(self, val):
         return "STRING", val[1:-1]
 
-    @on(r"-?\d+", order=-1)
+    @on(r"\d+", order=-1)
     def handle_number(self, val):
         return "NUMBER", int(val)
 
-    @on(r"-?\d+((\.\d+([eE][-+]?\d+)?)|([eE][-+]?\d+))", order=-2)
+    @on(r"\d+((\.\d+([eE][-+]?\d+)?)|([eE][-+]?\d+))", order=-2)
     def handle_float_number(self, val):
         return "NUMBER", float(val)
 

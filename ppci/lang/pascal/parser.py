@@ -621,7 +621,7 @@ class Parser(RecursiveDescentParser):
                     symbol.typ.parameter_types
                 )
             else:
-                arguments = None
+                arguments = []
             statement = statements.ProcedureCall(symbol, arguments, location)
         return statement
 
@@ -639,14 +639,18 @@ class Parser(RecursiveDescentParser):
                 newline = expressions.Literal("\n", self._char_type, location)
                 calls.append(("io_print_char", [newline]))
         elif func in ["read", "readln"]:
-            self.consume("(")
-            var = self.parse_expression()
-            if var.typ.is_file and self.peek == ",":
-                self.consume(",")
+            if self.peek == "(":
+                self.consume("(")
                 var = self.parse_expression()
-            # TODO!
-            calls = []
-            self.consume(")")
+                if var.typ.is_file and self.peek == ",":
+                    self.consume(",")
+                    var = self.parse_expression()
+                self.consume(")")
+                # TODO!
+                calls = []
+            else:
+                # TODO!
+                calls = []
         elif func in ["rewrite", "reset", "get", "put"]:
             self.consume("(")
             var = self.parse_expression()
@@ -800,9 +804,10 @@ class Parser(RecursiveDescentParser):
                 self.consume(";")
             else:
                 break
+        code = statements.Compound(inner, location)
         self.consume("until")
         condition = self.parse_condition()
-        return statements.Repeat(inner, condition, location)
+        return statements.Repeat(code, condition, location)
 
     def parse_for(self) -> statements.For:
         """ Parse a for statement """
@@ -939,7 +944,7 @@ class Parser(RecursiveDescentParser):
                     #     self.error('Too many indici ({}) for array dimensions ({})'.format(len(indici), len(array_typ.dimensions)), loc=location)
                     indexed_typ = array_typ.indexed(1)
                     lhs = expressions.Index(
-                        lhs, [index], indexed_typ, index.location
+                        lhs, index, indexed_typ, index.location
                     )
             elif self.peek == ".":
                 location = self.consume(".").loc

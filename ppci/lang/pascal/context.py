@@ -2,7 +2,7 @@ import logging
 import struct
 from ...common import CompilerError
 from .symbol_table import Scope
-from .nodes import symbols, types
+from .nodes import symbols, types, expressions
 
 
 class Context:
@@ -82,12 +82,50 @@ class Context:
 
         return False
 
+    def eval_const_expr(self, expr):
+        """ Evaluate constant expression. """
+        if isinstance(expr, expressions.Literal):
+            if expr.typ.is_integer:
+                value = int(expr.val)
+            else:
+                raise NotImplementedError()
+        elif isinstance(expr, expressions.VariableAccess):
+            if isinstance(expr.variable, symbols.Constant):
+                value = self.eval_const_expr(expr.variable.value)
+            else:
+                raise NotImplementedError()
+        else:
+            raise NotImplementedError()
+        return value
+
     def size_of(self, typ):
         # TODO:
-        return 1
+        int_size = 8
+        if isinstance(typ, types.IntegerType):
+            size = int_size
+        elif isinstance(typ, types.EnumType):
+            size = int_size
+        elif isinstance(typ, types.PointerType):
+            size = int_size
+        elif isinstance(typ, types.ArrayType):
+            element_count = 1
+            for dimension in typ.dimensions:
+                if isinstance(dimension, types.SubRange):
+                    upper = self.eval_const_expr(dimension.upper)
+                    lower = self.eval_const_expr(dimension.lower)
+                    cardinality = upper - lower
+                else:
+                    cardinality = int(dimension)
+                element_count *= cardinality
+            print("array size", element_count)
+            size = self.size_of(typ.element_type) * element_count
+        else:
+            raise NotImplementedError()
+        return size
 
     def alignment(self, typ):
-        return 1
+        # TODO
+        return 8
 
     def pack_string(self, txt):
         """ Pack a string an int as length followed by text data """

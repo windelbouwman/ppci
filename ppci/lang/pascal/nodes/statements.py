@@ -94,9 +94,9 @@ class CaseOf(Statement):
 class While(Statement):
     """ While statement """
 
-    def __init__(self, expression, statement, loc):
+    def __init__(self, condition, statement, loc):
         super().__init__(loc)
-        self.expression = expression
+        self.condition = condition
         self.statement = statement
 
     def __repr__(self):

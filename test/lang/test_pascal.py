@@ -155,7 +155,7 @@ class PascalTestCase(BuildTestCaseBase):
           if x=0 then
            fact := 1
           else
-           fact := x * fact(x- 1);
+           fact := x * fact(x-1);
          end;
         begin
          writeln('enter number:');
