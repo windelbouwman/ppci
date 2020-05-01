@@ -651,10 +651,17 @@ class Parser(RecursiveDescentParser):
             else:
                 # TODO!
                 calls = []
-        elif func in ["rewrite", "reset", "get", "put"]:
+        elif func == "put":
             self.consume("(")
             var = self.parse_expression()
             self.consume(")")
+            char = self.do_coerce(var, self._char_type)
+            calls = [("io_print_char", [char])]
+        elif func in ["rewrite", "reset", "get"]:
+            self.consume("(")
+            var = self.parse_expression()
+            self.consume(")")
+            self.logger.error("Implement me!")
             # TODO!
             calls = []
         elif func == "new":
@@ -699,9 +706,13 @@ class Parser(RecursiveDescentParser):
 
         if self.has_consumed(":"):
             # Only allowed with writeln and friends.
-            total_width = self.parse_expression()
+            field_width = self.parse_expression()
             if self.has_consumed(":"):
                 frac_digits = self.parse_expression()
+        else:
+            # Assume 10 digits field width with integer values
+            # 20 with real values.
+            field_width = expressions.Literal(10, self._integer_type, None)
 
         if self.context.equal_types(self._string_type, arg.typ):
             call = ("io_print", [arg])
@@ -723,7 +734,8 @@ class Parser(RecursiveDescentParser):
         else:
             # Default to integer:
             arg = self.do_coerce(arg, self._integer_type)
-            call = ("io_print_int", [arg])
+            base = expressions.Literal(10, self._integer_type, None)
+            call = ("write_int", [arg, base, field_width])
             # self.error(
             #     "Expected string, integer or char, got {}".format(arg.typ),
             #     arg.location,
@@ -1185,13 +1197,13 @@ class Parser(RecursiveDescentParser):
             self.consume(")")
             typ = arg.typ
             args = [arg]
-        elif func in ["sqr", "sqrt", "abs"]:
+        elif func in ["sqr", "abs"]:
             self.consume("(")
             arg = self.parse_expression()
             self.consume(")")
             typ = arg.typ
             args = [arg]
-        elif func in ["sin", "cos", "arctan", "exp", "ln"]:
+        elif func in ["sqrt", "sin", "cos", "arctan", "exp", "ln"]:
             self.consume("(")
             arg = self.parse_expression()
             self.consume(")")

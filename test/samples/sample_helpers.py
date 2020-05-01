@@ -1,7 +1,7 @@
 import io
 import os
 from helper_util import relpath, source_files
-from ppci.api import asm, c3c, link, objcopy, bfcompile, cc
+from ppci.api import asm, c3c, link, objcopy, bfcompile, cc, pascal
 from ppci.utils.reporting import HtmlReportGenerator
 from ppci.lang.c import COptions
 
@@ -22,7 +22,7 @@ def create_test_function(source, output, lang):
 def add_samples(*folders):
     """ Create a decorator function that adds tests in the given folders """
 
-    extensions = ('.c3', '.bf', '.c')
+    extensions = ('.c3', '.bf', '.c', '.pas')
 
     def deco(cls):
         for folder in folders:
@@ -115,6 +115,11 @@ def build(
                 io.StringIO(src), march, coptions=coptions,
                 reporter=reporter)
             objs = [o1, o2, o3, o4]
+        elif lang == 'pas':
+            o3 = pascal([io.StringIO(src)], march, reporter=reporter)
+            o2 = c3c(
+                [bsp_c3], [], march, reporter=reporter)
+            objs = [o1, o2, o3]
         else:
             raise NotImplementedError('language not implemented')
         obj = link(

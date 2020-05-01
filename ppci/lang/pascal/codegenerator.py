@@ -69,10 +69,11 @@ class CodeGenerator:
         self.var_map["io_print"] = io_print
 
         io_print_int = ir.ExternalProcedure(
-            "io_print_int", [self.get_ir_int()]
+            "write_int",
+            [self.get_ir_int(), self.get_ir_int(), self.get_ir_int()],
         )
         self.builder.module.add_external(io_print_int)
-        self.var_map["io_print_int"] = io_print_int
+        self.var_map["write_int"] = io_print_int
 
         bsp_putc = ir.ExternalProcedure("bsp_putc", [ir.u8])
         self.builder.module.add_external(bsp_putc)
@@ -499,28 +500,29 @@ class CodeGenerator:
     def gen_for_stmt(self, code: statements.For):
         """ Generate for-loop code """
         main_block = self.builder.new_block()
-        test_block = self.builder.new_block()
+        increment_block = self.builder.new_block()
         final_block = self.builder.new_block()
 
         entry_block = self.builder.block
         ty = self.get_ir_int()
         one = self.emit(ir.Const(1, "one", ty))
-        first_value = self.gen_expr_code(code.start, rvalue=True)
+        initial_value = self.gen_expr_code(code.start, rvalue=True)
         final_value = self.gen_expr_code(code.final, rvalue=True)
-        self.gen_store(code.loop_var, first_value)
 
-        self.emit(ir.Jump(test_block))
-        self.builder.set_block(test_block)
+        self.emit(ir.Jump(main_block))
+        self.builder.set_block(main_block)
 
         loop_var = self.emit(ir.Phi("loop_var", ty))
-        loop_var.set_incoming(entry_block, first_value)
+        loop_var.set_incoming(entry_block, initial_value)
+        self.gen_store(code.loop_var, loop_var)
+
+        self.gen_stmt(code.statement)
 
         self.emit(
-            ir.CJump(loop_var, "==", final_value, final_block, main_block)
+            ir.CJump(loop_var, "==", final_value, final_block, increment_block)
         )
 
-        self.builder.set_block(main_block)
-        self.gen_stmt(code.statement)
+        self.builder.set_block(increment_block)
 
         # Update loop variable:
         if code.direction:  # count up
@@ -531,9 +533,10 @@ class CodeGenerator:
             new_loop_var = self.emit(
                 ir.sub(loop_var, one, "decremented_loop_var", ty)
             )
-        self.gen_store(code.loop_var, new_loop_var)
-        loop_var.set_incoming(self.builder.block, new_loop_var)
-        self.emit(ir.Jump(test_block))
+
+        loop_var.set_incoming(increment_block, new_loop_var)
+        self.emit(ir.Jump(main_block))
+
         self.builder.set_block(final_block)
 
     def gen_case_of_stmt(self, switch: statements.CaseOf):
@@ -812,9 +815,19 @@ class CodeGenerator:
         assert isinstance(a_val, ir.Value)
         assert isinstance(b_val, ir.Value)
 
+        op_map = {
+            "+": "+",
+            "-": "-",
+            "*": "*",
+            "/": "/",
+            "div": "/",
+            "mod": "%",
+        }
+        op = op_map[expr.op]
+
         self.context.equal_types(expr.a.typ, expr.b.typ)
 
-        value = self.emit(ir.Binop(a_val, expr.op, b_val, "binop", a_val.ty))
+        value = self.emit(ir.Binop(a_val, op, b_val, "binop", a_val.ty))
         lvalue = False
         return value, lvalue
 
@@ -987,6 +1000,11 @@ class CodeGenerator:
             lhs = self.gen_expr_code(arg, rvalue=True)
             one = self.emit(ir.Const(1, "one", lhs.ty))
             res = self.emit(ir.Binop(lhs, "+", one, "succ", lhs.ty))
+        elif expr.func == "chr":
+            (arg,) = expr.args
+            value = self.gen_expr_code(arg, rvalue=True)
+            res = self.emit(ir.Cast(value, "chr", self.get_ir_type("char")))
+        # elif expr.func == "abs":
         elif expr.func in ["arctan", "sqrt", "sqr", "sin", "cos"]:
             (arg,) = expr.args
             x = self.gen_expr_code(arg, rvalue=True)
