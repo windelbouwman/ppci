@@ -389,54 +389,56 @@ def create_test_function(cls, filename, target):
 
 def wasm_spec_populate(cls):
     """ Decorator function which can populate a unittest.TestCase class """
-    for target in ['python', 'native']:
-        for filename in get_wast_files():
-            create_test_function(cls, filename, target)
-    return cls
-
-
-def get_wast_files(include_pattern='*'):
-    """ Retrieve wast files if WASM_SPEC_DIR was set """
     if 'WASM_SPEC_DIR' in os.environ:
         wasm_spec_directory = os.path.normpath(os.environ['WASM_SPEC_DIR'])
 
-        # Do some auto detection:
-        if os.path.isfile(os.path.join(wasm_spec_directory, 'f32.wast')):
-            core_test_directory = wasm_spec_directory
-        else:
-            core_test_directory = os.path.join(
-                wasm_spec_directory, 'test', 'core')
-
-        # Check if we have a folder:
-        if not os.path.isdir(core_test_directory):
-            raise ValueError(
-                "WASM_SPEC_DIR is set, but {} not found".format(
-                    core_test_directory))
-
-        # Check if we have the right folder:
-        validation_file = os.path.join(core_test_directory, 'f32.wast')
-        if not os.path.exists(validation_file):
-            raise ValueError(
-                "WASM_SPEC_DIR is set, but {} not found".format(
-                    validation_file))
-
-        for filename in sorted(glob.iglob(os.path.join(
-                core_test_directory, '*.wast'))):
-
-            # Ignore certain files:
-            base_name = os.path.splitext(os.path.split(filename)[1])[0]
-            if base_name in black_list:
-                continue
-            if not fnmatch(base_name, include_pattern):
-                continue
-
-            yield filename
+        for target in ['python', 'native']:
+            for filename in get_wast_files(wasm_spec_directory):
+                create_test_function(cls, filename, target)
     else:
-        warnings.warn(
-            'Please specify WASM_SPEC_DIR if you wish to run the wasm spec'
-            'test directory. '
-            'For example: export WASM_SPEC_DIR=~/GIT/spec'
-        )
+        def test_stub(self):
+            self.skipTest(
+                'Please specify WASM_SPEC_DIR if you wish to run the wasm spec'
+                'test directory. '
+                'For example: export WASM_SPEC_DIR=~/GIT/spec'
+            )
+        setattr(cls, 'test_stub', test_stub)
+    return cls
+
+
+def get_wast_files(wasm_spec_directory, include_pattern='*'):
+    """ Retrieve wast files if WASM_SPEC_DIR was set """
+    # Do some auto detection:
+    if os.path.isfile(os.path.join(wasm_spec_directory, 'f32.wast')):
+        core_test_directory = wasm_spec_directory
+    else:
+        core_test_directory = os.path.join(
+            wasm_spec_directory, 'test', 'core')
+
+    # Check if we have a folder:
+    if not os.path.isdir(core_test_directory):
+        raise ValueError(
+            "WASM_SPEC_DIR is set, but {} not found".format(
+                core_test_directory))
+
+    # Check if we have the right folder:
+    validation_file = os.path.join(core_test_directory, 'f32.wast')
+    if not os.path.exists(validation_file):
+        raise ValueError(
+            "WASM_SPEC_DIR is set, but {} not found".format(
+                validation_file))
+
+    for filename in sorted(glob.iglob(os.path.join(
+            core_test_directory, '*.wast'))):
+
+        # Ignore certain files:
+        base_name = os.path.splitext(os.path.split(filename)[1])[0]
+        if base_name in black_list:
+            continue
+        if not fnmatch(base_name, include_pattern):
+            continue
+
+        yield filename
 
 
 @wasm_spec_populate
@@ -448,10 +450,12 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument(
         '--target', choices=['native', 'python'],
-        action='append', default=[]
+        action='append', default=[],
+        help='The target for code generation.'
     )
     parser.add_argument('--verbose', '-v', action='count', default=0)
-    parser.add_argument('--filter', default='*')
+    parser.add_argument('--filter', default='*', help='A filter pattern to select certain test cases.')
+    parser.add_argument('spec_folder', help='the folder where the wasm spec test cases are located.')
     args = parser.parse_args()
 
     if args.verbose:
@@ -462,5 +466,7 @@ if __name__ == '__main__':
     logging.basicConfig(level=loglevel, format=logformat)
 
     for target in args.target:
-        for filename in get_wast_files(include_pattern=args.filter):
+        for filename in get_wast_files(args.spec_folder, include_pattern=args.filter):
             perform_test(filename, target)
+    else:
+        print('Specify at least one target environment, such as python or native')

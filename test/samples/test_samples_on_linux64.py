@@ -16,62 +16,18 @@ from ppci.api import asm, link, objcopy
 class TestSamplesOnX86Linux(unittest.TestCase):
     opt_level = 0
     march = "x86_64"
-    startercode = """
-    global start
-    start:
-        global bsp_putc
-        global main_main
-        call main_main
-        call bsp_exit
-
-    bsp_putc:
-            mov [0x20000000], rdi ; store char passed in rdi
-
-            mov rax, 1 ; 1=sys_write
-            mov rdi, 1 ; file descriptor
-            mov rsi, char_to_print ; char* buf
-            mov rdx, 1 ; count
-            syscall
-            ret
-
-    bsp_exit:
-            mov rax, 60
-            mov rdi, 0
-            syscall
-            ret
-
-    section data
-        char_to_print:
-        dd 0
-        dd 0
-    """
-    arch_mmap = """
-    ENTRY(start)
-    MEMORY code LOCATION=0x40000 SIZE=0x10000 {
-        SECTION(code)
-    }
-    MEMORY ram LOCATION=0x20000000 SIZE=0xA000 {
-        SECTION(data)
-    }
-    """
-    bsp_c3_src = """
-    module bsp;
-    public function void putc(byte c);
-    // function void exit();
-    """
 
     def do(self, src, expected_output, lang="c3"):
-        bsp_c3 = io.StringIO(self.bsp_c3_src)
-        startercode = io.StringIO(self.startercode)
+        bsp_c3 = io.StringIO(BSP_C3_SRC)
         base_filename = make_filename(self.id())
-        obj = build(
+        build(
             base_filename,
             src,
             bsp_c3,
-            startercode,
+            io.StringIO(STARTERCODE),
             self.march,
             self.opt_level,
-            io.StringIO(self.arch_mmap),
+            io.StringIO(ARCH_MMAP),
             lang=lang,
             bin_format="elf",
         )
@@ -89,6 +45,53 @@ class TestSamplesOnX86Linux(unittest.TestCase):
 
 class TestSamplesOnX86LinuxO2(TestSamplesOnX86Linux):
     opt_level = 2
+
+
+STARTERCODE = """
+global bsp_exit
+global bsp_syscall
+global main_main
+global start
+
+start:
+    call main_main
+    call bsp_exit
+
+bsp_syscall:
+    mov rax, rdi ; abi param 1
+    mov rdi, rsi ; abi param 2
+    mov rsi, rdx ; abi param 3
+    mov rdx, rcx ; abi param 4
+    syscall
+    ret
+"""
+
+ARCH_MMAP = """
+ENTRY(start)
+MEMORY code LOCATION=0x40000 SIZE=0x10000 {
+    SECTION(code)
+}
+MEMORY ram LOCATION=0x20000000 SIZE=0xA000 {
+    SECTION(data)
+}
+"""
+
+BSP_C3_SRC = """
+module bsp;
+
+public function void putc(byte c)
+{
+    syscall(1, 1, cast<int>(&c), 1);
+}
+
+public function void exit()
+{
+    syscall(60, 0, 0, 0);
+}
+
+function void syscall(int nr, int a, int b, int c);
+
+"""
 
 
 def has_linux():
