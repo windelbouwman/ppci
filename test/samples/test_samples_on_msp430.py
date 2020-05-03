@@ -8,8 +8,8 @@ from helper_util import do_long_tests, do_iverilog, make_filename
 from ppci.binutils.objectfile import merge_memories
 
 
-@unittest.skipUnless(do_long_tests('msp430'), 'skipping slow tests')
-@add_samples('simple', '8bit')
+@unittest.skipUnless(do_long_tests("msp430"), "skipping slow tests")
+@add_samples("simple", "8bit")
 class TestSamplesOnMsp430(unittest.TestCase):
     opt_level = 0
     startercode = """
@@ -80,29 +80,35 @@ class TestSamplesOnMsp430(unittest.TestCase):
         }
     """
 
-    def do(self, src, expected_output, lang='c3'):
+    def do(self, src, expected_output, lang="c3"):
         base_filename = make_filename(self.id())
-        bsp_c3 = relpath('..', 'examples', 'msp430', 'bsp.c3')
+        bsp_c3 = relpath("..", "examples", "msp430", "bsp.c3")
         startercode = io.StringIO(self.startercode)
         obj = build(
-            base_filename, src, bsp_c3, startercode, "msp430",
-            self.opt_level, io.StringIO(self.arch_mmap),
-            lang=lang)
+            base_filename,
+            src,
+            bsp_c3,
+            startercode,
+            "msp430",
+            self.opt_level,
+            io.StringIO(self.arch_mmap),
+            lang=lang,
+        )
 
-        flash = obj.get_image('flash')
-        ivect = obj.get_image('vector16')
-        rom = merge_memories(flash, ivect, 'rom')
+        flash = obj.get_image("flash")
+        ivect = obj.get_image("vector16")
+        rom = merge_memories(flash, ivect, "rom")
         rom_data = rom.data
         assert len(rom_data) % 2 == 0
 
-        with open(base_filename + '.bin', 'wb') as f:
+        with open(base_filename + ".bin", "wb") as f:
             f.write(rom_data)
 
-        mem_file = base_filename + '.mem'
-        with open(mem_file, 'w') as f:
+        mem_file = base_filename + ".mem"
+        with open(mem_file, "w") as f:
             for i in range(len(rom_data) // 2):
-                w = rom_data[2 * i:2 * i + 2]
-                print('%02x%02x' % (w[1], w[0]), file=f)
+                w = rom_data[2 * i : 2 * i + 2]
+                print("%02x%02x" % (w[1], w[0]), file=f)
         if has_iverilog() and do_iverilog():
             res = run_msp430(mem_file)
             self.assertEqual(expected_output, res)

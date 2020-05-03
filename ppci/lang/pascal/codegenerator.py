@@ -51,6 +51,14 @@ class CodeGenerator:
         ir_function = self.builder.new_procedure(
             function_name, ir.Binding.GLOBAL
         )
+
+        # Register debug info for main function:
+        dbg_return_type = self.get_debug_type(None)
+        dfi = debuginfo.DebugFunction(
+            function_name, unit.location, dbg_return_type, [],
+        )
+        self.debug_db.enter(ir_function, dfi)
+
         self.builder.set_function(ir_function)
         first_block = self.builder.new_block()
         self.builder.set_block(first_block)
@@ -64,24 +72,22 @@ class CodeGenerator:
     def _define_builtins(self):
         """ Create external symbols for the various runtime functions.
         """
-        io_print = ir.ExternalProcedure("io_print", [ir.ptr])
-        self.builder.module.add_external(io_print)
-        self.var_map["io_print"] = io_print
-
-        io_print_int = ir.ExternalProcedure(
+        self._add_external_procedure("io_print", [ir.ptr])
+        self._add_external_procedure(
             "write_int",
             [self.get_ir_int(), self.get_ir_int(), self.get_ir_int()],
         )
-        self.builder.module.add_external(io_print_int)
-        self.var_map["write_int"] = io_print_int
 
         bsp_putc = ir.ExternalProcedure("bsp_putc", [ir.u8])
         self.builder.module.add_external(bsp_putc)
         self.var_map["io_print_char"] = bsp_putc
 
-        io_read_int = ir.ExternalProcedure("io_read_int", [self.get_ir_int()])
-        self.builder.module.add_external(io_print_int)
-        self.var_map["read_int"] = io_read_int
+        self._add_external_procedure("io_read_int", [self.get_ir_int()])
+
+    def _add_external_procedure(self, name, arg_types):
+        external_procedure = ir.ExternalProcedure(name, arg_types)
+        self.builder.module.add_external(external_procedure)
+        self.var_map[name] = external_procedure
 
     def gen_globals(self, unit):
         """ Generate global variables and modules """
@@ -89,6 +95,7 @@ class CodeGenerator:
         # Generate room for global variables:
         for var in unit.inner_scope.variables:
             assert not var.isLocal
+
             if var.ival:
                 cval = self.gen_global_ival(var.ival, var.typ)
                 cval = (cval,)
@@ -154,15 +161,24 @@ class CodeGenerator:
     def get_debug_type(self, typ):
         """ Get or create debug type info in the debug information """
         # Lookup the type:
-        typ = self.context.get_type(typ)
+        if typ is not None:
+            typ = self.context.get_type(typ)
 
         if self.debug_db.contains(typ):
             return self.debug_db.get(typ)
 
         if isinstance(typ, types.BaseType):
-            dbg_typ = debuginfo.DebugBaseType(
-                typ.name, self.context.size_of(typ), 1
-            )
+            size = self.context.size_of(typ)
+            if size == 8:
+                # TODO: bit of a hack?
+                typ_name = "int"
+            else:
+                typ_name = "int{}".format(size)
+            dbg_typ = debuginfo.DebugBaseType(typ_name, size, 1)
+            self.debug_db.enter(typ, dbg_typ)
+        elif typ is None:
+            # Void type
+            dbg_typ = debuginfo.DebugBaseType("void", 0, 1)
             self.debug_db.enter(typ, dbg_typ)
         elif isinstance(typ, types.PointerType):
             ptype = self.get_debug_type(typ.ptype)
@@ -214,12 +230,12 @@ class CodeGenerator:
             self.gen_subroutine(subroutine)
 
     def create_subroutine(self, subroutine):
-        if isinstance(subroutine, symbols.Procedure):
+        if subroutine.is_procedure:
             ir_function = self.builder.new_procedure(
                 subroutine.name, ir.Binding.GLOBAL
             )
         else:
-            assert isinstance(subroutine, symbols.Function)
+            assert subroutine.is_function
             return_type = self.get_ir_type(subroutine.typ.return_type)
             ir_function = self.builder.new_function(
                 subroutine.name, ir.Binding.GLOBAL, return_type
@@ -238,7 +254,7 @@ class CodeGenerator:
 
         # Generate inner sub programs:
         for sym in subroutine.inner_scope:
-            if isinstance(sym, (symbols.Function, symbols.Procedure)):
+            if sym.is_subroutine:
                 raise NotImplementedError("Nested function are TODO")
                 self.gen_function(sym)
 
@@ -261,20 +277,21 @@ class CodeGenerator:
                 param_map[param] = ir_parameter
 
                 # Debug info for this formal parameter:
-                # TODO:
-                # dbg_typ = self.get_debug_type(param.typ)
-                # dbg_args.append(debuginfo.DebugParameter(param.name, dbg_typ))
+                dbg_typ = self.get_debug_type(param.typ)
+                dbg_args.append(debuginfo.DebugParameter(param.name, dbg_typ))
 
         # Generate debug info for function:
-        # dfi = debuginfo.DebugFunction(
-        #     subroutine.name,
-        #     subroutine.location,
-        #     self.get_debug_type(subroutine.typ.return_type),
-        #     dbg_args,
-        # )
-        # self.debug_db.enter(ir_function, dfi)
+        if subroutine.is_function:
+            dbg_return_type = self.get_debug_type(subroutine.typ.return_type)
+        else:
+            dbg_return_type = self.get_debug_type(None)
 
-        if isinstance(subroutine, symbols.Function):
+        dfi = debuginfo.DebugFunction(
+            subroutine.name, subroutine.location, dbg_return_type, dbg_args,
+        )
+        self.debug_db.enter(ir_function, dfi)
+
+        if subroutine.is_function:
             # Create room for return value:
             return_value = self.emit_local(
                 "result_{}".format(subroutine.name), subroutine.typ.return_type
@@ -313,7 +330,7 @@ class CodeGenerator:
         # Close block:
         if not self.builder.block.is_closed:
             # In case of void function, introduce exit instruction:
-            if isinstance(subroutine, symbols.Procedure):
+            if subroutine.is_procedure:
                 self.emit(ir.Exit())
             else:
                 value = self.emit(
@@ -452,7 +469,7 @@ class CodeGenerator:
 
             # Store the value at current pointer:
             # TODO: take volatile into account here?
-            self.emit(ir.Store(rval, ptr), loc=expr.loc)
+            self.emit(ir.Store(rval, ptr))
 
             # Increment pointer with appropriate size:
             size = self.context.size_of(expr.typ)

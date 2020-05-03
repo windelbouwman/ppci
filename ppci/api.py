@@ -444,7 +444,7 @@ def c3c(
     )
 
 
-def pascal(sources, march, opt_level=0, reporter=None):
+def pascal(sources, march, opt_level=0, reporter=None, debug=False):
     """ Compile a set of pascal-sources for the given target.
 
     Args:
@@ -459,7 +459,7 @@ def pascal(sources, march, opt_level=0, reporter=None):
         reporter = DummyReportGenerator()
     sources = [get_file(fn) for fn in sources]
     ir_modules = pascal_to_ir(sources, march)
-    return ir_to_object(ir_modules, march, reporter=reporter)
+    return ir_to_object(ir_modules, march, reporter=reporter, debug=debug)
 
 
 def bfcompile(source, target, reporter=None):

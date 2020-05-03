@@ -24,21 +24,21 @@ def enable_report_logger(filename):
 
 def only_bf(txt):
     """ Strip a string from all characters, except brainfuck chars """
-    return re.sub(r'[^\.,<>\+-\]\[]', '', txt)
+    return re.sub(r"[^\.,<>\+-\]\[]", "", txt)
 
 
-@add_samples('32bit')
+@add_samples("32bit")
 class I32Samples:
     """ 32-bit samples """
 
-    @unittest.skip('too large codesize')
+    @unittest.skip("too large codesize")
     def test_brain_fuck_hello_world(self):
         """ Test brainfuck hello world program """
         hello_world = """++++++++[>++++[>++>+++>+++>+<<<<-]>+>+>->>+[<]<-]>>
         .>---.+++++++..+++.>>.<-.<.+++.------.--------.>>+.>++."""
-        self.do(hello_world, "Hello World!\n", lang='bf')
+        self.do(hello_world, "Hello World!\n", lang="bf")
 
-    @unittest.skip('too slow test')
+    @unittest.skip("too slow test")
     def test_brain_fuck_quine(self):
         """ A quine is a program that outputs itself! """
         quine = """>>+>>+++++>>++>>+++>>+>>++++++>>++>>++>>++>>+++++>>+>>++++>>
@@ -94,10 +94,10 @@ class I32Samples:
         ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
         ++++++++<-]>>>>>]<<<<[-<+>[<-]>[>]<<[>++++++++++++++++++++++
         ++++++++++++++++++++++++<-]<<<]>>[[->>.<<]>>>>]"""
-        self.do(quine, only_bf(quine), lang='bf')
+        self.do(quine, only_bf(quine), lang="bf")
 
 
-if __name__ == '__main__':
-    with open('sample_report.log', 'w') as report_file:
+if __name__ == "__main__":
+    with open("sample_report.log", "w") as report_file:
         enable_report_logger(report_file)
         unittest.main()

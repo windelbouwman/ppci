@@ -16,6 +16,14 @@
             debug="true"
             />
 
+        <pascalcompile
+            arch="x86_64"
+            sources="../../../librt/pascal/pascalrt.pas"
+            output="pascalrt.oj"
+            report="reportpasrt.html"
+            debug="true"
+            />
+
         <c3compile
             arch="x86_64"
             sources="../../../librt/io.c3;../bsp.c3"
@@ -27,7 +35,7 @@
         <link
             output="main.oj"
             layout="../linux64.mmap"
-            objects="hello.oj;glue.oj;rest.oj"
+            objects="hello.oj;glue.oj;rest.oj;pascalrt.oj"
             debug="true" />
 
         <objcopy

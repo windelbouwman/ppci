@@ -16,6 +16,10 @@ class Symbol:
         self.name = name
         self.typ = typ
 
+    @property
+    def is_subroutine(self):
+        return isinstance(self, SubRoutine)
+
 
 class Program(Symbol):
     """ A module contains functions, types, consts and global variables """
@@ -124,7 +128,13 @@ class BuiltIn(Symbol):
 
 # Procedure types
 class SubRoutine(Symbol):
-    pass
+    @property
+    def is_function(self):
+        return isinstance(self, Function)
+
+    @property
+    def is_procedure(self):
+        return isinstance(self, Procedure)
 
 
 class Function(SubRoutine):

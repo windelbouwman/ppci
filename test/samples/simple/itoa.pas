@@ -27,12 +27,12 @@ program main;
             quotient := quotient div base;
         until quotient = 0;
 
-        if value < 0 then begin
-            buf[i] := '-';
-            i := i + 1;
-        end;
+        if value < 0 then
+            buf[i] := '-'
+        else
+            i := i - 1;
 
-        for j := i - 1 downto 0 do
+        for j := i downto 0 do
             put(buf[j]);
     end;
 

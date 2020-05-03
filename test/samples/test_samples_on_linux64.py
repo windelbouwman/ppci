@@ -11,8 +11,8 @@ from helper_util import do_long_tests, make_filename
 from ppci.api import asm, link, objcopy
 
 
-@unittest.skipUnless(do_long_tests('x86_64'), 'skipping slow tests')
-@add_samples('simple', 'medium', 'hard', '8bit', 'fp', 'double')
+@unittest.skipUnless(do_long_tests("x86_64"), "skipping slow tests")
+@add_samples("simple", "medium", "hard", "8bit", "fp", "double")
 class TestSamplesOnX86Linux(unittest.TestCase):
     opt_level = 0
     march = "x86_64"
@@ -60,23 +60,30 @@ class TestSamplesOnX86Linux(unittest.TestCase):
     // function void exit();
     """
 
-    def do(self, src, expected_output, lang='c3'):
+    def do(self, src, expected_output, lang="c3"):
         bsp_c3 = io.StringIO(self.bsp_c3_src)
         startercode = io.StringIO(self.startercode)
         base_filename = make_filename(self.id())
         obj = build(
-            base_filename, src, bsp_c3, startercode, self.march,
-            self.opt_level, io.StringIO(self.arch_mmap),
-            lang=lang, bin_format='elf')
+            base_filename,
+            src,
+            bsp_c3,
+            startercode,
+            self.march,
+            self.opt_level,
+            io.StringIO(self.arch_mmap),
+            lang=lang,
+            bin_format="elf",
+        )
 
-        exe = base_filename + '.elf'
+        exe = base_filename + ".elf"
 
         if has_linux():
-            if hasattr(subprocess, 'TimeoutExpired'):
+            if hasattr(subprocess, "TimeoutExpired"):
                 res = subprocess.check_output(exe, timeout=10)
             else:
                 res = subprocess.check_output(exe)
-            res = res.decode('ascii')
+            res = res.decode("ascii")
             self.assertEqual(expected_output, res)
 
 
@@ -85,10 +92,10 @@ class TestSamplesOnX86LinuxO2(TestSamplesOnX86Linux):
 
 
 def has_linux():
-    return platform.machine() == 'x86_64' and platform.system() == 'Linux'
+    return platform.machine() == "x86_64" and platform.system() == "Linux"
 
 
-@unittest.skipIf(not has_linux(), 'no 64 bit linux found')
+@unittest.skipIf(not has_linux(), "no 64 bit linux found")
 class LinuxTests(unittest.TestCase):
     """ Run tests against the linux syscall api """
 
@@ -97,26 +104,28 @@ class LinuxTests(unittest.TestCase):
             ; exit with code 42:
             ; syscall 60 = exit, rax is first argument, rdi second
         """
-        src = io.StringIO("""
+        src = io.StringIO(
+            """
             section code
             global start
             start:
             mov rax, 60
             mov rdi, 42
             syscall
-            """)
+            """
+        )
         mmap = """
         ENTRY(start)
         MEMORY code LOCATION=0x40000 SIZE=0x10000 {
             SECTION(code)
         }
         """
-        obj = asm(src, 'x86_64')
+        obj = asm(src, "x86_64")
         handle, exe = mkstemp()
         os.close(handle)
         obj2 = link([obj], layout=io.StringIO(mmap))
-        objcopy(obj2, 'prog', 'elf', exe)
-        if hasattr(subprocess, 'TimeoutExpired'):
+        objcopy(obj2, "prog", "elf", exe)
+        if hasattr(subprocess, "TimeoutExpired"):
             returncode = subprocess.call(exe, timeout=10)
         else:
             returncode = subprocess.call(exe)

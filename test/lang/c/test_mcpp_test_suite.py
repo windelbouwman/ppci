@@ -74,10 +74,12 @@ def mcpp_populate(cls):
                 continue
             create_test_function(cls, fullfile)
     else:
-        warnings.warn(
-            "Please specify MCPP_DIR if you wish to run the mcpp tests."
-            "For example: export MCPP_DIR=~/SVN/mcpp-code"
-        )
+        def test_func(self):
+            self.skipTest(
+                "Please specify MCPP_DIR if you wish to run the mcpp tests."
+                "For example: export MCPP_DIR=~/SVN/mcpp-code"
+            )
+        setattr(cls, 'test_stub', test_func)
     return cls
 
 

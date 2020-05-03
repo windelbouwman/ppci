@@ -117,7 +117,6 @@ class Context:
                 else:
                     cardinality = int(dimension)
                 element_count *= cardinality
-            print("array size", element_count)
             size = self.size_of(typ.element_type) * element_count
         else:
             raise NotImplementedError()

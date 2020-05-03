@@ -9,11 +9,12 @@ from ppci.utils.codepage import load_obj
 from ppci.utils.reporting import HtmlReportGenerator
 
 
-@unittest.skipUnless(do_long_tests('jit'), 'skipping slow tests')
-@add_samples('simple')
+@unittest.skipUnless(do_long_tests("jit"), "skipping slow tests")
+@add_samples("simple")
 class TestJittedSamples(unittest.TestCase):
     """ Take each sample, compile it and load it into the current process """
-    def do(self, src, expected_output, lang='c3'):
+
+    def do(self, src, expected_output, lang="c3"):
         # Compile:
         bsp_c3_src = """
         module bsp;
@@ -22,9 +23,10 @@ class TestJittedSamples(unittest.TestCase):
         bsp_c3 = io.StringIO(bsp_c3_src)
         march = get_current_arch()
         base_filename = make_filename(self.id())
-        report_filename = base_filename + '.html'
-        with open(report_filename, 'w') as f, \
-                HtmlReportGenerator(f) as reporter:
+        report_filename = base_filename + ".html"
+        with open(report_filename, "w") as f, HtmlReportGenerator(
+            f
+        ) as reporter:
             obj = partial_build(src, lang, bsp_c3, 0, march, reporter)
 
         actual_output = []
@@ -35,21 +37,21 @@ class TestJittedSamples(unittest.TestCase):
 
         # Dynamically load:
         imports = {
-            'bsp_putc': bsp_putc,
+            "bsp_putc": bsp_putc,
         }
         mod = load_obj(obj, imports=imports)
         # print(dir(mod))
 
         # Invoke!
-        if hasattr(mod, 'main'):
+        if hasattr(mod, "main"):
             mod.main()
         else:
             mod.main_main()
 
         # Check output:
-        actual_output = ''.join(actual_output)
+        actual_output = "".join(actual_output)
         self.assertEqual(expected_output, actual_output)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

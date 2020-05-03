@@ -1201,6 +1201,8 @@ class Parser(RecursiveDescentParser):
             self.consume("(")
             arg = self.parse_expression()
             self.consume(")")
+            if not (arg.typ.is_integer or arg.typ.is_real):
+                self.error("Must be integer or real type", loc=arg.location)
             typ = arg.typ
             args = [arg]
         elif func in ["sqrt", "sin", "cos", "arctan", "exp", "ln"]:
