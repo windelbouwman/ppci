@@ -150,7 +150,7 @@ if False:  # sys.platform.startswith('win'):
         ('invoke', 'i64_store', ('i64.const', '0xABAD1DEA')),
         ('invoke', 'i64_store', ('i64.const', '0xABADCAFEDEAD1DEA')),
         ]
-    black_list_expr['get_local'] = [
+    black_list_expr['local.get'] = [
         ('invoke', 'read', ('i64.const', 1), ('f32.const', 2), ('f64.const', 3.3), ('i32.const', 4), ('i32.const', 5)),
         ]
     black_list_expr['int_exprs'] = [

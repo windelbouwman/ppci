@@ -20,10 +20,10 @@ wa1 = wasm.Module("""
         (func $main (local f64)
             (loop
                 ;; print iter
-                (get_local 0) (call $print)
+                (local.get 0) (call $print)
                 ;; increase iter
-                (f64.const 1) (get_local 0) (f64.add)
-                (tee_local 0) (f64.const 10)
+                (f64.const 1) (local.get 0) (f64.add)
+                (local.tee 0) (f64.const 10)
                 (f64.lt) (br_if 0)
             )
         )
@@ -43,10 +43,10 @@ wa1.show_bytes()
 instructions = [
     ('loop'),
         # print iter
-        ('get_local', 0), ('call', '$print'),
+        ('local.get', 0), ('call', '$print'),
         # Increase iter
-        ('f64.const', 1), ('get_local', 0), ('f64.add'),
-        ('tee_local', 0), ('f64.const', 10),
+        ('f64.const', 1), ('local.get', 0), ('f64.add'),
+        ('local.tee', 0), ('f64.const', 10),
         ('f64.lt'), ('br_if', 0),
     ('end'),
     ]
@@ -80,13 +80,13 @@ Instr = wasm.components.Instruction
 instructions = [
     Instr('loop', 'emptyblock'),
         # write iter
-        Instr('get_local', wasm.components.Ref('local', index=0)),
+        Instr('local.get', wasm.components.Ref('local', index=0)),
         Instr('call', wasm.components.Ref('func', name='$print', index=0)),
         # Increase iter
         Instr('f64.const', 1),
-        Instr('get_local', wasm.components.Ref('local', index=0)),
+        Instr('local.get', wasm.components.Ref('local', index=0)),
         Instr('f64.add'),
-        Instr('tee_local', wasm.components.Ref('local', index=0)),
+        Instr('local.tee', wasm.components.Ref('local', index=0)),
         Instr('f64.const', 10),
         Instr('f64.lt'),
         Instr('br_if', wasm.components.Ref('label', index=0)),

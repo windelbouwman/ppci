@@ -299,17 +299,17 @@ class IrToWasmCompiler:
     def increment_stack_pointer(self):
         """ Allocate stack if needed """
         if self.fi.frame.stacksize > 0:
-            self.emit(("get_global", self.sp_ref))
+            self.emit(("global.get", self.sp_ref))
             self.emit(("i32.const", self.fi.frame.stacksize))
             self.emit(("i32.sub",))
-            self.emit(("set_global", self.sp_ref))
+            self.emit(("global.set", self.sp_ref))
 
     def decrement_stack_pointer(self):
         if self.fi.frame.stacksize > 0:
-            self.emit(("get_global", self.sp_ref))
+            self.emit(("global.get", self.sp_ref))
             self.emit(("i32.const", self.fi.frame.stacksize))
             self.emit(("i32.add",))
-            self.emit(("set_global", self.sp_ref))
+            self.emit(("global.set", self.sp_ref))
 
     def do_shape(self, shape):
         """ Generate code for a given code shape """
@@ -544,45 +544,46 @@ class IrToWasmCompiler:
 
     cast_operators2 = {
         # float to int:
-        "F32TOI32": ["f32.nearest", "i32.trunc_s/f32"],
-        "F32TOU32": ["f32.nearest", "i64.trunc_u/f32"],
-        "F32TOI64": ["f32.nearest", "i64.trunc_s/f32"],
-        "F32TOU64": ["f32.nearest", "i64.trunc_u/f32"],
-        "F64TOI64": ["f64.nearest", "i64.trunc_s/f64"],
-        "F64TOU64": ["f64.nearest", "i64.trunc_u/f64"],
-        "F64TOI32": ["f64.nearest", "i32.trunc_s/f64"],
-        "F64TOU32": ["f64.nearest", "i64.trunc_u/f64"],
-        # int to float:
-        "U64TOF64": ["f64.convert_u/i64"],
-        "I64TOF64": ["f64.convert_s/i64"],
-        "U32TOF64": ["f64.convert_u/i64"],
-        "I32TOF64": ["f64.convert_s/i32"],
-        "I32TOF32": ["f32.convert_s/i32"],
-        "U32TOF32": ["f32.convert_u/i32"],
-        "I64TOF32": ["f32.convert_s/i64"],
-        "U64TOF32": ["f32.convert_u/i64"],
+        "F32TOI32": ["f32.nearest", "i32.trunc_f32_s"],
+        "F32TOU32": ["f32.nearest", "i64.trunc_f32_u"],
+        "F32TOI64": ["f32.nearest", "i64.trunc_f32_s"],
+        "F32TOU64": ["f32.nearest", "i64.trunc_f32_u"],
+        "F64TOI64": ["f64.nearest", "i64.trunc_f64_s"],
+        "F64TOU64": ["f64.nearest", "i64.trunc_f64_u"],
+        "F64TOI32": ["f64.nearest", "i32.trunc_f64_s"],
+        "F64TOU32": ["f64.nearest", "i64.trunc_f64_u"],
+        # int to float 64:
+        "U64TOF64": ["f64.convert_i64_u"],
+        "I64TOF64": ["f64.convert_i64_s"],
+        "U32TOF64": ["f64.convert_i64_u"],
+        "I32TOF64": ["f64.convert_i32_s"],
+        # int to float 32
+        "I32TOF32": ["f32.convert_i32_s"],
+        "U32TOF32": ["f32.convert_i32_u"],
+        "I64TOF32": ["f32.convert_i64_s"],
+        "U64TOF32": ["f32.convert_i64_u"],
         # float to float:
-        "F64TOF32": ["f32.demote/f64"],
-        "F32TOF64": ["f64.promote/f32"],
+        "F64TOF32": ["f32.demote_f64"],
+        "F32TOF64": ["f64.promote_f32"],
         # 32 -- 64
-        "I32TOI64": ['i64.extend_s/i32'],
-        "I32TOU64": ['i64.extend_u/i32'],
+        "I32TOI64": ["i64.extend_i32_s"],
+        "I32TOU64": ["i64.extend_i32_u"],
         # i64 -- 32
-        "U64TOI32": ["i32.wrap/i64"],
-        "I64TOI32": ["i32.wrap/i64"],
+        "U64TOI32": ["i32.wrap_i64"],
+        "I64TOI32": ["i32.wrap_i64"],
         # Store u32 in i64 type:
-        "I32TOU32": ["i64.extend_s/i32"],
-        "U32TOI32": ["i32.wrap/i64"],
+        "I32TOU32": ["i64.extend_i32_s"],
+        "U32TOI32": ["i32.wrap_i64"],
         # 32 --- 8
-        "U32TOI8": ["i32.wrap/i64"],
-        "I8TOU32": ["i64.extend_s/i32"],
-        "U32TOU8": ["i32.wrap/i64"],
-        "U8TOU32": ["i64.extend_u/i32"],
+        "U32TOI8": ["i32.wrap_i64"],
+        "I8TOU32": ["i64.extend_i32_s"],
+        "U32TOU8": ["i32.wrap_i64"],
+        "U8TOU32": ["i64.extend_i32_u"],
         # 32 --- 16
-        "U32TOI16": ["i32.wrap/i64"],
-        "I16TOU32": ["i64.extend_s/i32"],
-        "U32TOU16": ["i32.wrap/i64"],
-        "U16TOU32": ["i64.extend_u/i32"],
+        "U32TOI16": ["i32.wrap_i64"],
+        "I16TOU32": ["i64.extend_i32_s"],
+        "U32TOU16": ["i32.wrap_i64"],
+        "U16TOU32": ["i64.extend_i32_u"],
     }
 
     reg_operators = {
@@ -635,10 +636,10 @@ class IrToWasmCompiler:
             self.emit((opcode,))
         elif tree.name in self.mov_operators:
             self.do_tree(tree[0])
-            self.emit(("set_local", self.get_value(tree.value)))
+            self.emit(("local.set", self.get_value(tree.value)))
             self.stack -= 1
         elif tree.name in self.reg_operators:
-            self.emit(("get_local", self.get_value(tree.value)))
+            self.emit(("local.get", self.get_value(tree.value)))
             self.stack += 1
         elif tree.name in ["NEGI32", "NEGI16", "NEGI8"]:
             self.emit(("i32.const", 0))
@@ -656,7 +657,7 @@ class IrToWasmCompiler:
             self.emit(("f64.neg",))
         elif tree.name in ["FPRELI32"]:
             addr = tree.value.offset
-            self.emit(("get_global", self.sp_ref))  # Fetch stack pointer
+            self.emit(("global.get", self.sp_ref))  # Fetch stack pointer
             self.emit(("i32.const", addr))
             self.emit(("i32.add",))
             self.stack += 1
@@ -697,14 +698,14 @@ class IrToWasmCompiler:
         elif tree.name == "CALL":
             function_name, argv, rv = tree.value
             for ty, argument in argv:
-                self.emit(("get_local", self.get_value(argument)))
+                self.emit(("local.get", self.get_value(argument)))
 
             if isinstance(function_name, str):
                 func_ref = self.function_refs[function_name]
                 self.emit(("call", func_ref))
             else:
                 # Handle function pointers:
-                self.emit(("get_local", self.get_value(function_name)))
+                self.emit(("local.get", self.get_value(function_name)))
                 arg_types = tuple(t for t, a in argv)
                 ret_types = (rv[0],) if rv else tuple()
                 type_ref = self.get_type_id(arg_types, ret_types)
@@ -712,14 +713,14 @@ class IrToWasmCompiler:
                 self.emit(("call_indirect", type_ref, table_ref))
 
             if rv:
-                self.emit(("set_local", self.get_value(rv[1])))
+                self.emit(("local.set", self.get_value(rv[1])))
         elif tree.name == "JMP":
             # Actual jump handled by shapes!
             if tree.value is self.fi.epilog_label:
                 self.decrement_stack_pointer()
                 # We are returning from function!
                 if hasattr(self.fi, "rv_vreg") and self.fi.rv_vreg:
-                    self.emit(("get_local", self.get_value(self.fi.rv_vreg)))
+                    self.emit(("local.get", self.get_value(self.fi.rv_vreg)))
                 self.emit(("return",))
         elif tree.name in self.cmp_operators:
             # Ensure operands are on stack:

@@ -36,7 +36,7 @@ def test_global1():
         (global $foo i32 (i32.const 7))
         (start $main)
         (func $main (type $2)
-            (get_global $foo)
+            (global.get $foo)
             (call $print)
         )
     )

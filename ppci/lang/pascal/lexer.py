@@ -86,6 +86,12 @@ class Lexer(SimpleLexer):
     def tokenize(self, text):
         """ Keeps track of the long comments """
         for token in super().tokenize(text):
+            # Convert some lexical alternatives:
+            if token.typ == '(.':
+                token.typ = '['
+            elif token.typ == '.)':
+                token.typ = ']'
+
             yield token
         loc = SourceLocation(self.filename, self.line, 0, 0)
         yield Token("EOF", "EOF", loc)

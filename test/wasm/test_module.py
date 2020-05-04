@@ -16,10 +16,10 @@ def tst_module1():
     instructions1 = [
         ('loop', None, 'emptyblock'),
             # print iter
-            ('get_local', 0), ('call', '$print'),
+            ('local.get', 0), ('call', '$print'),
             # Increase iter
-            ('f64.const', 1), ('get_local', 0), ('f64.add', ),
-            ('tee_local', 0), ('f64.const', 10),
+            ('f64.const', 1), ('local.get', 0), ('f64.add', ),
+            ('local.tee', 0), ('f64.const', 10),
             ('f64.lt', ), ('br_if', 0),
         ('end', ),
         ]
@@ -27,13 +27,13 @@ def tst_module1():
     instructions2 = [
         ('loop', 'emptyblock'),
             # write iter
-            ('get_local', 0),
+            ('local.get', 0),
             ('call', '$print'),
             # Increase iter
             ('f64.const', 1),
-            ('get_local', 0),
+            ('local.get', 0),
             ('f64.add', ),
-            ('tee_local', 0),
+            ('local.tee', 0),
             ('f64.const', 10),
             ('f64.lt', ),
             ('br_if', 0),
@@ -48,12 +48,12 @@ def tst_module1():
         (start $main)
         (func $main (type $1) (local f64)
             loop
-                (get_local 0)
+                (local.get 0)
                 (call $print)
                 (f64.const 1)
-                (get_local 0)
+                (local.get 0)
                 (f64.add)
-                (tee_local 0)
+                (local.tee 0)
                 (f64.const 10)
                 (f64.lt)
                 (br_if 0)
@@ -81,10 +81,10 @@ def tst_module1():
             (func $main (local f64)
                 (loop
                     ;; print iter
-                    (get_local 0) (call $print)
+                    (local.get 0) (call $print)
                     ;; increase iter
-                    (f64.const 1) (get_local 0) (f64.add)
-                    (tee_local 0) (f64.const 10)
+                    (f64.const 1) (local.get 0) (f64.add)
+                    (local.tee 0) (f64.const 10)
                     (f64.lt) (br_if 0)
                 )
             )

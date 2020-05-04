@@ -114,6 +114,8 @@ class Context:
                     upper = self.eval_const_expr(dimension.upper)
                     lower = self.eval_const_expr(dimension.lower)
                     cardinality = upper - lower
+                elif isinstance(dimension, types.EnumType):
+                    cardinality = len(dimension.values)
                 else:
                     cardinality = int(dimension)
                 element_count *= cardinality

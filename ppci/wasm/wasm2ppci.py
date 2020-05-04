@@ -88,217 +88,27 @@ class WasmToIrCompiler:
         # for wasm_function in wasm_module.sections[-1].functiondefs:
         self.wasm_types = []  # List[wasm.Type] (signature)
         self.globalz = []  # id -> (type, ir.Variable)
-        gen_functions = []
+        self.gen_functions = []
         self.functions = []  # List of ir-function wasm signature pairs
         self._runtime_functions = {}  # Function required during runtime
-        export_names = {}  # mapping of id's to exported function names
-        start_function_id = None
-        tables = []  # Function pointer tables
-        global_inits = []  # List of global variable initialization expressions
+        self.export_names = {}  # mapping of id's to exported function names
+        self.start_function_ref = None
+        self.tables = []  # Function pointer tables
+        self.global_inits = (
+            []
+        )  # List of global variable initialization expressions
 
         self.memory_base_address = None
 
         for definition in wasm_module:
-            if isinstance(definition, components.Type):
-                # assert len(self.wasm_types) == definition.id
-                self.wasm_types.append(definition)
-
-            elif isinstance(definition, components.Import):
-                # name = definition.name
-                if definition.kind == "func":
-                    # index = definition.id
-                    sig = self.wasm_types[definition.info[0].index]
-                    name = "{}_{}".format(definition.modname, definition.name)
-                    arg_types = [self.get_ir_type(p[1]) for p in sig.params]
-
-                    if sig.result:
-                        if len(sig.result) != 1:
-                            raise ValueError(
-                                "Cannot handle {} return values".format(
-                                    len(sig.result)
-                                )
-                            )
-                        ret_type = self.get_ir_type(sig.result[0])
-                        extern_ir_function = ir.ExternalFunction(
-                            name, arg_types, ret_type
-                        )
-                    else:
-                        extern_ir_function = ir.ExternalProcedure(
-                            name, arg_types
-                        )
-
-                    self.logger.debug(
-                        "Creating external %s with signature %s",
-                        extern_ir_function,
-                        sig.to_string(),
-                    )
-                    self.builder.module.add_external(extern_ir_function)
-                    self.functions.append((extern_ir_function, sig))
-                elif definition.kind == "memory":
-                    assert self.memory_base_address is None
-                    self.memory_base_address = ir.ExternalVariable(
-                        "wasm_mem0_address"
-                    )
-                    self.builder.module.add_external(self.memory_base_address)
-
-                elif definition.kind == "table":
-                    self.logger.debug("table import")
-                    assert definition.info[0] == "anyfunc"
-                    assert definition.id == 0
-                    self.table_var = ir.ExternalVariable("func_table")
-                    self.builder.module.add_external(self.table_var)
-                    tables.append((self.table_var, []))
-                elif definition.kind == "global":
-                    self.logger.debug("global import")
-                    # TODO: think of nicer names:
-                    global_var = ir.ExternalVariable("global0")
-                    self.builder.module.add_external(global_var)
-                    ir_typ = self.get_ir_type(definition.info[0])
-                    self.globalz.append((ir_typ, global_var))
-                else:
-                    raise NotImplementedError(definition.kind)
-
-            elif isinstance(definition, components.Export):
-                if definition.kind == "func":
-                    # print(x.index)
-                    # f = self.function_space[x.index]
-                    # f = x.name, f[1]
-                    name = sanitize_name(definition.name)
-                    if definition.ref.name is not None:
-                        # We can export a function multiple times with the
-                        # same name!
-                        # assert definition.ref.name not in export_names
-                        export_names[definition.ref.name] = name
-
-                    if definition.ref.index is not None:
-                        if definition.ref.index in export_names:
-                            self.logger.debug(
-                                "Exporting function twice, now with name %s",
-                                name,
-                            )
-                        else:
-                            export_names[definition.ref.index] = name
-                else:
-                    pass
-                    # raise NotImplementedError(x.kind)
-
-            elif isinstance(definition, components.Start):
-                # Generate a procedure which calls the start procedure:
-                start_function_id = definition.ref
-
-            elif isinstance(definition, components.Func):
-                signature = self.wasm_types[definition.ref.index]
-                # Set name of function. If we have a string id prefer that,
-                # otherwise we may have a name from import/export,
-                # otherwise use index
-                # print(export_names, definition.id)
-                if definition.id in export_names:
-                    name = export_names[definition.id]
-                elif isinstance(definition.id, str):
-                    name = "named_{}".format(
-                        sanitize_name(definition.id.lstrip("$"))
-                    )
-                else:
-                    name = "unnamed{}".format(definition.id)
-
-                # Create ir-function:
-                binding = ir.Binding.GLOBAL
-                if signature.result:
-                    if len(signature.result) != 1:
-                        raise ValueError(
-                            "Cannot handle {} return values".format(
-                                len(signature.result)
-                            )
-                        )
-                    ret_type = self.get_ir_type(signature.result[0])
-                    ppci_function = self.builder.new_function(
-                        name, binding, ret_type
-                    )
-                else:
-                    ppci_function = self.builder.new_procedure(name, binding)
-
-                self.functions.append((ppci_function, signature))
-                gen_functions.append((ppci_function, signature, definition))
-
-            elif isinstance(definition, components.Table):
-                assert definition.id in (0, "$0")
-                if definition.kind != "anyfunc":
-                    raise NotImplementedError("Non function pointer tables")
-                if definition.max is not None:
-                    max_size = max(definition.min, definition.max)
-                else:
-                    max_size = definition.min
-                size = max_size * self.ptr_info.size
-                self.table_var = ir.Variable(
-                    "func_table",
-                    ir.Binding.GLOBAL,
-                    size,
-                    self.ptr_info.alignment,
-                )
-                self.builder.module.add_variable(self.table_var)
-                tables.append((self.table_var, []))
-
-            elif isinstance(definition, components.Elem):
-                offset = definition.offset
-                # TODO: what to do when offset is non-negative?
-                # assert offset == 0
-                refs = definition.refs
-                tables[0][1].append((offset, refs))
-
-            elif isinstance(definition, components.Global):
-                ir_typ = self.get_ir_type(definition.typ)
-                fmts = {ir.i32: "<i", ir.i64: "<q", ir.f32: "f", ir.f64: "d"}
-                fmt = fmts[ir_typ]
-                size = struct.calcsize(fmt)
-                # assume init is (f64.const xx):
-                # value = struct.pack(fmt, definition.init.args[0])
-                name = "global_{}".format(str(definition.id).replace("$", "_"))
-                binding = ir.Binding.GLOBAL
-                g2 = ir.Variable(name, binding, size, size)
-                self.builder.module.add_variable(g2)
-                self.globalz.append((ir_typ, g2))
-                global_inits.append((g2, definition.init))
-
-                # Enter correct debug info:
-                dbg_typ = self.get_debug_type(definition.typ)
-                db_variable_info = debuginfo.DebugVariable(
-                    g2.name,
-                    dbg_typ,
-                    common.SourceLocation("main.wasm", 1, 1, 1),
-                )
-                self.debug_db.enter(g2, db_variable_info)
-
-            elif isinstance(definition, components.Memory):
-                # Create a global pointer to the memory base address:
-                assert self.memory_base_address is None
-                self.memory_base_address = ir.Variable(
-                    "wasm_mem0_address",
-                    ir.Binding.GLOBAL,
-                    self.ptr_info.size,
-                    self.ptr_info.alignment,
-                )
-                self.builder.module.add_variable(self.memory_base_address)
-
-            elif isinstance(definition, components.Data):
-                # Data is intended for the runtime to handle.
-                pass
-
-            elif isinstance(definition, components.Custom):
-                pass
-
-            else:
-                # todo: Table, Element, Memory, Data
-                self.logger.error(
-                    "Definition %s not implemented", definition.__name__
-                )
-                raise NotImplementedError(definition.__name__)
+            self.gen_definition(definition)
 
         # Generate functions:
-        for ppci_function, signature, wasm_function in gen_functions:
+        for ppci_function, signature, wasm_function in self.gen_functions:
             self.generate_function(ppci_function, signature, wasm_function)
 
         # Generate run_init function:
-        self.gen_init_procedure(tables, global_inits, start_function_id)
+        self.gen_init_procedure()
 
         function_names = [f[0].name for f in self.functions]
         global_names = [g for g in self.globalz]
@@ -309,7 +119,220 @@ class WasmToIrCompiler:
 
         return self.builder.module
 
-    def gen_init_procedure(self, tables, global_inits, start_function_ref):
+    def gen_definition(self, definition):
+        """ Generate code for a single wasm definition. """
+        if isinstance(definition, components.Type):
+            # assert len(self.wasm_types) == definition.id
+            self.wasm_types.append(definition)
+
+        elif isinstance(definition, components.Import):
+            self.gen_import_definition(definition)
+
+        elif isinstance(definition, components.Export):
+            self.gen_export_definition(definition)
+
+        elif isinstance(definition, components.Start):
+            # Generate a procedure which calls the start procedure:
+            self.start_function_ref = definition.ref
+
+        elif isinstance(definition, components.Func):
+            self.gen_func_definition(definition)
+
+        elif isinstance(definition, components.Table):
+            self.gen_table_definition(definition)
+
+        elif isinstance(definition, components.Elem):
+            self.gen_elem_definition(definition)
+
+        elif isinstance(definition, components.Global):
+            self.gen_global_definition(definition)
+
+        elif isinstance(definition, components.Memory):
+            self.gen_memory_definition(definition)
+
+        elif isinstance(definition, components.Data):
+            # Data is intended for the runtime to handle.
+            pass
+
+        elif isinstance(definition, components.Custom):
+            pass
+
+        else:  # pragma: no cover
+            self.logger.error(
+                "Definition %s not implemented", definition.__name__
+            )
+            raise NotImplementedError(definition.__name__)
+
+    def gen_import_definition(self, definition):
+        """ Generate code for import """
+        # name = definition.name
+        if definition.kind == "func":
+            # index = definition.id
+            sig = self.wasm_types[definition.info[0].index]
+            name = "{}_{}".format(definition.modname, definition.name)
+            arg_types = [self.get_ir_type(p[1]) for p in sig.params]
+
+            if sig.result:
+                if len(sig.result) != 1:
+                    raise ValueError(
+                        "Cannot handle {} return values".format(
+                            len(sig.result)
+                        )
+                    )
+                ret_type = self.get_ir_type(sig.result[0])
+                extern_ir_function = ir.ExternalFunction(
+                    name, arg_types, ret_type
+                )
+            else:
+                extern_ir_function = ir.ExternalProcedure(name, arg_types)
+
+            self.logger.debug(
+                "Creating external %s with signature %s",
+                extern_ir_function,
+                sig.to_string(),
+            )
+            self.builder.module.add_external(extern_ir_function)
+            self.functions.append((extern_ir_function, sig))
+        elif definition.kind == "memory":
+            assert self.memory_base_address is None
+            self.memory_base_address = ir.ExternalVariable("wasm_mem0_address")
+            self.builder.module.add_external(self.memory_base_address)
+
+        elif definition.kind == "table":
+            self.logger.debug("table import")
+            assert definition.info[0] == "anyfunc"
+            assert definition.id == 0
+            self.table_var = ir.ExternalVariable("func_table")
+            self.builder.module.add_external(self.table_var)
+            self.tables.append((self.table_var, []))
+        elif definition.kind == "global":
+            self.logger.debug("global import")
+            # TODO: think of nicer names:
+            global_var = ir.ExternalVariable("global0")
+            self.builder.module.add_external(global_var)
+            ir_typ = self.get_ir_type(definition.info[0])
+            self.globalz.append((ir_typ, global_var))
+        else:
+            raise NotImplementedError(definition.kind)
+
+    def gen_export_definition(self, definition):
+        """ Generate code for an export definition. """
+        if definition.kind == "func":
+            # f = self.function_space[x.index]
+            # f = x.name, f[1]
+            name = sanitize_name(definition.name)
+            if definition.ref.name is not None:
+                # We can export a function multiple times with the
+                # same name!
+                # assert definition.ref.name not in export_names
+                self.export_names[definition.ref.name] = name
+
+            if definition.ref.index is not None:
+                if definition.ref.index in self.export_names:
+                    self.logger.debug(
+                        "Exporting function twice, now with name %s", name,
+                    )
+                else:
+                    self.export_names[definition.ref.index] = name
+        else:
+            pass
+            # raise NotImplementedError(x.kind)
+
+    def gen_func_definition(self, definition):
+        """ Generate function definition. """
+        signature = self.wasm_types[definition.ref.index]
+        # Set name of function. If we have a string id prefer that,
+        # otherwise we may have a name from import/export,
+        # otherwise use index
+        if definition.id in self.export_names:
+            name = self.export_names[definition.id]
+        elif isinstance(definition.id, str):
+            name = "named_{}".format(sanitize_name(definition.id.lstrip("$")))
+        else:
+            name = "unnamed{}".format(definition.id)
+
+        # Create ir-function:
+        binding = ir.Binding.GLOBAL
+        if signature.result:
+            if len(signature.result) != 1:
+                raise ValueError(
+                    "Cannot handle {} return values".format(
+                        len(signature.result)
+                    )
+                )
+            ret_type = self.get_ir_type(signature.result[0])
+            ppci_function = self.builder.new_function(name, binding, ret_type)
+        else:
+            ppci_function = self.builder.new_procedure(name, binding)
+
+        self.functions.append((ppci_function, signature))
+        self.gen_functions.append((ppci_function, signature, definition))
+
+    def gen_table_definition(self, definition):
+        assert definition.id in (0, "$0")
+        if definition.kind != "anyfunc":
+            raise NotImplementedError("Non function pointer tables")
+
+        if definition.max is not None:
+            max_size = max(definition.min, definition.max)
+        else:
+            max_size = definition.min
+
+        size = max_size * self.ptr_info.size
+        assert size >= 0
+        if size == 0:
+            # TODO: is this a hack?
+            # What does it mean to have a table with no entries?
+            # Reserve at least a single memory location.
+            size = self.ptr_info.size
+
+        self.table_var = ir.Variable(
+            "func_table", ir.Binding.GLOBAL, size, self.ptr_info.alignment,
+        )
+        self.builder.module.add_variable(self.table_var)
+        self.tables.append((self.table_var, []))
+
+    def gen_elem_definition(self, definition):
+        offset = definition.offset
+        # TODO: what to do when offset is non-negative?
+        # assert offset == 0
+        refs = definition.refs
+        self.tables[0][1].append((offset, refs))
+
+    def gen_global_definition(self, definition):
+        """ Generate room for a global variable. """
+        ir_typ = self.get_ir_type(definition.typ)
+        fmts = {ir.i32: "<i", ir.i64: "<q", ir.f32: "f", ir.f64: "d"}
+        fmt = fmts[ir_typ]
+        size = struct.calcsize(fmt)
+        # assume init is (f64.const xx):
+        # value = struct.pack(fmt, definition.init.args[0])
+        name = "global_{}".format(str(definition.id).replace("$", "_"))
+        binding = ir.Binding.GLOBAL
+        g2 = ir.Variable(name, binding, size, size)
+        self.builder.module.add_variable(g2)
+        self.globalz.append((ir_typ, g2))
+        self.global_inits.append((g2, definition.init))
+
+        # Enter correct debug info:
+        dbg_typ = self.get_debug_type(definition.typ)
+        db_variable_info = debuginfo.DebugVariable(
+            g2.name, dbg_typ, common.SourceLocation("main.wasm", 1, 1, 1),
+        )
+        self.debug_db.enter(g2, db_variable_info)
+
+    def gen_memory_definition(self, definition):
+        # Create a global pointer to the memory base address:
+        assert self.memory_base_address is None
+        self.memory_base_address = ir.Variable(
+            "wasm_mem0_address",
+            ir.Binding.GLOBAL,
+            self.ptr_info.size,
+            self.ptr_info.alignment,
+        )
+        self.builder.module.add_variable(self.memory_base_address)
+
+    def gen_init_procedure(self):
         """ Generate an initialization procedure.
 
         - Initializes eventual function tables.
@@ -326,13 +349,13 @@ class WasmToIrCompiler:
         # Initialize global values:
         # (This must be done here, since initial values may contain
         # imported globals)
-        for g2, init in global_inits:
+        for g2, init in self.global_inits:
             value = self.gen_expression(init)
             self.emit(ir.Store(value, g2))
 
         # Fill function pointer tables:
         # TODO: we might be able to do this at link time?
-        for table_variable, elems in tables:
+        for table_variable, elems in self.tables:
             # TODO: what if alignment is bigger than size?
             assert self.ptr_info.size == self.ptr_info.alignment
             ptr_size = self.emit(
@@ -362,9 +385,9 @@ class WasmToIrCompiler:
                         ir.add(address, ptr_size, "table_address", ir.ptr)
                     )
 
-        # Call eventual start function:
-        if start_function_ref is not None:
-            target, _ = self.functions[start_function_ref.index]
+        # Call optional start function:
+        if self.start_function_ref is not None:
+            target, _ = self.functions[self.start_function_ref.index]
             self.emit(ir.ProcedureCall(target, []))
 
         self.emit(ir.Exit())
@@ -495,16 +518,16 @@ class WasmToIrCompiler:
 
         # Create an implicit top level block:
         if isinstance(ppci_function, ir.Procedure):
-            final_phi = None
+            final_phis = []
         else:
-            final_phi = ir.Phi("function_result", ppci_function.return_ty)
-            self.logger.debug("Created phi %s", final_phi)
+            final_phis = [ir.Phi("function_result", ppci_function.return_ty)]
+            self.logger.debug("Created phi %s", final_phis)
         body_block = self.new_block()
         final_block = self.new_block()
         self.emit(ir.Jump(body_block))
         self.builder.set_block(body_block)
         self.block_stack.append(
-            BlockLevel("block", final_block, body_block, final_phi, 0)
+            BlockLevel("block", final_block, body_block, final_phis, 0)
         )
 
         # Generate code for each instruction:
@@ -521,9 +544,7 @@ class WasmToIrCompiler:
             self.generate_instruction(instruction)
 
         # Close of function:
-        if final_phi:
-            # print(self.stack)
-            self.fill_phi(final_phi)
+        self.fill_phis(final_phis)
 
         self.block_stack.pop()
         assert not self.block_stack
@@ -534,7 +555,11 @@ class WasmToIrCompiler:
         if isinstance(ppci_function, ir.Procedure):
             self.emit(ir.Exit())
         else:
+            assert len(final_phis) > 0
+            final_phi = final_phis[0]
             self.emit(final_phi)
+            # TODO: multiple return values!
+            assert len(final_phis) < 2
             self.emit(ir.Return(final_phi))
 
         # Sometimes this assert throws:
@@ -572,14 +597,20 @@ class WasmToIrCompiler:
             self.logger.debug("Created phi %s", phi)
         return phi
 
-    def fill_phi(self, phi):
-        """ Fill phi with current stack value, if phi is needed """
-        if phi and self.is_reachable:
-            self.logger.debug("Filling phi %s", phi)
-            value = self.pop_value(ir_typ=phi.ty)
-            assert self.builder.block is not None
-            phi.set_incoming(self.builder.block, value)
-            self.push_value(value)
+    def fill_phis(self, phis):
+        """ Fill phis with current stack top. """
+        if phis and self.is_reachable:
+            values = []
+            for phi in phis:
+                self.logger.debug("Filling phi %s", phi)
+                value = self.pop_value(ir_typ=phi.ty)
+                assert self.builder.block is not None
+                phi.set_incoming(self.builder.block, value)
+                values.append(value)
+
+            # Restore the stack:
+            for value in values:
+                self.push_value(value)
 
     def pop_condition(self):
         """ Get comparison, a and b of the value stack """
@@ -642,105 +673,91 @@ class WasmToIrCompiler:
 
     def generate_instruction(self, instruction):
         """ Generate ir-code for a single wasm instruction """
-        inst = instruction.opcode
+        opcode = instruction.opcode
 
         # IMPORTANT: handle block instructions first
         # Then check if we are in unreachable code, and do not generate
         # instructions in the unreachable space:
-        if inst == "block":
+        if opcode == "block":
             self.gen_block(instruction)
 
-        elif inst == "loop":
+        elif opcode == "loop":
             self.gen_loop(instruction)
 
-        elif inst == "if":
+        elif opcode == "if":
             self.gen_if(instruction)
 
-        elif inst == "else":
+        elif opcode == "else":
             self.gen_else()
 
-        elif inst == "end":
+        elif opcode == "end":
             self.gen_end()
 
         elif not self.is_reachable:
             # This is a guarding condition for the other instructions
             pass
 
-        elif inst in BINOPS:
+        elif opcode in BINOPS:
             self.gen_binop(instruction)
 
-        elif inst in CMPOPS:
+        elif opcode in CMPOPS:
             self.gen_cmpop(instruction)
 
-        elif inst in STORE_OPS:
+        elif opcode in STORE_OPS:
             self.gen_store(instruction)
 
-        elif inst in LOAD_OPS:
+        elif opcode in LOAD_OPS:
             self.gen_load(instruction)
 
-        elif inst in {
-            "i32.wrap/i64",
-            "i64.extend_s/i32",
-            "i64.extend_u/i32",
-            "f64.convert_s/i32",
-            "f64.convert_u/i32",
-            "f64.convert_s/i64",
-            "f64.convert_u/i64",
-            "f32.convert_s/i32",
-            "f32.convert_u/i32",
-            "f32.convert_s/i64",
-            "f32.convert_u/i64",
+        elif opcode in {
+            "i32.wrap_i64",
+            "i64.extend_i32_s",
+            "i64.extend_i32_u",
+            "f64.convert_i32_s",
+            "f64.convert_i32_u",
+            "f64.convert_i64_s",
+            "f64.convert_i64_u",
+            "f32.convert_i32_s",
+            "f32.convert_i32_u",
+            "f32.convert_i64_s",
+            "f32.convert_i64_u",
         }:
-            from_ir_typ = self.get_ir_type(inst.split("/")[1])
-            ir_typ = self.get_ir_type(inst.split(".")[0])
+            from_typ = opcode.split("_")[1]
+            from_ir_typ = self.get_ir_type(from_typ)
+            ir_typ = self.get_ir_type(opcode.split(".")[0])
             value = self.pop_value(ir_typ=from_ir_typ)
-            if "_u" in inst:
+            if "_u" in opcode:
                 # First cast to unsigned value:
-                mp = {"_u/i32": ir.u32, "_u/i64": ir.u64}
-                unsigned_ir_typ = mp[inst[-6:]]
+                mp = {"i32": ir.u32, "i64": ir.u64}
+                unsigned_ir_typ = mp[from_typ]
                 value = self.emit(ir.Cast(value, "unsigned", unsigned_ir_typ))
             value = self.emit(ir.Cast(value, "cast", ir_typ))
             self.push_value(value)
 
-        elif inst in {
-            "i32.trunc_s/f32",
-            "i32.trunc_u/f32",
-            "i32.trunc_s/f64",
-            "i32.trunc_u/f64",
-            "i64.trunc_s/f32",
-            "i64.trunc_u/f32",
-            "i64.trunc_s/f64",
-            "i64.trunc_u/f64",
+        elif opcode in {
+            "i32.trunc_f32_s",
+            "i32.trunc_f32_u",
+            "i32.trunc_f64_s",
+            "i32.trunc_f64_u",
+            "i64.trunc_f32_s",
+            "i64.trunc_f32_u",
+            "i64.trunc_f64_s",
+            "i64.trunc_f64_u",
         }:
-            # TODO: in theory this should be solvable in ir-code.
-            if True:
-                self._runtime_call(inst)
-            else:
-                from_ir_typ = self.get_ir_type(inst.split("/")[1])
-                ir_typ = self.get_ir_type(inst.split(".")[0])
-                value = self.pop_value(ir_typ=from_ir_typ)
-                if "_u" in inst:
-                    # First cast to unsigned value:
-                    mp = {"i32.trunc_u": ir.u32, "i64.trunc_u": ir.u64}
-                    unsigned_ir_typ = mp[inst.split("/")[0]]
-                    value = self.emit(
-                        ir.Cast(value, "unsigned", unsigned_ir_typ)
-                    )
-                value = self.emit(ir.Cast(value, "cast", ir_typ))
-                self.push_value(value)
+            self.gen_trunc_instruction(instruction)
 
-        elif inst in {"f64.promote/f32", "f32.demote/f64"}:
+        elif opcode in {"f64.promote_f32", "f32.demote_f64"}:
             # TODO: in theory this should be solvable in ir-code.
             if True:
-                self._runtime_call(inst)
+                self._runtime_call(opcode)
             else:
-                from_ir_typ = self.get_ir_type(inst.split("/")[1])
-                ir_typ = self.get_ir_type(inst.split(".")[0])
+                from_ir_typ = self.get_ir_type(opcode.split("_")[1])
+                ir_typ = self.get_ir_type(opcode.split(".")[0])
                 value = self.pop_value(ir_typ=from_ir_typ)
                 value = self.emit(ir.Cast(value, "cast", ir_typ))
                 self.push_value(value)
 
-        elif inst in [
+        elif opcode in [
             "f64.sqrt",
             "f64.abs",
             "f64.ceil",
@@ -757,15 +774,15 @@ class WasmToIrCompiler:
             "f32.min",
             "f32.max",
             "f32.copysign",
-            "f32.reinterpret/i32",
+            "f32.reinterpret_i32",
             "i64.clz",
             "i64.ctz",
             "i64.popcnt",
             "i64.rotl",
             "i64.rotr",
-            "f64.reinterpret/i64",
-            "i64.reinterpret/f64",
-            "i32.reinterpret/f32",
+            "f64.reinterpret_i64",
+            "i64.reinterpret_f64",
+            "i32.reinterpret_f32",
             "i32.clz",
             "i32.ctz",
             "i32.popcnt",
@@ -774,41 +791,32 @@ class WasmToIrCompiler:
             "memory.grow",
             "memory.size",
         ]:
-            self._runtime_call(inst)
+            self._runtime_call(opcode)
 
-        elif inst in {"f64.const", "f32.const", "i64.const", "i32.const"}:
-            value = self.emit(
-                ir.Const(instruction.args[0], "const", self.get_ir_type(inst))
-            )
-            self.push_value(value)
+        elif opcode in {"f64.const", "f32.const", "i64.const", "i32.const"}:
+            self.gen_const(instruction)
 
-        elif inst in ["set_local", "tee_local"]:
+        elif opcode in ["local.set", "local.tee"]:
             ty, local_var = self.locals[instruction.args[0].index]
             value = self.pop_value(ir_typ=ty)
             self.emit(ir.Store(value, local_var))
-            if inst == "tee_local":
+            if opcode == "local.tee":
                 self.push_value(value)
 
-        elif inst == "get_local":
-            ty, local_var = self.locals[instruction.args[0].index]
-            value = self.emit(ir.Load(local_var, "getlocal", ty))
-            self.push_value(value)
+        elif opcode == "local.get":
+            self.gen_local_get(instruction)
 
-        elif inst == "get_global":
-            ty, addr = self.globalz[instruction.args[0].index]
-            value = self.emit(ir.Load(addr, "get_global", ty))
-            self.push_value(value)
+        elif opcode == "global.get":
+            self.gen_global_get(instruction)
 
-        elif inst == "set_global":
-            ty, addr = self.globalz[instruction.args[0].index]
-            value = self.pop_value(ir_typ=ty)
-            self.emit(ir.Store(value, addr))
+        elif opcode == "global.set":
+            self.gen_global_set(instruction)
 
-        elif inst in ["f64.floor", "f32.floor"]:
-            self._runtime_call(inst)
+        elif opcode in ["f64.floor", "f32.floor"]:
+            self._runtime_call(opcode)
 
             # TODO: this does not work for all cases:
-            # ir_typ = self.get_ir_type(inst)
+            # ir_typ = self.get_ir_type(opcode)
             # value = self.pop_value(ir_typ)
             # value = self.emit(ir.Cast(value, 'cast', ir.u64))
             # value = self.emit(ir.Cast(value, 'cast', ir_typ))
@@ -819,51 +827,98 @@ class WasmToIrCompiler:
             #     ir.Unop('floor', self.pop_value(ir_typ), 'floor', ir_typ))
             # self.push_value(value)
 
-        elif inst in ["f64.neg", "f32.neg"]:
-            ir_typ = self.get_ir_type(inst)
-            value = self.emit(
-                ir.Unop("-", self.pop_value(ir_typ), "neg", ir_typ)
-            )
-            self.push_value(value)
+        elif opcode in ["f64.neg", "f32.neg"]:
+            self.gen_neg(instruction)
 
-        elif inst == "br":
-            self.gen_br(instruction)
+        elif opcode == "br":
+            self.gen_br_instruction(instruction)
 
-        elif inst == "br_if":
-            self.gen_br_if(instruction)
+        elif opcode == "br_if":
+            self.gen_br_if_instruction(instruction)
 
-        elif inst == "br_table":
-            self.gen_br_table(instruction)
+        elif opcode == "br_table":
+            self.gen_br_table_instruction(instruction)
 
-        elif inst == "call":
-            self.gen_call(instruction)
+        elif opcode == "call":
+            self.gen_call_instruction(instruction)
 
-        elif inst == "call_indirect":
-            self.gen_call_indirect(instruction)
+        elif opcode == "call_indirect":
+            self.gen_call_indirect_instruction(instruction)
 
-        elif inst == "return":
-            self.gen_return(instruction)
+        elif opcode == "return":
+            self.gen_return_instruction(instruction)
 
-        elif inst == "unreachable":
-            self.gen_unreachable()
+        elif opcode == "unreachable":
+            self.gen_unreachable_instruction()
 
-        elif inst == "select":
-            self.gen_select(instruction)
+        elif opcode == "select":
+            self.gen_select_instruction(instruction)
 
-        elif inst == "drop":
+        elif opcode == "drop":
             # Drop value on the stack
             self.pop_value()
 
-        elif inst == "nop":
+        elif opcode == "nop":
             pass  # Easy money :D
 
         else:  # pragma: no cover
-            raise NotImplementedError(inst)
+            raise NotImplementedError(opcode)
+
+    def gen_trunc_instruction(self, instruction):
+        """ Generate code for iNN.truct_fMM_X.
+
+        For example: i64.trunc_f32_u
+        """
+        # TODO: in theory this should be solvable in ir-code.
+        opcode = instruction.opcode
+        if True:
+            self._runtime_call(opcode)
+        else:
+            from_typ = opcode.split("_")[1]
+            from_ir_typ = self.get_ir_type(from_typ)
+            ir_typ = self.get_ir_type(opcode.split(".")[0])
+            value = self.pop_value(ir_typ=from_ir_typ)
+            if "_u" in opcode:
+                # First cast to unsigned value:
+                mp = {"i32.trunc_u": ir.u32, "i64.trunc_u": ir.u64}
+                unsigned_ir_typ = mp[opcode.split("/")[0]]
+                value = self.emit(ir.Cast(value, "unsigned", unsigned_ir_typ))
+            value = self.emit(ir.Cast(value, "cast", ir_typ))
+            self.push_value(value)
+
+    def gen_const(self, instruction):
+        """ Generate code for i32.const and friends. """
+        opcode = instruction.opcode
+        value = self.emit(
+            ir.Const(instruction.args[0], "const", self.get_ir_type(opcode))
+        )
+        self.push_value(value)
+
+    def gen_local_get(self, instruction):
+        ty, local_var = self.locals[instruction.args[0].index]
+        value = self.emit(ir.Load(local_var, "local_get", ty))
+        self.push_value(value)
+
+    def gen_global_get(self, instruction):
+        ty, addr = self.globalz[instruction.args[0].index]
+        value = self.emit(ir.Load(addr, "global_get", ty))
+        self.push_value(value)
+
+    def gen_global_set(self, instruction):
+        ty, addr = self.globalz[instruction.args[0].index]
+        value = self.pop_value(ir_typ=ty)
+        self.emit(ir.Store(value, addr))
+
+    def gen_neg(self, instruction):
+        """ Generate code for (f32|f64).neg """
+        ir_typ = self.get_ir_type(instruction.opcode)
+        value = self.emit(ir.Unop("-", self.pop_value(ir_typ), "neg", ir_typ))
+        self.push_value(value)
 
     def gen_binop(self, instruction):
         """ Generate code for binary operator """
-        inst = instruction.opcode
-        itype, opname = inst.split(".")
+        opcode = instruction.opcode
+        itype, opname = opcode.split(".")
         op_map = {
             "add": "+",
             "sub": "-",
@@ -899,8 +954,8 @@ class WasmToIrCompiler:
 
     def gen_cmpop(self, instruction):
         """ Generate code for a comparison operation """
-        inst = instruction.opcode
-        itype, opname = inst.split(".")
+        opcode = instruction.opcode
+        itype, opname = opcode.split(".")
         ir_typ = self.get_ir_type(itype)
         if opname in ["eqz"]:
             b = self.emit(ir.Const(0, "zero", ir_typ))
@@ -908,7 +963,7 @@ class WasmToIrCompiler:
         else:
             b = self.pop_value(ir_typ=ir_typ)
             a = self.pop_value(ir_typ=ir_typ)
-        is_unsigned = "_u" in inst
+        is_unsigned = "_u" in opcode
         if is_unsigned:
             # Cast to unsigned
             u_ir_typ = {ir.i32: ir.u32, ir.i64: ir.u64}[ir_typ]
@@ -1024,8 +1079,7 @@ class WasmToIrCompiler:
         code as well.
         """
         block = self.block_stack[-1]
-        if block.phi and self.is_reachable:
-            self.fill_phi(block.phi)
+        self.fill_phis(block.phis)
 
         # The value stack may contain more items, clear them off
         self.block_stack.pop()
@@ -1073,8 +1127,7 @@ class WasmToIrCompiler:
         """ Generate code for else instruction """
         if_block = self.block_stack[-1]
         assert if_block.typ == "if"
-        if if_block.phi:
-            self.fill_phi(if_block.phi)
+        self.fill_phis(if_block.phis)
 
         self.block_stack.pop()
         self.unwind(if_block)
@@ -1096,14 +1149,14 @@ class WasmToIrCompiler:
             )
         )
 
-    def gen_call(self, instruction):
+    def gen_call_instruction(self, instruction):
         """ Generate a function call """
         # Call another function!
         idx = instruction.args[0].index
         ir_function, signature = self.functions[idx]
         self._gen_call_helper(ir_function, signature)
 
-    def gen_call_indirect(self, instruction):
+    def gen_call_indirect_instruction(self, instruction):
         """ Call another function by pointer! """
         type_id = instruction.args[0].index
         signature = self.wasm_types[type_id]
@@ -1149,7 +1202,7 @@ class WasmToIrCompiler:
         else:
             self.emit(ir.ProcedureCall(target, args))
 
-    def gen_select(self, instruction):
+    def gen_select_instruction(self, instruction):
         """ Generate code for the select wasm instruction """
         # This is roughly equivalent to C-style: a ? b : c
         op, a, b = self.pop_condition()
@@ -1173,7 +1226,7 @@ class WasmToIrCompiler:
         self.emit(phi)
         self.push_value(phi)
 
-    def gen_unreachable(self):
+    def gen_unreachable_instruction(self):
         """ Generate appropriate code for an unreachable instruction.
 
         What we will do, is we call an external function to handle this
@@ -1191,24 +1244,24 @@ class WasmToIrCompiler:
             self.emit(ir.Return(v))
         self.builder.set_block(None)
 
-    def gen_return(self, instruction):
+    def gen_return_instruction(self, instruction):
         """ Generate code for return instruction.
 
         Treat return as a break to the top level block.
         """
         targetblock = self.block_stack[0].continue_block
-        self.fill_phi(self.block_stack[0].phi)
+        self.fill_phis(self.block_stack[0].phis)
         self.emit(ir.Jump(targetblock))
         self.builder.set_block(None)
 
-    def gen_br(self, instruction):
+    def gen_br_instruction(self, instruction):
         """ Generate code for br instruction """
         depth = instruction.args[0]
         targetblock = self.do_jump(depth)
         self.emit(ir.Jump(targetblock))
         self.builder.set_block(None)
 
-    def gen_br_if(self, instruction):
+    def gen_br_if_instruction(self, instruction):
         """ Generate code for br_if instruction """
         op, a, b = self.pop_condition()
         depth = instruction.args[0]
@@ -1229,11 +1282,11 @@ class WasmToIrCompiler:
             # assert not block.phi
             targetblock = block.inner_block
         else:
-            self.fill_phi(block.phi)
+            self.fill_phis(block.phis)
             targetblock = block.continue_block
         return targetblock
 
-    def gen_br_table(self, instruction):
+    def gen_br_table_instruction(self, instruction):
         """ Generate code for br_table instruction.
         This is a sort of switch case.
 
@@ -1264,16 +1317,16 @@ class WasmToIrCompiler:
         self.emit(ir.Jump(default_block))
         self.builder.set_block(None)
 
-    def _runtime_call(self, inst):
+    def _runtime_call(self, opcode):
         """ Generate runtime function call.
 
         This is required for functions such 'sqrt' as which do not have
         a reasonable ppci ir-code equivalent.
         """
-        rt_func_name = "wasm_rt_" + sanitize_name(inst)
+        rt_func_name = "wasm_rt_" + sanitize_name(opcode)
 
         # Determine argument and return types:
-        stack_in, stack_out = STACK_IO[inst]
+        stack_in, stack_out = STACK_IO[opcode]
         arg_types = [self.get_ir_type(t) for t in stack_in]
         if stack_out:
             assert len(stack_out) == 1
@@ -1308,9 +1361,9 @@ class WasmToIrCompiler:
 
 
 class BlockLevel:
-    def __init__(self, typ, continue_block, inner_block, phi, stack_start):
+    def __init__(self, typ, continue_block, inner_block, phis, stack_start):
         self.typ = typ
         self.continue_block = continue_block
         self.inner_block = inner_block
-        self.phi = phi
+        self.phis = phis
         self.stack_start = stack_start

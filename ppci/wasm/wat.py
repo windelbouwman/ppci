@@ -97,8 +97,9 @@ class WatTupleLoader(TupleParser):
                 self.load_start()
             elif kind == "table":
                 self.load_table()
-            else:
+            else:  # pragma: no cover
                 raise NotImplementedError(kind)
+            self.expect(Token.RPAR)
 
         self.expect(Token.RPAR)
         self.expect(Token.EOF)
@@ -127,7 +128,6 @@ class WatTupleLoader(TupleParser):
             # Fill map with local id's:
             type_idx = func.ref.resolve(self.id_maps)
             func_type = self.definitions["type"][type_idx]
-            # print(func_type)
             self.id_maps["local"] = dict(
                 (param[0], i) for i, param in enumerate(func_type.params)
             )
@@ -146,11 +146,9 @@ class WatTupleLoader(TupleParser):
         for name in components.SECTION_IDS:
             for definition in self.definitions[name]:
                 definitions.append(definition)
-        # print(definitions)
         return definitions
 
     def add_definition(self, definition):
-        # print(definition.to_string())
         logger.debug("Parsed %s", definition)
         space = definition.__name__
         self.definitions[space].append(definition)
@@ -164,7 +162,7 @@ class WatTupleLoader(TupleParser):
         id = self._parse_optional_id(default=self.gen_id("type"))
         self.expect(Token.LPAR, "func")
         params, results = self._parse_function_signature()
-        self.expect(Token.RPAR, Token.RPAR)
+        self.expect(Token.RPAR)
         # Note cannot reuse type here unless we remap the id whereever
         # it is used
         self.add_definition(components.Type(id, params, results))
@@ -217,11 +215,16 @@ class WatTupleLoader(TupleParser):
         return ref
 
     def _parse_function_signature(self):
+        """ Parse a function signature.
+
+        For example: (param f64 i32) (result i64 f32 f32)
+        """
         params = self._parse_param_list()
         results = self._parse_result_list()
         return params, results
 
     def _parse_param_list(self):
+        """ Parse (param i32 i32) and friends. """
         return self._parse_type_bound_value_list("param")
 
     def _parse_type_bound_value_list(self, kind):
@@ -282,7 +285,7 @@ class WatTupleLoader(TupleParser):
         else:  # pragma: no cover
             raise NotImplementedError(kind)
 
-        self.expect(Token.RPAR, Token.RPAR)
+        self.expect(Token.RPAR)
         self.add_definition(components.Import(modname, name, kind, id, info))
 
     def load_export(self):
@@ -291,13 +294,12 @@ class WatTupleLoader(TupleParser):
         self.expect(Token.LPAR)
         kind = self.take()
         ref = self._parse_ref(kind)
-        self.expect(Token.RPAR, Token.RPAR)
+        self.expect(Token.RPAR)
         self.add_definition(components.Export(name, kind, ref))
 
     def load_start(self):
         """ Parse a toplevel start """
         name = self._parse_ref("func")
-        self.expect(Token.RPAR)
         self.add_definition(components.Start(name))
 
     def load_table(self):
@@ -308,7 +310,6 @@ class WatTupleLoader(TupleParser):
             modname, name = self._parse_inline_import()
             min, max = self.parse_limits()
             kind = self.take()
-            self.expect(Token.RPAR)
             info = (kind, min, max)
             self.add_definition(
                 components.Import(modname, name, "table", id, info)
@@ -317,7 +318,6 @@ class WatTupleLoader(TupleParser):
             # We have embedded data
             self.expect(Token.LPAR, "elem")
             refs = self.parse_ref_list()
-            self.expect(Token.RPAR)
             self.expect(Token.RPAR)
             offset = [components.Instruction("i32.const", 0)]
             min = max = len(refs)
@@ -328,7 +328,6 @@ class WatTupleLoader(TupleParser):
             min, max = self.parse_limits()
             kind = self.take()
             assert kind == "anyfunc"
-            self.expect(Token.RPAR)
             self.add_definition(components.Table(id, kind, min, max))
 
     def load_elem(self):
@@ -338,7 +337,6 @@ class WatTupleLoader(TupleParser):
         refs = self.parse_ref_list()
         while self._at_id():
             refs.append(self.take())
-        self.expect(Token.RPAR)
         self.add_definition(components.Elem(ref, offset, refs))
 
     def parse_ref_list(self):
@@ -378,14 +376,12 @@ class WatTupleLoader(TupleParser):
         if self.match(Token.LPAR, "import"):  # handle inline imports
             modname, name = self._parse_inline_import()
             min, max = self.parse_limits()
-            self.expect(Token.RPAR)
             info = (min, max)
             self.add_definition(
                 components.Import(modname, name, "memory", id, info)
             )
         elif self.munch(Token.LPAR, "data"):  # Inline data
             data = self.parse_data_blobs()
-            self.expect(Token.RPAR)
             self.expect(Token.RPAR)
             max = round_up(len(data), PAGE_SIZE) // PAGE_SIZE
             assert len(data) <= max * PAGE_SIZE, "TODO: round upward"
@@ -396,7 +392,6 @@ class WatTupleLoader(TupleParser):
             self.add_definition(components.Data(memory_ref, offset, data))
         else:
             min, max = self.parse_limits()
-            self.expect(Token.RPAR)
             self.add_definition(components.Memory(id, min, max))
 
     def parse_limits(self):
@@ -429,14 +424,12 @@ class WatTupleLoader(TupleParser):
             modname, name = self._parse_inline_import()
             typ, mutable = self.parse_global_type()
             info = (typ, mutable)
-            self.expect(Token.RPAR)
             self.add_definition(
                 components.Import(modname, name, "global", id, info)
             )
         else:
             typ, mutable = self.parse_global_type()
             init = self._load_instruction_list()
-            self.expect(Token.RPAR)
             self.add_definition(components.Global(id, typ, mutable, init))
 
     def load_data(self):
@@ -444,7 +437,6 @@ class WatTupleLoader(TupleParser):
         ref = self._parse_optional_ref("memory", default=0)
         offset = self.parse_offset_expression()
         data = self.parse_data_blobs()
-        self.expect(Token.RPAR)
         self.add_definition(components.Data(ref, offset, data))
 
     def parse_data_blobs(self):
@@ -473,7 +465,6 @@ class WatTupleLoader(TupleParser):
             ref = self._parse_type_use()
             # TODO: wtf, parse types twice? why?
             params, results = self._parse_function_signature()
-            self.expect(Token.RPAR)
             info = (ref,)
             self.add_definition(
                 components.Import(modname, name, "func", id, info)
@@ -488,9 +479,6 @@ class WatTupleLoader(TupleParser):
             self.block_stack = []
             instructions = self._load_instruction_list()
             assert not self.block_stack
-            # for i in instructions:
-            #    print(i.to_string())
-            self.expect(Token.RPAR)
             self.add_definition(components.Func(id, ref, localz, instructions))
 
     def _parse_locals(self):
@@ -501,7 +489,6 @@ class WatTupleLoader(TupleParser):
         instructions = []
         while self.at_instruction():
             instructions.extend(self._load_instruction())
-        # print(instructions)
         return instructions
 
     def _load_instruction(self):
@@ -515,22 +502,16 @@ class WatTupleLoader(TupleParser):
         if opcode in ("block", "loop", "if"):
             block_id = self._parse_optional_id()
             self.block_stack.append(block_id)
-            # Result type:
-            if self.munch(Token.LPAR, "result"):
-                result = self.take()
-                self.expect(Token.RPAR)
-            elif self.munch("emptyblock"):
-                # TODO: is this legit?
-                result = "emptyblock"
-            else:
-                result = "emptyblock"
+            block_type = self._load_block_type()
 
             if is_braced:
                 if opcode == "if":
                     # Maybe we have a then instruction?
                     if self.munch(Token.RPAR):
                         instructions.append(
-                            components.BlockInstruction("if", block_id, result)
+                            components.BlockInstruction(
+                                "if", block_id, block_type
+                            )
                         )
                     else:
                         # Nested stuff
@@ -539,12 +520,12 @@ class WatTupleLoader(TupleParser):
                             instructions.extend(self._load_instruction())
 
                         instructions.append(
-                            components.BlockInstruction("if", block_id, result)
+                            components.BlockInstruction(
+                                "if", block_id, block_type
+                            )
                         )
 
-                        if self.munch(Token.RPAR):
-                            pass
-                        else:
+                        if not self.munch(Token.RPAR):
                             # Optionally a nested then:
                             if self.munch(Token.LPAR, "then"):
                                 body = self._load_instruction_list()
@@ -561,11 +542,12 @@ class WatTupleLoader(TupleParser):
                             instructions.append(components.Instruction("end"))
                 else:
                     instructions.append(
-                        components.BlockInstruction(opcode, block_id, result)
+                        components.BlockInstruction(
+                            opcode, block_id, block_type
+                        )
                     )
-                    if self.munch(Token.RPAR):
-                        pass
-                    else:  # Nested instructions
+                    if not self.munch(Token.RPAR):
+                        # Nested instructions
                         body = self._load_instruction_list()
                         self.expect(Token.RPAR)
                         instructions.extend(body)
@@ -575,7 +557,7 @@ class WatTupleLoader(TupleParser):
                     instructions.append(components.Instruction("end"))
             else:
                 instructions.append(
-                    components.BlockInstruction(opcode, block_id, result)
+                    components.BlockInstruction(opcode, block_id, block_type)
                 )
 
         elif opcode in ("else",):
@@ -595,78 +577,7 @@ class WatTupleLoader(TupleParser):
                 self.expect(Token.RPAR)
             instructions.append(components.Instruction(opcode))
         else:
-            # Process any special case arguments:
-            if ".load" in opcode or ".store" in opcode:
-                args = []
-                while isinstance(self._lookahead(1)[0], str):
-                    args.append(self.take())
-            elif opcode == "call_indirect":
-                type_ref = self._parse_type_use()
-                table_ref = components.Ref("table", index=0)
-                args = (type_ref, table_ref)
-                # TODO: wtf, parse types twice? why?
-                params, results = self._parse_function_signature()
-                # print(params, results)
-                # TODO: compare unbound func signature with type?
-            elif opcode in ("memory.grow", "memory.size"):
-                # Simply take all arguments possible:
-                args = []
-                while isinstance(self._lookahead(1)[0], (int, str)):
-                    args.append(self.take())
-            else:
-                operands = OPERANDS[opcode]
-
-                args = []
-                for op in operands:
-                    assert not self.match(Token.LPAR)
-                    if op == "br_table":
-                        # Take all ints and strings as jump labels:
-                        targets = []
-                        while isinstance(self._lookahead(1)[0], (int, str)):
-                            targets.append(self.get_ref("label", self.take()))
-                        arg = targets
-                    elif op == ArgType.LABELIDX:
-                        kind = "label"
-                        arg = self.take()
-                        arg = self.get_ref(kind, arg)
-                    elif op == ArgType.LOCALIDX:
-                        kind = "local"
-                        arg = self.take()
-                        arg = self.get_ref(kind, arg)
-                    elif op == ArgType.GLOBALIDX:
-                        kind = "global"
-                        arg = self.take()
-                        arg = self.get_ref(kind, arg)
-                    elif op == ArgType.FUNCIDX:
-                        kind = "func"
-                        arg = self.take()
-                        arg = self.get_ref(kind, arg)
-                    elif op == ArgType.TYPEIDX:
-                        kind = "type"
-                        arg = self.take()
-                        arg = self.get_ref(kind, arg)
-                    elif op == ArgType.TABLEIDX:
-                        kind = "table"
-                        arg = self.take()
-                        arg = self.get_ref(kind, arg)
-                    elif op == ArgType.I32:
-                        arg = make_int(self.take(), bits=32)
-                    elif op == ArgType.I64:
-                        arg = make_int(self.take(), bits=64)
-                    elif op == ArgType.F32:
-                        arg = make_float(self.take())
-                    elif op == ArgType.F64:
-                        arg = make_float(self.take())
-                    elif op == ArgType.U32:
-                        arg = self.take()
-                    elif op.endswith("idx"):
-                        kind = op[:-3]
-                        arg = self.take()
-                        arg = self.get_ref(kind, arg)
-                    else:
-                        arg = self.take()
-
-                    args.append(arg)
+            args = self._gather_opcode_arguments(opcode)
 
             # Nested instruction!
             if is_braced:
@@ -677,6 +588,93 @@ class WatTupleLoader(TupleParser):
             i = components.Instruction(opcode, *args)
             instructions.append(i)
         return instructions
+
+    def _load_block_type(self):
+        # Result type:
+        if self.munch(Token.LPAR, "result"):
+            result = self.take()
+            self.expect(Token.RPAR)
+        elif self.munch("emptyblock"):
+            # TODO: is this legit?
+            result = "emptyblock"
+        else:
+            result = "emptyblock"
+        return result
+
+    def _gather_opcode_arguments(self, opcode):
+        """ Gather the arguments to a specific opcode. """
+        # Process any special case arguments:
+        if ".load" in opcode or ".store" in opcode:
+            args = []
+            while isinstance(self._lookahead(1)[0], str):
+                args.append(self.take())
+        elif opcode == "call_indirect":
+            type_ref = self._parse_type_use()
+            table_ref = components.Ref("table", index=0)
+            args = (type_ref, table_ref)
+            # TODO: wtf, parse types twice? why?
+            params, results = self._parse_function_signature()
+            # TODO: compare unbound func signature with type?
+        elif opcode in ("memory.grow", "memory.size"):
+            # Simply take all arguments possible:
+            args = []
+            while isinstance(self._lookahead(1)[0], (int, str)):
+                args.append(self.take())
+        else:
+            operands = OPERANDS[opcode]
+
+            args = []
+            for op in operands:
+                assert not self.match(Token.LPAR)
+                if op == "br_table":
+                    # Take all ints and strings as jump labels:
+                    targets = []
+                    while isinstance(self._lookahead(1)[0], (int, str)):
+                        targets.append(self.get_ref("label", self.take()))
+                    arg = targets
+                elif op == ArgType.LABELIDX:
+                    kind = "label"
+                    arg = self.take()
+                    arg = self.get_ref(kind, arg)
+                elif op == ArgType.LOCALIDX:
+                    kind = "local"
+                    arg = self.take()
+                    arg = self.get_ref(kind, arg)
+                elif op == ArgType.GLOBALIDX:
+                    kind = "global"
+                    arg = self.take()
+                    arg = self.get_ref(kind, arg)
+                elif op == ArgType.FUNCIDX:
+                    kind = "func"
+                    arg = self.take()
+                    arg = self.get_ref(kind, arg)
+                elif op == ArgType.TYPEIDX:
+                    kind = "type"
+                    arg = self.take()
+                    arg = self.get_ref(kind, arg)
+                elif op == ArgType.TABLEIDX:
+                    kind = "table"
+                    arg = self.take()
+                    arg = self.get_ref(kind, arg)
+                elif op == ArgType.I32:
+                    arg = make_int(self.take(), bits=32)
+                elif op == ArgType.I64:
+                    arg = make_int(self.take(), bits=64)
+                elif op == ArgType.F32:
+                    arg = make_float(self.take())
+                elif op == ArgType.F64:
+                    arg = make_float(self.take())
+                elif op == ArgType.U32:
+                    arg = self.take()
+                elif op.endswith("idx"):
+                    kind = op[:-3]
+                    arg = self.take()
+                    arg = self.get_ref(kind, arg)
+                else:
+                    arg = self.take()
+
+                args.append(arg)
+        return args
 
     # Inline stuff:
     def _parse_inline_import(self):

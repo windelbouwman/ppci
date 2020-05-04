@@ -73,35 +73,35 @@ def i64_popcnt(v: ir.i64) -> ir.i64:
 
 
 # Conversions:
-def i32_trunc_s_f32(v: ir.f32) -> ir.i32:
+def i32_trunc_f32_s(v: ir.f32) -> ir.i32:
     return int(v)
 
 
-def i32_trunc_u_f32(v: ir.f32) -> ir.i32:
+def i32_trunc_f32_u(v: ir.f32) -> ir.i32:
     return make_int(v, 32)
 
 
-def i32_trunc_s_f64(v: ir.f64) -> ir.i32:
+def i32_trunc_f64_s(v: ir.f64) -> ir.i32:
     return int(v)
 
 
-def i32_trunc_u_f64(v: ir.f64) -> ir.i32:
+def i32_trunc_f64_u(v: ir.f64) -> ir.i32:
     return make_int(v, 32)
 
 
-def i64_trunc_s_f32(v: ir.f32) -> ir.i64:
+def i64_trunc_f32_s(v: ir.f32) -> ir.i64:
     return int(v)
 
 
-def i64_trunc_u_f32(v: ir.f32) -> ir.i64:
+def i64_trunc_f32_u(v: ir.f32) -> ir.i64:
     return make_int(v, 64)
 
 
-def i64_trunc_s_f64(v: ir.f64) -> ir.i64:
+def i64_trunc_f64_s(v: ir.f64) -> ir.i64:
     return int(v)
 
 
-def i64_trunc_u_f64(v: ir.f64) -> ir.i64:
+def i64_trunc_f64_u(v: ir.f64) -> ir.i64:
     return make_int(v, 64)
 
 
@@ -210,7 +210,6 @@ def create_runtime():
     be code generated directly or are too complex.
     """
 
-    # TODO: merge with opcode table?
     runtime = {
         "f32_sqrt": f32_sqrt,
         "f64_sqrt": f64_sqrt,
@@ -224,14 +223,14 @@ def create_runtime():
         "i64_ctz": i64_ctz,
         "i32_popcnt": i32_popcnt,
         "i64_popcnt": i64_popcnt,
-        "i32_trunc_s_f32": i32_trunc_s_f32,
-        "i32_trunc_u_f32": i32_trunc_u_f32,
-        "i32_trunc_s_f64": i32_trunc_s_f64,
-        "i32_trunc_u_f64": i32_trunc_u_f64,
-        "i64_trunc_s_f32": i64_trunc_s_f32,
-        "i64_trunc_u_f32": i64_trunc_u_f32,
-        "i64_trunc_s_f64": i64_trunc_s_f64,
-        "i64_trunc_u_f64": i64_trunc_u_f64,
+        "i32_trunc_f32_s": i32_trunc_f32_s,
+        "i32_trunc_f32_u": i32_trunc_f32_u,
+        "i32_trunc_f64_s": i32_trunc_f64_s,
+        "i32_trunc_f64_u": i32_trunc_f64_u,
+        "i64_trunc_f32_s": i64_trunc_f32_s,
+        "i64_trunc_f32_u": i64_trunc_f32_u,
+        "i64_trunc_f64_s": i64_trunc_f64_s,
+        "i64_trunc_f64_u": i64_trunc_f64_u,
         "f64_promote_f32": f64_promote_f32,
         "f32_demote_f64": f32_demote_f64,
         "f64_reinterpret_i64": f64_reinterpret_i64,

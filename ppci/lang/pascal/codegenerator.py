@@ -180,6 +180,8 @@ class CodeGenerator:
             # Void type
             dbg_typ = debuginfo.DebugBaseType("void", 0, 1)
             self.debug_db.enter(typ, dbg_typ)
+        elif isinstance(typ, types.EnumType):
+            dbg_typ = self.get_debug_type(self.context.get_type("integer"))
         elif isinstance(typ, types.PointerType):
             ptype = self.get_debug_type(typ.ptype)
             dbg_typ = debuginfo.DebugPointerType(ptype)
