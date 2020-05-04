@@ -590,16 +590,22 @@ class WatTupleLoader(TupleParser):
         return instructions
 
     def _load_block_type(self):
-        # Result type:
-        if self.munch(Token.LPAR, "result"):
-            result = self.take()
-            self.expect(Token.RPAR)
-        elif self.munch("emptyblock"):
+        """ Get the block type. """
+        if self.munch("emptyblock"):
             # TODO: is this legit?
-            result = "emptyblock"
+            block_type = "emptyblock"
         else:
-            result = "emptyblock"
-        return result
+            params, results = self._parse_function_signature()
+            if len(params) == 0 and len(results) == 1:
+                # single result special case
+                block_type = results[0]
+            elif len(params) == 0 and len(results) == 0:
+                block_type = "emptyblock"
+            else:
+                # Create type ID
+                ref = self._add_or_reuse_type_definition(params, results)
+                block_type = ref
+        return block_type
 
     def _gather_opcode_arguments(self, opcode):
         """ Gather the arguments to a specific opcode. """

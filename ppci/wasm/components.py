@@ -499,7 +499,7 @@ class Module(WASMComponent):
             if c.kind == "func":
                 sig = types[c.info[0].index]
                 params_s = ", ".join([p[1] for p in sig.params])
-                result_s = ", ".join([r for r in sig.result])
+                result_s = ", ".join([r for r in sig.results])
                 print(
                     "  {}.{}:".format(c.modname, c.name).ljust(20),
                     "[{}] -> [{}]".format(params_s, result_s),
@@ -513,7 +513,7 @@ class Module(WASMComponent):
                 func = functions[c.ref.index - n_func_imports]
                 sig = types[func.ref.index]
                 params_s = ", ".join([p[1] for p in sig.params])
-                result_s = ", ".join([r for r in sig.result])
+                result_s = ", ".join([r for r in sig.results])
                 print(
                     "  {}:".format(c.name).ljust(20),
                     "[{}] -> [{}]".format(params_s, result_s),
@@ -698,7 +698,10 @@ class BlockInstruction(Instruction):
     def to_string(self):
         idtext = "" if self.id is None else " " + self.id
         a0 = self.args[0]
-        subtext = "" if a0 == "emptyblock" else " (result " + str(a0) + ")"
+        if a0 == 'emptyblock':
+            subtext = ''
+        else:
+            subtext = " (result {})".format(a0)
         return "(" + self.opcode + idtext + subtext + ")"
 
 
@@ -744,18 +747,17 @@ class Type(Definition):
 
     """
 
-    __slots__ = ("id", "params", "result")
+    __slots__ = ("id", "params", "results")
 
-    def _from_args(self, id, params, result):
+    def _from_args(self, id, params, results):
         assert isinstance(id, (int, str))
         assert isinstance(params, (tuple, list))
-        assert isinstance(result, (tuple, list))
+        assert isinstance(results, (tuple, list))
         assert all(isinstance(el, tuple) and len(el) == 2 for el in params)
-        assert all(isinstance(el, str) for el in result)
+        assert all(isinstance(el, str) for el in results)
         self.id = check_id(id)
         self.params = tuple(params)
-        self.result = tuple(result)
-        assert len(self.result) <= 1  # for now
+        self.results = tuple(results)
 
     def to_string(self):
         s = "(type %s (func" % self.id
@@ -774,8 +776,8 @@ class Type(Definition):
                 s += " (param %s %s)" % (id, typ)
                 last_anon = False
         s += ")" if last_anon else ""
-        if self.result:
-            s += " (result " + " ".join(self.result) + ")"
+        if self.results:
+            s += " (result " + " ".join(self.results) + ")"
         return s + "))"
 
     def _to_writer(self, f):
@@ -783,8 +785,8 @@ class Type(Definition):
         f.write_vu32(len(self.params))  # params
         for _, paramtype in self.params:
             f.write_type(paramtype)
-        f.write_vu1(len(self.result))  # returns
-        for rettype in self.result:
+        f.write_vu1(len(self.results))  # returns
+        for rettype in self.results:
             f.write_type(rettype)
 
     def _from_reader(self, reader):
@@ -793,7 +795,7 @@ class Type(Definition):
         num_params = reader.read_uint()
         self.params = [(i, reader.read_type()) for i in range(num_params)]
         num_returns = reader.read_uint()
-        self.result = [reader.read_type() for _ in range(num_returns)]
+        self.results = [reader.read_type() for _ in range(num_returns)]
 
 
 class Import(Definition):

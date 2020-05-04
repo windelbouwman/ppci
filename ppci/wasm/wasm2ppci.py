@@ -172,17 +172,18 @@ class WasmToIrCompiler:
             name = "{}_{}".format(definition.modname, definition.name)
             arg_types = [self.get_ir_type(p[1]) for p in sig.params]
 
-            if sig.result:
-                if len(sig.result) != 1:
+            if sig.results:
+                if len(sig.results) == 1:
+                    ret_type = self.get_ir_type(sig.results[0])
+                    extern_ir_function = ir.ExternalFunction(
+                        name, arg_types, ret_type
+                    )
+                else:
                     raise ValueError(
                         "Cannot handle {} return values".format(
-                            len(sig.result)
+                            len(sig.results)
                         )
                     )
-                ret_type = self.get_ir_type(sig.result[0])
-                extern_ir_function = ir.ExternalFunction(
-                    name, arg_types, ret_type
-                )
             else:
                 extern_ir_function = ir.ExternalProcedure(name, arg_types)
 
@@ -253,15 +254,14 @@ class WasmToIrCompiler:
 
         # Create ir-function:
         binding = ir.Binding.GLOBAL
-        if signature.result:
-            if len(signature.result) != 1:
-                raise ValueError(
-                    "Cannot handle {} return values".format(
-                        len(signature.result)
-                    )
-                )
-            ret_type = self.get_ir_type(signature.result[0])
-            ppci_function = self.builder.new_function(name, binding, ret_type)
+        if signature.results:
+            if len(signature.results) == 1:
+                ret_type = self.get_ir_type(signature.results[0])
+                ppci_function = self.builder.new_function(name, binding, ret_type)
+            else:
+                # Create a procedure which takes an additional
+                # pointer to a return value data area
+                ppci_function = self.builder.new_procedure(name, binding)
         else:
             ppci_function = self.builder.new_procedure(name, binding)
 
@@ -455,14 +455,8 @@ class WasmToIrCompiler:
 
         # Create correct debug signature for function:
 
-        if signature.result:
-            if len(signature.result) != 1:
-                raise ValueError(
-                    "Cannot handle {} return values".format(
-                        len(signature.result)
-                    )
-                )
-            dbg_return_type = self.get_debug_type(signature.result[0])
+        if signature.results and len(signature.results) == 1:
+            dbg_return_type = self.get_debug_type(signature.results[0])
         else:
             dbg_return_type = self.get_debug_type("void")
         self.builder.set_function(ppci_function)
@@ -473,6 +467,7 @@ class WasmToIrCompiler:
 
         dbg_arg_types = []
         self.locals = []  # todo: ak: why store on self?
+
         # First locals are the function arguments:
         for i, a_typ in enumerate(signature.params):
             ir_typ = self.get_ir_type(a_typ[1])
@@ -490,6 +485,17 @@ class WasmToIrCompiler:
             self.locals.append((ir_typ, addr))
             # Store parameter into local variable:
             self.emit(ir.Store(ir_arg, addr))
+
+        # Insert multiple return values data area pointer:
+        if signature.results and len(signature.results) > 1:
+            multiple_return_data_ptr = ir.Parameter("multiple_return_ptr", ir.ptr)
+            ppci_function.add_parameter(multiple_return_data_ptr)
+            dbg_void_ptr = debuginfo.DebugPointerType(self.get_debug_type('void'))
+            dbg_arg_types.append(
+                debuginfo.DebugParameter(
+                    "multi_return_ptr", dbg_void_ptr
+                )
+            )
 
         # Enter correct debug info:
         db_function_info = debuginfo.DebugFunction(
@@ -517,17 +523,17 @@ class WasmToIrCompiler:
             self.locals.append((ir_typ, addr))
 
         # Create an implicit top level block:
-        if isinstance(ppci_function, ir.Procedure):
-            final_phis = []
-        else:
-            final_phis = [ir.Phi("function_result", ppci_function.return_ty)]
-            self.logger.debug("Created phi %s", final_phis)
+        final_phis = []
+        for i, result in enumerate(signature.results):
+            ir_typ = self.get_ir_type(result)
+            final_phi = ir.Phi("function_result_{}".format(i), ir_typ)
+            final_phis.append(final_phi)
         body_block = self.new_block()
         final_block = self.new_block()
         self.emit(ir.Jump(body_block))
         self.builder.set_block(body_block)
         self.block_stack.append(
-            BlockLevel("block", final_block, body_block, final_phis, 0)
+            BlockLevel("block", final_block, body_block, [], final_phis, 0)
         )
 
         # Generate code for each instruction:
@@ -552,15 +558,31 @@ class WasmToIrCompiler:
         if self.is_reachable:
             self.emit(ir.Jump(final_block))
         self.builder.set_block(final_block)
-        if isinstance(ppci_function, ir.Procedure):
+        if len(final_phis) == 0:
+            assert isinstance(ppci_function, ir.Procedure)
             self.emit(ir.Exit())
-        else:
-            assert len(final_phis) > 0
+        elif len(final_phis) == 1:
+            # Single return value:
+            assert isinstance(ppci_function, ir.Function)
             final_phi = final_phis[0]
             self.emit(final_phi)
-            # TODO: multiple return values!
-            assert len(final_phis) < 2
             self.emit(ir.Return(final_phi))
+        else:
+            # multiple return values!
+            # Store values in memory slab pointer provided by caller.
+            assert len(final_phis) > 1
+            assert isinstance(ppci_function, ir.Procedure)
+
+            # TODO: use 8 as increment, to play safe
+            # but we could be more efficient here.
+            inc = self.emit(ir.Const(8, 'inc', ir.ptr))
+            for final_phi in final_phis:
+                self.emit(final_phi)
+                # Store value:
+                self.emit(ir.Store(final_phi, multiple_return_data_ptr))
+                multiple_return_data_ptr = self.emit(ir.add(multiple_return_data_ptr, inc, 'new_ptr', ir.ptr))
+
+            self.emit(ir.Exit())
 
         # Sometimes this assert throws:
         # TODO: enable the below assert:
@@ -586,31 +608,58 @@ class WasmToIrCompiler:
         lt_s="<",
     )
 
-    def get_phi(self, instruction):
-        """ Get phi function for the given loop/block/if """
-        result_type = instruction.args[0]
-        if result_type == "emptyblock":
-            phi = None
+    def get_phis(self, instruction):
+        """ Get phi instructions for the given loop/block/if. """
+        block_type = instruction.args[0]
+        if block_type == "emptyblock":
+            param_types = []
+            result_types = []
+        elif isinstance(block_type, str):
+            param_types = []
+            result_types = [block_type]
         else:
-            ir_typ = self.get_ir_type(result_type)
-            phi = ir.Phi("block_result", ir_typ)
-            self.logger.debug("Created phi %s", phi)
-        return phi
+            type_id = block_type.index
+            signature = self.wasm_types[type_id]
+            param_types = [p[1] for p in signature.params]
+            result_types = signature.results
+
+        param_phis = [
+            ir.Phi("block_param_{}".format(nr), self.get_ir_type(param_type))
+            for nr, param_type in enumerate(param_types)
+        ]
+
+        result_phis = [
+            ir.Phi("block_result_{}".format(nr), self.get_ir_type(result_type))
+            for nr, result_type in enumerate(result_types)
+        ]
+        return param_phis, result_phis
 
     def fill_phis(self, phis):
         """ Fill phis with current stack top. """
         if phis and self.is_reachable:
+            incoming_block = self.builder.block
+            assert incoming_block is not None
             values = []
-            for phi in phis:
+            for phi in reversed(phis):
                 self.logger.debug("Filling phi %s", phi)
                 value = self.pop_value(ir_typ=phi.ty)
-                assert self.builder.block is not None
-                phi.set_incoming(self.builder.block, value)
+                phi.set_incoming(incoming_block, value)
                 values.append(value)
 
             # Restore the stack:
-            for value in values:
+            for value in reversed(values):
                 self.push_value(value)
+
+    def pop_block(self):
+        """ Pop a control block of the block stack.
+        """
+        block = self.block_stack[-1]
+        self.fill_phis(block.result_phis)
+
+        self.block_stack.pop()
+        # The value stack may contain more items, clear them off
+        self.unwind(block)
+        return block
 
     def pop_condition(self):
         """ Get comparison, a and b of the value stack """
@@ -679,19 +728,19 @@ class WasmToIrCompiler:
         # Then check if we are in unreachable code, and do not generate
         # instructions in the unreachable space:
         if opcode == "block":
-            self.gen_block(instruction)
+            self.gen_block_instruction(instruction)
 
         elif opcode == "loop":
-            self.gen_loop(instruction)
+            self.gen_loop_instruction(instruction)
 
         elif opcode == "if":
-            self.gen_if(instruction)
+            self.gen_if_instruction(instruction)
 
         elif opcode == "else":
-            self.gen_else()
+            self.gen_else_instruction()
 
         elif opcode == "end":
-            self.gen_end()
+            self.gen_end_instruction()
 
         elif not self.is_reachable:
             # This is a guarding condition for the other instructions
@@ -1034,56 +1083,64 @@ class WasmToIrCompiler:
         # the block is empty.. So we have to check for None here:
         return self.builder.block is not None
 
-    def gen_block(self, instruction):
+    def gen_block_instruction(self, instruction):
         """ Generate start of block """
+        stack_start = len(self.stack)
         if self.is_reachable:
             self.logger.debug("start of block")
-            phi = self.get_phi(instruction)
+            param_phis, result_phis = self.get_phis(instruction)
             inner_block = self.new_block()
             continue_block = self.new_block()
+            self.fill_phis(param_phis)
             self.emit(ir.Jump(inner_block))
             self.builder.set_block(inner_block)
+            for phi in param_phis:
+                self.emit(phi)
+                self.push_value(phi)
         else:
             self.logger.debug("start of unreachable block")
-            phi = None
+            param_phis = []
+            result_phis = []
             inner_block = None
             continue_block = None
+
         self.block_stack.append(
             BlockLevel(
-                "block", continue_block, inner_block, phi, len(self.stack)
+                "block", continue_block, inner_block, param_phis, result_phis, stack_start
             )
         )
 
-    def gen_loop(self, instruction):
+    def gen_loop_instruction(self, instruction):
         """ Generate code for a loop start """
+        stack_start = len(self.stack)
         if self.is_reachable:
-            phi = self.get_phi(instruction)
+            param_phis, result_phis = self.get_phis(instruction)
             inner_block = self.new_block()
             continue_block = self.new_block()
+            self.fill_phis(param_phis)
             self.emit(ir.Jump(inner_block))
             self.builder.set_block(inner_block)
+            for phi in param_phis:
+                self.emit(phi)
+                self.push_value(phi)
         else:
-            phi = None
+            param_phis = []
+            result_phis = None
             inner_block = None
             continue_block = None
         self.block_stack.append(
             BlockLevel(
-                "loop", continue_block, inner_block, phi, len(self.stack)
+                "loop", continue_block, inner_block, param_phis, result_phis, stack_start
             )
         )
 
-    def gen_end(self):
+    def gen_end_instruction(self):
         """ Generate code for end instruction.
 
         This is a more or less complex task. It has to deal with unreachable
         code as well.
         """
-        block = self.block_stack[-1]
-        self.fill_phis(block.phis)
-
-        # The value stack may contain more items, clear them off
-        self.block_stack.pop()
-        self.unwind(block)
+        block = self.pop_block()
 
         # If we are not unreachable:
         if self.is_reachable:
@@ -1097,13 +1154,14 @@ class WasmToIrCompiler:
 
         self.builder.set_block(block.continue_block)
 
-        if block.phi:
-            # if we close a block that yields a value introduce a phi
-            self.logger.debug("Put %s on stack", block.phi)
-            self.emit(block.phi)
-            self.push_value(block.phi)
+        # if we close a block that yields values
+        # introduce a phi values for each created value.
+        for phi in block.result_phis:
+            self.logger.debug("Put %s on stack", phi)
+            self.emit(phi)
+            self.push_value(phi)
 
-    def gen_if(self, instruction):
+    def gen_if_instruction(self, instruction):
         """ Generate code for an if start """
         if self.is_reachable:
             # todo: we assume that the test is a comparison
@@ -1113,24 +1171,21 @@ class WasmToIrCompiler:
             else_block = self.new_block()
             self.emit(ir.CJump(a, op, b, true_block, else_block))
             self.builder.set_block(true_block)
-            phi = self.get_phi(instruction)
+            param_phis, result_phis = self.get_phis(instruction)
+            assert not param_phis
         else:
             continue_block = None
             else_block = None
-            phi = None
+            result_phis = []
         # Store else block as inner block to allow break:
         self.block_stack.append(
-            BlockLevel("if", continue_block, else_block, phi, len(self.stack))
+            BlockLevel("if", continue_block, else_block, [], result_phis, len(self.stack))
         )
 
-    def gen_else(self):
+    def gen_else_instruction(self):
         """ Generate code for else instruction """
-        if_block = self.block_stack[-1]
+        if_block = self.pop_block()
         assert if_block.typ == "if"
-        self.fill_phis(if_block.phis)
-
-        self.block_stack.pop()
-        self.unwind(if_block)
 
         # else_block was stored in inner block
         else_block = if_block.inner_block
@@ -1144,7 +1199,8 @@ class WasmToIrCompiler:
                 "else",
                 continue_block,
                 None,
-                if_block.phi,
+                [],
+                if_block.result_phis,
                 if_block.stack_start,
             )
         )
@@ -1194,11 +1250,31 @@ class WasmToIrCompiler:
             ir_typ = self.get_ir_type(arg_type[1])
             assert arg.ty is ir_typ
 
-        if signature.result:
-            assert len(signature.result) == 1
-            ir_typ = self.get_ir_type(signature.result[0])
-            value = self.emit(ir.FunctionCall(target, args, "call", ir_typ))
-            self.push_value(value)
+        if signature.results:
+            if len(signature.results) == 1:
+                ir_typ = self.get_ir_type(signature.results[0])
+                value = self.emit(ir.FunctionCall(target, args, "call", ir_typ))
+                self.push_value(value)
+            else:
+                assert len(signature.results) > 1
+                # allocate a memory slab, and inject a pointer to it as first argument.
+                data_area_size = len(signature.results) * 8
+                data_area_alignment = 8
+                data_area = self.emit(ir.Alloc('return_values_area', data_area_size, data_area_alignment))
+                multi_return_ptr = self.emit(ir.AddressOf(data_area, 'return_values_ptr'))
+                args.append(multi_return_ptr)
+
+                # Invoke function:
+                self.emit(ir.ProcedureCall(target, args))
+
+                # Unpack the multiple return values:
+                inc = self.emit(ir.Const(8, 'inc', ir.ptr))
+                for nr, result in enumerate(signature.results):
+                    ir_typ = self.get_ir_type(result)
+                    value = self.emit(ir.Load(multi_return_ptr, 'return_value_{}'.format(nr), ir_typ))
+                    self.push_value(value)
+                    multi_return_ptr = self.emit(ir.add(multi_return_ptr, inc, 'inc', ir.ptr))
+
         else:
             self.emit(ir.ProcedureCall(target, args))
 
@@ -1250,14 +1326,14 @@ class WasmToIrCompiler:
         Treat return as a break to the top level block.
         """
         targetblock = self.block_stack[0].continue_block
-        self.fill_phis(self.block_stack[0].phis)
+        self.fill_phis(self.block_stack[0].result_phis)
         self.emit(ir.Jump(targetblock))
         self.builder.set_block(None)
 
     def gen_br_instruction(self, instruction):
         """ Generate code for br instruction """
         depth = instruction.args[0]
-        targetblock = self.do_jump(depth)
+        targetblock = self.get_jump_target_block(depth)
         self.emit(ir.Jump(targetblock))
         self.builder.set_block(None)
 
@@ -1265,26 +1341,10 @@ class WasmToIrCompiler:
         """ Generate code for br_if instruction """
         op, a, b = self.pop_condition()
         depth = instruction.args[0]
-        targetblock = self.do_jump(depth)
+        targetblock = self.get_jump_target_block(depth)
         falseblock = self.new_block()
         self.emit(ir.CJump(a, op, b, targetblock, falseblock))
         self.builder.set_block(falseblock)
-
-    def do_jump(self, depth):
-        """ Lookup the branch target and fill its optional value.
-
-        Note: the name of this function is not ideal.
-        """
-        assert isinstance(depth, components.Ref)
-        depth = depth.index
-        block = self.block_stack[-depth - 1]
-        if block.typ == "loop":
-            # assert not block.phi
-            targetblock = block.inner_block
-        else:
-            self.fill_phis(block.phis)
-            targetblock = block.continue_block
-        return targetblock
 
     def gen_br_table_instruction(self, instruction):
         """ Generate code for br_table instruction.
@@ -1303,7 +1363,7 @@ class WasmToIrCompiler:
         for i, option_label in enumerate(option_labels):
             # Figure which block we must jump to:
             depth = option_label
-            target_block = self.do_jump(depth)
+            target_block = self.get_jump_target_block(depth)
             ja_block = target_block
             nein_block = self.new_block()
             c = self.emit(ir.Const(i, "label", ir_typ))
@@ -1312,10 +1372,24 @@ class WasmToIrCompiler:
 
         # Determine default block:
         depth = default_label
-        target_block = self.do_jump(depth)
+        target_block = self.get_jump_target_block(depth)
         default_block = target_block
         self.emit(ir.Jump(default_block))
         self.builder.set_block(None)
+
+    def get_jump_target_block(self, depth):
+        """ Lookup the branch target and fill its optional value.
+        """
+        assert isinstance(depth, components.Ref)
+        depth = depth.index
+        block = self.block_stack[-depth - 1]
+        if block.typ == "loop":
+            self.fill_phis(block.param_phis)
+            targetblock = block.inner_block
+        else:
+            self.fill_phis(block.result_phis)
+            targetblock = block.continue_block
+        return targetblock
 
     def _runtime_call(self, opcode):
         """ Generate runtime function call.
@@ -1345,12 +1419,14 @@ class WasmToIrCompiler:
             self._runtime_functions[rt_func_name] = rt_func
             self.builder.module.add_external(rt_func)
 
+        # Grab arguments from stack:
         args = []
         for arg_ir_typ in reversed(arg_types):
             arg = self.pop_value(ir_typ=arg_ir_typ)
             assert arg.ty is arg_ir_typ
             args.append(arg)
         args.reverse()
+
         if ir_typ is None:
             value = self.emit(ir.ProcedureCall(rt_func, args))
         else:
@@ -1361,9 +1437,20 @@ class WasmToIrCompiler:
 
 
 class BlockLevel:
-    def __init__(self, typ, continue_block, inner_block, phis, stack_start):
+    """ Store some info about blocks.
+
+    Each block has optionally params and results.
+    Both parameters and results are implemented as
+    phi instructions.
+
+    The output of a block can be reached in multiple ways.
+    Likewise, the beginning of a block can also be reached
+    in many ways.
+    """
+    def __init__(self, typ, continue_block, inner_block, param_phis, result_phis, stack_start):
         self.typ = typ
         self.continue_block = continue_block
         self.inner_block = inner_block
-        self.phis = phis
+        self.param_phis = param_phis
+        self.result_phis = result_phis
         self.stack_start = stack_start
