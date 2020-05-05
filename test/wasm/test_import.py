@@ -18,10 +18,10 @@ def test_import0():
     assert i.to_string() == '(import "foo" "bar" (func $func1 (type $type1)))'
 
     # Table (default id is omitted as is common)
-    i = Import('foo', 'bar', 'table', '$table1', ('anyfunc', 2, 3))
+    i = Import('foo', 'bar', 'table', '$table1', ('funcref', 2, 3))
     assert i.modname == 'foo' and i.name == 'bar'
     assert i.id == '$table1'
-    assert i.to_string() == '(import "foo" "bar" (table $table1 2 3 anyfunc))'
+    assert i.to_string() == '(import "foo" "bar" (table $table1 2 3 funcref))'
     #
     i = Import('foo', 'bar', 'memory', '$0', (1, None))
     assert i.to_string() == '(import "foo" "bar" (memory 1))'
@@ -52,7 +52,7 @@ def test_import1():
     (module
         (type $bar_func (func))
         (import "foo" "bar_func" (func $bar_func (type $bar_func)))
-        (import "foo" "bar_table1" (table $t1 2 anyfunc))
+        (import "foo" "bar_table1" (table $t1 2 funcref))
         (import "foo" "bar_mem1" (memory $m1 1))
         (import "foo" "bar_mem2" (memory $m2 1 2))
         (import "foo" "bar_global" (global $bar_global i32))
@@ -75,7 +75,7 @@ def test_import1():
     (module
         (type $bar_func (func))
         (func $bar_func (import "foo" "bar_func") (type $bar_func))
-        (table $t1 (import "foo" "bar_table1") 2 anyfunc)
+        (table $t1 (import "foo" "bar_table1") 2 funcref)
         (memory $m1 (import "foo" "bar_mem1") 1)
         (memory $m2 (import "foo" "bar_mem2") 1 2)
         (global $bar_global (import "foo" "bar_global") i32)

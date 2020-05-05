@@ -242,6 +242,19 @@ instruction_table = [
     ("i64.reinterpret_f64", 0xBD, (), ("f64",), ("i64",)),
     ("f32.reinterpret_i32", 0xBE, (), ("i32",), ("f32",)),
     ("f64.reinterpret_i64", 0xBF, (), ("i64",), ("f64",)),
+    ("i32.extend8_s", 0xC0, (), ("i32",), ("i32",)),
+    ("i32.extend16_s", 0xC1, (), ("i32",), ("i32",)),
+    ("i64.extend8_s", 0xC2, (), ("i64",), ("i64",)),
+    ("i64.extend16_s", 0xC3, (), ("i64",), ("i64",)),
+    ("i64.extend32_s", 0xC4, (), ("i64",), ("i64",)),
+    ("i32.trunc_sat_f32_s", (0xFC, 0x0), (), ("f32",), ("i32",)),
+    ("i32.trunc_sat_f32_u", (0xFC, 0x1), (), ("f32",), ("i32",)),
+    ("i32.trunc_sat_f64_s", (0xFC, 0x2), (), ("f64",), ("i32",)),
+    ("i32.trunc_sat_f64_u", (0xFC, 0x3), (), ("f64",), ("i32",)),
+    ("i64.trunc_sat_f32_s", (0xFC, 0x4), (), ("f32",), ("i64",)),
+    ("i64.trunc_sat_f32_u", (0xFC, 0x5), (), ("f32",), ("i64",)),
+    ("i64.trunc_sat_f64_s", (0xFC, 0x6), (), ("f64",), ("i64",)),
+    ("i64.trunc_sat_f64_u", (0xFC, 0x7), (), ("f64",), ("i64",)),
 ]
 
 OPCODES = {r[0]: r[1] for r in instruction_table}

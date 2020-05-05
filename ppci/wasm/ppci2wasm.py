@@ -198,7 +198,7 @@ class IrToWasmCompiler:
         if self.pointed_functions:
             indexes = self.pointed_functions
             self.add_definition(
-                components.Table(0, "anyfunc", len(indexes), None)
+                components.Table(0, "funcref", len(indexes), None)
             )
             table_ref = components.Ref("table", index=0)
             print(indexes)

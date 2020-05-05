@@ -6,7 +6,7 @@ import struct
 import math
 from .. import ir
 from ..utils.bitfun import rotr, rotl, to_signed, to_unsigned
-from ..utils.bitfun import clz, ctz, popcnt
+from ..utils.bitfun import clz, ctz, popcnt, sign_extend
 from .util import make_int
 
 
@@ -105,6 +105,50 @@ def i64_trunc_f64_u(v: ir.f64) -> ir.i64:
     return make_int(v, 64)
 
 
+# saturated trunc
+def i32_trunc_sat_f32_s(v: ir.f32) -> ir.i32:
+    # TODO!
+    return int(v)
+
+
+def i32_trunc_sat_f32_u(v: ir.f32) -> ir.i32:
+    # TODO!
+    return make_int(v, 32)
+
+
+def i32_trunc_sat_f64_s(v: ir.f64) -> ir.i32:
+    # TODO!
+    return int(v)
+
+
+def i32_trunc_sat_f64_u(v: ir.f64) -> ir.i32:
+    # TODO!
+    return make_int(v, 32)
+
+
+def i64_trunc_sat_f32_s(v: ir.f32) -> ir.i64:
+    # TODO!
+    return int(v)
+
+
+def i64_trunc_sat_f32_u(v: ir.f32) -> ir.i64:
+    # TODO!
+    return make_int(v, 64)
+
+
+def i64_trunc_sat_f64_s(v: ir.f64) -> ir.i64:
+    # TODO!
+    return int(v)
+
+
+def i64_trunc_sat_f64_u(v: ir.f64) -> ir.i64:
+    # TODO!
+    return make_int(v, 64)
+
+
+# Promote / demote
+
+
 def f64_promote_f32(v: ir.f32) -> ir.f64:
     return v
 
@@ -201,6 +245,26 @@ def unreachable() -> None:
     raise Unreachable("WASM KERNEL panic!")
 
 
+def i32_extend8_s(x: ir.i32) -> ir.i32:
+    return sign_extend(x, 8)
+
+
+def i32_extend16_s(x: ir.i32) -> ir.i32:
+    return sign_extend(x, 16)
+
+
+def i64_extend8_s(x: ir.i64) -> ir.i64:
+    return sign_extend(x, 8)
+
+
+def i64_extend16_s(x: ir.i64) -> ir.i64:
+    return sign_extend(x, 16)
+
+
+def i64_extend32_s(x: ir.i64) -> ir.i64:
+    return sign_extend(x, 32)
+
+
 # See also:
 # https://github.com/kanaka/warpy/blob/master/warpy.py
 def create_runtime():
@@ -254,6 +318,19 @@ def create_runtime():
         "f32_trunc": f32_trunc,
         "f64_trunc": f64_trunc,
         "unreachable": unreachable,
+        "i32_extend8_s": i32_extend8_s,
+        "i32_extend16_s": i32_extend16_s,
+        "i64_extend8_s": i64_extend8_s,
+        "i64_extend16_s": i64_extend16_s,
+        "i64_extend32_s": i64_extend32_s,
+        "i32_trunc_sat_f32_s": i32_trunc_sat_f32_s,
+        "i32_trunc_sat_f32_u": i32_trunc_sat_f32_u,
+        "i32_trunc_sat_f64_s": i32_trunc_sat_f64_s,
+        "i32_trunc_sat_f64_u": i32_trunc_sat_f64_u,
+        "i64_trunc_sat_f32_s": i64_trunc_sat_f32_s,
+        "i64_trunc_sat_f32_u": i64_trunc_sat_f32_u,
+        "i64_trunc_sat_f64_s": i64_trunc_sat_f64_s,
+        "i64_trunc_sat_f64_u": i64_trunc_sat_f64_u,
     }
 
     return runtime

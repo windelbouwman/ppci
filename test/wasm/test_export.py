@@ -46,7 +46,7 @@ def test_export1():
     CODE0 = dedent("""
     (module
         (type $sig (func))
-        (table $t1 2 anyfunc)
+        (table $t1 2 funcref)
         (memory $m1 1)
         (global $g1 i32 (i32.const 7))
         (export "bar_table1" (table $t1))
@@ -74,7 +74,7 @@ def test_export1():
     CODE1 = dedent("""
     (module
         (type $sig (func))
-        (table $t1 (export "bar_table1") 2 anyfunc)
+        (table $t1 (export "bar_table1") 2 funcref)
         (memory $m1 (export "bar_mem1") 1)
         (global $g1 (export "bar_global") i32 (i32.const 7))
         (func $f1

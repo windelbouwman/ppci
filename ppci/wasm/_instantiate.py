@@ -176,6 +176,7 @@ def python_instantiate(module, imports, reporter, cache_file):
                 exported_name = ppci_module._wasm_function_names[
                     definition.ref.index
                 ]
+                # TODO: handle multiple return values.
                 instance.exports._function_map[definition.name] = getattr(
                     instance._py_module, exported_name
                 )

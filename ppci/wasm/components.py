@@ -698,8 +698,8 @@ class BlockInstruction(Instruction):
     def to_string(self):
         idtext = "" if self.id is None else " " + self.id
         a0 = self.args[0]
-        if a0 == 'emptyblock':
-            subtext = ''
+        if a0 == "emptyblock":
+            subtext = ""
         else:
             subtext = " (result {})".format(a0)
         return "(" + self.opcode + idtext + subtext + ")"
@@ -817,7 +817,7 @@ class Import(Definition):
     * id: the id to refer to the imported object.
     * info: a tuple who's content depends on the kind:
         * func: (ref, ) to the type (signature).
-        * table: ('anyfunc', min, max), where max can be None.
+        * table: ('funcref', min, max), where max can be None.
         * memory: (min, max), where max can be None.
         * global: (typ, mutable)
     """
@@ -838,11 +838,11 @@ class Import(Definition):
         if self.kind == "func":
             desc = ["(type %s)" % self.info[0]]
         elif self.kind == "table":
-            desc = ["anyfunc"]
+            desc = ["funcref"]
             if self.info[2] is not None:
-                desc = [str(self.info[1]), str(self.info[2]), "anyfunc"]
+                desc = [str(self.info[1]), str(self.info[2]), "funcref"]
             elif self.info[1] != 0:
-                desc = [str(self.info[1]), "anyfunc"]
+                desc = [str(self.info[1]), "funcref"]
         elif self.kind == "memory":
             desc = [self.info[0]] if self.info[1] is None else list(self.info)
         elif self.kind == "global":
@@ -870,7 +870,7 @@ class Import(Definition):
         elif self.kind == "table":
             f.write(b"\x01")
             table_kind, min, max = self.info
-            f.write_type(table_kind)  # always 0x70 anyfunc in v1
+            f.write_type(table_kind)  # always 0x70 funcref in v1
             f.write_limits(min, max)
         elif self.kind == "memory":
             f.write(b"\x02")
@@ -925,7 +925,7 @@ class Table(Definition):
     Attributes:
 
     * id: the id of this table definition in the table name/index space.
-    * kind: the kind of data stored in the table, only 'anyfunc' in v1.
+    * kind: the kind of data stored in the table, only 'funcref' in v1.
     * min: the minimum (initial) table size.
     * max: the maximum table size, or None.
 
@@ -935,7 +935,7 @@ class Table(Definition):
 
     def _from_args(self, id, kind, min, max):
         self.id = check_id(id)
-        assert kind in ("anyfunc",)  # More kinds in future versions
+        assert kind in ("funcref",)  # More kinds in future versions
         self.kind = kind
         self.min = min
         self.max = max
@@ -949,12 +949,12 @@ class Table(Definition):
         return "(table%s%s %s)" % (id, minmax, self.kind)
 
     def _to_writer(self, f):
-        f.write_type(self.kind)  # always 0x70 anyfunc in v1
+        f.write_type(self.kind)  # always 0x70 funcref in v1
         f.write_limits(self.min, self.max)
 
     def _from_reader(self, reader):
         self.kind = reader.read_type()
-        assert self.kind == "anyfunc"
+        assert self.kind == "funcref"
         self.min, self.max = reader.read_limits()
 
 

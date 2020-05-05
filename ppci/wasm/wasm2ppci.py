@@ -201,7 +201,7 @@ class WasmToIrCompiler:
 
         elif definition.kind == "table":
             self.logger.debug("table import")
-            assert definition.info[0] == "anyfunc"
+            assert definition.info[0] == "funcref"
             assert definition.id == 0
             self.table_var = ir.ExternalVariable("func_table")
             self.builder.module.add_external(self.table_var)
@@ -257,7 +257,9 @@ class WasmToIrCompiler:
         if signature.results:
             if len(signature.results) == 1:
                 ret_type = self.get_ir_type(signature.results[0])
-                ppci_function = self.builder.new_function(name, binding, ret_type)
+                ppci_function = self.builder.new_function(
+                    name, binding, ret_type
+                )
             else:
                 # Create a procedure which takes an additional
                 # pointer to a return value data area
@@ -270,7 +272,7 @@ class WasmToIrCompiler:
 
     def gen_table_definition(self, definition):
         assert definition.id in (0, "$0")
-        if definition.kind != "anyfunc":
+        if definition.kind != "funcref":
             raise NotImplementedError("Non function pointer tables")
 
         if definition.max is not None:
@@ -488,13 +490,15 @@ class WasmToIrCompiler:
 
         # Insert multiple return values data area pointer:
         if signature.results and len(signature.results) > 1:
-            multiple_return_data_ptr = ir.Parameter("multiple_return_ptr", ir.ptr)
+            multiple_return_data_ptr = ir.Parameter(
+                "multiple_return_ptr", ir.ptr
+            )
             ppci_function.add_parameter(multiple_return_data_ptr)
-            dbg_void_ptr = debuginfo.DebugPointerType(self.get_debug_type('void'))
+            dbg_void_ptr = debuginfo.DebugPointerType(
+                self.get_debug_type("void")
+            )
             dbg_arg_types.append(
-                debuginfo.DebugParameter(
-                    "multi_return_ptr", dbg_void_ptr
-                )
+                debuginfo.DebugParameter("multi_return_ptr", dbg_void_ptr)
             )
 
         # Enter correct debug info:
@@ -575,12 +579,14 @@ class WasmToIrCompiler:
 
             # TODO: use 8 as increment, to play safe
             # but we could be more efficient here.
-            inc = self.emit(ir.Const(8, 'inc', ir.ptr))
+            inc = self.emit(ir.Const(8, "inc", ir.ptr))
             for final_phi in final_phis:
                 self.emit(final_phi)
                 # Store value:
                 self.emit(ir.Store(final_phi, multiple_return_data_ptr))
-                multiple_return_data_ptr = self.emit(ir.add(multiple_return_data_ptr, inc, 'new_ptr', ir.ptr))
+                multiple_return_data_ptr = self.emit(
+                    ir.add(multiple_return_data_ptr, inc, "new_ptr", ir.ptr)
+                )
 
             self.emit(ir.Exit())
 
@@ -637,17 +643,19 @@ class WasmToIrCompiler:
     def fill_phis(self, phis):
         """ Fill phis with current stack top. """
         if phis and self.is_reachable:
+            # Step 1: gather values required:
+            values = [self.pop_value(ir_typ=phi.ty) for phi in reversed(phis)]
+            values.reverse()
+
+            # Step 2: fill phis:
             incoming_block = self.builder.block
             assert incoming_block is not None
-            values = []
-            for phi in reversed(phis):
+            for phi, value in zip(phis, values):
                 self.logger.debug("Filling phi %s", phi)
-                value = self.pop_value(ir_typ=phi.ty)
                 phi.set_incoming(incoming_block, value)
-                values.append(value)
 
-            # Restore the stack:
-            for value in reversed(values):
+            # Step 3: Restore the stack:
+            for value in values:
                 self.push_value(value)
 
     def pop_block(self):
@@ -680,36 +688,42 @@ class WasmToIrCompiler:
         if len(self.stack) > self.block_stack[-1].stack_start:
             value = self.stack.pop()
             if isinstance(value, ir.Value):
-                if ir_typ:
-                    assert value.ty is ir_typ
-                return value
+                pass
             else:
-                # Emit some sort of weird ternary operation!
+                #
                 op, a, b = value
+                value = self.emit_condition_to_value(op, a, b)
 
-                ja = self.builder.new_block()
-                nein = self.builder.new_block()
-                immer = self.builder.new_block()
-                self.emit(ir.CJump(a, op, b, ja, nein))
-
-                self.builder.set_block(ja)
-                one = self.emit(ir.Const(1, "one", ir.i32))
-                self.emit(ir.Jump(immer))
-
-                self.builder.set_block(nein)
-                zero = self.emit(ir.Const(0, "zero", ir.i32))
-                self.emit(ir.Jump(immer))
-
-                self.builder.set_block(immer)
-                phi = ir.Phi("ternary", ir.i32)
-                phi.set_incoming(ja, one)
-                phi.set_incoming(nein, zero)
-                self.emit(phi)
-                if ir_typ:
-                    assert phi.ty is ir_typ
-                return phi
+            if ir_typ:
+                assert value.ty is ir_typ
+            return value
         else:
             raise ValueError("Value stack underflow")
+
+    def emit_condition_to_value(self, op, a, b):
+        """ Emit some sort of weird ternary operation.
+
+        Turn two values and a condition into 1 or 0.
+        """
+        ja = self.builder.new_block()
+        nein = self.builder.new_block()
+        immer = self.builder.new_block()
+        self.emit(ir.CJump(a, op, b, ja, nein))
+
+        self.builder.set_block(ja)
+        one = self.emit(ir.Const(1, "one", ir.i32))
+        self.emit(ir.Jump(immer))
+
+        self.builder.set_block(nein)
+        zero = self.emit(ir.Const(0, "zero", ir.i32))
+        self.emit(ir.Jump(immer))
+
+        self.builder.set_block(immer)
+        phi = ir.Phi("ternary", ir.i32)
+        phi.set_incoming(ja, one)
+        phi.set_incoming(nein, zero)
+        self.emit(phi)
+        return phi
 
     def push_value(self, value):
         """ Put a value on top of the stack """
@@ -795,6 +809,18 @@ class WasmToIrCompiler:
         }:
             self.gen_trunc_instruction(instruction)
 
+        elif opcode in {
+            "i32.trunc_sat_f32_s",
+            "i32.trunc_sat_f32_u",
+            "i32.trunc_sat_f64_s",
+            "i32.trunc_sat_f64_u",
+            "i64.trunc_sat_f32_s",
+            "i64.trunc_sat_f32_u",
+            "i64.trunc_sat_f64_s",
+            "i64.trunc_sat_f64_u",
+        }:
+            self.gen_saturated_trunc_instruction(instruction)
+
         elif opcode in {"f64.promote_f32", "f32.demote_f64"}:
             # TODO: in theory this should be solvable in ir-code.
             if True:
@@ -839,6 +865,11 @@ class WasmToIrCompiler:
             "i32.rotr",
             "memory.grow",
             "memory.size",
+            "i32.extend8_s",
+            "i32.extend16_s",
+            "i64.extend8_s",
+            "i64.extend16_s",
+            "i64.extend32_s",
         ]:
             self._runtime_call(opcode)
 
@@ -914,7 +945,7 @@ class WasmToIrCompiler:
             raise NotImplementedError(opcode)
 
     def gen_trunc_instruction(self, instruction):
-        """ Generate code for iNN.truct_fMM_X.
+        """ Generate code for iNN.trunc_fMM_X.
 
         For example: i64.trunc_f32_u
         """
@@ -934,6 +965,15 @@ class WasmToIrCompiler:
                 value = self.emit(ir.Cast(value, "unsigned", unsigned_ir_typ))
             value = self.emit(ir.Cast(value, "cast", ir_typ))
             self.push_value(value)
+
+    def gen_saturated_trunc_instruction(self, instruction):
+        """ Generate code for iNN.trunc_sat_fMM_X.
+
+        For example: i64.trunc_f32_u
+        """
+        # TODO: in theory this should be solvable in ir-code.
+        opcode = instruction.opcode
+        self._runtime_call(opcode)
 
     def gen_const(self, instruction):
         """ Generate code for i32.const and friends. """
@@ -1106,7 +1146,12 @@ class WasmToIrCompiler:
 
         self.block_stack.append(
             BlockLevel(
-                "block", continue_block, inner_block, param_phis, result_phis, stack_start
+                "block",
+                continue_block,
+                inner_block,
+                param_phis,
+                result_phis,
+                stack_start,
             )
         )
 
@@ -1130,7 +1175,12 @@ class WasmToIrCompiler:
             continue_block = None
         self.block_stack.append(
             BlockLevel(
-                "loop", continue_block, inner_block, param_phis, result_phis, stack_start
+                "loop",
+                continue_block,
+                inner_block,
+                param_phis,
+                result_phis,
+                stack_start,
             )
         )
 
@@ -1179,7 +1229,14 @@ class WasmToIrCompiler:
             result_phis = []
         # Store else block as inner block to allow break:
         self.block_stack.append(
-            BlockLevel("if", continue_block, else_block, [], result_phis, len(self.stack))
+            BlockLevel(
+                "if",
+                continue_block,
+                else_block,
+                [],
+                result_phis,
+                len(self.stack),
+            )
         )
 
     def gen_else_instruction(self):
@@ -1253,27 +1310,45 @@ class WasmToIrCompiler:
         if signature.results:
             if len(signature.results) == 1:
                 ir_typ = self.get_ir_type(signature.results[0])
-                value = self.emit(ir.FunctionCall(target, args, "call", ir_typ))
+                value = self.emit(
+                    ir.FunctionCall(target, args, "call", ir_typ)
+                )
                 self.push_value(value)
             else:
                 assert len(signature.results) > 1
                 # allocate a memory slab, and inject a pointer to it as first argument.
                 data_area_size = len(signature.results) * 8
                 data_area_alignment = 8
-                data_area = self.emit(ir.Alloc('return_values_area', data_area_size, data_area_alignment))
-                multi_return_ptr = self.emit(ir.AddressOf(data_area, 'return_values_ptr'))
+                data_area = self.emit(
+                    ir.Alloc(
+                        "return_values_area",
+                        data_area_size,
+                        data_area_alignment,
+                    )
+                )
+                multi_return_ptr = self.emit(
+                    ir.AddressOf(data_area, "return_values_ptr")
+                )
                 args.append(multi_return_ptr)
 
                 # Invoke function:
                 self.emit(ir.ProcedureCall(target, args))
 
                 # Unpack the multiple return values:
-                inc = self.emit(ir.Const(8, 'inc', ir.ptr))
+                inc = self.emit(ir.Const(8, "inc", ir.ptr))
                 for nr, result in enumerate(signature.results):
                     ir_typ = self.get_ir_type(result)
-                    value = self.emit(ir.Load(multi_return_ptr, 'return_value_{}'.format(nr), ir_typ))
+                    value = self.emit(
+                        ir.Load(
+                            multi_return_ptr,
+                            "return_value_{}".format(nr),
+                            ir_typ,
+                        )
+                    )
                     self.push_value(value)
-                    multi_return_ptr = self.emit(ir.add(multi_return_ptr, inc, 'inc', ir.ptr))
+                    multi_return_ptr = self.emit(
+                        ir.add(multi_return_ptr, inc, "inc", ir.ptr)
+                    )
 
         else:
             self.emit(ir.ProcedureCall(target, args))
@@ -1447,7 +1522,16 @@ class BlockLevel:
     Likewise, the beginning of a block can also be reached
     in many ways.
     """
-    def __init__(self, typ, continue_block, inner_block, param_phis, result_phis, stack_start):
+
+    def __init__(
+        self,
+        typ,
+        continue_block,
+        inner_block,
+        param_phis,
+        result_phis,
+        stack_start,
+    ):
         self.typ = typ
         self.continue_block = continue_block
         self.inner_block = inner_block

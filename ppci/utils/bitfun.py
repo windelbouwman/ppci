@@ -89,6 +89,14 @@ def popcnt(v: int, bits: int) -> int:
     return count
 
 
+def sign_extend(value: int, bits: int) -> int:
+    """ Perform sign extension operation.
+    """
+    sign_bit = 1 << (bits - 1)
+    mask = sign_bit - 1
+    return (value & mask) - (value & sign_bit)
+
+
 def value_to_bytes_big_endian(value: int, size: int):
     """ Pack integer value into bytes """
     byte_numbers = reversed(range(size))

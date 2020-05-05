@@ -202,9 +202,7 @@ class WatTupleLoader(TupleParser):
 
     def _parse_type_use(self):
         if self.match(Token.LPAR, "type"):
-            self.expect(Token.LPAR, "type")
-            ref = self._parse_ref("type")
-            self.expect(Token.RPAR)
+            ref = self._parse_type_ref()
         elif self.match(Token.LPAR, "param") or self.match(
             Token.LPAR, "result"
         ):
@@ -212,6 +210,19 @@ class WatTupleLoader(TupleParser):
             ref = self._add_or_reuse_type_definition(params, results)
         else:
             ref = self._add_or_reuse_type_definition([], [])
+        return ref
+
+    def _parse_type_ref(self):
+        """ Parse a type reference. """
+        self.expect(Token.LPAR, "type")
+        ref = self._parse_ref("type")
+        self.expect(Token.RPAR)
+
+        # Parse trailing check up of signature:
+        if self.match(Token.LPAR, "param") or self.match(Token.LPAR, "result"):
+            params, results = self._parse_function_signature()
+            # TODO: check this with the type ref?
+
         return ref
 
     def _parse_function_signature(self):
@@ -260,19 +271,13 @@ class WatTupleLoader(TupleParser):
         kind = self.take()
         if kind == "func":
             id = self._parse_optional_id(default=self.gen_id("func"))
-            if self.match(Token.LPAR, "type"):
-                self.expect(Token.LPAR, "type")
-                ref = self._parse_ref("type")  # Type reference
-                self.expect(Token.RPAR)
-            else:
-                params, results = self._parse_function_signature()
-                ref = self._add_or_reuse_type_definition(params, results)
+            ref = self._parse_type_use()
             info = (ref,)
         elif kind == "table":
             id = self._parse_optional_id(default=self.gen_id("table"))
             min, max = self.parse_limits()
             table_kind = self.take()
-            assert table_kind == "anyfunc"
+            assert table_kind == "funcref"
             info = (table_kind, min, max)
         elif kind == "memory":
             id = self._parse_optional_id(default=self.gen_id("memory"))
@@ -314,20 +319,20 @@ class WatTupleLoader(TupleParser):
             self.add_definition(
                 components.Import(modname, name, "table", id, info)
             )
-        elif self.munch("anyfunc"):
+        elif self.munch("funcref"):
             # We have embedded data
             self.expect(Token.LPAR, "elem")
             refs = self.parse_ref_list()
             self.expect(Token.RPAR)
             offset = [components.Instruction("i32.const", 0)]
             min = max = len(refs)
-            self.add_definition(components.Table(id, "anyfunc", min, max))
+            self.add_definition(components.Table(id, "funcref", min, max))
             table_ref = self._make_ref("table", id)
             self.add_definition(components.Elem(table_ref, offset, refs))
         else:
             min, max = self.parse_limits()
             kind = self.take()
-            assert kind == "anyfunc"
+            assert kind == "funcref"
             self.add_definition(components.Table(id, kind, min, max))
 
     def load_elem(self):
@@ -457,24 +462,20 @@ class WatTupleLoader(TupleParser):
         return offset
 
     def load_func(self):
+        """ Load a single function definition. """
         id = self._parse_optional_id(default=self.gen_id("func"))
         self._parse_inline_export("func", id)
 
         if self.match(Token.LPAR, "import"):  # handle inline imports
             modname, name = self._parse_inline_import()
             ref = self._parse_type_use()
-            # TODO: wtf, parse types twice? why?
-            params, results = self._parse_function_signature()
             info = (ref,)
             self.add_definition(
                 components.Import(modname, name, "func", id, info)
             )
         else:
             ref = self._parse_type_use()
-            # TODO: wtf, parse types twice? why?
-            params, results = self._parse_function_signature()
             localz = self._parse_locals()
-
             self.func_backlog.append([])
             self.block_stack = []
             instructions = self._load_instruction_list()
@@ -594,6 +595,8 @@ class WatTupleLoader(TupleParser):
         if self.munch("emptyblock"):
             # TODO: is this legit?
             block_type = "emptyblock"
+        elif self.match(Token.LPAR, "type"):
+            block_type = self._parse_type_ref()
         else:
             params, results = self._parse_function_signature()
             if len(params) == 0 and len(results) == 1:
@@ -618,8 +621,6 @@ class WatTupleLoader(TupleParser):
             type_ref = self._parse_type_use()
             table_ref = components.Ref("table", index=0)
             args = (type_ref, table_ref)
-            # TODO: wtf, parse types twice? why?
-            params, results = self._parse_function_signature()
             # TODO: compare unbound func signature with type?
         elif opcode in ("memory.grow", "memory.size"):
             # Simply take all arguments possible:
