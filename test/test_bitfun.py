@@ -19,8 +19,8 @@ class SignExtendTestCase(unittest.TestCase):
         self.assertEqual(0, sign_extend(0, 8))
         self.assertEqual(-1, sign_extend(-1, 8))
 
-        self.assertEqual(0x7f, sign_extend(0xffff_ff7f, 8))
-        self.assertEqual(0x7fff, sign_extend(0xffff_7fff, 16))
+        self.assertEqual(0x7f, sign_extend(0xffffff7f, 8))
+        self.assertEqual(0x7fff, sign_extend(0xffff7fff, 16))
 
 
 class BitViewTestCase(unittest.TestCase):

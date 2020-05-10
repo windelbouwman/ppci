@@ -6,7 +6,7 @@
 import argparse
 import sys
 from .base import base_parser, LogSetup
-from ..wasm import read_wat, read_wasm
+from ..wasm import read_wat, read_wasm, execute_wasm
 
 
 parser = argparse.ArgumentParser(description=__doc__, parents=[base_parser])
@@ -59,6 +59,37 @@ show_interface_parser.add_argument(
     help="wasm file to read",
 )
 
+run_parser = subparsers.add_parser("run", help="Execute a wasm file.")
+run_parser.add_argument(
+    "wasm",
+    metavar="wasm file",
+    type=argparse.FileType("rb"),
+    help="wasm file to read",
+)
+run_parser.add_argument(
+    "--arg",
+    dest='wasm_arguments',
+    metavar="arg",
+    action='append',
+    type=int,
+    help="Argument to wasm function",
+)
+run_parser.add_argument(
+    "--target",
+    dest="wasm_target",
+    metavar="target",
+    help="Which target to generate code for",
+    choices=("native", "python"),
+    default="python",
+)
+run_parser.add_argument(
+    "--function",
+    "-f",
+    dest="wasm_function",
+    metavar="function_name",
+    help="Function to run",
+)
+
 
 def wabt(args=None):
     """ Compile wasm to native code """
@@ -75,6 +106,14 @@ def wabt(args=None):
         elif args.command == "show_interface":
             wasm_module = read_wasm(args.wasm)
             wasm_module.show_interface()
+        elif args.command == "run":
+            wasm_module = read_wasm(args.wasm)
+            execute_wasm(
+                wasm_module,
+                args.wasm_arguments,
+                target=args.wasm_target,
+                function=args.wasm_function,
+            )
         else:  # pragma: no cover
             parser.print_usage()
             sys.exit(1)

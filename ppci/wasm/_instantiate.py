@@ -190,7 +190,9 @@ def python_instantiate(module, imports, reporter, cache_file):
                 memory = instance._memories[definition.ref.index]
                 instance.exports._function_map[definition.name] = memory
                 logger.debug("memory exported")
-            else:
+            elif definition.kind == "table":
+                logger.error("table not yet exported")
+            else:  # pragma: no cover
                 raise NotImplementedError(definition.kind)
 
     return instance
@@ -297,6 +299,11 @@ class NativeModuleInstance(ModuleInstance):
 class WasmGlobal(metaclass=abc.ABCMeta):
     def __init__(self, name):
         self.name = name
+
+    @property
+    def value(self):
+        """ The value of the global variable """
+        return self.read()
 
     @abc.abstractmethod
     def read(self):
@@ -457,6 +464,7 @@ class PythonModuleInstance(ModuleInstance):
         if memories:
             assert len(memories) == 1
             memory, min_size, max_size = memories[0]
+            assert max_size is not None
 
             self.mem0_start = self._py_module.heap_top()
             self._py_module.heap.extend(memory)
@@ -469,18 +477,15 @@ class PythonModuleInstance(ModuleInstance):
 
     def memory_grow(self, amount):
         """ Grow memory and return the old size """
-        # Limit the bounds of memory somewhat:
-        if amount >= 0x10000:
+        max_size = self._memories[0].max_size
+        assert max_size is not None
+        old_size = self.memory_size()
+        new_size = old_size + amount
+        if new_size > max_size:
             return -1
         else:
-            max_size = self._memories[0].max_size
-            old_size = self.memory_size()
-            new_size = old_size + amount
-            if max_size is not None and new_size > max_size:
-                return -1
-            else:
-                self._py_module.heap.extend(bytes(amount * PAGE_SIZE))
-                return old_size
+            self._py_module.heap.extend(bytes(amount * PAGE_SIZE))
+            return old_size
 
     def memory_size(self):
         """ return memory size in pages """

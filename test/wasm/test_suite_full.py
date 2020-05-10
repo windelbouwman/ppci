@@ -60,13 +60,11 @@ black_list = [
     'names',  # Contains many weird unicode characters
     'linking',  # Requires linking. This does not work yet.
     'imports',  # Import support is too limited for now.
-    'globals',  # Import of globals not implemented
     'data',  # Importing of memory not implemented
     'elem',  # Importing of table not implemented
-    # 'exports',  # TODO: what goes wrong here?
-    'float_exprs',  # TODO: what is the issue here?
+    # 'float_exprs',  # TODO: what is the issue here?
     'float_memory',  # TODO: handle signalling nan's
-    'float_literals',  # TODO: what is the issue here?
+    # 'float_literals',  # TODO: what is the issue here?
     'skip-stack-guard-page',  # This is some stack overflow stuff?
     'func',  # TODO: this function is malformed!
 ]
@@ -95,91 +93,6 @@ black_list_expr = {
 }
 
 
-# On Windows, we need more blacklisting ...
-if False:  # sys.platform.startswith('win'):
-    
-    black_list.append('conversions') # Grrr, so many expressions to blacklist!
-    # Note that this list is not complete, I ran out of time ...
-    
-    
-    # Test fail
-    black_list_expr['call'] = [
-        ('invoke', 'fac', ('i64.const', 25)),
-        ('invoke', 'fac-acc', ('i64.const', 25), ('i64.const', 1)),
-        ]
-    black_list_expr['call_indirect'] = [
-        ('invoke', 'fac', ('i64.const', 25)),
-        ]
-    black_list_expr['fac'] = [
-        ('invoke', 'fac-rec', ('i64.const', 25)),
-        ('invoke', 'fac-iter', ('i64.const', 25)),
-        ('invoke', 'fac-rec-named', ('i64.const', 25)),
-        ('invoke', 'fac-iter-named', ('i64.const', 25)),
-        ('invoke', 'fac-opt', ('i64.const', 25)),
-        ]
-    black_list_expr['conversions'] = [
-        ('invoke', 'i64.extend_u_i32', ('i32.const', -10000)),
-        ('invoke', 'i64.extend_u_i32', ('i32.const', -1)),
-        ('invoke', 'i64.extend_u_i32', ('i32.const', 2147483648)),
-        ('invoke', 'i64.trunc_s_f32', ('f32.const', 4294967296)),
-        ('invoke', 'i64.trunc_s_f32', ('f32.const', -4294967296)),
-        ('invoke', 'i64.trunc_s_f32', ('f32.const', 9.223371487098962e+18)),
-        ('invoke', 'i64.trunc_s_f32', ('f32.const', -9.223372036854776e+18)),
-        ('invoke', 'i64.trunc_u_f32', ('f32.const', 4294967296)),
-        ('invoke', 'i64.trunc_u_f32', ('f32.const', 1.8446742974197924e+19)),
-        ('invoke', 'i64.trunc_s_f64', ('f64.const', 4294967296)),
-        ('invoke', 'i64.trunc_s_f64', ('f64.const', -4294967296)),
-        ('invoke', 'i64.trunc_s_f64', ('f64.const', 9.223372036854775e+18)),
-        ('invoke', 'i64.trunc_s_f64', ('f64.const', -9.223372036854776e+18)),
-        ('invoke', 'i64.trunc_u_f64', ('f64.const', 4294967295)),
-        ('invoke', 'i64.trunc_u_f64', ('f64.const', 4294967296)),
-        ('invoke', 'i64.trunc_u_f64', ('f64.const', 1e+16)),
-        ('invoke', 'i64.trunc_u_f64', ('f64.const', 9223372036854775808)),
-        ('invoke', 'f32.convert_s_i64', ('i64.const', 9223372036854775807)),
-        # ... more needed
-        ]
-    black_list_expr['endianness'] = [
-        ('invoke', 'i64_load32_u', ('i64.const', -1)),
-        ('invoke', 'i64_load32_u', ('i64.const', -42424242)),
-        ('invoke', 'i64_load32_u', ('i64.const', '0xABAD1DEA')),
-        ('invoke', 'i64_load', ('i64.const', '0xABAD1DEA')),
-        ('invoke', 'i64_load', ('i64.const', '0xABADCAFEDEAD1DEA')),
-        ('invoke', 'i64_store32', ('i64.const', -1)),
-        ('invoke', 'i64_store32', ('i64.const', -4242)),
-        ('invoke', 'i64_store32', ('i64.const', '0xDEADCAFE')),
-        ('invoke', 'i64_store', ('i64.const', '0xABAD1DEA')),
-        ('invoke', 'i64_store', ('i64.const', '0xABADCAFEDEAD1DEA')),
-        ]
-    black_list_expr['local.get'] = [
-        ('invoke', 'read', ('i64.const', 1), ('f32.const', 2), ('f64.const', 3.3), ('i32.const', 4), ('i32.const', 5)),
-        ]
-    black_list_expr['int_exprs'] = [
-        ('invoke', 'i64.div_s_3', ('i64.const', 3458764513820540928)),
-        ('invoke', 'i64.div_u_3', ('i64.const', 13835058055282163712)),
-        ('invoke', 'i64.div_s_5', ('i64.const', 5764607523034234880)),
-        ('invoke', 'i64.div_u_5', ('i64.const', 11529215046068469760)),
-        ('invoke', 'i64.div_s_7', ('i64.const', 8070450532247928832)),
-        ('invoke', 'i64.div_u_7', ('i64.const', '0xe000000000000000')),
-        ]
-    black_list_expr['int_literals'] = [
-        ('invoke', 'i64.test'),
-        ('invoke', 'i64.smax'),
-        ('invoke', 'i64.neg_smax'),
-        ('invoke', 'i64.smin'),
-        ('invoke', 'i64.alt_smin'),
-        ('invoke', 'i64.inc_smin'),
-        ('invoke', 'i64-hex-sep1'),
-        ]
-    black_list_expr['loop'] = [
-        ('invoke', 'while', ('i64.const', 20)),
-        ('invoke', 'for', ('i64.const', 20)),
-        ]
-    black_list_expr['memory'] = [
-        ('invoke', 'cast'),
-        ('invoke', 'i64_load32_u', ('i64.const', -1)),
-        ('invoke', 'i64_load32_u', ('i64.const', '0x3456436598bacdef')),
-        ]
-
 # ==================== END BLACKLISTS ==================== #
 
 
@@ -198,10 +111,6 @@ def perform_test(filename, target):
         try:
             s_expressions = parse_multiple_sexpr(source_text)
             expressions2ignore = black_list_expr.get(base_name, [])
-            # s_expressions = [s_expr for s_expr in s_expressions if len(s_expr) != 3 or s_expr[1] not in expressions2ignore]
-            # if base_name == 'i64':
-            #    does_big_edges = lambda x: '9223372036854775808' in x or '9223372036854775807' in x or '9223372036854775809' in x
-            #    s_expressions = [s_expr for s_expr in s_expressions if not does_big_edges(str(s_expr))]
             executor = WastExecutor(target, reporter, expressions2ignore)
             executor.execute(s_expressions)
 
@@ -213,13 +122,25 @@ def perform_test(filename, target):
 
 
 class WastExecutor:
+    """ Execute a wasm spec test snippet.
+
+    wast files are s-expression based webassembly
+    snippets including test commands.
+    """
     logger = logging.getLogger('wast-exe')
 
     def __init__(self, target, reporter, s_expr_blacklist):
         self.target = target
         self.reporter = reporter
         self.s_expr_blacklist = s_expr_blacklist
+        
+        # Parsed modules:
+        self.last_mod = None
+        self.named_modules = {}
+
+        # Module instances:
         self.mod_instance = None
+        self.named_module_instances = {}
 
     def execute(self, s_expressions):
         for s_expr in s_expressions:
@@ -229,36 +150,35 @@ class WastExecutor:
                 self.execute_single(s_expr)
 
     def execute_single(self, s_expr):
+        """ Execute a single line in the test case. """
         if s_expr[0] == 'module':
             self.load_module(s_expr)
 
         elif s_expr[0] == 'invoke':
             # TODO: invoke test functions defined in wast files
-            if self.mod_instance:
-                self.invoke(s_expr)
-            else:
-                self.logger.warning(
-                    'Skipping invoke, since no module was loaded yet')
+            self.invoke(s_expr)
 
         elif s_expr[0] == 'assert_return':
-            if self.mod_instance:
-                if len(s_expr) > 2:
-                    expected_value = self.parse_expr(s_expr[2])
-                    if nan_or_inf(expected_value):
-                        self.logger.warning('Not invoking %s', s_expr[1])
-                    else:
-                        result = self.invoke(s_expr[1])
-                        self.assert_equal(result, expected_value)
+            invoke_target = s_expr[1]
+            expected_values = [self.parse_expr(e) for e in s_expr[2:]]
+
+            if len(expected_values) == 0:
+                self.evaluate(invoke_target)
+            elif len(expected_values) == 1:
+                expected_value = expected_values[0]
+                if nan_or_inf(expected_value):
+                    self.logger.warning('Not invoking %s', invoke_target)
                 else:
-                    self.invoke(s_expr[1])
+                    result = self.evaluate(invoke_target)
+                    self.assert_equal(result, expected_value)
             else:
-                self.logger.warning(
-                    'Skipping assert_return, since no module was loaded yet')
+                # TODO: implement multi return functions!
+                self.logger.warning('Skipping multiple return function %s', invoke_target)
         else:
             # print('Unknown directive', s_expr[0])
             pass
 
-    def load_module(self, s_expr):
+    def parse_module(self, s_expr):
         if 'binary' in s_expr:
             # We have (module binary "")
 
@@ -304,8 +224,19 @@ class WastExecutor:
 
             self.reporter.dump_wasm(m1)
 
-        self.logger.debug('loaded wasm module %s', m1)
+        self.logger.debug('loaded wasm module %s (id=%s)', m1, m1.id)
+        return m1
 
+    def load_module(self, s_expr):
+        m1 = self.parse_module(s_expr)
+        self.last_mod = m1
+        if m1.id:
+            self.named_modules[m1.id] = m1
+        self.mod_instance = None
+        # self._instantiate(m1)
+    
+    def _instantiate(self, m1):
+        """ Instantiate a module. """
         # Next step: Instantiate:
         if self.target:
             def my_print() -> None:
@@ -318,25 +249,78 @@ class WastExecutor:
                'spectest': {
                    'print_i32': print_i32,
                    'print': my_print,
+                #    'global_i32': 777,
                }
             }
             self.mod_instance = instantiate(
                 m1, imports, target=self.target, reporter=self.reporter)
             self.logger.debug('Instantiated wasm module %s', self.mod_instance)
+            if m1.id:
+                self.named_module_instances[m1.id] = self.mod_instance
         else:
             self.mod_instance = None
 
+    def evaluate(self, target):
+        if target[0] == 'invoke':
+            return self.invoke(target)
+        elif target[0] == 'get':
+            return self.do_get(target)
+        else:
+            raise NotImplementedError(str(target[0]))
+
     def invoke(self, target):
+        """ Invoke a function. """
         # print(target)
         assert target[0] == 'invoke'
         # TODO: how to handle names like @#$%^&*?
-        func_name = target[1]
-        args = [self.parse_expr(a) for a in target[2:]]
-        if any(nan_or_inf(a) for a in args):
+        if target[1].startswith('$'):
+            module_id = target[1]
+            instance = self.get_instance(module_id)
+            func_name = target[2]
+            args = target[3:]
+        else:
+            module_id = None
+            instance = self.get_instance()
+            func_name = target[1]
+            args = target[2:]
+
+        args = [self.parse_expr(a) for a in args]
+
+        if not instance:
+            self.logger.warning(
+                'Skipping invoke, since no module instance was found')
+        elif any(nan_or_inf(a) for a in args):
             self.logger.warning('Not invoking method %s(%s)', func_name, args)
         else:
             self.logger.debug('Invoking ' + repr(target))
-            return self.mod_instance.exports[func_name](*args)
+            return instance.exports[func_name](*args)
+
+    def do_get(self, target):
+        """ Get the value of a global variable. """
+        assert target[0] == 'get'
+        if target[1].startswith('$'):
+            module_id = target[1]
+            instance = self.get_instance(module_id)
+            var_name = target[2]
+            assert len(target) == 3
+        else:
+            module_id = None
+            instance = self.get_instance()
+            var_name = target[1]
+            assert len(target) == 2
+        self.logger.debug('Getting global variable %s', var_name)
+        global_var = instance.exports[var_name]
+        return global_var.read()
+
+    def get_instance(self, name=None):
+        """ Get a wasm module instance. """
+        if name is None:
+            if not self.mod_instance and self.last_mod:
+                self._instantiate(self.last_mod)
+            instance = self.mod_instance
+        else:
+            instance = self.named_module_instances[name]
+        return instance
 
     def parse_expr(self, s_expr):
         if s_expr[0] in ['i32.const', 'i64.const']:
@@ -418,14 +402,14 @@ def get_wast_files(wasm_spec_directory, include_pattern='*'):
     # Check if we have a folder:
     if not os.path.isdir(core_test_directory):
         raise ValueError(
-            "WASM_SPEC_DIR is set, but {} not found".format(
+            "{} is not a directory".format(
                 core_test_directory))
 
     # Check if we have the right folder:
     validation_file = os.path.join(core_test_directory, 'f32.wast')
     if not os.path.exists(validation_file):
         raise ValueError(
-            "WASM_SPEC_DIR is set, but {} not found".format(
+            "{} not found".format(
                 validation_file))
 
     for filename in sorted(glob.iglob(os.path.join(

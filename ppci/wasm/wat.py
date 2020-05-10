@@ -614,9 +614,47 @@ class WatTupleLoader(TupleParser):
         """ Gather the arguments to a specific opcode. """
         # Process any special case arguments:
         if ".load" in opcode or ".store" in opcode:
-            args = []
-            while isinstance(self._lookahead(1)[0], str):
-                args.append(self.take())
+            # Memory instructions have keyword args in text format :/
+
+            # Determine default args
+            offset_arg = 0
+            align_arg = 2 if "32." in opcode else 3
+
+            opcode2 = opcode.split(".")[-1]
+            for align, nbytes in [(0, "8"), (1, "16"), (2, "32"), (3, "64")]:
+                if nbytes in opcode2:
+                    align_arg = align
+
+            # Parse keyword args
+            while (
+                isinstance(self._lookahead(1)[0], str)
+                and "=" in self._lookahead(1)[0]
+            ):
+                arg = self.take()
+                assert isinstance(arg, str)
+                assert "=" in arg
+                key, value = arg.split("=", 1)
+                value = str2int(value)
+                if key == "align":
+                    align_arg = value
+                    # Store alignment as power of 2:
+                    log2 = {
+                        1: 0,
+                        2: 1,
+                        4: 2,
+                        8: 3,
+                        16: 4,
+                        32: 5,
+                        64: 6,
+                        128: 7,
+                        256: 8,
+                    }
+                    align_arg = log2[align_arg]
+                elif key == "offset":
+                    offset_arg = value
+
+            args = align_arg, offset_arg
+
         elif opcode == "call_indirect":
             type_ref = self._parse_type_use()
             table_ref = components.Ref("table", index=0)
@@ -735,3 +773,7 @@ def round_up(value, multiple):
         return value + (multiple - rest)
     else:
         return value
+
+
+def str2int(x):
+    return int(x, 16) if x.startswith("0x") else int(x)

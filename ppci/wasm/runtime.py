@@ -106,44 +106,59 @@ def i64_trunc_f64_u(v: ir.f64) -> ir.i64:
 
 
 # saturated trunc
+
+
+def satured_truncate(value: float, lower_limit, upper_limit) -> int:
+    if value > upper_limit:
+        return upper_limit
+    elif value < lower_limit:
+        return lower_limit
+    else:
+        return int(value)
+
+
+MAX_I32 = 2 ** 31 - 1
+MIN_I32 = -(2 ** 31)
+MAX_U32 = 2 ** 32 - 1
+MIN_U32 = 0
+
+
 def i32_trunc_sat_f32_s(v: ir.f32) -> ir.i32:
-    # TODO!
-    return int(v)
+    return satured_truncate(v, MIN_I32, MAX_I32)
 
 
 def i32_trunc_sat_f32_u(v: ir.f32) -> ir.i32:
-    # TODO!
-    return make_int(v, 32)
+    return make_int(satured_truncate(v, MIN_U32, MAX_U32), 32)
 
 
 def i32_trunc_sat_f64_s(v: ir.f64) -> ir.i32:
-    # TODO!
-    return int(v)
+    return satured_truncate(v, MIN_I32, MAX_I32)
 
 
 def i32_trunc_sat_f64_u(v: ir.f64) -> ir.i32:
-    # TODO!
-    return make_int(v, 32)
+    return make_int(satured_truncate(v, MIN_U32, MAX_U32), 32)
+
+
+MAX_I64 = 2 ** 63 - 1
+MIN_I64 = -(2 ** 63)
+MAX_U64 = 2 ** 64 - 1
+MIN_U64 = 0
 
 
 def i64_trunc_sat_f32_s(v: ir.f32) -> ir.i64:
-    # TODO!
-    return int(v)
+    return satured_truncate(v, MIN_I64, MAX_I64)
 
 
 def i64_trunc_sat_f32_u(v: ir.f32) -> ir.i64:
-    # TODO!
-    return make_int(v, 64)
+    return make_int(satured_truncate(v, MIN_U64, MAX_U64), 64)
 
 
 def i64_trunc_sat_f64_s(v: ir.f64) -> ir.i64:
-    # TODO!
-    return int(v)
+    return satured_truncate(v, MIN_I64, MAX_I64)
 
 
 def i64_trunc_sat_f64_u(v: ir.f64) -> ir.i64:
-    # TODO!
-    return make_int(v, 64)
+    return make_int(satured_truncate(v, MIN_U64, MAX_U64), 64)
 
 
 # Promote / demote

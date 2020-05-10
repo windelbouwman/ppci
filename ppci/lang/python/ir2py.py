@@ -153,19 +153,26 @@ class IrToPythonCompiler:
         self.print(2, "return value")
         self.emit("")
 
-        # Truncating integer divide
+        # More C like integer divide
         self.emit("def idiv(x, y):")
-        self.print(1, "return int(math.trunc(x/y))")
+        self.print(1, "sign = False")
+        self.print(1, "if x < 0: x = -x; sign = not sign")
+        self.print(1, "if y < 0: y = -y; sign = not sign")
+        self.print(1, "v = x // y")
+        self.print(1, "return -v if sign else v")
         self.emit("")
 
         # More c like remainder:
+        # Note: sign of y is not relevant for result sign
         self.emit("def irem(x, y):")
-        self.print(1, "sign = x < 0")
-        self.print(1, "v = abs(x) % abs(y)")
-        self.print(1, "if sign:")
-        self.print(2, "return -v")
+        self.print(1, "if x < 0:")
+        self.print(2, "x = -x")
+        self.print(2, "sign = True")
         self.print(1, "else:")
-        self.print(2, "return v")
+        self.print(2, "sign = False")
+        self.print(1, "if y < 0: y = -y")
+        self.print(1, "v = x % y")
+        self.print(1, "return -v if sign else v")
         self.emit("")
 
         # More c like shift left:

@@ -43,9 +43,10 @@ def create_memories(wasm_module):
     for definition in wasm_module:
         if isinstance(definition, components.Memory):
             min_size = definition.min
-            memories.append(
-                (bytearray(min_size * 65536), min_size, definition.max)
-            )
+            max_size = definition.max
+            if max_size is None:
+                max_size = 0x10000
+            memories.append((bytearray(min_size * 65536), min_size, max_size))
         elif isinstance(definition, components.Data):
             assert len(definition.offset) == 1
             assert definition.offset[0].opcode == "i32.const"
@@ -271,7 +272,9 @@ class WasmToIrCompiler:
         self.gen_functions.append((ppci_function, signature, definition))
 
     def gen_table_definition(self, definition):
-        assert definition.id in (0, "$0")
+        """ Create room for a table of function pointers. """
+        assert not hasattr(self, "table_var")
+
         if definition.kind != "funcref":
             raise NotImplementedError("Non function pointer tables")
 
@@ -614,8 +617,7 @@ class WasmToIrCompiler:
         lt_s="<",
     )
 
-    def get_phis(self, instruction):
-        """ Get phi instructions for the given loop/block/if. """
+    def get_block_signature(self, instruction):
         block_type = instruction.args[0]
         if block_type == "emptyblock":
             param_types = []
@@ -628,6 +630,11 @@ class WasmToIrCompiler:
             signature = self.wasm_types[type_id]
             param_types = [p[1] for p in signature.params]
             result_types = signature.results
+        return param_types, result_types
+
+    def get_phis(self, instruction):
+        """ Get phi instructions for the given loop/block/if. """
+        param_types, result_types = self.get_block_signature(instruction)
 
         param_phis = [
             ir.Phi("block_param_{}".format(nr), self.get_ir_type(param_type))
@@ -1200,6 +1207,14 @@ class WasmToIrCompiler:
         if block.typ == "if" and block.inner_block is not None:
             # We should connect empty else to end block.
             self.builder.set_block(block.inner_block)
+
+            # Shortcut-circuit param arguments to result phis:
+            assert len(block.param_phis) == len(block.result_phis)
+            for param_value, result_phi in zip(
+                block.param_phis, block.result_phis
+            ):
+                result_phi.set_incoming(block.inner_block, param_value)
+
             self.emit(ir.Jump(block.continue_block))
 
         self.builder.set_block(block.continue_block)
@@ -1219,23 +1234,39 @@ class WasmToIrCompiler:
             true_block = self.new_block()
             continue_block = self.new_block()
             else_block = self.new_block()
+            stack_start = len(self.stack)
+
+            param_phis, result_phis = self.get_phis(instruction)
+            param_values = [
+                self.pop_value(ir_typ=phi.ty) for phi in reversed(param_phis)
+            ]
+            param_values.reverse()
+            # Restore stack:
+            for value in param_values:
+                self.push_value(value)
+
+            # prepare values for then block:
+            for param_value in param_values:
+                self.push_value(param_value)
+
             self.emit(ir.CJump(a, op, b, true_block, else_block))
             self.builder.set_block(true_block)
-            param_phis, result_phis = self.get_phis(instruction)
-            assert not param_phis
         else:
             continue_block = None
             else_block = None
+            param_values = []
             result_phis = []
+            stack_start = len(self.stack)
+
         # Store else block as inner block to allow break:
         self.block_stack.append(
             BlockLevel(
                 "if",
                 continue_block,
                 else_block,
-                [],
+                param_values,
                 result_phis,
-                len(self.stack),
+                stack_start,
             )
         )
 
@@ -1248,6 +1279,9 @@ class WasmToIrCompiler:
         else_block = if_block.inner_block
         continue_block = if_block.continue_block
 
+        for param_value in if_block.param_phis:
+            self.push_value(param_value)
+
         if self.is_reachable:
             self.emit(ir.Jump(continue_block))
         self.builder.set_block(else_block)
@@ -1256,7 +1290,7 @@ class WasmToIrCompiler:
                 "else",
                 continue_block,
                 None,
-                [],
+                if_block.param_phis,
                 if_block.result_phis,
                 if_block.stack_start,
             )
@@ -1498,7 +1532,6 @@ class WasmToIrCompiler:
         args = []
         for arg_ir_typ in reversed(arg_types):
             arg = self.pop_value(ir_typ=arg_ir_typ)
-            assert arg.ty is arg_ir_typ
             args.append(arg)
         args.reverse()
 

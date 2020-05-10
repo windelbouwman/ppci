@@ -289,7 +289,7 @@ class IrToWasmCompiler:
             # TODO: this is ugly!
             if self.instructions[-1].opcode != "return":
                 ret_type = self.get_ty(ir_function.return_ty)
-                self.emit((ret_type + ".const", 0))
+                self.emit(ret_type + ".const", 0)
 
         # Add locals and instructions to the wasm funcion object
         wasm_func.locals = [(None, x) for x in self.local_vars]
@@ -299,17 +299,17 @@ class IrToWasmCompiler:
     def increment_stack_pointer(self):
         """ Allocate stack if needed """
         if self.fi.frame.stacksize > 0:
-            self.emit(("global.get", self.sp_ref))
-            self.emit(("i32.const", self.fi.frame.stacksize))
-            self.emit(("i32.sub",))
-            self.emit(("global.set", self.sp_ref))
+            self.emit("global.get", self.sp_ref)
+            self.emit("i32.const", self.fi.frame.stacksize)
+            self.emit("i32.sub")
+            self.emit("global.set", self.sp_ref)
 
     def decrement_stack_pointer(self):
         if self.fi.frame.stacksize > 0:
-            self.emit(("global.get", self.sp_ref))
-            self.emit(("i32.const", self.fi.frame.stacksize))
-            self.emit(("i32.add",))
-            self.emit(("global.set", self.sp_ref))
+            self.emit("global.get", self.sp_ref)
+            self.emit("i32.const", self.fi.frame.stacksize)
+            self.emit("i32.add")
+            self.emit("global.set", self.sp_ref)
 
     def do_shape(self, shape):
         """ Generate code for a given code shape """
@@ -326,14 +326,14 @@ class IrToWasmCompiler:
             assert self.stack == 1, str(self.stack)
             self.stack -= 1
             self.push_block("if")
-            self.emit(("if", "emptyblock"))
+            self.emit("if", "emptyblock")
             assert self.stack == 0, str(self.stack)
             if shape.yes_shape is not None:
                 self.do_shape(shape.yes_shape)
             if shape.no_shape is not None:
-                self.emit(("else",))
+                self.emit("else")
                 self.do_shape(shape.no_shape)
-            self.emit(("end",))
+            self.emit("end")
             assert self.stack == 0, str(self.stack)
             self.pop_block("if")
         elif isinstance(shape, relooper.BreakShape):
@@ -343,7 +343,7 @@ class IrToWasmCompiler:
             label_ref = components.Ref(
                 "label", index=(self._get_block_level() + 1)
             )
-            self.emit(("br", label_ref))
+            self.emit("br", label_ref)
         elif isinstance(shape, relooper.ContinueShape):
             # Continue the current loop!
             assert shape.level == 0
@@ -351,15 +351,15 @@ class IrToWasmCompiler:
             label_ref = components.Ref(
                 "label", index=(self._get_block_level())
             )
-            self.emit(("br", label_ref))
+            self.emit("br", label_ref)
         elif isinstance(shape, relooper.LoopShape):
             assert self.stack == 0, str(self.stack)
             self.push_block("loop")
-            self.emit(("block", "emptyblock"))  # Outer block, breaks to end
-            self.emit(("loop", "emptyblock"))  # Loop block, breaks to here.
+            self.emit("block", "emptyblock")  # Outer block, breaks to end
+            self.emit("loop", "emptyblock")  # Loop block, breaks to here.
             self.do_shape(shape.body)
-            self.emit(("end",))
-            self.emit(("end",))
+            self.emit("end")
+            self.emit("end")
             self.pop_block("loop")
             assert self.stack == 0, str(self.stack)
         else:
@@ -633,47 +633,47 @@ class IrToWasmCompiler:
             self.do_tree(tree[1])
             opcode = self.binop_map[tree.name]
             self.stack -= 1
-            self.emit((opcode,))
+            self.emit(opcode)
         elif tree.name in self.mov_operators:
             self.do_tree(tree[0])
-            self.emit(("local.set", self.get_value(tree.value)))
+            self.emit("local.set", self.get_value(tree.value))
             self.stack -= 1
         elif tree.name in self.reg_operators:
-            self.emit(("local.get", self.get_value(tree.value)))
+            self.emit("local.get", self.get_value(tree.value))
             self.stack += 1
         elif tree.name in ["NEGI32", "NEGI16", "NEGI8"]:
-            self.emit(("i32.const", 0))
+            self.emit("i32.const", 0)
             self.do_tree(tree[0])
-            self.emit(("i32.sub",))
+            self.emit("i32.sub")
         elif tree.name == "NEGI64":
-            self.emit(("i64.const", 0))
+            self.emit("i64.const", 0)
             self.do_tree(tree[0])
-            self.emit(("i64.sub",))
+            self.emit("i64.sub")
         elif tree.name == "NEGF32":
             self.do_tree(tree[0])
-            self.emit(("f32.neg",))
+            self.emit("f32.neg")
         elif tree.name == "NEGF64":
             self.do_tree(tree[0])
-            self.emit(("f64.neg",))
+            self.emit("f64.neg")
         elif tree.name in ["FPRELI32"]:
             addr = tree.value.offset
-            self.emit(("global.get", self.sp_ref))  # Fetch stack pointer
-            self.emit(("i32.const", addr))
-            self.emit(("i32.add",))
+            self.emit("global.get", self.sp_ref)  # Fetch stack pointer
+            self.emit("i32.const", addr)
+            self.emit("i32.add")
             self.stack += 1
         elif tree.name in self.store_opcodes:
             self.do_tree(tree[0])
             self.do_tree(tree[1])
             store_op = self.store_opcodes[tree.name]
-            self.emit((store_op, 0, 0))
+            self.emit(store_op, 0, 0)
             self.stack -= 2
         elif tree.name in self.load_opcodes:
             self.do_tree(tree[0])
             load_op = self.load_opcodes[tree.name]
-            self.emit((load_op, 0, 0))  # offset, align
+            self.emit(load_op, 0, 0)  # offset, align
         elif tree.name in self.const_opcodes:
             opcode = self.const_opcodes[tree.name]
-            self.emit((opcode, tree.value))
+            self.emit(opcode, tree.value)
             self.stack += 1
         elif tree.name == "LABEL":  # isinstance(tree, ir.LiteralData):
             if tree.value in self.global_labels:
@@ -686,7 +686,7 @@ class IrToWasmCompiler:
                 self.pointed_functions.append(func_ref)
             else:  # pragma: no cover
                 raise NotImplementedError()
-            self.emit(("i32.const", addr))
+            self.emit("i32.const", addr)
             self.stack += 1
         elif tree.name in self.cast_operators:
             self.do_tree(tree[0])
@@ -694,34 +694,34 @@ class IrToWasmCompiler:
             self.do_tree(tree[0])
             opcodes = self.cast_operators2[tree.name]
             for opcode in opcodes:
-                self.emit((opcode,))
+                self.emit(opcode)
         elif tree.name == "CALL":
             function_name, argv, rv = tree.value
             for ty, argument in argv:
-                self.emit(("local.get", self.get_value(argument)))
+                self.emit("local.get", self.get_value(argument))
 
             if isinstance(function_name, str):
                 func_ref = self.function_refs[function_name]
-                self.emit(("call", func_ref))
+                self.emit("call", func_ref)
             else:
                 # Handle function pointers:
-                self.emit(("local.get", self.get_value(function_name)))
+                self.emit("local.get", self.get_value(function_name))
                 arg_types = tuple(t for t, a in argv)
                 ret_types = (rv[0],) if rv else tuple()
                 type_ref = self.get_type_id(arg_types, ret_types)
                 table_ref = components.Ref("table", index=0)
-                self.emit(("call_indirect", type_ref, table_ref))
+                self.emit("call_indirect", type_ref, table_ref)
 
             if rv:
-                self.emit(("local.set", self.get_value(rv[1])))
+                self.emit("local.set", self.get_value(rv[1]))
         elif tree.name == "JMP":
             # Actual jump handled by shapes!
             if tree.value is self.fi.epilog_label:
                 self.decrement_stack_pointer()
                 # We are returning from function!
                 if hasattr(self.fi, "rv_vreg") and self.fi.rv_vreg:
-                    self.emit(("local.get", self.get_value(self.fi.rv_vreg)))
-                self.emit(("return",))
+                    self.emit("local.get", self.get_value(self.fi.rv_vreg))
+                self.emit("return")
         elif tree.name in self.cmp_operators:
             # Ensure operands are on stack:
             self.do_tree(tree[0])
@@ -737,7 +737,7 @@ class IrToWasmCompiler:
                 if ir_ty.is_unsigned:
                     opcode += "_u"
 
-            self.emit((opcode,))
+            self.emit(opcode)
             self.stack -= 1
             # Jump is handled by shapes!
         else:  # pragma: no cover
@@ -776,9 +776,9 @@ class IrToWasmCompiler:
             self.local_vars.append(wasm_ty)
         return self.local_var_map[value]
 
-    def emit(self, instruction):
+    def emit(self, opcode, *args):
         """ Emit a single wasm instruction """
-        instruction = components.Instruction(*instruction)
+        instruction = components.Instruction(opcode, *args)
         # print(instruction.to_string())  # , instruction.to_bytes())
         self.instructions.append(instruction)
 
