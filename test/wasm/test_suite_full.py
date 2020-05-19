@@ -34,11 +34,11 @@ from operator import add
 import warnings
 import argparse
 
-from ppci.wasm import read_wat, Module, instantiate
+from ppci.wasm import read_wat, Module, instantiate, components
 from ppci.common import CompilerError, logformat
 from ppci.lang.sexpr import parse_sexpr, parse_multiple_sexpr
 from ppci.utils.reporting import HtmlReportGenerator
-from ppci.wasm.util import datastring2bytes, sanitize_name
+from ppci.wasm.util import datastring2bytes
 from ppci.wasm.util import make_int, make_float
 
 
@@ -56,15 +56,13 @@ logging.getLogger().setLevel(logging.DEBUG)
 # TODO: at some point we should be able to process all snippets?
 # Black list of test files
 black_list = [
-    'br_table',  # Works, but takes a lot of time.
-    'names',  # Contains many weird unicode characters
     'linking',  # Requires linking. This does not work yet.
     'imports',  # Import support is too limited for now.
     'data',  # Importing of memory not implemented
     'elem',  # Importing of table not implemented
-    # 'float_exprs',  # TODO: what is the issue here?
+    'float_exprs',  # TODO: what is the issue here?
     'float_memory',  # TODO: handle signalling nan's
-    # 'float_literals',  # TODO: what is the issue here?
+    'float_literals',  # TODO: what is the issue here?
     'skip-stack-guard-page',  # This is some stack overflow stuff?
     'func',  # TODO: this function is malformed!
 ]
@@ -142,6 +140,9 @@ class WastExecutor:
         self.mod_instance = None
         self.named_module_instances = {}
 
+        # Registered instances:
+        self._registered_instances = {}
+
     def execute(self, s_expressions):
         for s_expr in s_expressions:
             if s_expr in self.s_expr_blacklist:
@@ -157,6 +158,10 @@ class WastExecutor:
         elif s_expr[0] == 'invoke':
             # TODO: invoke test functions defined in wast files
             self.invoke(s_expr)
+        
+        elif s_expr[0] == 'register':
+            # TODO: register module for cross module imports.
+            self.register_instance(s_expr)
 
         elif s_expr[0] == 'assert_return':
             invoke_target = s_expr[1]
@@ -167,7 +172,7 @@ class WastExecutor:
             elif len(expected_values) == 1:
                 expected_value = expected_values[0]
                 if nan_or_inf(expected_value):
-                    self.logger.warning('Not invoking %s', invoke_target)
+                    self.logger.warning('Not executing due to nan-or-inf %s', s_expr)
                 else:
                     result = self.evaluate(invoke_target)
                     self.assert_equal(result, expected_value)
@@ -233,7 +238,6 @@ class WastExecutor:
         if m1.id:
             self.named_modules[m1.id] = m1
         self.mod_instance = None
-        # self._instantiate(m1)
     
     def _instantiate(self, m1):
         """ Instantiate a module. """
@@ -250,15 +254,22 @@ class WastExecutor:
                    'print_i32': print_i32,
                    'print': my_print,
                 #    'global_i32': 777,
+                    'table': components.Table("$table", 'funcref', 10, 20)
                }
             }
-            self.mod_instance = instantiate(
+
+            for reg_name, reg_instance in self._registered_instances.items():
+                imports[reg_name] = {}
+                # TODO: use reg_instance.exports
+
+            mod_instance = instantiate(
                 m1, imports, target=self.target, reporter=self.reporter)
-            self.logger.debug('Instantiated wasm module %s', self.mod_instance)
+            self.logger.debug('Instantiated wasm module %s', mod_instance)
             if m1.id:
-                self.named_module_instances[m1.id] = self.mod_instance
+                self.named_module_instances[m1.id] = mod_instance
         else:
-            self.mod_instance = None
+            mod_instance = None
+        return mod_instance
 
     def evaluate(self, target):
         if target[0] == 'invoke':
@@ -273,7 +284,7 @@ class WastExecutor:
         # print(target)
         assert target[0] == 'invoke'
         # TODO: how to handle names like @#$%^&*?
-        if target[1].startswith('$'):
+        if target[1].startswith('$') and len(target) > 2 and isinstance(target[2], str):
             module_id = target[1]
             instance = self.get_instance(module_id)
             func_name = target[2]
@@ -295,10 +306,22 @@ class WastExecutor:
             self.logger.debug('Invoking ' + repr(target))
             return instance.exports[func_name](*args)
 
+    def register_instance(self, s_expr):
+        """ register module for cross module imports. """
+        assert s_expr[0] == 'register'
+        name = s_expr[1]
+        self.logger.debug('Registering module %s', name)
+        module_ref = s_expr[2]
+        instance = self.get_instance(module_ref)
+        if name in self._registered_instances:
+            raise ValueError('Module {} already registered'.format(name))
+        else:
+            self._registered_instances[name] = instance
+
     def do_get(self, target):
         """ Get the value of a global variable. """
         assert target[0] == 'get'
-        if target[1].startswith('$'):
+        if target[1].startswith('$') and len(target) > 2 and isinstance(target[2], str):
             module_id = target[1]
             instance = self.get_instance(module_id)
             var_name = target[2]
@@ -316,9 +339,11 @@ class WastExecutor:
         """ Get a wasm module instance. """
         if name is None:
             if not self.mod_instance and self.last_mod:
-                self._instantiate(self.last_mod)
+                self.mod_instance = self._instantiate(self.last_mod)
             instance = self.mod_instance
         else:
+            if name not in self.named_module_instances and name in self.named_modules:
+                self.named_module_instances[name] = self._instantiate(self.named_modules[name])
             instance = self.named_module_instances[name]
         return instance
 
@@ -449,8 +474,11 @@ if __name__ == '__main__':
 
     logging.basicConfig(level=loglevel, format=logformat)
 
-    for target in args.target:
-        for filename in get_wast_files(args.spec_folder, include_pattern=args.filter):
-            perform_test(filename, target)
+    if args.target:
+        for target in args.target:
+            for filename in get_wast_files(args.spec_folder, include_pattern=args.filter):
+                perform_test(filename, target)
     else:
         print('Specify at least one target environment, such as python or native')
+
+    print('OK.')

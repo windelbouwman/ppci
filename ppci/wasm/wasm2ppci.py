@@ -201,9 +201,9 @@ class WasmToIrCompiler:
             self.builder.module.add_external(self.memory_base_address)
 
         elif definition.kind == "table":
+            assert not hasattr(self, "table_var")
             self.logger.debug("table import")
             assert definition.info[0] == "funcref"
-            assert definition.id == 0
             self.table_var = ir.ExternalVariable("func_table")
             self.builder.module.add_external(self.table_var)
             self.tables.append((self.table_var, []))
@@ -219,10 +219,11 @@ class WasmToIrCompiler:
 
     def gen_export_definition(self, definition):
         """ Generate code for an export definition. """
+        name = sanitize_name(definition.name)
+
         if definition.kind == "func":
             # f = self.function_space[x.index]
             # f = x.name, f[1]
-            name = sanitize_name(definition.name)
             if definition.ref.name is not None:
                 # We can export a function multiple times with the
                 # same name!
@@ -251,7 +252,7 @@ class WasmToIrCompiler:
         elif isinstance(definition.id, str):
             name = "named_{}".format(sanitize_name(definition.id.lstrip("$")))
         else:
-            name = "unnamed{}".format(definition.id)
+            name = "_unnamed_{}".format(definition.id)
 
         # Create ir-function:
         binding = ir.Binding.GLOBAL
@@ -351,6 +352,28 @@ class WasmToIrCompiler:
         self.builder.set_block(entryblock)
         ppci_function.entry = entryblock
 
+        self.gen_init_globals()
+        self.gen_init_tables()
+
+        # Call optional start function:
+        if self.start_function_ref is not None:
+            target, _ = self.functions[self.start_function_ref.index]
+            self.emit(ir.ProcedureCall(target, []))
+
+        self.emit(ir.Exit())
+
+        # Enter correct debug info:
+        dbg_arg_types = []
+        dbg_return_type = self.get_debug_type("void")
+        db_function_info = debuginfo.DebugFunction(
+            ppci_function.name,
+            common.SourceLocation("main.wasm", 1, 1, 1),
+            dbg_return_type,
+            dbg_arg_types,
+        )
+        self.debug_db.enter(ppci_function, db_function_info)
+
+    def gen_init_globals(self):
         # Initialize global values:
         # (This must be done here, since initial values may contain
         # imported globals)
@@ -358,6 +381,9 @@ class WasmToIrCompiler:
             value = self.gen_expression(init)
             self.emit(ir.Store(value, g2))
 
+    def gen_init_tables(self):
+        """ Initialization function to fill table with elements.
+        """
         # Fill function pointer tables:
         # TODO: we might be able to do this at link time?
         for table_variable, elems in self.tables:
@@ -378,6 +404,9 @@ class WasmToIrCompiler:
                 offset_value = self.emit(
                     ir.Cast(offset_value, "offset", ir.ptr)
                 )
+                offset_value = self.emit(
+                    ir.mul(offset_value, ptr_size, "offset", ir.ptr)
+                )
                 address = self.emit(
                     ir.add(address, offset_value, "table_address", ir.ptr)
                 )
@@ -389,24 +418,6 @@ class WasmToIrCompiler:
                     address = self.emit(
                         ir.add(address, ptr_size, "table_address", ir.ptr)
                     )
-
-        # Call optional start function:
-        if self.start_function_ref is not None:
-            target, _ = self.functions[self.start_function_ref.index]
-            self.emit(ir.ProcedureCall(target, []))
-
-        self.emit(ir.Exit())
-
-        # Enter correct debug info:
-        dbg_arg_types = []
-        dbg_return_type = self.get_debug_type("void")
-        db_function_info = debuginfo.DebugFunction(
-            ppci_function.name,
-            common.SourceLocation("main.wasm", 1, 1, 1),
-            dbg_return_type,
-            dbg_arg_types,
-        )
-        self.debug_db.enter(ppci_function, db_function_info)
 
     def emit(self, ppci_inst):
         """ Emits the given instruction to the builder.
@@ -1506,7 +1517,8 @@ class WasmToIrCompiler:
         This is required for functions such 'sqrt' as which do not have
         a reasonable ppci ir-code equivalent.
         """
-        rt_func_name = "wasm_rt_" + sanitize_name(opcode)
+        func_name = opcode.replace(".", "_")
+        rt_func_name = "wasm_rt_" + func_name
 
         # Determine argument and return types:
         stack_in, stack_out = STACK_IO[opcode]

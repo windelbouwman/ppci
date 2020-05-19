@@ -6,6 +6,7 @@ from ppci.arch.arch_info import TypeInfo
 from ppci import api, ir
 from ppci.wasm import wasm_to_ir, ir_to_wasm, read_wasm
 from ppci.lang.python import python_to_wasm
+from ppci.wasm.util import sanitize_name
 
 
 THIS_DIR = os.path.abspath(os.path.dirname(__file__))
@@ -50,6 +51,11 @@ class WasmLoadAndSaveTestCase(unittest.TestCase):
 
         # Compare contents:
         self.assertEqual(content1, content2)
+
+
+class NameNormalizationTestCase(unittest.TestCase):
+    def test_sanitize_name(self):
+        self.assertEqual('HelloA20World', sanitize_name('Hello World'))
 
 
 if __name__ == '__main__':

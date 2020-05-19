@@ -21,7 +21,7 @@ from ..utils.reporting import DummyReportGenerator
 from ..irutils import verify_module
 from .. import ir
 from . import wasm_to_ir
-from .components import Export, Import
+from .components import Export, Import, Table
 from .wasm2ppci import create_memories
 from .util import PAGE_SIZE
 from .runtime import create_runtime
@@ -444,17 +444,25 @@ class PythonModuleInstance(ModuleInstance):
     def __init__(self, module, imports):
         super().__init__()
         self._py_module = module
-        self.mem_end = self._py_module.heap_top()
 
         # Magical python memory interface, add it now:
         imports["wasm_rt_memory_grow"] = self.memory_grow
         imports["wasm_rt_memory_size"] = self.memory_size
 
         # Link all imports:
-        for name, f in imports.items():
-            # TODO: make a choice between those two options:
-            # gen_rocket_wasm.externals[name] = f
-            setattr(self._py_module, name, f)
+        for name, obj in imports.items():
+            if isinstance(obj, Table):
+                # print(name, obj)
+                ptr_size = 4
+                table_byte_size = obj.max * ptr_size
+                table_addr = self._py_module._irpy_heap_top()
+                self._py_module._irpy_heap.extend(bytes(table_byte_size))
+                obj = table_addr
+                magic_key = "func_table"
+                assert magic_key not in self._py_module._irpy_externals
+                self._py_module._irpy_externals[magic_key] = table_addr
+
+            self._py_module._irpy_externals[name] = obj
 
     def _run_init(self):
         self._py_module._run_init()
@@ -466,8 +474,8 @@ class PythonModuleInstance(ModuleInstance):
             memory, min_size, max_size = memories[0]
             assert max_size is not None
 
-            self.mem0_start = self._py_module.heap_top()
-            self._py_module.heap.extend(memory)
+            self.mem0_start = self._py_module._irpy_heap_top()
+            self._py_module._irpy_heap.extend(memory)
             mem0_ptr_ptr = self._py_module.wasm_mem0_address
             self._py_module.store_i32(self.mem0_start, mem0_ptr_ptr)
             mem0 = PythonWasmMemory(min_size, max_size)
@@ -484,12 +492,14 @@ class PythonModuleInstance(ModuleInstance):
         if new_size > max_size:
             return -1
         else:
-            self._py_module.heap.extend(bytes(amount * PAGE_SIZE))
+            self._py_module._irpy_heap.extend(bytes(amount * PAGE_SIZE))
             return old_size
 
     def memory_size(self):
         """ return memory size in pages """
-        size = (self._py_module.heap_top() - self.mem0_start) // PAGE_SIZE
+        size = (
+            self._py_module._irpy_heap_top() - self.mem0_start
+        ) // PAGE_SIZE
         return size
 
 
