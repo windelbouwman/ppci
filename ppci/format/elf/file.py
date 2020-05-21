@@ -61,6 +61,10 @@ def write_elf(obj, f):
     elf_file.save(f, obj)
 
 
+ET_REL = 1
+ET_EXEC = 2
+
+
 class ElfFile:
     """
         This class can load and save a elf file.
@@ -69,7 +73,7 @@ class ElfFile:
     e_version = 1
 
     def __init__(self, bits=64, endianness=Endianness.LITTLE):
-        self.e_type = 2  # Executable type
+        self.e_type = ET_REL  # Executable type
         self.e_machine = ElfMachine.X86_64.value  # x86-64 machine
         self.header_types = HeaderTypes(bits=bits, endianness=endianness)
         self.sections = []
@@ -223,7 +227,8 @@ class ElfFile:
         else:
             elf_header.e_entry = obj.get_symbol_id_value(obj.entry_symbol_id)
 
-        elf_header.e_phoff = 16 + self.header_types.ElfHeader.size
+        if obj.images:
+            elf_header.e_phoff = 16 + self.header_types.ElfHeader.size
         elf_header.e_shoff = tmp_offset  # section header offset
         elf_header.e_flags = 0
         elf_header.e_ehsize = 16 + self.header_types.ElfHeader.size
@@ -275,10 +280,11 @@ class ElfFile:
 
         # Sections:
         f.write(bytes(elf_header.e_shentsize))  # Null section all zeros
+        print("!!!", offsets)
         for section in obj.sections:
             self.write_section_header(
                 f,
-                offsets[section],
+                offsets.get(section, 0),
                 vaddr=section.address,
                 sh_size=section.size,
                 sh_type=SectionHeaderType.PROGBITS,
