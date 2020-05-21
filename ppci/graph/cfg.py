@@ -27,6 +27,8 @@ class DomTreeNode:
     """ A single node in the dominator tree.
     """
 
+    __slots__ = ('node', 'children', 'interval')
+
     def __init__(self, node, children, interval):
         self.node = node
         self.children = children

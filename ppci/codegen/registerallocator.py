@@ -152,9 +152,11 @@ class MiniGen:
     def gen_load(self, frame, vreg, slot):
         """ Generate instructions to load vreg from a stack slot """
         at = self.make_at(slot)
+        fmt = self.make_fmt(vreg)
+
         t = Tree(
-            "MOVI{}".format(vreg.bitsize),
-            Tree("LDRI{}".format(vreg.bitsize), at),
+            "MOV{}".format(fmt),
+            Tree("LDR{}".format(fmt), at),
             value=vreg,
         )
         return self.gen(frame, t)
@@ -162,10 +164,11 @@ class MiniGen:
     def gen_store(self, frame, vreg, slot):
         """ Generate instructions to store vreg at a stack slot """
         at = self.make_at(slot)
+        fmt = self.make_fmt(vreg)
         t = Tree(
-            "STRI{}".format(vreg.bitsize),
+            "STR{}".format(fmt),
             at,
-            Tree("REGI{}".format(vreg.bitsize), value=vreg),
+            Tree("REG{}".format(fmt), value=vreg),
         )
         return self.gen(frame, t)
 
@@ -174,6 +177,14 @@ class MiniGen:
         ctx = MiniCtx(frame, self.arch)
         self.selector.gen_tree(ctx, tree)
         return ctx.l
+
+    def make_fmt(self, vreg):
+        """ Determine the type suffix, such as I32 or F64.
+        """
+        # TODO: hack to retrieve register type (U, I or F):
+        ty = getattr(vreg, 'ty', 'I')
+        fmt = '{}{}'.format(ty, vreg.bitsize)
+        return fmt
 
     def make_at(self, slot):
         bitsize = self.arch.get_size("ptr") * 8

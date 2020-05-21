@@ -7,10 +7,10 @@ import logging
 import struct
 from contextlib import contextmanager
 from io import BytesIO
-from ..utils.leb128 import unsigned_leb128_decode, signed_leb128_decode
-from .opcodes import ArgType, OPERANDS, REVERZ
-from .components import Ref, Instruction, SECTION_IDS, DEFINITION_CLASSES
-from . import components
+from ...utils.leb128 import unsigned_leb128_decode, signed_leb128_decode
+from ..opcodes import ArgType, OPERANDS, REVERZ
+from ..components import Ref, Instruction, SECTION_IDS, DEFINITION_CLASSES
+from .. import components
 from .io import LANG_TYPES_REVERSE
 
 

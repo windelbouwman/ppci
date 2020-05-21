@@ -4,11 +4,11 @@
 
 import logging
 from io import BytesIO
-from ..utils.leb128 import signed_leb128_encode, unsigned_leb128_encode
-from ..format.io import BaseIoWriter
-from .opcodes import ArgType, OPERANDS, OPCODES
-from .components import Instruction, SECTION_IDS
-from . import components
+from ...utils.leb128 import signed_leb128_encode, unsigned_leb128_encode
+from ...format.io import BaseIoWriter
+from ..opcodes import ArgType, OPERANDS, OPCODES
+from ..components import Instruction, SECTION_IDS
+from .. import components
 from .io import LANG_TYPES
 
 

@@ -34,7 +34,6 @@ import logging
 import sys
 from collections import OrderedDict
 
-from .util import bytes2datastring
 from ..lang.sexpr import parse_sexpr
 
 
@@ -121,37 +120,6 @@ class WASMComponent:
         """ Print the S-expression of the component.
         """
         print(self.to_string())
-
-    def _get_sub_string(self, subs, multiline=False):
-        """ Helper method to get the string of a list of sub components,
-        inserting newlines as needed.
-        """
-        # Collect sub texts
-        texts = []
-        charcount = 0
-        haslf = False
-        for sub in subs:
-            if isinstance(sub, WASMComponent):
-                text = sub.to_string()
-            else:
-                text = str(sub)  # or repr ...
-            charcount += len(text)
-            texts.append(text)
-            haslf = haslf or "\n" in text
-        # Put on one line or multiple lines
-        if multiline or haslf or charcount > 70:
-            lines = []
-            indent = 4
-            for text in texts:
-                for line in text.splitlines():
-                    if line.startswith(("(else", "(end")):
-                        indent -= 4
-                    lines.append(" " * indent + line)
-                    if line.startswith(("(block", "(loop", "(if", "(else")):
-                        indent += 4
-            return "\n".join(lines)
-        else:
-            return " ".join(texts)
 
     # From ...
 
@@ -271,25 +239,21 @@ class Module(WASMComponent):
         """ Initialize from tuple.
         """
 
-        from .wat import load_tuple
+        from .text import load_tuple
 
         load_tuple(self, t)
 
     def _from_file(self, f):
-        from .binary_reader import BinaryFileReader
+        from .binary.reader import BinaryFileReader
 
         reader = BinaryFileReader(f)
         reader.read_module(self)
 
     def to_string(self):
-        # TODO: idea: first construct tuples, then pretty print these tuples
-        # to strings.
-        id_str = " " + self.id if self.id else ""
-        if self.definitions:
-            defs_str = "\n%s\n" % self._get_sub_string(self.definitions, True)
-        else:
-            defs_str = ""
-        return "(module" + id_str + defs_str + ")\n"
+        from .text.writer import TextWriter
+
+        writer = TextWriter()
+        return writer.write_module(self)
 
     def to_bytes(self):
         """ Get the bytes that represent the binary WASM for this module.
@@ -308,7 +272,7 @@ class Module(WASMComponent):
 
     def to_file(self, f):
         """ Write this wasm module to file """
-        from .binary_writer import BinaryFileWriter
+        from .binary.writer import BinaryFileWriter
 
         writer = BinaryFileWriter(f)
         writer.write_module(self)
@@ -402,25 +366,10 @@ class Instruction(WASMComponent):
         return getattr(self, self.__slots__[i])
 
     def to_string(self):
-        args = self.args
-        if ".load" in self.opcode or ".store" in self.opcode:
-            if args[1] == 0:  # zero offset
-                args = ("align=%i" % 2 ** args[0],)
-            else:
-                args = ("align=%i" % 2 ** args[0], "offset=%i" % args[1])
-        elif self.opcode == "call_indirect":
-            if args[1].index == 0:  # zero'th table
-                args = ("(type %s)" % args[0],)
-            else:
-                args = (
-                    "(type %s)" % args[0],
-                    "(const.i64 %i)" % args[1].index,
-                )
-        subtext = self._get_sub_string(args)
-        if "\n" in subtext:
-            return "(" + self.opcode + "\n" + subtext + "\n)"
-        else:
-            return "(" + self.opcode + " " * bool(subtext) + subtext + ")"
+        from .text.writer import TextWriter
+
+        writer = TextWriter()
+        return writer.write_instruction(self)
 
 
 class BlockInstruction(Instruction):
@@ -440,13 +389,10 @@ class BlockInstruction(Instruction):
         return super()._from_args(opcode, *args)
 
     def to_string(self):
-        idtext = "" if self.id is None else " " + self.id
-        a0 = self.args[0]
-        if a0 == "emptyblock":
-            subtext = ""
-        else:
-            subtext = " (result {})".format(a0)
-        return "(" + self.opcode + idtext + subtext + ")"
+        from .text.writer import TextWriter
+
+        writer = TextWriter()
+        return writer.write_block_instruction(self)
 
 
 # Definition classes
@@ -504,25 +450,10 @@ class Type(Definition):
         self.results = tuple(results)
 
     def to_string(self):
-        s = "(type %s (func" % self.id
-        last_anon = False
-        for i in range(len(self.params)):
-            id, typ = self.params[i]
-            if isinstance(id, int):
-                assert id == i
-                if last_anon:
-                    s += " " + typ
-                else:
-                    s += " (param %s" % typ
-                    last_anon = True
-            else:
-                s += ")" if last_anon else ""
-                s += " (param %s %s)" % (id, typ)
-                last_anon = False
-        s += ")" if last_anon else ""
-        if self.results:
-            s += " (result " + " ".join(self.results) + ")"
-        return s + "))"
+        from .text.writer import TextWriter
+
+        writer = TextWriter()
+        return writer.write_type_definition(self)
 
 
 class Import(Definition):
@@ -561,30 +492,10 @@ class Import(Definition):
         self.info = info
 
     def to_string(self):
-        # Get description
-        if self.kind == "func":
-            desc = ["(type %s)" % self.info[0]]
-        elif self.kind == "table":
-            desc = ["funcref"]
-            if self.info[2] is not None:
-                desc = [str(self.info[1]), str(self.info[2]), "funcref"]
-            elif self.info[1] != 0:
-                desc = [str(self.info[1]), "funcref"]
-        elif self.kind == "memory":
-            desc = [self.info[0]] if self.info[1] is None else list(self.info)
-        elif self.kind == "global":
-            fmt = "(mut %s)" if self.info[1] else "%s"  # mutable?
-            desc = [fmt % self.info[0]]
-        # Populate description more
-        if not (self.kind in ("memory", "table") and self.id == "$0"):
-            desc.insert(0, self.id)
-        # Compose
-        return '(import "%s" "%s" (%s %s))' % (
-            self.modname,
-            self.name,
-            self.kind,
-            " ".join(str(i) for i in desc),
-        )
+        from .text.writer import TextWriter
+
+        writer = TextWriter()
+        return writer.write_import_definition(self)
 
 
 class Table(Definition):
@@ -621,12 +532,10 @@ class Table(Definition):
         self.max = max
 
     def to_string(self):
-        id = "" if self.id == "$0" else " %s" % self.id
-        if self.max is None:
-            minmax = "" if self.min == 0 else " %i" % self.min
-        else:
-            minmax = " %i %i" % (self.min, self.max)
-        return "(table%s%s %s)" % (id, minmax, self.kind)
+        from .text.writer import TextWriter
+
+        writer = TextWriter()
+        return writer.write_table_definition(self)
 
 
 class Memory(Definition):
@@ -655,10 +564,10 @@ class Memory(Definition):
         self.max = max
 
     def to_string(self):
-        id = "" if self.id == "$0" else " %s" % self.id
-        min = " %i" % self.min
-        max = "" if self.max is None else " %i" % self.max
-        return "(memory%s%s%s)" % (id, min, max)
+        from .text.writer import TextWriter
+
+        writer = TextWriter()
+        return writer.write_memory_definition(self)
 
 
 class Global(Definition):
@@ -683,11 +592,10 @@ class Global(Definition):
         self.init = init
 
     def to_string(self):
-        init = " ".join(i.to_string() for i in self.init)
-        if self.mutable:
-            return "(global %s (mut %s) %s)" % (self.id, self.typ, init)
-        else:
-            return "(global %s %s %s)" % (self.id, self.typ, init)
+        from .text.writer import TextWriter
+
+        writer = TextWriter()
+        return writer.write_global_definition(self)
 
 
 class Export(Definition):
@@ -787,31 +695,15 @@ class Func(Definition):
                 for i in instructions
             ]
 
+    def __repr__(self):
+        return "<WASM-Func %s>" % (self.id)
+
     def to_string(self):
         """ Render function def as text """
-        s = ""
-        last_anon = False
-        for i in range(len(self.locals)):
-            id, typ = self.locals[i]
-            if id is None or isinstance(id, int):
-                if id is not None:
-                    assert id == i
-                if last_anon:
-                    s += " " + typ
-                else:
-                    s += " (local %s" % typ
-                    last_anon = True
-            else:
-                s += ")" if last_anon else ""
-                s += " (local %s %s)" % (id, typ)
-                last_anon = False
-        s += ")" if last_anon else ""
-        locals_str = s
+        from .text.writer import TextWriter
 
-        s = "(func %s (type %s)" % (self.id, self.ref) + locals_str + "\n"
-        s += self._get_sub_string(self.instructions, True)
-        s += "\n)"
-        return s
+        writer = TextWriter()
+        return writer.write_func_definition(self)
 
 
 class Elem(Definition):
@@ -878,10 +770,10 @@ class Data(Definition):
         self.data = data
 
     def to_string(self):
-        ref = "" if self.ref.is_zero else " %s" % self.ref
-        offset = " ".join(i.to_string() for i in self.offset)
-        data_as_str = bytes2datastring(self.data)  # repr(self.data)[2:-1]
-        return '(data%s %s "%s")' % (ref, offset, data_as_str)
+        from .text.writer import TextWriter
+
+        writer = TextWriter()
+        return writer.write_data_definition(self)
 
 
 class Custom(Definition):

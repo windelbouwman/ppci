@@ -9,6 +9,9 @@ build-backend = "flit_core.buildapi"
 [tool.black]
 line-length = 79
 
+[tool.pytest]
+junit_family = "xunit1"
+
 [tool.flit.metadata]
 module = "ppci"
 author = "Windel Bouwman"

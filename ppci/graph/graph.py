@@ -38,6 +38,8 @@ def topological_sort(nodes):
 class BaseGraph(abc.ABC):
     """ Base graph class """
 
+    __slots__ = ('nodes', 'adj_map')
+
     def __init__(self):
         self.nodes = OrderedSet()
 
@@ -159,6 +161,8 @@ class Graph(BaseGraph):
 
 class Node:
     """ Node in a graph. """
+
+    __slots__ = ('graph',)
 
     def __init__(self, graph):
         self.graph = graph

@@ -50,12 +50,12 @@ def test_import1():
     # The canonical form
     CODE0 = dedent("""
     (module
-        (type $bar_func (func))
-        (import "foo" "bar_func" (func $bar_func (type $bar_func)))
-        (import "foo" "bar_table1" (table $t1 2 funcref))
-        (import "foo" "bar_mem1" (memory $m1 1))
-        (import "foo" "bar_mem2" (memory $m2 1 2))
-        (import "foo" "bar_global" (global $bar_global i32))
+      (type $bar_func (func))
+      (import "foo" "bar_func" (func $bar_func (type $bar_func)))
+      (import "foo" "bar_table1" (table $t1 2 funcref))
+      (import "foo" "bar_mem1" (memory $m1 1))
+      (import "foo" "bar_mem2" (memory $m2 1 2))
+      (import "foo" "bar_global" (global $bar_global i32))
     )
     """)
     # (import "foo" "bar_table" (table $bar_table (type $bar_func)))

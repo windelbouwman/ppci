@@ -41,20 +41,20 @@ def test_memory1():
     # The canonical form
     CODE0 = dedent(r"""
     (module
-        (type $print (func (param i32)))
-        (type $2 (func))
-        (import "js" "print_ln" (func $print (type $print)))
-        (memory 1 1)
-        (start $main)
-        (func $main (type $2)
-            (i32.const 0)
-            (i32.load8_u align=1)
-            (call $print)
-            (i32.const 1)
-            (i32.load8_u align=1)
-            (call $print)
-        )
-        (data (i32.const 0) "\04\03\02")
+      (type $print (func (param i32)))
+      (type $2 (func))
+      (import "js" "print_ln" (func $print (type $print)))
+      (memory 1 1)
+      (start $main)
+      (func $main (type $2)
+        i32.const 0
+        i32.load8_u
+        call $print
+        i32.const 1
+        i32.load8_u
+        call $print
+      )
+      (data i32.const 0 "\04\03\02")
     )
     """)
 
@@ -65,17 +65,16 @@ def test_memory1():
     b0 = m0.to_bytes()
     assert Module(b0).to_bytes() == b0
 
-    if True:
-        printed_numbers = []
-        def print_ln(x: int) -> None:
-            printed_numbers.append(x)
-        imports = {
-            'js': {
-                'print_ln': print_ln,
-            }
+    printed_numbers = []
+    def print_ln(x: int) -> None:
+        printed_numbers.append(x)
+    imports = {
+        'js': {
+            'print_ln': print_ln,
         }
-        instantiate(m0, imports, target='python')
-        assert [4, 3] == printed_numbers
+    }
+    instantiate(m0, imports, target='python')
+    assert [4, 3] == printed_numbers
 
     if has_node():
         assert run_wasm_in_node(m0, True) == '4\n3'
@@ -84,14 +83,14 @@ def test_memory1():
     m3 = Module('(module (memory $m1 (import "foo" "bar_mem1") 1) )')
     assert m3.to_string() == dedent("""
     (module
-        (import "foo" "bar_mem1" (memory $m1 1))
+      (import "foo" "bar_mem1" (memory $m1 1))
     )
     """)
 
     m3 = Module('(module (memory (import "foo" "bar_mem1") 2 3) )')
     assert m3.to_string() == dedent("""
     (module
-        (import "foo" "bar_mem1" (memory 2 3))
+      (import "foo" "bar_mem1" (memory 2 3))
     )
     """)
 
@@ -105,12 +104,12 @@ def test_memory1():
         (memory (data "\04\03\02"))
         (start $main)
         (func $main (type $2)
-            (i32.const 0)
-            (i32.load8_u)
-            (call $print)
-            (i32.const 1)
-            (i32.load8_u)
-            (call $print)
+            i32.const 0
+            i32.load8_u
+            call $print
+            i32.const 1
+            i32.load8_u
+            call $print
         )
     )
     """

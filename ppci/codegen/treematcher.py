@@ -1,6 +1,8 @@
 class State:
     """ State used to label tree nodes """
 
+    __slots__ = ('labels',)
+
     def __init__(self):
         self.labels = {}
 

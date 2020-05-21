@@ -55,7 +55,9 @@ TEXT1 = r"""
         (br_if $done (i32.eq (i32.const 0) (local.get $s)))
 
         (if (i32.eq (i32.const 1) (local.get $space))
-          (drop (call $fputs (i32.const 12) (local.get $stdout))) ;; ' '
+          (then
+            (drop (call $fputs (i32.const 12) (local.get $stdout))) ;; ' '
+          )
         )
         (local.set $space (i32.const 1))
 

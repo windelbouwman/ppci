@@ -1,3 +1,4 @@
 .vscode/
 vppci.py
 __pycache__/
+*.profile

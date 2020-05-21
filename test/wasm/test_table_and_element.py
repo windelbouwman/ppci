@@ -37,26 +37,26 @@ def test_table1():
     # The canonical form
     CODE0 = dedent(r"""
     (module
-        (type $print (func (param i32)))
-        (type $2 (func))
-        (import "js" "print_ln" (func $print (type $print)))
-        (table 2 2 funcref)
-        (start $main)
-        (elem (i32.const 0) $f1 $f2)
-        (func $f1 (type $2)
-            (i32.const 101)
-            (call $print)
-        )
-        (func $f2 (type $2)
-            (i32.const 102)
-            (call $print)
-        )
-        (func $main (type $2)
-            (i32.const 0)
-            (call_indirect (type $2))
-            (i32.const 1)
-            (call_indirect (type $2))
-        )
+      (type $print (func (param i32)))
+      (type $2 (func))
+      (import "js" "print_ln" (func $print (type $print)))
+      (table 2 2 funcref)
+      (start $main)
+      (elem i32.const 0 $f1 $f2)
+      (func $f1 (type $2)
+        i32.const 101
+        call $print
+      )
+      (func $f2 (type $2)
+        i32.const 102
+        call $print
+      )
+      (func $main (type $2)
+        i32.const 0
+        call_indirect (type $2)
+        i32.const 1
+        call_indirect (type $2)
+      )
     )
     """)
 
@@ -69,17 +69,16 @@ def test_table1():
 
     html_report = 'table_and_element_compilation_report.html'
     with open(html_report, 'w') as f, HtmlReportGenerator(f) as reporter:
-        if True:
-            printed_numbers = []
-            def print_ln(x: int) -> None:
-                printed_numbers.append(x)
-            imports = {
-                'js': {
-                    'print_ln': print_ln,
-                },
-            }
-            instantiate(m0, imports, target='python', reporter=reporter)
-            assert [101, 102] == printed_numbers
+        printed_numbers = []
+        def print_ln(x: int) -> None:
+            printed_numbers.append(x)
+        imports = {
+            'js': {
+                'print_ln': print_ln,
+            },
+        }
+        instantiate(m0, imports, target='python', reporter=reporter)
+        assert [101, 102] == printed_numbers
 
         if is_platform_supported():
             printed_numbers = []
@@ -100,14 +99,14 @@ def test_table1():
     m3 = Module('(module (table $t1 (import "foo" "bar_table1") funcref) )')
     assert m3.to_string() == dedent("""
     (module
-        (import "foo" "bar_table1" (table $t1 funcref))
+      (import "foo" "bar_table1" (table $t1 funcref))
     )
     """)
 
     m3 = Module('(module (table (import "foo" "bar_table1") 2 3 funcref) )')
     assert m3.to_string() == dedent("""
     (module
-        (import "foo" "bar_table1" (table 2 3 funcref))
+      (import "foo" "bar_table1" (table 2 3 funcref))
     )
     """)
 

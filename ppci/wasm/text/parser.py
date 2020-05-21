@@ -9,11 +9,12 @@ https://github.com/WebAssembly/wabt/blob/master/src/wast-parser.cc
 import logging
 
 from collections import defaultdict
-from ..lang.sexpr import parse_sexpr
-from .opcodes import OPERANDS, OPCODES, ArgType
-from .util import datastring2bytes, make_int, make_float, is_int, PAGE_SIZE
+from ...lang.sexpr import parse_sexpr
+from ..opcodes import OPERANDS, OPCODES, ArgType
+from ..util import datastring2bytes, make_int, make_float, is_int, PAGE_SIZE
+from .util import default_alignment, log2
 from .tuple_parser import TupleParser, Token
-from . import components
+from .. import components
 
 
 logger = logging.getLogger("wat")
@@ -149,9 +150,10 @@ class WatTupleLoader(TupleParser):
         return definitions
 
     def add_definition(self, definition):
-        logger.debug("Parsed %s", definition)
         space = definition.__name__
+        nr = len(self.definitions[space])
         self.definitions[space].append(definition)
+        logger.debug("Parsed %s %s", definition, nr)
 
     def gen_id(self, kind):
         return "${}".format(len(self.definitions[kind]))
@@ -185,7 +187,7 @@ class WatTupleLoader(TupleParser):
         return value
 
     def _parse_ref(self, space):
-        """ Parse a reference (int or $ref) """
+        """ Parse a reference (int or $ref) into the given space """
         assert self._at_ref()
         value = self.take()
         return self._make_ref(space, value)
@@ -242,18 +244,15 @@ class WatTupleLoader(TupleParser):
         """ Parse thing like (locals i32) (locals $foo i32) """
         params = []
         while self.munch(Token.LPAR, kind):
-            if self.match(Token.RPAR):  # (param,)
-                self.expect(Token.RPAR)
-            else:
+            if not self.match(Token.RPAR):
                 if self._at_id():  # (param $id i32)
                     params.append((self.take(), self.take()))
-                    self.expect(Token.RPAR)
                 else:
                     # anonymous (param i32 i32 i32)
                     while not self.match(Token.RPAR):
                         p = self.take()
                         params.append((len(params), p))
-                    self.expect(Token.RPAR)
+            self.expect(Token.RPAR)
         return params
 
     def _parse_result_list(self):
@@ -265,26 +264,24 @@ class WatTupleLoader(TupleParser):
         return result
 
     def load_import(self):
+        """ Parse top level import. """
         modname = self.take()
         name = self.take()
         self.expect(Token.LPAR)
         kind = self.take()
+        id = self._parse_optional_id(default=self.gen_id(kind))
         if kind == "func":
-            id = self._parse_optional_id(default=self.gen_id("func"))
             ref = self._parse_type_use()
             info = (ref,)
         elif kind == "table":
-            id = self._parse_optional_id(default=self.gen_id("table"))
             min, max = self.parse_limits()
             table_kind = self.take()
             assert table_kind == "funcref"
             info = (table_kind, min, max)
         elif kind == "memory":
-            id = self._parse_optional_id(default=self.gen_id("memory"))
             min, max = self.parse_limits()
             info = (min, max)
         elif kind == "global":
-            id = self._parse_optional_id(default=self.gen_id("global"))
             typ, mutable = self.parse_global_type()
             info = (typ, mutable)
         else:  # pragma: no cover
@@ -348,13 +345,9 @@ class WatTupleLoader(TupleParser):
         """ Parse $1 $2 $foo $bar """
         refs = []
         while self._at_ref():
-            ref = self.get_ref("func", self.take())
+            ref = self._parse_ref("func")
             refs.append(ref)
         return refs
-
-    def get_ref(self, space, value):
-        """ Get a reference to an object """
-        return self._make_ref(space, value)
 
     def _make_ref(self, space, value):
         """ Create a reference in a space given a value """
@@ -493,101 +486,101 @@ class WatTupleLoader(TupleParser):
         return instructions
 
     def _load_instruction(self):
-        """ Load a single (maybe nested) instruction """
+        """ Load a single (maybe nested) instruction.
+
+        For nesting syntax, please refer here:
+        https://webassembly.github.io/spec/core/text/instructions.html#folded-instructions
+
+        Note that this returns a list of instructions.
+        """
 
         instructions = []
         # We can have instructions without parenthesis! OMG
         is_braced = self.munch(Token.LPAR)
         opcode = self.take()
 
-        if opcode in ("block", "loop", "if"):
+        if opcode == "if":
+            block_id = self._parse_optional_id()
+            self.block_stack.append(block_id)
+            block_type = self._load_block_type()
+            if_instruction = components.BlockInstruction(
+                "if", block_id, block_type
+            )
+
+            if is_braced:
+                # Nested/folded syntax stuff
+                # 'then' is no opcode, solely syntactic sugar.
+
+                # First is the condition:
+                instructions.extend(self._load_instruction_list())
+                instructions.append(if_instruction)
+
+                # A nested then:
+                self.expect(Token.LPAR, "then")
+                instructions.extend(self._load_instruction_list())
+                self.expect(Token.RPAR)
+
+                # Optional nested 'else':
+                if self.munch(Token.LPAR, "else"):
+                    instructions.append(components.Instruction("else"))
+                    instructions.extend(self._load_instruction_list())
+                    self.expect(Token.RPAR)
+
+                # Add implicit end:
+                self.block_stack.pop()
+                instructions.append(components.Instruction("end"))
+            else:
+                instructions.append(if_instruction)
+
+        elif opcode in ("block", "loop"):
             block_id = self._parse_optional_id()
             self.block_stack.append(block_id)
             block_type = self._load_block_type()
 
+            instructions.append(
+                components.BlockInstruction(opcode, block_id, block_type)
+            )
+
             if is_braced:
-                if opcode == "if":
-                    # Maybe we have a then instruction?
-                    if self.munch(Token.RPAR):
-                        instructions.append(
-                            components.BlockInstruction(
-                                "if", block_id, block_type
-                            )
-                        )
-                    else:
-                        # Nested stuff
-                        # First is the condition:
-                        if not self.match(Token.LPAR, "then"):
-                            instructions.extend(self._load_instruction())
+                # Nested instructions
+                instructions.extend(self._load_instruction_list())
 
-                        instructions.append(
-                            components.BlockInstruction(
-                                "if", block_id, block_type
-                            )
-                        )
+                # Add implicit end:
+                self.block_stack.pop()
+                instructions.append(components.Instruction("end"))
 
-                        if not self.munch(Token.RPAR):
-                            # Optionally a nested then:
-                            if self.munch(Token.LPAR, "then"):
-                                body = self._load_instruction_list()
-                                instructions.extend(body)
-                                self.expect(Token.RPAR)
-
-                            # Load body and optional 'else':
-                            body = self._load_instruction_list()
-                            instructions.extend(body)
-                            self.expect(Token.RPAR)
-
-                            # Add implicit end:
-                            self.block_stack.pop()
-                            instructions.append(components.Instruction("end"))
-                else:
-                    instructions.append(
-                        components.BlockInstruction(
-                            opcode, block_id, block_type
-                        )
-                    )
-                    if not self.munch(Token.RPAR):
-                        # Nested instructions
-                        body = self._load_instruction_list()
-                        self.expect(Token.RPAR)
-                        instructions.extend(body)
-
-                    # Add implicit end:
-                    self.block_stack.pop()
-                    instructions.append(components.Instruction("end"))
-            else:
-                instructions.append(
-                    components.BlockInstruction(opcode, block_id, block_type)
-                )
-
-        elif opcode in ("else",):
+        elif opcode == "else":
             block_id = self._parse_optional_id()
+            if block_id is not None:
+                assert block_id == self.block_stack[-1]
+
             instructions.append(components.Instruction(opcode))
-            if is_braced:
-                if not self.munch(Token.RPAR):
-                    # Nested instructions
-                    instructions.extend(self._load_instruction_list())
-                    self.expect(Token.RPAR)
-        elif opcode in ("end",):
+            assert not is_braced
+
+        elif opcode == "end":
             block_id = self._parse_optional_id()
             matching_id = self.block_stack.pop()
-            # lo(matching_id)
-            # TODO: we can check this label with the start label
-            if is_braced:
-                self.expect(Token.RPAR)
+
+            # Check this label with the start label
+            if block_id is not None:
+                assert matching_id == block_id
+
             instructions.append(components.Instruction(opcode))
+
         else:
             args = self._gather_opcode_arguments(opcode)
-
-            # Nested instruction!
-            if is_braced:
-                while not self.match(Token.RPAR):
-                    instructions.extend(self._load_instruction())
-                self.expect(Token.RPAR)
-
             i = components.Instruction(opcode, *args)
+
+            if is_braced:
+                # Nested instruction!
+                instructions.extend(self._load_instruction_list())
+
             instructions.append(i)
+
+        # Parse matching closing brace:
+        if is_braced:
+            self.expect(Token.RPAR)
+
         return instructions
 
     def _load_block_type(self):
@@ -614,93 +607,30 @@ class WatTupleLoader(TupleParser):
         """ Gather the arguments to a specific opcode. """
         # Process any special case arguments:
         if ".load" in opcode or ".store" in opcode:
-            # Memory instructions have keyword args in text format :/
-
-            # Determine default args
-            offset_arg = 0
-            align_arg = 2 if "32." in opcode else 3
-
-            opcode2 = opcode.split(".")[-1]
-            for align, nbytes in [(0, "8"), (1, "16"), (2, "32"), (3, "64")]:
-                if nbytes in opcode2:
-                    align_arg = align
-
-            # Parse keyword args
-            while (
-                isinstance(self._lookahead(1)[0], str)
-                and "=" in self._lookahead(1)[0]
-            ):
-                arg = self.take()
-                assert isinstance(arg, str)
-                assert "=" in arg
-                key, value = arg.split("=", 1)
-                value = str2int(value)
-                if key == "align":
-                    align_arg = value
-                    # Store alignment as power of 2:
-                    log2 = {
-                        1: 0,
-                        2: 1,
-                        4: 2,
-                        8: 3,
-                        16: 4,
-                        32: 5,
-                        64: 6,
-                        128: 7,
-                        256: 8,
-                    }
-                    align_arg = log2[align_arg]
-                elif key == "offset":
-                    offset_arg = value
-
-            args = align_arg, offset_arg
-
+            args = self._parse_load_store_arguments(opcode)
         elif opcode == "call_indirect":
             type_ref = self._parse_type_use()
             table_ref = components.Ref("table", index=0)
             args = (type_ref, table_ref)
             # TODO: compare unbound func signature with type?
-        elif opcode in ("memory.grow", "memory.size"):
-            # Simply take all arguments possible:
-            args = []
-            while isinstance(self._lookahead(1)[0], (int, str)):
-                args.append(self.take())
         else:
             operands = OPERANDS[opcode]
 
             args = []
             for op in operands:
-                assert not self.match(Token.LPAR)
-                if op == "br_table":
-                    # Take all ints and strings as jump labels:
-                    targets = []
-                    while isinstance(self._lookahead(1)[0], (int, str)):
-                        targets.append(self.get_ref("label", self.take()))
-                    arg = targets
-                elif op == ArgType.LABELIDX:
-                    kind = "label"
-                    arg = self.take()
-                    arg = self.get_ref(kind, arg)
+                # assert not self.match(Token.LPAR)
+                if op == ArgType.LABELIDX:
+                    arg = self._parse_ref("label")
                 elif op == ArgType.LOCALIDX:
-                    kind = "local"
-                    arg = self.take()
-                    arg = self.get_ref(kind, arg)
+                    arg = self._parse_ref("local")
                 elif op == ArgType.GLOBALIDX:
-                    kind = "global"
-                    arg = self.take()
-                    arg = self.get_ref(kind, arg)
+                    arg = self._parse_ref("global")
                 elif op == ArgType.FUNCIDX:
-                    kind = "func"
-                    arg = self.take()
-                    arg = self.get_ref(kind, arg)
+                    arg = self._parse_ref("func")
                 elif op == ArgType.TYPEIDX:
-                    kind = "type"
-                    arg = self.take()
-                    arg = self.get_ref(kind, arg)
+                    arg = self._parse_ref("type")
                 elif op == ArgType.TABLEIDX:
-                    kind = "table"
-                    arg = self.take()
-                    arg = self.get_ref(kind, arg)
+                    arg = self._parse_ref("table")
                 elif op == ArgType.I32:
                     arg = make_int(self.take(), bits=32)
                 elif op == ArgType.I64:
@@ -711,15 +641,59 @@ class WatTupleLoader(TupleParser):
                     arg = make_float(self.take())
                 elif op == ArgType.U32:
                     arg = self.take()
-                elif op.endswith("idx"):
-                    kind = op[:-3]
-                    arg = self.take()
-                    arg = self.get_ref(kind, arg)
+                elif op == "br_table":
+                    # Take all ints and strings as jump labels:
+                    targets = []
+                    while self._at_ref():
+                        targets.append(self._parse_ref("label"))
+                    arg = targets
+                elif op == "byte":
+                    # one day, this byte argument might be used
+                    # to indicate which memory to access.
+                    arg = 0
                 else:
-                    arg = self.take()
+                    raise NotImplementedError(str(op))
 
                 args.append(arg)
         return args
+
+    def _parse_load_store_arguments(self, opcode):
+        """ Parse arguments to a load and store instruction.
+        
+        Memory instructions have keyword args in text format :/
+        """
+
+        # Determine default args
+        offset_arg = 0
+        align_arg = default_alignment(opcode)
+
+        # Parse keyword args
+        attributes = self._parse_keyword_arguments()
+        for key, value in attributes.items():
+            value = str2int(value)
+            if key == "align":
+                # Store alignment as power of 2:
+                align_arg = log2(value)
+            elif key == "offset":
+                offset_arg = value
+
+        args = align_arg, offset_arg
+        return args
+
+    def _parse_keyword_arguments(self):
+        """ Parse some arguments of shape key=value. """
+        attributes = {}
+        while (
+            isinstance(self._lookahead(1)[0], str)
+            and "=" in self._lookahead(1)[0]
+        ):
+            arg = self.take()
+            assert isinstance(arg, str)
+            assert "=" in arg
+            key, value = arg.split("=", 1)
+            assert key not in attributes
+            attributes[key] = value
+        return attributes
 
     # Inline stuff:
     def _parse_inline_import(self):

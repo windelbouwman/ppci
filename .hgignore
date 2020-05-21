@@ -15,6 +15,7 @@ syntax: glob
 *.exe
 *.wasm
 *.out
+*.profile
 *.m4
 *.log
 *.vcd

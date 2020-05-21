@@ -45,18 +45,18 @@ def test_export1():
     # The canonical form
     CODE0 = dedent("""
     (module
-        (type $sig (func))
-        (table $t1 2 funcref)
-        (memory $m1 1)
-        (global $g1 i32 (i32.const 7))
-        (export "bar_table1" (table $t1))
-        (export "bar_mem1" (memory $m1))
-        (export "bar_global" (global $g1))
-        (export "bar_func1" (func $f1))
-        (export "bar_func2" (func $f1))
-        (func $f1 (type $sig)
-        
-        )
+      (type $sig (func))
+      (table $t1 2 funcref)
+      (memory $m1 1)
+      (global $g1 i32 i32.const 7)
+      (export "bar_table1" (table $t1))
+      (export "bar_mem1" (memory $m1))
+      (export "bar_global" (global $g1))
+      (export "bar_func1" (func $f1))
+      (export "bar_func2" (func $f1))
+      (func $f1 (type $sig)
+      
+      )
     )
     """)
 

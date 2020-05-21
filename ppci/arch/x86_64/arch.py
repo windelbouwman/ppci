@@ -39,7 +39,7 @@ from .sse2_instructions import RmXmmRegSingle, RmXmmRegDouble
 from .sse2_instructions import PushXmm, PopXmm
 from .registers import rax, rcx, rdi, rsi
 from .registers import register_classes, caller_save, callee_save
-from .registers import Register64, XmmRegister
+from .registers import Register64
 from .registers import rbp, rsp, al
 from . import instructions, registers
 
@@ -181,7 +181,7 @@ class X86_64Arch(Architecture):
             src, registers.Register64
         ):
             return bits64.MovRegRm(dst, RmReg64(src), ismove=True)
-        elif isinstance(dst, XmmRegister) and isinstance(src, XmmRegister):
+        elif isinstance(dst, registers.XmmRegisterDouble) and isinstance(src, registers.XmmRegisterDouble):
             return Movsd(dst, RmXmmRegDouble(src), ismove=True)
         elif isinstance(dst, registers.XmmRegisterSingle) and isinstance(
             src, registers.XmmRegisterSingle
@@ -215,14 +215,14 @@ class X86_64Arch(Architecture):
 
     @staticmethod
     def push(register):
-        if isinstance(register, registers.XmmRegister):
+        if isinstance(register, registers.XmmRegisterDouble):
             return PushXmm(register)
         else:
             return Push(register)
 
     @staticmethod
     def pop(register):
-        if isinstance(register, registers.XmmRegister):
+        if isinstance(register, registers.XmmRegisterDouble):
             return PopXmm(register)
         else:
             return Pop(register)
@@ -397,7 +397,7 @@ class X86_64Arch(Architecture):
                     yield self.move(arg, arg_loc)
                 else:  # pragma: no cover
                     raise NotImplementedError(str(type(arg)))
-            elif isinstance(arg_loc, registers.XmmRegister):
+            elif isinstance(arg_loc, registers.XmmRegisterDouble):
                 yield self.move(arg, arg_loc)
             elif isinstance(arg_loc, registers.XmmRegisterSingle):
                 yield self.move(arg, arg_loc)
@@ -419,8 +419,14 @@ class X86_64Arch(Architecture):
                     # Do not copy any incoming variable, it was copied during
                     # call. Use memory as is!
                     stack_offset += arg.size
+                elif isinstance(arg, registers.XmmRegisterDouble):
+                    yield Movsd(arg, RmMemDisp(rbp, stack_offset + 16))
+                    stack_offset += arg_loc.size
+                elif isinstance(arg, registers.XmmRegisterSingle):
+                    yield Movss(arg, RmMemDisp(rbp, stack_offset + 16))
+                    stack_offset += arg_loc.size
                 else:  # pragma: no cover
-                    raise NotImplementedError()
+                    raise NotImplementedError(str(type(arg)))
             else:  # pragma: no cover
                 raise NotImplementedError("Parameters in memory not impl")
 

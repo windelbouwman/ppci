@@ -11,9 +11,12 @@ from .instructions import Imm32Token, Imm8Token
 from .instructions import RmMem, RmMemDisp, RmReg32, RmReg64, RmAbs, MovAdr
 from .instructions import Jb, Jbe, Ja, Jae, Je, Jne, Js, NearJump
 from .instructions import SubImm, AddImm
-from .registers import XmmRegister, XmmRegisterSingle, XmmRegisterDouble
+from .registers import XmmRegisterSingle, XmmRegisterDouble
 from .registers import Register64, Register32, rsp, eax, rax
 from ..generic_instructions import ArtificialInstruction, RegisterUseDef
+
+# TODO: make a new register class XmmRegister with 128 bits width?
+XmmRegister = XmmRegisterDouble
 
 sse1_isa = Isa()
 sse2_isa = Isa()
@@ -98,7 +101,7 @@ class Sse2Instruction(SseInstruction):
 class RmXmmReg(Constructor):
     """ Xmm register access """
 
-    reg_rm = Operand("reg_rm", XmmRegister, read=True)
+    reg_rm = Operand("reg_rm", XmmRegisterDouble, read=True)
     syntax = Syntax([reg_rm])
     patterns = {"mod": 3}
 
@@ -213,7 +216,7 @@ class Subss(Sse1Instruction):
 class Subsd(Sse2Instruction):
     """ Sub scalar double-fp value """
 
-    r = Operand("r", XmmRegister, write=True)
+    r = Operand("r", XmmRegisterDouble, write=True)
     rm = Operand("rm", xmm_double_rm_modes, read=True)
     patterns = {"prefix": 0xF2, "opcode": 0x5C}
     syntax = Syntax(["subsd", " ", r, ",", " ", rm])

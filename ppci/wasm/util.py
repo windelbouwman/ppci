@@ -158,16 +158,6 @@ def datastring2bytes(s):
     return f.getvalue()
 
 
-def bytes2datastring(b):
-    f = io.StringIO()
-    for v in b:
-        if 48 >= v >= 122 and v not in (92, 96):
-            f.write(chr(v))
-        else:
-            f.write("\\" + hex(v)[2:].rjust(2, "0"))
-    return f.getvalue()
-
-
 def export_wasm_example(filename, code, wasm, main_js=""):
     """ Generate an html file for the given code and wasm module.
     """

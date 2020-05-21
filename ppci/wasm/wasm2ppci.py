@@ -69,7 +69,7 @@ class WasmToIrCompiler:
     """
 
     logger = logging.getLogger("wasm2ir")
-    verbose = True
+    verbose = False
 
     def __init__(self, ptr_info):
         self.builder = irutils.Builder()
@@ -77,6 +77,132 @@ class WasmToIrCompiler:
         if not isinstance(ptr_info, TypeInfo):
             raise TypeError("Expected ptr_info to be TypeInfo")
         self.ptr_info = ptr_info
+        self._opcode_dispatch = {}
+        self._fill_dispatch_table()
+
+    def _fill_dispatch_table(self):
+        """ Fill the table of what to do with each instruction. """
+        for opcode in STORE_OPS:
+            self._opcode_dispatch[opcode] = self.gen_store
+
+        for opcode in LOAD_OPS:
+            self._opcode_dispatch[opcode] = self.gen_load
+
+        self._opcode_dispatch["local.set"] = self.gen_local_set
+        self._opcode_dispatch["local.tee"] = self.gen_local_set
+        self._opcode_dispatch["local.get"] = self.gen_local_get
+        self._opcode_dispatch["global.get"] = self.gen_global_get
+        self._opcode_dispatch["global.set"] = self.gen_global_set
+
+        for opcode in BINOPS:
+            self._opcode_dispatch[opcode] = self.gen_binop
+
+        for opcode in CMPOPS:
+            self._opcode_dispatch[opcode] = self.gen_cmpop
+
+        for opcode in [
+            "f64.sqrt",
+            "f64.abs",
+            "f64.ceil",
+            "f64.trunc",
+            "f64.nearest",
+            "f64.min",
+            "f64.max",
+            "f64.copysign",
+            "f32.sqrt",
+            "f32.abs",
+            "f32.ceil",
+            "f32.trunc",
+            "f32.nearest",
+            "f32.min",
+            "f32.max",
+            "f32.copysign",
+            "f32.reinterpret_i32",
+            "i64.clz",
+            "i64.ctz",
+            "i64.popcnt",
+            "i64.rotl",
+            "i64.rotr",
+            "f64.reinterpret_i64",
+            "i64.reinterpret_f64",
+            "i32.reinterpret_f32",
+            "i32.clz",
+            "i32.ctz",
+            "i32.popcnt",
+            "i32.rotl",
+            "i32.rotr",
+            "memory.grow",
+            "memory.size",
+            "i32.extend8_s",
+            "i32.extend16_s",
+            "i64.extend8_s",
+            "i64.extend16_s",
+            "i64.extend32_s",
+        ]:
+            self._opcode_dispatch[opcode] = self.gen_instruction_fallback
+
+        for opcode in ["f64.const", "f32.const", "i64.const", "i32.const"]:
+            self._opcode_dispatch[opcode] = self.gen_const_instruction
+
+        for opcode in ["f64.floor", "f32.floor"]:
+            self._opcode_dispatch[opcode] = self.gen_floor_instruction
+
+        for opcode in ["f64.neg", "f32.neg"]:
+            self._opcode_dispatch[opcode] = self.gen_neg_instruction
+
+        for opcode in [
+            "i32.trunc_f32_s",
+            "i32.trunc_f32_u",
+            "i32.trunc_f64_s",
+            "i32.trunc_f64_u",
+            "i64.trunc_f32_s",
+            "i64.trunc_f32_u",
+            "i64.trunc_f64_s",
+            "i64.trunc_f64_u",
+        ]:
+            self._opcode_dispatch[opcode] = self.gen_trunc_instruction
+
+        for opcode in [
+            "i32.trunc_sat_f32_s",
+            "i32.trunc_sat_f32_u",
+            "i32.trunc_sat_f64_s",
+            "i32.trunc_sat_f64_u",
+            "i64.trunc_sat_f32_s",
+            "i64.trunc_sat_f32_u",
+            "i64.trunc_sat_f64_s",
+            "i64.trunc_sat_f64_u",
+        ]:
+            self._opcode_dispatch[
+                opcode
+            ] = self.gen_saturated_trunc_instruction
+
+        self._opcode_dispatch["br"] = self.gen_br_instruction
+        self._opcode_dispatch["br_if"] = self.gen_br_if_instruction
+        self._opcode_dispatch["br_table"] = self.gen_br_table_instruction
+        self._opcode_dispatch["call"] = self.gen_call_instruction
+        self._opcode_dispatch[
+            "call_indirect"
+        ] = self.gen_call_indirect_instruction
+        self._opcode_dispatch["return"] = self.gen_return_instruction
+        self._opcode_dispatch["select"] = self.gen_select_instruction
+
+        for opcode in [
+            "i32.wrap_i64",
+            "i64.extend_i32_s",
+            "i64.extend_i32_u",
+            "f64.convert_i32_s",
+            "f64.convert_i32_u",
+            "f64.convert_i64_s",
+            "f64.convert_i64_u",
+            "f32.convert_i32_s",
+            "f32.convert_i32_u",
+            "f32.convert_i64_s",
+            "f32.convert_i64_u",
+        ]:
+            self._opcode_dispatch[opcode] = self.gen_convert_instruction
+
+        for opcode in ["f64.promote_f32", "f32.demote_f64"]:
+            self._opcode_dispatch[opcode] = self.gen_promote_instruction
 
     def generate(self, wasm_module: components.Module):
         assert isinstance(wasm_module, components.Module)
@@ -778,179 +904,11 @@ class WasmToIrCompiler:
             # This is a guarding condition for the other instructions
             pass
 
-        elif opcode in BINOPS:
-            self.gen_binop(instruction)
-
-        elif opcode in CMPOPS:
-            self.gen_cmpop(instruction)
-
-        elif opcode in STORE_OPS:
-            self.gen_store(instruction)
-
-        elif opcode in LOAD_OPS:
-            self.gen_load(instruction)
-
-        elif opcode in {
-            "i32.wrap_i64",
-            "i64.extend_i32_s",
-            "i64.extend_i32_u",
-            "f64.convert_i32_s",
-            "f64.convert_i32_u",
-            "f64.convert_i64_s",
-            "f64.convert_i64_u",
-            "f32.convert_i32_s",
-            "f32.convert_i32_u",
-            "f32.convert_i64_s",
-            "f32.convert_i64_u",
-        }:
-            from_typ = opcode.split("_")[1]
-            from_ir_typ = self.get_ir_type(from_typ)
-            ir_typ = self.get_ir_type(opcode.split(".")[0])
-            value = self.pop_value(ir_typ=from_ir_typ)
-            if "_u" in opcode:
-                # First cast to unsigned value:
-                mp = {"i32": ir.u32, "i64": ir.u64}
-                unsigned_ir_typ = mp[from_typ]
-                value = self.emit(ir.Cast(value, "unsigned", unsigned_ir_typ))
-            value = self.emit(ir.Cast(value, "cast", ir_typ))
-            self.push_value(value)
-
-        elif opcode in {
-            "i32.trunc_f32_s",
-            "i32.trunc_f32_u",
-            "i32.trunc_f64_s",
-            "i32.trunc_f64_u",
-            "i64.trunc_f32_s",
-            "i64.trunc_f32_u",
-            "i64.trunc_f64_s",
-            "i64.trunc_f64_u",
-        }:
-            self.gen_trunc_instruction(instruction)
-
-        elif opcode in {
-            "i32.trunc_sat_f32_s",
-            "i32.trunc_sat_f32_u",
-            "i32.trunc_sat_f64_s",
-            "i32.trunc_sat_f64_u",
-            "i64.trunc_sat_f32_s",
-            "i64.trunc_sat_f32_u",
-            "i64.trunc_sat_f64_s",
-            "i64.trunc_sat_f64_u",
-        }:
-            self.gen_saturated_trunc_instruction(instruction)
-
-        elif opcode in {"f64.promote_f32", "f32.demote_f64"}:
-            # TODO: in theory this should be solvable in ir-code.
-            if True:
-                self._runtime_call(opcode)
-            else:
-                from_ir_typ = self.get_ir_type(opcode.split("_")[1])
-                ir_typ = self.get_ir_type(opcode.split(".")[0])
-                value = self.pop_value(ir_typ=from_ir_typ)
-                value = self.emit(ir.Cast(value, "cast", ir_typ))
-                self.push_value(value)
-
-        elif opcode in [
-            "f64.sqrt",
-            "f64.abs",
-            "f64.ceil",
-            "f64.trunc",
-            "f64.nearest",
-            "f64.min",
-            "f64.max",
-            "f64.copysign",
-            "f32.sqrt",
-            "f32.abs",
-            "f32.ceil",
-            "f32.trunc",
-            "f32.nearest",
-            "f32.min",
-            "f32.max",
-            "f32.copysign",
-            "f32.reinterpret_i32",
-            "i64.clz",
-            "i64.ctz",
-            "i64.popcnt",
-            "i64.rotl",
-            "i64.rotr",
-            "f64.reinterpret_i64",
-            "i64.reinterpret_f64",
-            "i32.reinterpret_f32",
-            "i32.clz",
-            "i32.ctz",
-            "i32.popcnt",
-            "i32.rotl",
-            "i32.rotr",
-            "memory.grow",
-            "memory.size",
-            "i32.extend8_s",
-            "i32.extend16_s",
-            "i64.extend8_s",
-            "i64.extend16_s",
-            "i64.extend32_s",
-        ]:
-            self._runtime_call(opcode)
-
-        elif opcode in {"f64.const", "f32.const", "i64.const", "i32.const"}:
-            self.gen_const(instruction)
-
-        elif opcode in ["local.set", "local.tee"]:
-            ty, local_var = self.locals[instruction.args[0].index]
-            value = self.pop_value(ir_typ=ty)
-            self.emit(ir.Store(value, local_var))
-            if opcode == "local.tee":
-                self.push_value(value)
-
-        elif opcode == "local.get":
-            self.gen_local_get(instruction)
-
-        elif opcode == "global.get":
-            self.gen_global_get(instruction)
-
-        elif opcode == "global.set":
-            self.gen_global_set(instruction)
-
-        elif opcode in ["f64.floor", "f32.floor"]:
-            self._runtime_call(opcode)
-
-            # TODO: this does not work for all cases:
-            # ir_typ = self.get_ir_type(opcode)
-            # value = self.pop_value(ir_typ)
-            # value = self.emit(ir.Cast(value, 'cast', ir.u64))
-            # value = self.emit(ir.Cast(value, 'cast', ir_typ))
-            # self.push_value(value)
-            # Someday we may have a Unary op for this,
-            # or a call into a native runtime lib?
-            # value = self.emit(
-            #     ir.Unop('floor', self.pop_value(ir_typ), 'floor', ir_typ))
-            # self.push_value(value)
-
-        elif opcode in ["f64.neg", "f32.neg"]:
-            self.gen_neg(instruction)
-
-        elif opcode == "br":
-            self.gen_br_instruction(instruction)
-
-        elif opcode == "br_if":
-            self.gen_br_if_instruction(instruction)
-
-        elif opcode == "br_table":
-            self.gen_br_table_instruction(instruction)
-
-        elif opcode == "call":
-            self.gen_call_instruction(instruction)
-
-        elif opcode == "call_indirect":
-            self.gen_call_indirect_instruction(instruction)
-
-        elif opcode == "return":
-            self.gen_return_instruction(instruction)
+        elif opcode in self._opcode_dispatch:
+            self._opcode_dispatch[opcode](instruction)
 
         elif opcode == "unreachable":
             self.gen_unreachable_instruction()
-
-        elif opcode == "select":
-            self.gen_select_instruction(instruction)
 
         elif opcode == "drop":
             # Drop value on the stack
@@ -961,6 +919,33 @@ class WasmToIrCompiler:
 
         else:  # pragma: no cover
             raise NotImplementedError(opcode)
+
+    def gen_promote_instruction(self, instruction):
+        """ Generate code for promote / demote. """
+        opcode = instruction.opcode
+        # TODO: in theory this should be solvable in ir-code.
+        if True:
+            self._runtime_call(opcode)
+        else:
+            from_ir_typ = self.get_ir_type(opcode.split("_")[1])
+            ir_typ = self.get_ir_type(opcode.split(".")[0])
+            value = self.pop_value(ir_typ=from_ir_typ)
+            value = self.emit(ir.Cast(value, "cast", ir_typ))
+            self.push_value(value)
+
+    def gen_convert_instruction(self, instruction):
+        opcode = instruction.opcode
+        from_typ = opcode.split("_")[1]
+        from_ir_typ = self.get_ir_type(from_typ)
+        ir_typ = self.get_ir_type(opcode.split(".")[0])
+        value = self.pop_value(ir_typ=from_ir_typ)
+        if "_u" in opcode:
+            # First cast to unsigned value:
+            mp = {"i32": ir.u32, "i64": ir.u64}
+            unsigned_ir_typ = mp[from_typ]
+            value = self.emit(ir.Cast(value, "unsigned", unsigned_ir_typ))
+        value = self.emit(ir.Cast(value, "cast", ir_typ))
+        self.push_value(value)
 
     def gen_trunc_instruction(self, instruction):
         """ Generate code for iNN.trunc_fMM_X.
@@ -993,13 +978,21 @@ class WasmToIrCompiler:
         opcode = instruction.opcode
         self._runtime_call(opcode)
 
-    def gen_const(self, instruction):
+    def gen_const_instruction(self, instruction):
         """ Generate code for i32.const and friends. """
         opcode = instruction.opcode
         value = self.emit(
             ir.Const(instruction.args[0], "const", self.get_ir_type(opcode))
         )
         self.push_value(value)
+
+    def gen_local_set(self, instruction):
+        opcode = instruction.opcode
+        ty, local_var = self.locals[instruction.args[0].index]
+        value = self.pop_value(ir_typ=ty)
+        self.emit(ir.Store(value, local_var))
+        if opcode == "local.tee":
+            self.push_value(value)
 
     def gen_local_get(self, instruction):
         ty, local_var = self.locals[instruction.args[0].index]
@@ -1016,7 +1009,23 @@ class WasmToIrCompiler:
         value = self.pop_value(ir_typ=ty)
         self.emit(ir.Store(value, addr))
 
-    def gen_neg(self, instruction):
+    def gen_floor_instruction(self, instruction):
+        opcode = instruction.opcode
+        self._runtime_call(opcode)
+
+        # TODO: this does not work for all cases:
+        # ir_typ = self.get_ir_type(opcode)
+        # value = self.pop_value(ir_typ)
+        # value = self.emit(ir.Cast(value, 'cast', ir.u64))
+        # value = self.emit(ir.Cast(value, 'cast', ir_typ))
+        # self.push_value(value)
+        # Someday we may have a Unary op for this,
+        # or a call into a native runtime lib?
+        # value = self.emit(
+        #     ir.Unop('floor', self.pop_value(ir_typ), 'floor', ir_typ))
+        # self.push_value(value)
+
+    def gen_neg_instruction(self, instruction):
         """ Generate code for (f32|f64).neg """
         ir_typ = self.get_ir_type(instruction.opcode)
         value = self.emit(ir.Unop("-", self.pop_value(ir_typ), "neg", ir_typ))
@@ -1439,6 +1448,10 @@ class WasmToIrCompiler:
             )
             self.emit(ir.Return(v))
         self.builder.set_block(None)
+
+    def gen_instruction_fallback(self, instruction):
+        opcode = instruction.opcode
+        self._runtime_call(opcode)
 
     def gen_return_instruction(self, instruction):
         """ Generate code for return instruction.

@@ -216,11 +216,13 @@ class LogSetup:
             err = True
 
         if exc_value is not None:
+            # TODO: fix this for buffered outputs
             # Exception happened, close file and remove
-            if hasattr(self.args, "output"):
-                if os.path.exists(self.args.output):
-                    filename = self.args.output
-                    os.remove(filename)
+            # if hasattr(self.args, "output"):
+            #     if os.path.exists(self.args.output):
+            #         filename = self.args.output
+            #         os.remove(filename)
+            pass
 
         self.logger.debug("Removing loggers")
         if self.args.report:
