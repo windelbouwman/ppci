@@ -218,7 +218,7 @@ def Uint32(name=None):
 
 def Int64(name=None):
     """ 64 bits signed integer value """
-    return FormatField(name, "Q")
+    return FormatField(name, "q")
 
 
 def Uint64(name=None):
