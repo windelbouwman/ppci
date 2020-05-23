@@ -276,6 +276,7 @@ class ElfFile:
         if self.e_type == ET_REL:
             elf_reloc_mapping = {
                 "rel32": 2,  # guess: R_X86_64_PC32 ?
+                "abs64": 1,  # R_X86_64_64
             }
 
             rela_entsize = self.header_types.RelocationTableEntry.size
@@ -297,7 +298,8 @@ class ElfFile:
                 rela_entry.r_offset = rel.offset
                 rela_entry.r_info = r_info
                 # TODO: Major hack to make rel32 work:
-                rela_entry.r_addend = rel.addend - 4
+                if rel.reloc_type == "rel32":
+                    rela_entry.r_addend = rel.addend - 4
                 rela_entry.write(f)
 
         # Write string table (last section):
