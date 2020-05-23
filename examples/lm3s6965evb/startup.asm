@@ -1,5 +1,9 @@
 
 section reset
+
+global start
+start:
+
 dd 0x2000f000 ; 0x0
 dd 0x00000009 ; reset vector 0x4
 global bsp_boot

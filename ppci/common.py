@@ -15,6 +15,8 @@ logformat = '%(asctime)s | %(levelname)8s | %(name)10.10s | %(message)s'
 def make_num(txt):
     if txt.startswith('0x'):
         return int(txt[2:], 16)
+    elif txt.startswith('-0x'):
+        return -int(txt[3:], 16)
     elif txt.startswith('$'):
         return int(txt[1:], 16)
     elif txt.startswith('0b'):

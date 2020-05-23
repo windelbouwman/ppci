@@ -68,9 +68,9 @@ run_parser.add_argument(
 )
 run_parser.add_argument(
     "--arg",
-    dest='wasm_arguments',
+    dest="wasm_arguments",
     metavar="arg",
-    action='append',
+    action="append",
     type=int,
     help="Argument to wasm function",
 )

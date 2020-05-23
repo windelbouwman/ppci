@@ -142,7 +142,7 @@ class Rel32JmpRelocation(Relocation):
     name = "rel32"
 
     def calc(self, sym_value, reloc_value):
-        offset = sym_value - (reloc_value + 4)
+        offset = sym_value - reloc_value + self.addend
         return offset
 
 
@@ -196,7 +196,7 @@ class NearJump(X86Instruction):
     patterns = {"opcode": 0xE9}
 
     def relocations(self):
-        return [Rel32JmpRelocation(self.target, offset=1)]
+        return [Rel32JmpRelocation(self.target, offset=1, addend=-4)]
 
     def effect(self):
         return [effects.Assign(effects.PC, self.target)]
@@ -209,7 +209,7 @@ class ConditionalJump(X86Instruction):
     tokens = [PrefixToken, OpcodeToken, Imm32Token]
 
     def relocations(self):
-        return [Rel32JmpRelocation(self.target, offset=2)]
+        return [Rel32JmpRelocation(self.target, offset=2, addend=-4)]
 
 
 def make_cjump(mnemonic, opcode):
@@ -306,7 +306,7 @@ class Call(X86Instruction):
     patterns = {"opcode": 0xE8}
 
     def relocations(self):
-        return [Rel32JmpRelocation(self.target, offset=1)]
+        return [Rel32JmpRelocation(self.target, offset=1, addend=-4)]
 
 
 class Ret(X86Instruction):

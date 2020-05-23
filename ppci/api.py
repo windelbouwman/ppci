@@ -525,10 +525,14 @@ def objcopy(obj: ObjectFile, image_name: str, fmt: str, output_filename):
         with open(output_filename, "wb") as output_file:
             output_file.write(image.data)
     elif fmt == "elf":
+        elf_type = 'executable' if obj.entry_symbol_id is not None else 'relocatable'
         with open(output_filename, "wb") as output_file:
-            write_elf(obj, output_file)
-        status = os.stat(output_filename)
-        os.chmod(output_filename, status.st_mode | stat.S_IEXEC)
+            write_elf(obj, output_file, type=elf_type)
+        
+        if elf_type == 'executable':
+            status = os.stat(output_filename)
+            os.chmod(output_filename, status.st_mode | stat.S_IEXEC)
+
     elif fmt == "hex":
         image = obj.get_image(image_name)
         hexfile = HexFile()
