@@ -10,6 +10,9 @@ from ppci.format.elf import write_elf
 
 c_src = r"""
 
+double a;
+double *pa = &a;
+
 /*
 // enable this later!
 int putchar(int);
@@ -23,12 +26,12 @@ void main()
 
 int magic_helper(int x)
 {
-    return x + 1;
+    return x + 1 + *pa;
 }
 
-int barf(int x)
+int barf(int x, double y)
 {
-    return magic_helper(x) - 7;
+    return magic_helper(x) - y;
 }
 
 """

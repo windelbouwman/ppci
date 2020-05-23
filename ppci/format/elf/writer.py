@@ -3,6 +3,7 @@
 
 import io
 import logging
+from collections import defaultdict
 from ...arch.arch_info import Endianness
 from ... import ir
 from .headers import ElfMachine, HeaderTypes
@@ -226,9 +227,14 @@ class ElfWriter:
         section_header = self.header_types.SectionHeader()
         section_header.sh_name = self.string_table.get_name(section.name)
         section_header.sh_type = SectionHeaderType.PROGBITS.value
-        section_header.sh_flags = (
-            SectionHeaderFlag.EXECINSTR | SectionHeaderFlag.ALLOC
-        )
+        sh_flags = SectionHeaderFlag.ALLOC
+        if section.name == 'data':
+            # Hmm, we should have an attribute on the section to
+            # determine the type of section...
+            sh_flags |= SectionHeaderFlag.WRITE
+        else:
+            sh_flags |= SectionHeaderFlag.EXECINSTR
+        section_header.sh_flags = sh_flags
         section_header.sh_addr = section.address
         section_header.sh_offset = offset  # Offset in file
         section_header.sh_size = section.size
@@ -290,43 +296,52 @@ class ElfWriter:
         self.section_numbers[".symtab"] = len(self.section_headers)
 
     def write_rela_table(self):
-        """ Create relocation (rela) table. """
+        """ Create relocation (rela) table.
 
-        # TODO: create a table per section
-
+        Since a rela table is related to a single
+        other section, we might require several rela
+        tables, one per section.
+        """
         alignment = 8 if self.elf_file.bits == 64 else 4
-
         sh_entsize = self.header_types.RelocationTableEntry.size
-        sh_size = sh_entsize * len(self.obj.relocations)
 
-        self.align_to(alignment)
-        rela_offset = self.f.tell()
-
+        # Create a table per section:
+        reloc_groups = defaultdict(list)
         for rel in self.obj.relocations:
-            assert rel.section == "code"
-            r_sym = self.symbol_id_map[rel.symbol_id]
-            r_type = self.get_reloc_type(rel.reloc_type)
-            if self.elf_file.bits == 64:
-                r_info = (r_sym << 32) + r_type
-            else:
-                r_info = (r_sym << 8) + r_type
-            rela_entry = self.header_types.RelocationTableEntry()
-            rela_entry.r_offset = rel.offset
-            rela_entry.r_info = r_info
-            rela_entry.r_addend = rel.addend
-            rela_entry.write(self.f)
+            reloc_groups[rel.section].append(rel)
 
-        section_header = self.header_types.SectionHeader()
-        section_header.sh_name = self.string_table.get_name(".relacode")
-        section_header.sh_type = SectionHeaderType.RELA.value
-        section_header.sh_flags = SectionHeaderFlag.INFO_LINK
-        section_header.sh_offset = rela_offset
-        section_header.sh_size = sh_size
-        section_header.sh_link = 0  # symtab, to be filled later
-        section_header.sh_info = self.section_numbers["code"]
-        section_header.sh_addralign = alignment
-        section_header.sh_entsize = sh_entsize
-        self.section_headers.append(section_header)
+        for section_name in sorted(reloc_groups):
+            sh_size = sh_entsize * len(reloc_groups[section_name])
+
+            self.align_to(alignment)
+            rela_offset = self.f.tell()
+
+            for rel in reloc_groups[section_name]:
+                assert rel.section == section_name
+                r_sym = self.symbol_id_map[rel.symbol_id]
+                r_type = self.get_reloc_type(rel.reloc_type)
+                if self.elf_file.bits == 64:
+                    r_info = (r_sym << 32) + r_type
+                else:
+                    r_info = (r_sym << 8) + r_type
+                rela_entry = self.header_types.RelocationTableEntry()
+                rela_entry.r_offset = rel.offset
+                rela_entry.r_info = r_info
+                rela_entry.r_addend = rel.addend
+                rela_entry.write(self.f)
+
+            rela_name = '.rela' + section_name
+            section_header = self.header_types.SectionHeader()
+            section_header.sh_name = self.string_table.get_name(rela_name)
+            section_header.sh_type = SectionHeaderType.RELA.value
+            section_header.sh_flags = SectionHeaderFlag.INFO_LINK
+            section_header.sh_offset = rela_offset
+            section_header.sh_size = sh_size
+            section_header.sh_link = 0  # symtab, to be filled later
+            section_header.sh_info = self.section_numbers[section_name]
+            section_header.sh_addralign = alignment
+            section_header.sh_entsize = sh_entsize
+            self.section_headers.append(section_header)
 
     def get_reloc_type(self, reloc_type):
 
@@ -369,6 +384,7 @@ class ElfWriter:
             "rel32": R_X86_64_PC32,
             "abs64": R_X86_64_64,
             "abs32": R_X86_64_32,
+            "absaddr64": R_X86_64_64,
         }
         return elf_reloc_mapping[reloc_type]
 

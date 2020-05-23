@@ -225,6 +225,13 @@ class ObjectFile:
     def __repr__(self):
         return "CodeObject of {} bytes".format(self.byte_size)
 
+    @property
+    def is_executable(self):
+        """ Test if this object file is executable by checking the
+        entry point.
+        """
+        return self.entry_symbol_id is not None
+
     def has_symbol(self, name):
         """ Check if this object file has a symbol with name 'name' """
         return name in self.symbol_map
@@ -396,7 +403,7 @@ def serialize(x):
         res["arch"] = x.arch.make_id_str()
 
         if x.entry_symbol_id is not None:
-            res['entry_symbol_id'] = x.entry_symbol_id
+            res["entry_symbol_id"] = x.entry_symbol_id
     elif isinstance(x, Image):
         res["name"] = x.name
         res["address"] = hex(x.address)
@@ -433,8 +440,8 @@ def deserialize(data):
     arch = get_arch(data["arch"])
     obj = ObjectFile(arch)
 
-    if 'entry_symbol_id' in data:
-        obj.entry_symbol_id = data['entry_symbol_id']
+    if "entry_symbol_id" in data:
+        obj.entry_symbol_id = data["entry_symbol_id"]
 
     for section in data["sections"]:
         section_object = Section(section["name"])
