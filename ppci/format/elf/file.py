@@ -48,13 +48,15 @@ class StringTable:
         return self.names[name]
 
 
-def write_elf(obj, f, type="executable"):
+def write_elf(obj, f, type=None):
     """ Save object as an ELF file.
 
     You can specify the type of ELF file with
     the type argument:
     - 'executable'
     - 'relocatable'
+    - None: autodetect, if there's an entry point - 'executable',
+      else 'relocatable'
     """
     mapping = {
         "arm": (32, Endianness.LITTLE),
@@ -65,6 +67,11 @@ def write_elf(obj, f, type="executable"):
     }
     bits, endianity = mapping[obj.arch.name]
     elf_file = ElfFile(bits=bits, endianness=endianity)
+    if type is None:
+        if obj.entry_symbol_id:
+            type = "executable"
+        else:
+            type = "relocatable"
     etype_mapping = {
         "executable": ET_EXEC,
         "relocatable": ET_REL,
