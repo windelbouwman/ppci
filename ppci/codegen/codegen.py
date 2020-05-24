@@ -9,7 +9,7 @@ from ..irutils import Verifier, split_block
 from ..arch.arch import Architecture
 from ..arch.generic_instructions import Label, Comment, Global, DebugData
 from ..arch.generic_instructions import RegisterUseDef, VirtualInstruction
-from ..arch.generic_instructions import InlineAssembly
+from ..arch.generic_instructions import InlineAssembly, SetSymbolType
 from ..arch.generic_instructions import ArtificialInstruction, Alignment
 from ..arch.encoding import Instruction
 from ..arch.data_instructions import DZero, DByte
@@ -67,6 +67,8 @@ class CodeGenerator:
         output_stream.select_section("data")
         for external in ircode.externals:
             self._mark_global(output_stream, external)
+            if isinstance(external, ir.ExternalSubRoutine):
+                output_stream.emit(SetSymbolType(external.name, 'func'))
 
         # Generate code for global variables:
         output_stream.select_section("data")
@@ -161,6 +163,7 @@ class CodeGenerator:
                 )
 
         self._mark_global(output_stream, ir_function)
+        output_stream.emit(SetSymbolType(ir_function.name, 'func'))
 
         # Create a frame for this function:
         frame_name = ir_function.name

@@ -304,7 +304,7 @@ class LinkWithDebugTestCase(unittest.TestCase):
         obj1.get_section('code', create=True).add_data(bytes(59))
         obj2 = ObjectFile(arch)
         obj2.get_section('code', create=True).add_data(bytes(59))
-        obj2.add_symbol(1, 'x', 'local', 5, 'code')
+        obj2.add_symbol(1, 'x', 'local', 5, 'code', 'object', 0)
         obj2.debug_info = debuginfo.DebugInfo()
         loc = SourceLocation('a.txt', 1, 1, 22)
         obj2.debug_info.add(

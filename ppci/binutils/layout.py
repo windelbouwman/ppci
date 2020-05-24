@@ -40,6 +40,7 @@ class Layout:
 class EntrySymbol:
     """ Specify the entry symbol of this file.
     """
+
     def __init__(self, symbol_name):
         self.symbol_name = symbol_name
 
@@ -167,9 +168,11 @@ class LayoutParser:
         grammar.add_terminals(toks)
         grammar.add_production("layout", ["top_level_list"])
         grammar.add_one_or_more("top_level", "top_level_list")
-        grammar.add_production('top_level', ['mem'])
-        grammar.add_production('top_level', ['entry'])
-        grammar.add_production('entry', ['ENTRY', '(', 'ID', ')'], self.handle_entry)
+        grammar.add_production("top_level", ["mem"])
+        grammar.add_production("top_level", ["entry"])
+        grammar.add_production(
+            "entry", ["ENTRY", "(", "ID", ")"], self.handle_entry
+        )
         grammar.add_production(
             "mem",
             [

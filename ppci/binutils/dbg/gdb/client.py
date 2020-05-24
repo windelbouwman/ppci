@@ -204,7 +204,7 @@ class GdbDebugDriver(DebugDriver):
                     ):
                         # TODO: fill a cache of registers
                         data = bytes.fromhex(rest[3:-1])
-                        self.pcstopval, = struct.unpack("<I", data)
+                        (self.pcstopval,) = struct.unpack("<I", data)
 
         if code & (BRKPOINT | INTERRUPT) != 0:
             self.logger.debug("Target stopped..")
@@ -323,16 +323,17 @@ class GdbDebugDriver(DebugDriver):
     def _unpack_register(self, register, data):
         """ Fetch a register from some data """
         from ....arch.arch_info import Endianness
+
         if self.arch.info.endianness == Endianness.BIG:
-            endian_fmt = '>'
+            endian_fmt = ">"
         else:
-            endian_fmt = '<'
+            endian_fmt = "<"
 
         fmts = {
             8: "{}Q".format(endian_fmt),
             4: "{}I".format(endian_fmt),
             2: "{}H".format(endian_fmt),
-            1: "{}B".format(endian_fmt)
+            1: "{}B".format(endian_fmt),
         }
 
         size = register.bitsize // 8
@@ -341,7 +342,7 @@ class GdbDebugDriver(DebugDriver):
                 # TODO: endianess!
                 value = data[0] + (data[1] << 8) + (data[2] << 16)
             else:
-                value, = struct.unpack(fmts[size], data)
+                (value,) = struct.unpack(fmts[size], data)
         else:
             self.logger.error("Could not read register %s", register)
             value = 0

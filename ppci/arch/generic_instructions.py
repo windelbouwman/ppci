@@ -146,6 +146,17 @@ class Global(PseudoInstruction):
         return "global {}".format(self.name)
 
 
+class SetSymbolType(PseudoInstruction):
+    """ Instruction to mark a symbol of a certain type. """
+
+    def __init__(self, name, typ):
+        self.name = name
+        self.typ = typ
+
+    def __repr__(self):
+        return "type {} {}".format(self.name, self.typ)
+
+
 class Alignment(PseudoInstruction):
     """ Instruction to indicate alignment.
 

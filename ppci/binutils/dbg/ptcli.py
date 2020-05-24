@@ -5,8 +5,12 @@ from asyncio import get_event_loop
 from prompt_toolkit import __version__ as ptk_version
 
 # Check version of prompt toolkit:
-if not ptk_version.startswith('3.'):
-    print('We require prompt toolkit version 3.x, we currently have: {}'.format(ptk_version))
+if not ptk_version.startswith("3."):
+    print(
+        "We require prompt toolkit version 3.x, we currently have: {}".format(
+            ptk_version
+        )
+    )
 
 from prompt_toolkit import Application
 from prompt_toolkit.buffer import Buffer
@@ -164,7 +168,10 @@ class PtDebugCli:
                     [
                         HSplit(
                             [
-                                Frame(body=source_code_window, title='source-code'),
+                                Frame(
+                                    body=source_code_window,
+                                    title="source-code",
+                                ),
                                 Window(
                                     content=BufferControl(
                                         buffer=self.logs_buffer

@@ -19,15 +19,13 @@ int putchar(int);
 
 int magic_helper(int x)
 {
-    // TODO:
-    // putchar(65); // 'A'
+    putchar(65); // 'A'
     return x + 1 + *pa;
 }
 
 int barf(int x, double y)
 {
-    // TODO:
-    // putchar(66); // 'B'
+    putchar(66); // 'B'
     return magic_helper(x) - y;
 }
 

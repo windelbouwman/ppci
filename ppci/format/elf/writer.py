@@ -228,7 +228,7 @@ class ElfWriter:
         section_header.sh_name = self.string_table.get_name(section.name)
         section_header.sh_type = SectionHeaderType.PROGBITS.value
         sh_flags = SectionHeaderFlag.ALLOC
-        if section.name == 'data':
+        if section.name == "data":
             # Hmm, we should have an attribute on the section to
             # determine the type of section...
             sh_flags |= SectionHeaderFlag.WRITE
@@ -262,6 +262,11 @@ class ElfWriter:
         # Null symtab element (index 0):
         self.f.write(bytes(symtab_entsize))
 
+        symbol_table_types = {
+            "func": SymbolTableType.FUNC,
+            "object": SymbolTableType.OBJECT,
+        }
+
         for nr, symbol in enumerate(local_symbols + global_symbols, 1):
             self.symbol_id_map[symbol.id] = nr
 
@@ -269,7 +274,9 @@ class ElfWriter:
                 st_bind = SymbolTableBinding.GLOBAL
             else:
                 st_bind = SymbolTableBinding.LOCAL
-            st_type = SymbolTableType.NOTYPE
+            st_type = symbol_table_types.get(
+                symbol.typ, SymbolTableType.NOTYPE
+            )
 
             entry = self.header_types.SymbolTableEntry()
             entry.st_name = self.string_table.get_name(symbol.name)
@@ -282,6 +289,7 @@ class ElfWriter:
             else:
                 entry.st_shndx = 0
                 entry.st_value = 0
+            entry.st_size = symbol.size
             entry.write(self.f)
 
         symbol_table_index_first_global = len(local_symbols) + 1
@@ -323,18 +331,20 @@ class ElfWriter:
             for rel in reloc_groups[section_name]:
                 assert rel.section == section_name
                 r_sym = self.symbol_id_map[rel.symbol_id]
-                r_type = self.get_reloc_type(rel.reloc_type)
+                r_type = self.get_reloc_type(rel)
+
                 if self.elf_file.bits == 64:
                     r_info = (r_sym << 32) + r_type
                 else:
                     r_info = (r_sym << 8) + r_type
+
                 rela_entry = self.header_types.RelocationTableEntry()
                 rela_entry.r_offset = rel.offset
                 rela_entry.r_info = r_info
                 rela_entry.r_addend = rel.addend
                 rela_entry.write(self.f)
 
-            rela_name = '.rela' + section_name
+            rela_name = ".rela" + section_name
             section_header = self.header_types.SectionHeader()
             section_header.sh_name = self.string_table.get_name(rela_name)
             section_header.sh_type = SectionHeaderType.RELA.value
@@ -347,7 +357,7 @@ class ElfWriter:
             section_header.sh_entsize = sh_entsize
             self.section_headers.append(section_header)
 
-    def get_reloc_type(self, reloc_type):
+    def get_reloc_type(self, rel):
 
         # TODO: this must be placed in arch specific file.
         R_X86_64_NONE = 0
@@ -390,7 +400,19 @@ class ElfWriter:
             "abs32": R_X86_64_32,
             "absaddr64": R_X86_64_64,
         }
-        return elf_reloc_mapping[reloc_type]
+
+        symbol = self.obj.symbols_by_id[rel.symbol_id]
+
+        if (
+            symbol.is_function
+            and symbol.undefined
+            and rel.reloc_type == "rel32"
+        ):
+            # TODO: can we always use PLT32 here?
+            r_type = R_X86_64_PLT32
+        else:
+            r_type = elf_reloc_mapping[rel.reloc_type]
+        return r_type
 
     def write_string_table(self):
         """ Write string table (last section) """

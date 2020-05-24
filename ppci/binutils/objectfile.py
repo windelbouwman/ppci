@@ -35,13 +35,15 @@ def get_object(obj):
 class Symbol:
     """ A symbol definition in an object file """
 
-    def __init__(self, id, name, binding, value, section):
+    def __init__(self, id, name, binding, value, section, typ, size):
         assert isinstance(id, int)
         self.id = id
         self.name = name
         self.binding = binding
         self.value = value
         self.section = section
+        self.typ = typ
+        self.size = size
 
     @property
     def undefined(self):
@@ -56,9 +58,19 @@ class Symbol:
     def is_global(self):
         return self.binding == "global"
 
+    @property
+    def is_function(self):
+        """ Test if this symbol is a function. """
+        return self.typ == "func"
+
     def __repr__(self):
-        return "Symbol({}, binding={}, val={} section={})".format(
-            self.name, self.binding, self.value, self.section
+        return "Symbol({}, binding={}, val={} section={} typ={} size={})".format(
+            self.name,
+            self.binding,
+            self.value,
+            self.section,
+            self.typ,
+            self.size,
         )
 
     def __eq__(self, other):
@@ -68,6 +80,8 @@ class Symbol:
             and (self.binding == other.binding)
             and (self.value == other.value)
             and (self.section == other.section)
+            and (self.typ == other.typ)
+            and (self.size == other.size)
         )
 
 
@@ -240,10 +254,10 @@ class ObjectFile:
         """ Get a symbol """
         return self.symbol_map[name]
 
-    def add_symbol(self, id, name, binding, value, section):
+    def add_symbol(self, id, name, binding, value, section, typ, size):
         """ Define a new symbol """
         # assert self.has_section(section)
-        symbol = Symbol(id, name, binding, value, section)
+        symbol = Symbol(id, name, binding, value, section, typ, size)
         self.symbols.append(symbol)
 
         # If the symbol has a global binding, its name must be unique:
@@ -422,6 +436,8 @@ def serialize(x):
         if not x.undefined:
             res["value"] = hex(x.value)
             res["section"] = x.section
+        res["typ"] = x.typ
+        res["size"] = x.size
     elif isinstance(x, RelocationEntry):
         res["symbol_id"] = x.symbol_id
         res["type"] = x.reloc_type
@@ -475,6 +491,8 @@ def deserialize(data):
             sym["binding"],
             symbol_value,
             symbol_section,
+            sym["typ"],
+            sym["size"],
         )
 
     for image in data["images"]:
