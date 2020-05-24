@@ -10,27 +10,24 @@ from ppci.format.elf import write_elf
 
 c_src = r"""
 
+// This will trigger relocations on the data section:
 double a;
 double *pa = &a;
 
-/*
-// enable this later!
-int putchar(int);
-
 // idea: link with libc for putchar!
-void main()
-{
-    //putchar(65); // use libc, emit A
-}
-*/
+int putchar(int);
 
 int magic_helper(int x)
 {
+    // TODO:
+    // putchar(65); // 'A'
     return x + 1 + *pa;
 }
 
 int barf(int x, double y)
 {
+    // TODO:
+    // putchar(66); // 'B'
     return magic_helper(x) - y;
 }
 

@@ -453,7 +453,8 @@ class Type(Definition):
         from .text.writer import TextWriter
 
         writer = TextWriter()
-        return writer.write_type_definition(self)
+        writer.write_type_definition(self)
+        return writer.finish()
 
 
 class Import(Definition):
@@ -495,7 +496,8 @@ class Import(Definition):
         from .text.writer import TextWriter
 
         writer = TextWriter()
-        return writer.write_import_definition(self)
+        writer.write_import_definition(self)
+        return writer.finish()
 
 
 class Table(Definition):
@@ -535,7 +537,8 @@ class Table(Definition):
         from .text.writer import TextWriter
 
         writer = TextWriter()
-        return writer.write_table_definition(self)
+        writer.write_table_definition(self)
+        return writer.finish()
 
 
 class Memory(Definition):
@@ -567,7 +570,8 @@ class Memory(Definition):
         from .text.writer import TextWriter
 
         writer = TextWriter()
-        return writer.write_memory_definition(self)
+        writer.write_memory_definition(self)
+        return writer.finish()
 
 
 class Global(Definition):
@@ -595,7 +599,8 @@ class Global(Definition):
         from .text.writer import TextWriter
 
         writer = TextWriter()
-        return writer.write_global_definition(self)
+        writer.write_global_definition(self)
+        return writer.finish()
 
 
 class Export(Definition):
@@ -703,7 +708,8 @@ class Func(Definition):
         from .text.writer import TextWriter
 
         writer = TextWriter()
-        return writer.write_func_definition(self)
+        writer.write_func_definition(self)
+        return writer.finish()
 
 
 class Elem(Definition):
@@ -735,10 +741,11 @@ class Elem(Definition):
         self.refs = refs
 
     def to_string(self):
-        ref = "" if self.ref.is_zero else " %s" % self.ref
-        offset = " ".join(i.to_string() for i in self.offset)
-        refs_as_str = " ".join(str(i) for i in self.refs)
-        return "(elem%s %s %s)" % (ref, offset, refs_as_str)
+        from .text.writer import TextWriter
+
+        writer = TextWriter()
+        writer.write_elem_definition(self)
+        return writer.finish()
 
 
 class Data(Definition):
@@ -773,7 +780,8 @@ class Data(Definition):
         from .text.writer import TextWriter
 
         writer = TextWriter()
-        return writer.write_data_definition(self)
+        writer.write_data_definition(self)
+        return writer.finish()
 
 
 class Custom(Definition):

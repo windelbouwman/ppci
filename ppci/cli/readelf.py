@@ -5,7 +5,7 @@ import argparse
 from .base import base_parser, LogSetup
 from ..utils.hexdump import hexdump
 from ..format.elf import read_elf
-from ..format.elf.file import SectionHeaderType
+from ..format.elf.headers import SectionHeaderType
 from ..format.elf.headers import get_symbol_table_type_name
 from ..format.elf.headers import get_symbol_table_binding_name
 from ..format.elf.headers import ProgramHeaderType, get_machine_name

@@ -30,8 +30,7 @@ def test_instructions1():
         else
           i32.const 5
           call $print
-        end
-      )
+        end)
     )
     """)
 

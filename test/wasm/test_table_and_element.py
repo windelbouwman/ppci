@@ -40,23 +40,20 @@ def test_table1():
       (type $print (func (param i32)))
       (type $2 (func))
       (import "js" "print_ln" (func $print (type $print)))
-      (table 2 2 funcref)
+      (table $0 2 2 funcref)
       (start $main)
       (elem i32.const 0 $f1 $f2)
       (func $f1 (type $2)
         i32.const 101
-        call $print
-      )
+        call $print)
       (func $f2 (type $2)
         i32.const 102
-        call $print
-      )
+        call $print)
       (func $main (type $2)
         i32.const 0
         call_indirect (type $2)
         i32.const 1
-        call_indirect (type $2)
-      )
+        call_indirect (type $2))
     )
     """)
 

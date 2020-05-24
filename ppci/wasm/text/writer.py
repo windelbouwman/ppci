@@ -1,5 +1,6 @@
 """ Text writer to create text representation of wasm.
 """
+import io
 from .. import components
 from .util import default_alignment, bytes2datastring
 
@@ -16,6 +17,8 @@ class TextWriter:
 
     def __init__(self, indentation=2):
         self.indentation = indentation
+        self._f = io.StringIO()
+        self._last = None
 
     def write_module(self, module: components.Module):
         # TODO: idea: first construct tuples, then pretty print these tuples
@@ -30,112 +33,154 @@ class TextWriter:
         return "(module" + id_str + defs_str + ")\n"
 
     def write_type_definition(self, typedef: components.Type):
-        s = "(type %s (func" % typedef.id
+        self.emit("(", "type")
+        self.gen_id(typedef.id)
+        self.emit("(", "func")
+
         last_anon = False
         for i, param in enumerate(typedef.params):
             id, typ = param
             if isinstance(id, int):
                 assert id == i
                 if last_anon:
-                    s += " " + typ
+                    self.emit(str(typ))
                 else:
-                    s += " (param %s" % typ
+                    self.emit("(", "param", str(typ))
                     last_anon = True
             else:
                 if last_anon:
-                    s += ")"
-                s += " (param %s %s)" % (id, typ)
+                    self.emit(")")
+                self.emit("(", "param", str(id), str(typ), ")")
                 last_anon = False
-        s += ")" if last_anon else ""
+
+        if last_anon:
+            self.emit(")")
+
         if typedef.results:
-            s += " (result " + " ".join(typedef.results) + ")"
-        return s + "))"
+            self.emit("(", "result")
+            for r in typedef.results:
+                self.emit(str(r))
+            self.emit(")")
+        self.emit(")", ")")
 
     def write_import_definition(self, imp: components.Import):
+        self.emit("(", "import", '"%s"' % imp.modname, '"%s"' % imp.name)
+        self.emit("(", "%s" % imp.kind)
         # Get description
         if imp.kind == "func":
-            desc = ["(type %s)" % imp.info[0]]
+            self.gen_id(imp.id)
+            self.emit("(", "type", str(imp.info[0]), ")")
         elif imp.kind == "table":
-            desc = ["funcref"]
+            if imp.id != "$0":
+                self.gen_id(imp.id)
+
             if imp.info[2] is not None:
-                desc = [str(imp.info[1]), str(imp.info[2]), "funcref"]
+                self.emit(str(imp.info[1]), str(imp.info[2]))
             elif imp.info[1] != 0:
-                desc = [str(imp.info[1]), "funcref"]
+                self.emit(str(imp.info[1]))
+            self.emit("funcref")
         elif imp.kind == "memory":
-            desc = [imp.info[0]] if imp.info[1] is None else list(imp.info)
+            if imp.id != "$0":
+                self.gen_id(imp.id)
+
+            self.emit(str(imp.info[0]))
+            if imp.info[1] is not None:
+                self.emit(str(imp.info[1]))
         elif imp.kind == "global":
-            fmt = "(mut %s)" if imp.info[1] else "%s"  # mutable?
-            desc = [fmt % imp.info[0]]
+            self.gen_id(imp.id)
+            if imp.info[1]:
+                # mutable
+                self.emit("(", "mut", str(imp.info[0]), ")")
+            else:
+                self.emit(str(imp.info[0]))
         else:  # pragma: no cover
             raise NotImplementedError()
 
-        # Populate description more
-        if not (imp.kind in ("memory", "table") and imp.id == "$0"):
-            desc.insert(0, imp.id)
-
-        # Compose
-        return '(import "%s" "%s" (%s %s))' % (
-            imp.modname,
-            imp.name,
-            imp.kind,
-            " ".join(str(i) for i in desc),
-        )
+        self.emit(")", ")")
 
     def write_table_definition(self, table: components.Table):
-        id = "" if table.id == "$0" else " %s" % table.id
+        self.emit("(", "table")
+        self.gen_id(table.id)
         if table.max is None:
-            minmax = "" if table.min == 0 else " %i" % table.min
+            if table.min != 0:
+                self.emit("%i" % table.min)
         else:
-            minmax = " %i %i" % (table.min, table.max)
-        return "(table%s%s %s)" % (id, minmax, table.kind)
+            self.emit("%i" % table.min)
+            self.emit("%i" % table.max)
+        self.emit(table.kind)
+        self.emit(")")
 
     def write_memory_definition(self, memory: components.Memory):
-        id = "" if memory.id == "$0" else " %s" % memory.id
-        min = " %i" % memory.min
-        max = "" if memory.max is None else " %i" % memory.max
-        return "(memory%s%s%s)" % (id, min, max)
+        self.emit("(", "memory")
+        self.gen_id(memory.id)
+        self.emit("%i" % memory.min)
+        if memory.max is not None:
+            self.emit("%i" % memory.max)
+        self.emit(")")
 
     def write_global_definition(self, definition: components.Global):
-        init = " ".join(i.to_string() for i in definition.init)
+        self.emit("(", "global")
+        self.gen_id(definition.id)
         if definition.mutable:
-            return "(global %s (mut %s) %s)" % (
-                definition.id,
-                definition.typ,
-                init,
-            )
+            self.emit("(", "mut", str(definition.typ), ")")
         else:
-            return "(global %s %s %s)" % (definition.id, definition.typ, init)
+            self.emit(str(definition.typ))
+        init = " ".join(i.to_string() for i in definition.init)
+        self.emit(init)
+        self.emit(")")
 
     def write_func_definition(self, func: components.Func):
-        s = ""
-        last_anon = False
-        for i, local in enumerate(func.locals):
-            id, typ = local
-            if id is None or isinstance(id, int):
-                if id is not None:
-                    assert id == i
-                if last_anon:
-                    s += " " + typ
-                else:
-                    s += " (local %s" % typ
-                    last_anon = True
-            else:
-                s += ")" if last_anon else ""
-                s += " (local %s %s)" % (id, typ)
-                last_anon = False
-        s += ")" if last_anon else ""
-        locals_str = s
+        self.emit("(", "func")
+        self.gen_id(func.id)
+        self.emit("(", "type", str(func.ref), ")")
+        self.emit("\n")
 
-        s = "(func %s (type %s)" % (func.id, func.ref) + locals_str + "\n"
-        s += self._get_sub_string(func.instructions, True)
-        s += "\n)"
-        return s
+        if func.locals:
+            self.emit(" ")
+            last_anon = False
+            for i, local in enumerate(func.locals):
+                id, typ = local
+                if id is None or isinstance(id, int):
+                    if id is not None:
+                        assert id == i
+                    if last_anon:
+                        self.emit(str(typ))
+                    else:
+                        self.emit("(", "local", str(typ))
+                        last_anon = True
+                else:
+                    if last_anon:
+                        self.emit(")")
+                    self.emit("(", "local", str(id), str(typ), ")")
+                    last_anon = False
+            if last_anon:
+                self.emit(")")
+
+            self.emit("\n")
+
+        self.emit(self._get_sub_string(func.instructions, True))
+        self.emit(")")
+
+    def write_elem_definition(self, elemdef: components.Elem):
+        self.emit("(", "elem")
+        if not elemdef.ref.is_zero:
+            self.emit(str(elemdef.ref))
+        offset = " ".join(i.to_string() for i in elemdef.offset)
+        self.emit(offset)
+        for i in elemdef.refs:
+            self.emit(str(i))
+        self.emit(")")
 
     def write_data_definition(self, datadef: components.Data):
-        ref = "" if datadef.ref.is_zero else " %s" % datadef.ref
+        self.emit("(", "data")
+        if not datadef.ref.is_zero:
+            self.emit(str(datadef.ref))
+        # self.emit(' ')
+        # self.gen_id(datadef.id)
         offset = " ".join(i.to_string() for i in datadef.offset)
-        data_as_str = bytes2datastring(datadef.data)  # repr(self.data)[2:-1]
-        return '(data%s %s "%s")' % (ref, offset, data_as_str)
+        self.emit(offset)
+        self.emit('"' + bytes2datastring(datadef.data) + '"')
+        self.emit(")")
 
     def write_instruction(self, instruction: components.Instruction):
         opcode = instruction.opcode
@@ -150,6 +195,14 @@ class TextWriter:
                 args.append("align=%i" % 2 ** align)
 
             args = tuple(args)
+
+        elif opcode == "br_table":
+            tab = args[0]
+            args = [str(t) for t in tab]
+
+        elif opcode == "memory.size" or opcode == "memory.grow":
+            # TODO: this argument might be used some day..
+            args = []
 
         elif opcode == "call_indirect":
             if args[1].index == 0:  # zero'th table
@@ -208,3 +261,34 @@ class TextWriter:
             return "\n".join(lines)
         else:
             return " ".join(texts)
+
+    def gen_id(self, id):
+        if isinstance(id, int):
+            self.comment(str(id))
+        else:
+            self.emit(str(id))
+
+    def comment(self, txt):
+        """ Emit commented text. """
+        self.emit("(;" + txt + ";)")
+
+    def emit(self, *txts):
+        """ Write text.
+
+        Idea: have different handlers for text creation and tuple creation.
+        """
+        for txt in txts:
+            if not (
+                self._last is None
+                or self._last == "("
+                or txt == ")"
+                or txt == "\n"
+                or self._last == "\n"
+            ):
+                self._f.write(" ")
+            self._f.write(txt)
+            self._last = txt
+
+    def finish(self):
+        """ Wrap up and return emitted text. """
+        return self._f.getvalue()

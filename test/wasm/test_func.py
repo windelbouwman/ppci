@@ -16,14 +16,14 @@ def test_func0():
         '$foo', Ref('type', name='$sig'),
         [(None, 'i32'), ('$local1', 'f32')], []
     )
-    assert f.to_string() == '(func $foo (type $sig) (local i32) (local $local1 f32)\n\n)'
+    assert f.to_string() == '(func $foo (type $sig)\n  (local i32) (local $local1 f32)\n)'
 
     # Locals can be (and are) combined
     f = Func(
         '$foo', Ref('type', name='$sig'),
         [(None, 'i32'), (None, 'f32')], []
     )
-    assert f.to_string() == '(func $foo (type $sig) (local i32 f32)\n\n)'
+    assert f.to_string() == '(func $foo (type $sig)\n  (local i32 f32)\n)'
 
 
 def test_func1():
@@ -39,16 +39,15 @@ def test_func1():
       (func $add (type $1)
         local.get 0
         local.get 1
-        i32.add
-      )
-      (func $main (type $2) (local $foo i32)
+        i32.add)
+      (func $main (type $2)
+        (local $foo i32)
         i32.const 4
         i32.const 3
         call $add
         local.set $foo
         local.get $foo
-        call $print
-      )
+        call $print)
     )
     """)
 

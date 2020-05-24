@@ -30,14 +30,12 @@ def test_type1():
       (func $add (type $1)
         local.get 0
         local.get 1
-        i32.add
-      )
+        i32.add)
       (func $main (type $2)
         i32.const 4
         i32.const 3
         call $add
-        call $print
-      )
+        call $print)
     )
     """)
 
@@ -89,21 +87,17 @@ def test_type2():
       (func $test_11 (type $1)
         i32.const 111
         call $print
-        i32.const 0
-      )
+        i32.const 0)
       (func $test_10 (type $0)
         i32.const 110
-        call $print
-      )
+        call $print)
       (func $test_01 (type $2)
         i32.const 101
         call $print
-        i32.const 0
-      )
+        i32.const 0)
       (func $test_00 (type $3)
         i32.const 100
-        call $print
-      )
+        call $print)
       (func $main (type $3)
         i32.const 0
         call $test_11
@@ -112,8 +106,7 @@ def test_type2():
         call $test_10
         call $test_01
         drop
-        call $test_00
-      )
+        call $test_00)
     )
     """)
 

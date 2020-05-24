@@ -58,9 +58,16 @@ _log2 = {
 
 
 def bytes2datastring(b):
+    """
+    Allow most ascii characters, except for
+
+    double quote (34)
+    backslash (92)
+
+    """
     f = io.StringIO()
     for v in b:
-        if 48 >= v >= 122 and v not in (92, 96):
+        if 32 <= v < 127 and v not in (34, 92):
             f.write(chr(v))
         else:
             f.write("\\" + hex(v)[2:].rjust(2, "0"))

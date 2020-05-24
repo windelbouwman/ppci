@@ -8,10 +8,7 @@ import io
 import logging
 
 from ...arch.arch_info import Endianness
-from ... import ir
 from .headers import ElfMachine, HeaderTypes
-from .headers import SectionHeaderType, SectionHeaderFlag
-from .headers import SymbolTableBinding, SymbolTableType
 
 
 logger = logging.getLogger("elf")

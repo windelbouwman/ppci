@@ -37,8 +37,7 @@ def test_global1():
       (start $main)
       (func $main (type $2)
         global.get $foo
-        call $print
-      )
+        call $print)
     )
     """)
 

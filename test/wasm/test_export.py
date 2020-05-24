@@ -55,7 +55,6 @@ def test_export1():
       (export "bar_func1" (func $f1))
       (export "bar_func2" (func $f1))
       (func $f1 (type $sig)
-      
       )
     )
     """)

@@ -66,7 +66,10 @@ class StructInitializer(InitializerList):
         self.values = {}
 
     def __repr__(self):
-        return "Struct initializer: {}".format(self.values)
+        if len(self.values) > 4:
+            return "Struct-initializer-with-{}-fields".format(len(self.values))
+        else:
+            return "Struct initializer: {}".format(self.values)
 
 
 class UnionInitializer(InitializerList):
@@ -89,7 +92,10 @@ class ArrayInitializer(InitializerList):
         self.values = values
 
     def __repr__(self):
-        return "Array-init({})".format(self.values)
+        if len(self.values) > 4:
+            return "Array-init({}, ...)".format(self.values[:4])
+        else:
+            return "Array-init({})".format(self.values)
 
 
 class ImplicitInitialValue(Initializer):

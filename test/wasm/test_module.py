@@ -44,7 +44,8 @@ def test_module1():
       (type $1 (func))
       (import "js" "print_ln" (func $print (type $print)))
       (start $main)
-      (func $main (type $1) (local f64)
+      (func $main (type $1)
+        (local f64)
         loop
           local.get 0
           call $print
@@ -55,8 +56,7 @@ def test_module1():
           f64.const 10.0
           f64.lt
           br_if 0
-        end
-      )
+        end)
     )
     """)
 

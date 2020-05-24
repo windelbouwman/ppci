@@ -44,7 +44,7 @@ def test_memory1():
       (type $print (func (param i32)))
       (type $2 (func))
       (import "js" "print_ln" (func $print (type $print)))
-      (memory 1 1)
+      (memory $0 1 1)
       (start $main)
       (func $main (type $2)
         i32.const 0
@@ -52,8 +52,7 @@ def test_memory1():
         call $print
         i32.const 1
         i32.load8_u
-        call $print
-      )
+        call $print)
       (data i32.const 0 "\04\03\02")
     )
     """)

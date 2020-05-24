@@ -6,7 +6,7 @@ import logging
 from collections import defaultdict
 from ...arch.arch_info import Endianness
 from ... import ir
-from .headers import ElfMachine, HeaderTypes
+from .headers import ElfMachine
 from .headers import SectionHeaderType, SectionHeaderFlag
 from .headers import SymbolTableBinding, SymbolTableType
 from .file import ElfFile, StringTable
@@ -274,10 +274,14 @@ class ElfWriter:
             entry = self.header_types.SymbolTableEntry()
             entry.st_name = self.string_table.get_name(symbol.name)
             entry.st_info = (int(st_bind) << 4) | int(st_type)
-            entry.st_shndx = self.section_numbers[symbol.section]
-            entry.st_value = (
-                symbol.value + self.obj.get_section(symbol.section).address
-            )
+            if symbol.defined:
+                entry.st_shndx = self.section_numbers[symbol.section]
+                entry.st_value = (
+                    symbol.value + self.obj.get_section(symbol.section).address
+                )
+            else:
+                entry.st_shndx = 0
+                entry.st_value = 0
             entry.write(self.f)
 
         symbol_table_index_first_global = len(local_symbols) + 1
