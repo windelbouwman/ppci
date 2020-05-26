@@ -111,11 +111,18 @@ class TestSamplesOnRiscvSiFiveU(unittest.TestCase):
     global bsp_exit 
     global _start
     
+    section reset
     _start:
-    LUI sp, 0x80030      ; setup stack pointer to 0x80030000
+      ; Ensure only cpu 0 runs:
+      csrr a0, mhartid
+      xor a1, a1, a1
+      bne a0, a1, limbo
 
-    JAL ra, main_main    ; Branch to sample start LR
-    JAL ra, bsp_exit     ; do exit stuff LR
+      LUI sp, 0x80030      ; setup stack pointer to 0x80030000
+
+      JAL ra, main_main    ; Branch to sample start LR
+      JAL ra, bsp_exit     ; do exit stuff LR
+
     limbo:
       j limbo
     EBREAK
@@ -124,6 +131,7 @@ class TestSamplesOnRiscvSiFiveU(unittest.TestCase):
     ENTRY(_start)
 
     MEMORY coderam LOCATION=0x80000000 SIZE=0x10000 {
+        SECTION(reset)
         SECTION(code)
     }
 
@@ -170,16 +178,14 @@ class TestSamplesOnRiscvSiFiveU(unittest.TestCase):
 
         elf_filename = base_filename + ".elf"
 
-        # TODO: this does not work too well :(
-        if False:
-        # if has_qemu():
+        if has_qemu():
             output = qemu(
                 [
                     "qemu-system-riscv32",
                     "-nographic",
                     "-M",
                     "sifive_u",
-                    "-kernel",
+                    "-bios",
                     elf_filename,
                 ]
             )
