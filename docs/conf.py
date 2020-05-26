@@ -118,8 +118,11 @@ html_theme = 'alabaster'
 # documentation.
 html_theme_options = {
     'github_user': 'windelbouwman',
-    'github_repo': 'ppci-mirror',
+    'github_repo': 'ppci',
     'github_banner': True,
+    'github_button': True,
+    'github_type': 'star',
+    'github_count': 'true',
     'travis_button': True,
 }
 

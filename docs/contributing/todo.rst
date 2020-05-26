@@ -57,7 +57,7 @@ Issue trackers
 
 On github, there is a list of open issues which need attention:
 
-https://github.com/windelbouwman/ppci-mirror/issues
+https://github.com/windelbouwman/ppci/issues
 
 On bitbucket, there is another todo list:
 

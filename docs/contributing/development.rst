@@ -26,9 +26,9 @@ without having to setup your python path.
     $ cd ppci
     $ sudo python setup.py develop
 
-Alternatively a git mirror is also created:
+Alternatively a git is also used:
 
-- https://github.com/windelbouwman/ppci-mirror
+- https://github.com/windelbouwman/ppci
 
 
 Coding style

@@ -6,6 +6,7 @@ from sample_helpers import add_samples, build
 from helper_util import has_iverilog, run_picorv32
 from helper_util import do_long_tests, do_iverilog, make_filename
 from ppci.binutils.objectfile import merge_memories
+from helper_util import has_qemu, qemu
 
 
 @unittest.skipUnless(do_long_tests("riscv"), "skipping slow tests")
@@ -98,6 +99,91 @@ class TestSamplesOnRiscv(unittest.TestCase):
 
 class TestSamplesOnRiscvC(TestSamplesOnRiscv):
     march = "riscv:rvc"
+
+
+@unittest.skipUnless(do_long_tests("riscv"), "skipping slow tests")
+@add_samples("simple")
+class TestSamplesOnRiscvSiFiveU(unittest.TestCase):
+    march = "riscv"
+    opt_level = 0
+    startercode = """
+    global main_main 
+    global bsp_exit 
+    global _start
+    
+    _start:
+    LUI sp, 0x80030      ; setup stack pointer to 0x80030000
+
+    JAL ra, main_main    ; Branch to sample start LR
+    JAL ra, bsp_exit     ; do exit stuff LR
+    limbo:
+      j limbo
+    EBREAK
+    """
+    arch_mmap = """
+    ENTRY(_start)
+
+    MEMORY coderam LOCATION=0x80000000 SIZE=0x10000 {
+        SECTION(code)
+    }
+
+    MEMORY dataram LOCATION=0x80010000 SIZE=0x10000 {
+        SECTION(data)
+    }
+    """
+
+    bsp_c3_src = """
+    module bsp;
+
+    public function void putc(byte c)
+    {
+        var int *UART0DR;
+        UART0DR = cast<int*>(0x10010000);
+        *UART0DR=c;
+    }
+
+    function void exit()
+    {
+        putc(4);
+    }
+    """
+
+    def do(self, src, expected_output, lang="c3"):
+        # Construct binary file from snippet:
+        startercode = io.StringIO(self.startercode)
+        base_filename = make_filename(self.id())
+        bsp_c3 = io.StringIO(self.bsp_c3_src)
+
+        build(
+            base_filename,
+            src,
+            bsp_c3,
+            startercode,
+            self.march,
+            self.opt_level,
+            io.StringIO(self.arch_mmap),
+            lang=lang,
+            elf_format="elf",
+        )
+
+        base_filename = make_filename(self.id())
+
+        elf_filename = base_filename + ".elf"
+
+        # TODO: this does not work too well :(
+        if False:
+        # if has_qemu():
+            output = qemu(
+                [
+                    "qemu-system-riscv32",
+                    "-nographic",
+                    "-M",
+                    "sifive_u",
+                    "-kernel",
+                    elf_filename,
+                ]
+            )
+            self.assertEqual(expected_output, output)
 
 
 if __name__ == "__main__":

@@ -35,7 +35,7 @@ def write_elf(obj, f, type="executable"):
     etype_mapping = {
         "executable": ET_EXEC,
         "relocatable": ET_REL,
-        # TODO: 'shared': ET_DYN,
+        # 'shared': ET_DYN,
     }
     e_type = etype_mapping[type]
     writer = ElfWriter(f, elf_file)
@@ -459,7 +459,50 @@ class ElfWriter:
                 section_header.sh_link = self.section_numbers[".symtab"]
             section_header.write(self.f)
 
+    def create_hash_table(self):
+        """ Create hash table for fast symbol lookup.
+
+        This is used by the dynamic loader when looking
+        up many symbols.
+        """
+        # Same amount as symbol table
+        nchains = len(self.obj.symbols) + 1
+        nbuckets = 8
+        buckets = [0] * nbuckets
+        chain = [0] * nchains
+        for symbol in self.obj.symbols:
+            symbol_index = self.symbol_id_map[symbol.id]
+            hash_value = elf_hash(symbol.name)
+            bucket_index = hash_value % nbuckets
+            if buckets[bucket_index] == 0:
+                # empty bucket
+                buckets[bucket_index] = symbol_index
+            else:
+                # follow chain until empty slot.
+                chain_index = buckets[bucket_index]
+                while chain[chain_index] != 0:
+                    chain_index = chain[chain_index]
+                chain[chain_index] = symbol_index
+
     def align_to(self, alignment):
         padding = (alignment - (self.f.tell() % alignment)) % alignment
         self.f.write(bytes(padding))
         assert self.f.tell() % alignment == 0
+
+
+def elf_hash(name):
+    """ ELF hashing function.
+
+    See figure 2-15 in the ELF format PDF document.
+    """
+
+    h = 0
+    for c in name:
+        h = (h << 4) + ord(c)
+        g = h & 0xf0000000
+        if g:
+            h ^= g >> 24
+        h &= ~g
+        assert h >= 0
+
+    return h

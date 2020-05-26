@@ -1,0 +1,11 @@
+
+ENTRY(_start)
+
+MEMORY coderam LOCATION=0x80000000 SIZE=0x10000 {
+ SECTION(code)
+}
+
+MEMORY dataram LOCATION=0x80010000 SIZE=0x10000 {
+ SECTION(data)
+}
+
