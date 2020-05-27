@@ -9,6 +9,7 @@ from .asm_printer import RiscvAsmPrinter
 from .instructions import isa, Align, Section
 from .rvc_instructions import rvcisa
 from .rvf_instructions import rvfisa, movf
+from .rvfx_instructions import rvfxisa
 from .registers import RiscvRegister, RiscvFRegister, gdb_registers, Register
 from .registers import R0, LR, SP, FP
 from .registers import R10, R11, R12
@@ -65,7 +66,7 @@ class RiscvAssembler(BaseAssembler):
 
 class RiscvArch(Architecture):
     name = "riscv"
-    option_names = ("rvc", "rvf")
+    option_names = ("rvc", "rvf","rvfx")
 
     def __init__(self, options=None):
         super().__init__(options=options)
@@ -73,6 +74,11 @@ class RiscvArch(Architecture):
             self.isa = isa + rvcisa + data_isa
             self.store = CSwsp
             self.load = CLwsp
+            self.regclass = register_classes_swfp
+        elif self.has_option("rvfx"):
+            self.isa = isa + rvfxisa + data_isa
+            self.store = Sw
+            self.load = Lw
             self.regclass = register_classes_swfp
         elif self.has_option("rvf"):
             self.isa = isa + rvfisa + data_isa
