@@ -4,7 +4,7 @@ of a function or a basic block.
 """
 
 from collections import namedtuple
-from ..utils.collections import OrderedSet
+from ..utils.collections import OrderedSet, OrderedDict
 
 
 SGEdge = namedtuple("SGEdge", ["src", "dst", "name", "kind"])
@@ -18,7 +18,9 @@ class SelectionGraph:
     def __init__(self):
         self.roots = []
         self.nodes = OrderedSet()
-        self.groups = OrderedSet()
+
+        # An ordered dict of group names to ordered sets of nodes:
+        self.groups = OrderedDict()
 
     def get_node(self, value):
         return value.src()
@@ -27,12 +29,15 @@ class SelectionGraph:
         """ Add a node to the graph """
         self.nodes.add(node)
         if hasattr(node, "group"):
-            self.groups.add(getattr(node, "group"))
+            group = getattr(node, "group")
+            if group not in self.groups:
+                self.groups[group] = OrderedSet()
+            self.groups[group].add(node)
 
     def get_group(self, group):
         """ Get all nodes of a group """
         assert group in self.groups
-        return OrderedSet(node for node in self.nodes if node.group == group)
+        return self.groups[group]
 
     @property
     def edges(self):

@@ -68,7 +68,7 @@ class CodeGenerator:
         for external in ircode.externals:
             self._mark_global(output_stream, external)
             if isinstance(external, ir.ExternalSubRoutine):
-                output_stream.emit(SetSymbolType(external.name, 'func'))
+                output_stream.emit(SetSymbolType(external.name, "func"))
 
         # Generate code for global variables:
         output_stream.select_section("data")
@@ -163,7 +163,7 @@ class CodeGenerator:
                 )
 
         self._mark_global(output_stream, ir_function)
-        output_stream.emit(SetSymbolType(ir_function.name, 'func'))
+        output_stream.emit(SetSymbolType(ir_function.name, "func"))
 
         # Create a frame for this function:
         frame_name = ir_function.name

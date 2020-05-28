@@ -155,9 +155,7 @@ class MiniGen:
         fmt = self.make_fmt(vreg)
 
         t = Tree(
-            "MOV{}".format(fmt),
-            Tree("LDR{}".format(fmt), at),
-            value=vreg,
+            "MOV{}".format(fmt), Tree("LDR{}".format(fmt), at), value=vreg,
         )
         return self.gen(frame, t)
 
@@ -166,9 +164,7 @@ class MiniGen:
         at = self.make_at(slot)
         fmt = self.make_fmt(vreg)
         t = Tree(
-            "STR{}".format(fmt),
-            at,
-            Tree("REG{}".format(fmt), value=vreg),
+            "STR{}".format(fmt), at, Tree("REG{}".format(fmt), value=vreg),
         )
         return self.gen(frame, t)
 
@@ -182,8 +178,8 @@ class MiniGen:
         """ Determine the type suffix, such as I32 or F64.
         """
         # TODO: hack to retrieve register type (U, I or F):
-        ty = getattr(vreg, 'ty', 'I')
-        fmt = '{}{}'.format(ty, vreg.bitsize)
+        ty = getattr(vreg, "ty", "I")
+        fmt = "{}{}".format(ty, vreg.bitsize)
         return fmt
 
     def make_at(self, slot):
@@ -330,6 +326,8 @@ class GraphColoringRegisterAllocator:
         self.simplify_worklist = OrderedSet()
         self.precolored = OrderedSet()
 
+        self._num_blocked = {}
+
         # Divide nodes into categories:
         for node in self.frame.ig.nodes:
             if node.is_colored:
@@ -377,7 +375,7 @@ class GraphColoringRegisterAllocator:
         return False
 
     @lru_cache(maxsize=None)
-    def q(self, B, C):
+    def q(self, B, C) -> int:
         """ The number of class B registers that can be blocked by class C. """
         assert issubclass(B, Register)
         assert issubclass(C, Register)
@@ -390,7 +388,7 @@ class GraphColoringRegisterAllocator:
             )
         return x
 
-    def is_colorable(self, node):
+    def is_colorable(self, node) -> bool:
         """
         Helper function to determine whether a node is trivially
         colorable. This means: no matter the colors of the nodes neighbours,
@@ -406,9 +404,25 @@ class GraphColoringRegisterAllocator:
         if node.is_colored:
             return True
 
+        if node in self._num_blocked:
+            num_blocked = self._num_blocked[node]
+        else:
+            num_blocked = self.calc_num_blocked(node)
+            self._num_blocked[node] = num_blocked
+        # This invariant should hold:
+        # assert num_blocked == self.calc_num_blocked(node)
+        return num_blocked < self.K[node.reg_class]
+
+    def calc_num_blocked(self, node):
+        """ Calculate for the given node how many registers are blocked
+        by it's adjecent nodes.
+
+        This is an advanced form of a nodes degree, but then for
+        register of different classes.
+        """
         B = node.reg_class
         num_blocked = sum(self.q(B, j.reg_class) for j in node.adjecent)
-        return num_blocked < self.K[B]
+        return num_blocked
 
     def NodeMoves(self, n):
         return n.moves
@@ -428,6 +442,9 @@ class GraphColoringRegisterAllocator:
         # Pop out of graph, we place it back later:
         self.frame.ig.mask_node(n)
         for m in n.adjecent:
+            if m in self._num_blocked:
+                relieve = self.q(m.reg_class, n.reg_class)
+                self._num_blocked[m] -= relieve
             self.decrement_degree(m)
 
     def decrement_degree(self, m):
@@ -544,11 +561,16 @@ class GraphColoringRegisterAllocator:
         self.frame.ig.combine(u, v)
         u.reg_class = self.common_reg_class(u.reg_class, v.reg_class)
 
+        self._num_blocked[u] = self.calc_num_blocked(u)
+        for t in u.adjecent:
+            self._num_blocked[t] = self.calc_num_blocked(t)
+
         if self.verbose:
             self.logger.debug("Combined node: %s", u)
 
         # See if any adjecent nodes dropped in degree by merging u and v
         # This can happen when u and v both interfered with t.
+
         for t in u.adjecent:
             self.decrement_degree(t)
 

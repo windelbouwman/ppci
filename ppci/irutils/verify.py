@@ -86,9 +86,6 @@ class Verifier:
 
         # Now we can build a dominator tree
         self.cfg_info = CfgInfo(function)
-        if len(self.cfg_info.cfg) > 2000:
-            self.logger.error("Skipping verify of more than 2000 cfg nodes")
-            return
 
         for block in function:
             assert block.function is function
