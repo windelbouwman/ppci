@@ -4,21 +4,15 @@ from ..registers import Register, RegisterClass
 from ... import ir
 
 
-def get_register(n):
-    """ Based on a number, get the corresponding register """
-    return num2regmap[n]
-
-
 class Register64(Register):
     """ 64-bit register like 'rax' """
 
     bitsize = 64
 
-    def __repr__(self):
-        if self.is_colored:
-            return get_register(self.color).name
-        else:
-            return self.name
+    @classmethod
+    def from_num(cls, num):
+        """ Based on a number, get the corresponding register """
+        return num2regmap[num]
 
     @property
     def rexbit(self):
@@ -34,11 +28,9 @@ class Register32(Register):
 
     bitsize = 32
 
-    def __repr__(self):
-        if self.is_colored:
-            return get32reg(self.color).name
-        else:
-            return self.name
+    @classmethod
+    def from_num(cls, num):
+        return reg32_mp[num]
 
     @property
     def rexbit(self):
@@ -54,11 +46,9 @@ class Register16(Register):
 
     bitsize = 16
 
-    def __repr__(self):
-        if self.is_colored:
-            return get16reg(self.color).name
-        else:
-            return self.name
+    @classmethod
+    def from_num(cls, num):
+        return reg16_mp[num]
 
 
 class Register8(Register):
@@ -66,11 +56,9 @@ class Register8(Register):
 
     bitsize = 8
 
-    def __repr__(self):
-        if self.is_colored:
-            return get8reg(self.color).name
-        else:
-            return self.name
+    @classmethod
+    def from_num(cls, num):
+        return reg8_mp[num]
 
     @property
     def rexbit(self):
@@ -96,11 +84,9 @@ class XmmRegisterDouble(Register):
     # bitsize = 32
     ty = "F"
 
-    def __repr__(self):
-        if self.is_colored:
-            return get_xmm_reg(self.color).name
-        else:
-            return self.name
+    @classmethod
+    def from_num(cls, num):
+        return xmm_mp[num]
 
 
 class XmmRegisterSingle(Register):
@@ -109,11 +95,9 @@ class XmmRegisterSingle(Register):
     ty = "F"
     bitsize = 32
 
-    def __repr__(self):
-        if self.is_colored:
-            return get_xmm_reg(self.color).name
-        else:
-            return self.name
+    @classmethod
+    def from_num(cls, num):
+        return xmm_single_mp[num]
 
 
 # Calculation of the rexb bit:
@@ -311,37 +295,17 @@ XmmRegisterSingle.registers = [
 
 
 xmm_mp = {r.num: r for r in XmmRegisterDouble.registers}
-
-
-def get_xmm_reg(num):
-    return xmm_mp[num]
-
-
-reg8_mp = {r.num: r for r in [al, bl, cl, dl]}
-
-
-def get8reg(num):
-    return reg8_mp[num]
-
-
+xmm_single_mp = {r.num: r for r in XmmRegisterSingle.registers}
+reg8_mp = {r.num: r for r in Register8.registers}
 reg16_mp = {r.num: r for r in Register16.registers}
-
-
-def get16reg(num):
-    return reg16_mp[num]
-
-
 reg32_mp = {r.num: r for r in Register32.registers}
-
-
-def get32reg(num):
-    return reg32_mp[num]
 
 
 callee_save = (
     rbx,
-    r12,
-    r13,
+    # TODO: we do not use r12 and r13?
+    # r12,
+    # r13,
     r14,
     r15,
     xmm6,
@@ -375,7 +339,6 @@ caller_save = (
 
 
 # Register classes:
-# TODO: should 16 and 32 bit values have its own class?
 register_classes = [
     RegisterClass(
         "reg64",

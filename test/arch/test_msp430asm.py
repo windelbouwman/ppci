@@ -141,7 +141,7 @@ class Msp430Syntax(unittest.TestCase):
         add = instructions.Addw(
             instructions.RegSrc(registers.r2),
             instructions.RegDst(registers.r3))
-        self.assertEqual('add.w R2, R3', str(add))
+        self.assertEqual('add.w r2, r3', str(add))
 
 
 class Msp430InstructionUseDef(unittest.TestCase):

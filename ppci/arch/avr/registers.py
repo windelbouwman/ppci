@@ -9,11 +9,9 @@ class AvrRegister(Register):
 
     bitsize = 8
 
-    def __repr__(self):
-        if self.is_colored:
-            return get_register(self.color).name
-        else:
-            return self.name
+    @classmethod
+    def from_num(cls, num):
+        return num_reg_map[num]
 
 
 class HighAvrRegister(AvrRegister):
@@ -25,19 +23,17 @@ class AvrWordRegister(Register):
 
     bitsize = 16
 
-    def __repr__(self):
-        if self.is_colored:
-            return get16reg(self.color).name
-        else:
-            return self.name
+    @classmethod
+    def from_num(cls, num):
+        return num_w_reg_map[num]
 
     @property
     def lo(self):
-        return get8reg(self.num)
+        return AvrRegister.from_num(self.num)
 
     @property
     def hi(self):
-        return get8reg(self.num + 1)
+        return AvrRegister.from_num(self.num + 1)
 
 
 class HighAvrWordRegister(AvrWordRegister):
@@ -217,23 +213,12 @@ alloc_lo_w_regs = (r3r2, r5r4, r7r6, r9r8, r11r10, r13r12, r15r14)
 alloc_w_regs = alloc_lo_w_regs + hi_w_regs
 
 num_reg_map = {r.num: r for r in all_regs}
+num_w_reg_map = {r.num: r for r in all_w_regs}
 
 AvrRegister.registers = all_regs
 HighAvrRegister.registers = hi_regs
 AvrWordRegister.registers = all_w_regs
 HighAvrWordRegister.registers = hi_w_regs
-
-
-def get_register(n):
-    return num_reg_map[n]
-
-
-get8reg = get_register
-
-
-def get16reg(n):
-    mp = {r.num: r for r in all_w_regs}
-    return mp[n]
 
 
 register_classes = [

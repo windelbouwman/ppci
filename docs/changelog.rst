@@ -11,6 +11,9 @@ Release 0.5.8 (Upcoming)
 ------------------------
 
 * Add inline asm support to C frontend.
+* Work on pascal frontend
+* Add initial support for relocatable ELF file
+* Add initial command to run wasm files directly
 
 Release 0.5.7 (Dec 31, 2019)
 ----------------------------

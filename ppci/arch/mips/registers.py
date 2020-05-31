@@ -7,11 +7,9 @@ from ... import ir
 class MipsRegister(Register):
     bitsize = 32
 
-    def __repr__(self):
-        if self.is_colored:
-            return "R{}".format(self.color)
-        else:
-            return self.name
+    @classmethod
+    def from_num(cls, num):
+        return num_reg_map[num]
 
 
 r0 = MipsRegister("r0", num=0)
@@ -41,7 +39,7 @@ lr = r31  # Link register / return address
 ra = r31
 
 MipsRegister.registers = [r1, r2, r3, r4, r5, r6, r7, r8, r9, r29, r30, r31]
-
+num_reg_map = {r.num: r for r in MipsRegister.registers}
 all_registers = [r1, r2, r3, r4, r5, r6, r7, r8, r9, r31]
 
 register_classes = [

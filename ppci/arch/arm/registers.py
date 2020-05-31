@@ -6,11 +6,10 @@ from ..registers import Register
 class ArmRegister(Register):
     bitsize = 32
 
-    def __repr__(self):
-        if self.is_colored:
-            return get_register(self.color).name
-        else:
-            return self.name
+    @classmethod
+    def from_num(cls, num):
+        """ Based on a number, get the corresponding register """
+        return num2regmap[num]
 
 
 class LowArmRegister(ArmRegister):
@@ -21,15 +20,10 @@ class VfpRegister(Register):
     bitsize = 32
 
 
-def get_register(n):
-    """ Based on a number, get the corresponding register """
-    return num2regmap[n]
-
-
 def register_range(a, b):
     """ Return set of registers from a to b """
     assert a.num < b.num
-    return {get_register(n) for n in range(a.num, b.num + 1)}
+    return {ArmRegister.from_num(n) for n in range(a.num, b.num + 1)}
 
 
 class RegisterSet(set):

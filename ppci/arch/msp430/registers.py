@@ -7,11 +7,9 @@ from ... import ir
 class Msp430Register(Register):
     bitsize = 16
 
-    def __repr__(self):
-        if self.is_colored:
-            return "R{}".format(self.color)
-        else:
-            return self.name
+    @classmethod
+    def from_num(cls, num):
+        return num_reg_map[num]
 
 
 # 8 bit registers:
@@ -56,7 +54,7 @@ Msp430Register.registers = [
     r14,
     r15,
 ]
-
+num_reg_map = {r.num: r for r in Msp430Register.registers}
 all_registers = [r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14, r15]
 
 num2reg = {r.num: r for r in all_registers}

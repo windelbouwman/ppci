@@ -119,7 +119,7 @@ class Frame:
         """ Check if a register or one of its aliases is used by this frame.
         """
         # assert register in alias
-        return any(r in self.used_regs for r in alias[register])
+        return any(r in self.used_regs for r in alias[register.get_real()])
 
     def live_ranges(self, vreg):
         """ Determine the live range of some register """

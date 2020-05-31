@@ -184,9 +184,6 @@ class MiniGen:
     def make_at(self, slot):
         bitsize = self.arch.get_size("ptr") * 8
         offset_tree = Tree("FPRELU{}".format(bitsize), value=slot)
-        # 'ADDI{}'.format(bitsize),
-        #    Tree('REGI{}'.format(bitsize), value=self.arch.fp),
-        #    Tree('CONSTI{}'.format(bitsize), value=offset))
         return offset_tree
 
 
@@ -271,7 +268,7 @@ class GraphColoringRegisterAllocator:
         if move in dst.moves:
             dst.moves.remove(move)
 
-    def init_data(self, frame):
+    def init_data(self, frame: Frame):
         """ Initialize data structures """
         self.frame = frame
 
@@ -343,19 +340,21 @@ class GraphColoringRegisterAllocator:
 
         if t in self.precolored:
             # Check aliases:
-            for reg2 in self.alias[t.reg]:
-                if self.frame.ig.has_node(reg2):
-                    t2 = self.frame.ig.get_node(reg2, create=False)
-                    if self.frame.ig.has_edge(t2, r):
-                        return True
+            if t.reg in self.alias:
+                for reg2 in self.alias[t.reg]:
+                    if self.frame.ig.has_node(reg2):
+                        t2 = self.frame.ig.get_node(reg2, create=False)
+                        if self.frame.ig.has_edge(t2, r):
+                            return True
 
         if r in self.precolored:
             # Check aliases:
-            for reg2 in self.alias[r.reg]:
-                if self.frame.ig.has_node(reg2):
-                    r2 = self.frame.ig.get_node(reg2, create=False)
-                    if self.frame.ig.has_edge(t, r2):
-                        return True
+            if r.reg in self.alias:
+                for reg2 in self.alias[r.reg]:
+                    if self.frame.ig.has_node(reg2):
+                        r2 = self.frame.ig.get_node(reg2, create=False)
+                        if self.frame.ig.has_edge(t, r2):
+                            return True
 
         return False
 
@@ -546,6 +545,7 @@ class GraphColoringRegisterAllocator:
         self.frame.ig.combine(u, v)
         u.reg_class = self.common_reg_class(u.reg_class, v.reg_class)
 
+        # Update node pseudo-degree:
         self._num_blocked[u] = self.calc_num_blocked(u)
         for t in u.adjecent:
             self._num_blocked[t] = self.calc_num_blocked(t)
@@ -668,8 +668,11 @@ class GraphColoringRegisterAllocator:
             self.frame.ig.unmask_node(node)
             takenregs = set()
             for m in node.adjecent:
-                for r in self.alias[m.reg]:
-                    takenregs.add(r)
+                if m.reg in self.alias:
+                    for r in self.alias[m.reg]:
+                        takenregs.add(r)
+                else:
+                    takenregs.add(m.reg)
             ok_regs = self.cls_regs[node.reg_class] - takenregs
             assert ok_regs
             reg = ok_regs[0]
@@ -695,7 +698,7 @@ class GraphColoringRegisterAllocator:
                     reg.set_color(node.reg.color)
 
                 # Mark the register as used in this frame:
-                self.frame.used_regs.add(node.reg)
+                self.frame.used_regs.add(node.reg.get_real())
                 # TODO:
                 # if self.frame.debug_db:
                 #    self.frame.debug_db.map(

@@ -91,16 +91,18 @@ class ArchInfo:
 
         This function creates a map from `al` to `rax` and vice versa.
         """
-        self.alias = defaultdict(OrderedSet)
+        alias = defaultdict(OrderedSet)
 
         for reg_class in self.register_classes:
             if reg_class.registers:
                 for register in reg_class.registers:
                     # The trivial alias: itself!
-                    self.alias[register].add(register)
+                    alias[register].add(register)
                     for r2 in dfs_alias(register):
-                        self.alias[register].add(r2)
-                        self.alias[r2].add(register)
+                        alias[register].add(r2)
+                        alias[r2].add(register)
+        
+        self.alias = dict(alias)
     
 
 def dfs_alias(register):

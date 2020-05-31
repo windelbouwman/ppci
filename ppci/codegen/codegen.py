@@ -301,7 +301,7 @@ class CodeGenerator:
 
         # Replace template variables with actual registers:
         mapping = {
-            "%{}".format(index): str(register)
+            "%{}".format(index): str(register.get_real())
             for index, register in enumerate(
                 output_registers + input_registers
             )

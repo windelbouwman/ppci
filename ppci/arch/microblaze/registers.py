@@ -9,11 +9,9 @@ class MicroBlazeRegister(Register):
 
     bitsize = 32
 
-    def __repr__(self):
-        if self.is_colored:
-            return "R{}".format(self.color)
-        else:
-            return self.name
+    @classmethod
+    def from_num(cls, num):
+        return num_reg_map[num]
 
 
 R0 = MicroBlazeRegister("R0", num=0)
@@ -82,6 +80,7 @@ all_registers = [
     R30,
     R31,
 ]
+num_reg_map = {r.num: r for r in all_registers}
 MicroBlazeRegister.registers = all_registers
 
 caller_saved = [R3, R4, R5, R6, R7, R8, R9, R10, R11, R12]

@@ -70,7 +70,7 @@ from .registers import r8, r9, r10, r11, r12, r13, r14, r15
 from .registers import r16, r17, r18, r19, r20, r21, r22, r23
 from .registers import r24, r25, W, Y, Z
 from .registers import caller_save, callee_save
-from .registers import get16reg, register_classes, gdb_registers
+from .registers import register_classes, gdb_registers
 
 
 class AvrArch(Architecture):
@@ -152,7 +152,7 @@ class AvrArch(Architecture):
             elif s == 2:
                 regs.pop(0)
                 lo_reg = regs.pop(0)
-                r = get16reg(lo_reg.num)
+                r = AvrWordRegister.from_num(lo_reg.num)
                 locations.append(r)
             else:  # pragma: no cover
                 raise NotImplementedError(str(s))
