@@ -87,9 +87,8 @@ class Msp430Arch(Architecture):
         yield Label(frame.name)
 
         # Callee save registers:
-        for reg in self.callee_save:
-            if frame.is_used(reg):
-                yield push(reg)
+        for reg in self.get_callee_saved(frame):
+            yield push(reg)
 
         # Adjust stack:
         if frame.stacksize:
@@ -109,9 +108,8 @@ class Msp430Arch(Architecture):
             )
 
         # Pop save registers back:
-        for reg in reversed(self.callee_save):
-            if frame.is_used(reg):
-                yield Pop(reg)
+        for reg in reversed(self.get_callee_saved(frame)):
+            yield Pop(reg)
 
         # Return from function:
         yield Ret()
@@ -119,6 +117,13 @@ class Msp430Arch(Architecture):
         # Add final literal pool:
         for instruction in self.litpool(frame):
             yield instruction
+
+    def get_callee_saved(self, frame):
+        saved_registers = []
+        for reg in self.callee_save:
+            if frame.is_used(reg, self.info.alias):
+                saved_registers.append(reg)
+        return saved_registers
 
     def gen_call(self, frame, label, args, rv):
         arg_types = [a[0] for a in args]

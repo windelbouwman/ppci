@@ -149,7 +149,7 @@ class ArmArch(Architecture):
                 yield arm_instructions.SubImm(SP, SP, ssize)
 
         # Callee save registers:
-        callee_save = {r for r in self.callee_save if r in frame.used_regs}
+        callee_save = self.get_callee_saved(frame)
         if callee_save:
             if self.has_option("thumb"):
                 yield thumb_instructions.Push(callee_save)
@@ -187,7 +187,7 @@ class ArmArch(Architecture):
                 yield arm_instructions.AddImm(SP, SP, ssize)
 
         # Callee save registers:
-        callee_save = {r for r in self.callee_save if r in frame.used_regs}
+        callee_save = self.get_callee_saved(frame)
         if callee_save:
             if self.has_option("thumb"):
                 yield thumb_instructions.Pop(callee_save)
@@ -216,6 +216,13 @@ class ArmArch(Architecture):
 
         if not self.has_option("thumb"):
             yield Alignment(4)  # Align at 4 bytes
+
+    def get_callee_saved(self, frame):
+        saved_registers = set()
+        for register in self.callee_save:
+            if register in frame.used_regs:
+                saved_registers.add(register)
+        return saved_registers
 
     def gen_arm_memcpy(self, p1, p2, v3, size):
         # Called before register allocation

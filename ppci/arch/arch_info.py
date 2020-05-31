@@ -10,6 +10,8 @@ The information present:
 """
 import enum
 from .. import ir
+from collections import defaultdict
+from ..utils.collections import OrderedSet
 
 
 class Endianness(enum.Enum):
@@ -53,6 +55,8 @@ class ArchInfo:
                     self._registers_by_name[register.name] = register
         self.value_classes = mapping
 
+        self.calc_alias()
+
     def get_register(self, name):
         """ Retrieve the machine register by name. """
         return self._registers_by_name[name]
@@ -75,3 +79,36 @@ class ArchInfo:
     def get_alignment(self, typ):
         """ Get the alignment for the given type """
         return self.get_type_info(typ).alignment
+
+    def calc_alias(self):
+        """ Calculate a complete overview of register aliasing.
+
+        This uses the alias attribute when a register is
+        defined.
+
+        For example on x86_64, `rax` aliases with `eax`, `eax` aliases `ax`,
+        and `ax` aliases `al`.
+
+        This function creates a map from `al` to `rax` and vice versa.
+        """
+        self.alias = defaultdict(OrderedSet)
+
+        for reg_class in self.register_classes:
+            if reg_class.registers:
+                for register in reg_class.registers:
+                    # The trivial alias: itself!
+                    self.alias[register].add(register)
+                    for r2 in dfs_alias(register):
+                        self.alias[register].add(r2)
+                        self.alias[r2].add(register)
+    
+
+def dfs_alias(register):
+    """ Do a depth first search on the aliases member.
+
+    This can be used to find aliases of aliases.
+    """
+    for r2 in register.aliases:
+        for r3 in dfs_alias(r2):
+            yield r3
+        yield r2

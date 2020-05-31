@@ -96,11 +96,10 @@ class Or1kArch(Architecture):
 
         # Save callee save registers:
         saved_registers_space = 0
-        for register in registers.callee_save:
-            if register in frame.used_regs:
-                saved_registers_space += 4
-                offset = -8 - frame.stacksize - saved_registers_space
-                yield instructions.Sw(offset, registers.r2, register)
+        for register in self.get_callee_saved(frame):
+            saved_registers_space += 4
+            offset = -8 - frame.stacksize - saved_registers_space
+            yield instructions.Sw(offset, registers.r2, register)
 
         assert saved_registers_space <= len(frame.used_regs) * 4
 
@@ -119,11 +118,10 @@ class Or1kArch(Architecture):
 
         # Restore callee saved registers:
         saved_registers_space = 0
-        for register in registers.callee_save:
-            if register in frame.used_regs:
-                saved_registers_space += 4
-                offset = -8 - frame.stacksize - saved_registers_space
-                yield instructions.Lwz(register, offset, registers.r1)
+        for register in self.get_callee_saved(frame):
+            saved_registers_space += 4
+            offset = -8 - frame.stacksize - saved_registers_space
+            yield instructions.Lwz(register, offset, registers.r1)
 
         # Restore frame pointer:
         yield instructions.Lwz(registers.r2, -8, registers.r1)
@@ -141,6 +139,13 @@ class Or1kArch(Architecture):
         for instruction in self.litpool(frame):
             yield instruction
         yield Alignment(4)  # Align at 4 bytes
+
+    def get_callee_saved(self, frame):
+        saved_registers = []
+        for register in registers.callee_save:
+            if register in frame.used_regs:
+                saved_registers.append(register)
+        return saved_registers
 
     def gen_call(self, frame, label, args, rv):
         arg_types = [a[0] for a in args]

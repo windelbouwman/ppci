@@ -114,8 +114,9 @@ def perform_test(filename, target):
 
         except CompilerError as ex:
             print('Exception:', ex)
-            lines = list(io.StringIO(source_text))
-            ex.render(lines)
+            if ex.loc:
+                lines = list(io.StringIO(source_text))
+                ex.render(lines)
             raise
 
 

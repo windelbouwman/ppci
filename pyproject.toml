@@ -12,6 +12,9 @@ line-length = 79
 [tool.pytest]
 junit_family = "xunit1"
 
+[tool.pytest.logging]
+log_level = "info"
+
 [tool.flit.metadata]
 module = "ppci"
 author = "Windel Bouwman"

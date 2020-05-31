@@ -140,7 +140,8 @@ class Mod:
     """ Container for machine code """
 
     def __init__(self, obj, imports=None):
-        size = obj.byte_size
+        code_size = obj.get_section("code").size
+        data_size = obj.get_section("data").size
 
         if not obj.debug_info:
             raise ValueError(
@@ -149,55 +150,67 @@ class Mod:
             )
 
         # Create a code page into memory:
-        self._code_page = MemoryPage(size)
-        self._data_page = MemoryPage(size)
+        self._code_page = MemoryPage(code_size)
+        self._data_page = MemoryPage(data_size)
 
         # Create callback pointers if any:
         imports = imports or {}
+
+        # Store reference on self to keep reference to object:
         self._import_symbols = []
+
         extra_symbols = {}
-        for name, function in imports.items():
-            signature = inspect.signature(function)
-            if signature.return_annotation is inspect._empty:
-                raise ValueError(
-                    '"{}" requires return type annotations'.format(name)
-                )
-            return_type = signature.return_annotation
-            argument_types = [
-                p.annotation for p in signature.parameters.values()
-            ]
-            restype = get_ctypes_type(return_type)
-            argtypes = [get_ctypes_type(a) for a in argument_types]
-            ftype = ctypes.CFUNCTYPE(restype, *argtypes)
-            callback = ftype(function)
-            logger.debug("Import name %s", name)
-            self._import_symbols.append((name, callback, ftype))
-            extra_symbols[name] = ctypes.cast(callback, ctypes.c_void_p).value
+        for name, imp_obj in imports.items():
+            if callable(imp_obj):
+                signature = inspect.signature(imp_obj)
+                if signature.return_annotation is inspect._empty:
+                    raise ValueError(
+                        '"{}" requires return type annotations'.format(name)
+                    )
+                return_type = signature.return_annotation
+                argument_types = [
+                    p.annotation for p in signature.parameters.values()
+                ]
+                restype = get_ctypes_type(return_type)
+                argtypes = [get_ctypes_type(a) for a in argument_types]
+                ftype = ctypes.CFUNCTYPE(restype, *argtypes)
+                callback = ftype(imp_obj)
+                logger.debug("Import name %s", name)
+                self._import_symbols.append((name, callback, ftype))
+                extra_symbols[name] = ctypes.cast(callback, ctypes.c_void_p).value
+            elif isinstance(imp_obj, MemoryPage):
+                self._import_symbols.append((name, imp_obj))
+                extra_symbols[name] = imp_obj.addr
+            else:
+                raise ValueError('Cannot import {} of type {}'.format(name, type(imp_obj)))
 
         # Link to e.g. apply offset to global literals
-        layout2 = layout.Layout()
+        memory_layout = layout.Layout()
         layout_code_mem = layout.Memory("codepage")
         layout_code_mem.location = self._code_page.addr
-        layout_code_mem.size = size
+        layout_code_mem.size = code_size
         layout_code_mem.add_input(layout.Section("code"))
-        layout2.add_memory(layout_code_mem)
+        memory_layout.add_memory(layout_code_mem)
         layout_data_mem = layout.Memory("datapage")
         layout_data_mem.location = self._data_page.addr
-        layout_data_mem.size = size
+        layout_data_mem.size = data_size
         layout_data_mem.add_input(layout.Section("data"))
-        layout2.add_memory(layout_data_mem)
+        memory_layout.add_memory(layout_data_mem)
 
         # Link the object into memory:
         obj = link(
-            [obj], layout=layout2, debug=True, extra_symbols=extra_symbols
+            [obj], layout=memory_layout, debug=True, extra_symbols=extra_symbols
         )
-        assert obj.byte_size == size
 
         # Load the code into the page:
         code = bytes(obj.get_section("code").data)
+        assert len(code) <= code_size
         self._code_page.write(code)
+
         data = bytes(obj.get_section("data").data)
+        assert len(data) <= data_size
         self._data_page.write(data)
+
         # TODO: we might have more sections!
 
         # Get a function pointer

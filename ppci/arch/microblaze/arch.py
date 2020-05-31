@@ -63,10 +63,9 @@ class MicroBlazeArch(Architecture):
 
         # Determine callee save registers:
         saved_registers = []
-        for register in registers.callee_saved:
-            if register in frame.used_regs:
-                saved_registers.append((stack_size, register))
-                stack_size += 4
+        for register in self.get_callee_saved(frame):
+            saved_registers.append((stack_size, register))
+            stack_size += 4
 
         # Decrease stack pointer (R1)
         yield instructions.Addik(registers.R1, registers.R1, -stack_size)
@@ -92,10 +91,9 @@ class MicroBlazeArch(Architecture):
 
         # Determine callee save registers:
         saved_registers = []
-        for register in registers.callee_saved:
-            if register in frame.used_regs:
-                saved_registers.append((stack_size, register))
-                stack_size += 4
+        for register in self.get_callee_saved(frame):
+            saved_registers.append((stack_size, register))
+            stack_size += 4
 
         # Retrieve return link:
         yield instructions.Lwi(registers.R15, registers.R1, 0)
@@ -115,6 +113,13 @@ class MicroBlazeArch(Architecture):
         for instruction in self.gen_litpool(frame):
             yield instruction
         yield Alignment(4)  # Align at 4 bytes
+
+    def get_callee_saved(self, frame):
+        saved_registers = []
+        for register in registers.callee_saved:
+            if register in frame.used_regs:
+                saved_registers.append(register)
+        return saved_registers
 
     def gen_litpool(self, frame):
         """ Generate instructions for literals """

@@ -85,12 +85,16 @@ class X87StackRegister(Register):
     bitsize = 64
 
 
+# TODO: make a new register class XmmRegisterPackedDoubles with 128 bits width?
+
+
 class XmmRegisterDouble(Register):
     """ Xmm register used to hold a f64 value. """
+
     bitsize = 64
     # TODO: actually the register is 128 bit wide, but float is now 32 bit
     # bitsize = 32
-    ty = 'F'
+    ty = "F"
 
     def __repr__(self):
         if self.is_colored:
@@ -101,7 +105,8 @@ class XmmRegisterDouble(Register):
 
 class XmmRegisterSingle(Register):
     """ Xmm register used to hold a f32 value. """
-    ty = 'F'
+
+    ty = "F"
     bitsize = 32
 
     def __repr__(self):

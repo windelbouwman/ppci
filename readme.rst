@@ -150,8 +150,8 @@ various compilers: https://godbolt.org/g/eooaPP
 .. _docstate: https://ppci.readthedocs.io/en/latest
 
 
-.. |travis| image:: https://travis-ci.org/windelbouwman/ppci-mirror.svg?branch=master
-.. _travis: https://travis-ci.org/windelbouwman/ppci-mirror
+.. |travis| image:: https://travis-ci.org/windelbouwman/ppci.svg?branch=master
+.. _travis: https://travis-ci.org/windelbouwman/ppci
 
 
 .. |codacygrade| image:: https://api.codacy.com/project/badge/Grade/a178be14a54243be81c27172031dc82c

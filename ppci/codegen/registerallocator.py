@@ -115,7 +115,6 @@ The following class can be used to perform register allocation.
 
 import logging
 from functools import lru_cache
-from collections import defaultdict
 from .flowgraph import FlowGraph
 from .interferencegraph import InterferenceGraph
 from ..arch.arch import Architecture, Frame
@@ -191,17 +190,6 @@ class MiniGen:
         return offset_tree
 
 
-def dfs_alias(r):
-    """ Do a depth first search on the aliases member.
-
-    This can be used to find aliases of aliases.
-    """
-    for r2 in r.aliases:
-        for r3 in dfs_alias(r2):
-            yield r3
-        yield r2
-
-
 # TODO: implement linear scan allocator and other allocators!
 
 
@@ -220,11 +208,13 @@ class GraphColoringRegisterAllocator:
         self.arch = arch
         self.spill_gen = MiniGen(arch, instruction_selector)
 
+        # A map with register alias info:
+        self.alias = arch.info.alias
+
         # Register information:
         # TODO: Improve different register classes
         self.K = {}  # type: Dict[Register, int]
         self.cls_regs = {}  # Mapping from class to register set
-        self.alias = defaultdict(OrderedSet)
         for reg_class in self.arch.info.register_classes:
             kls, regs = reg_class.typ, reg_class.registers
             if self.verbose:
@@ -232,11 +222,6 @@ class GraphColoringRegisterAllocator:
 
             self.K[kls] = len(regs)
             self.cls_regs[kls] = OrderedSet(regs)
-            for r in regs:
-                self.alias[r].add(r)  # The trivial alias: itself!
-                for r2 in dfs_alias(r):
-                    self.alias[r].add(r2)
-                    self.alias[r2].add(r)
 
     def alloc_frame(self, frame: Frame):
         """ Do iterated register allocation for a single frame.

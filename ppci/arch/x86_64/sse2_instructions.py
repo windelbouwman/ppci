@@ -15,8 +15,6 @@ from .registers import XmmRegisterSingle, XmmRegisterDouble
 from .registers import Register64, Register32, rsp, eax, rax
 from ..generic_instructions import ArtificialInstruction, RegisterUseDef
 
-# TODO: make a new register class XmmRegister with 128 bits width?
-XmmRegister = XmmRegisterDouble
 
 sse1_isa = Isa()
 sse2_isa = Isa()
@@ -132,13 +130,14 @@ xmm_double_rm_modes = (RmXmmRegDouble, RmMem, RmMemDisp, RmAbs)
 xmm_single_rm_modes = (RmXmmRegSingle, RmMem, RmMemDisp, RmAbs)
 
 
-class Movups(Sse1Instruction):
-    """ Move unaligned packed single-fp values """
+# TODO: packed single values
+# class Movups(Sse1Instruction):
+#     """ Move unaligned packed single-fp values """
 
-    r = Operand("r", XmmRegister, write=True)
-    rm = Operand("rm", xmm_rm_modes)
-    syntax = Syntax(["movups", " ", r, ",", " ", rm])
-    patterns = {"opcode": 0x10}
+#     r = Operand("r", XmmRegister, write=True)
+#     rm = Operand("rm", xmm_rm_modes)
+#     syntax = Syntax(["movups", " ", r, ",", " ", rm])
+#     patterns = {"opcode": 0x10}
 
 
 class Movss(Sse1Instruction):
@@ -150,13 +149,14 @@ class Movss(Sse1Instruction):
     patterns = {"prefix": 0xF3, "opcode": 0x10}
 
 
-class Movupd(Sse2Instruction):
-    """ Move unaligned packed double-fp values """
+# TODO: packed double values
+# class Movupd(Sse2Instruction):
+#     """ Move unaligned packed double-fp values """
 
-    r = Operand("r", XmmRegister, write=True)
-    rm = Operand("rm", xmm_rm_modes)
-    syntax = Syntax(["movupd", " ", r, ",", " ", rm])
-    patterns = {"prefix": 0x66, "opcode": 0x10}
+#     r = Operand("r", XmmRegister, write=True)
+#     rm = Operand("rm", xmm_rm_modes)
+#     syntax = Syntax(["movupd", " ", r, ",", " ", rm])
+#     patterns = {"prefix": 0x66, "opcode": 0x10}
 
 
 class Movsd(Sse2Instruction):
@@ -379,28 +379,52 @@ class SsePseudoInstruction(ArtificialInstruction):
     isa = sse1_isa
 
 
-class PushXmm(SsePseudoInstruction):
-    r = Operand("r", XmmRegister, read=True)
+class PushXmmRegisterDouble(SsePseudoInstruction):
+    r = Operand("r", XmmRegisterDouble, read=True)
     syntax = Syntax(["push", " ", r])
 
     def render(self):
-        # sub rsp, 16
-        yield SubImm(rsp, 16)
+        # sub rsp, 8
+        yield SubImm(rsp, 8)
 
         # movdqu [rsp], r
         yield Movsd2(RmMem(rsp), self.r)
 
 
-class PopXmm(SsePseudoInstruction):
-    r = Operand("r", XmmRegister, write=True)
+class PopXmmRegisterDouble(SsePseudoInstruction):
+    r = Operand("r", XmmRegisterDouble, write=True)
     syntax = Syntax(["pop", " ", r])
 
     def render(self):
         # movdqu [rsp], r
         yield Movsd(self.r, RmMem(rsp))
 
-        # add rsp, 16
-        yield AddImm(rsp, 16)
+        # add rsp, 8
+        yield AddImm(rsp, 8)
+
+
+class PushXmmRegisterSingle(SsePseudoInstruction):
+    r = Operand("r", XmmRegisterSingle, read=True)
+    syntax = Syntax(["push", " ", r])
+
+    def render(self):
+        # sub rsp, 4
+        yield SubImm(rsp, 4)
+
+        # movdqu [rsp], r
+        yield Movss2(RmMem(rsp), self.r)
+
+
+class PopXmmRegisterSingle(SsePseudoInstruction):
+    r = Operand("r", XmmRegisterSingle, write=True)
+    syntax = Syntax(["pop", " ", r])
+
+    def render(self):
+        # movdqu [rsp], r
+        yield Movss(self.r, RmMem(rsp))
+
+        # add rsp, 4
+        yield AddImm(rsp, 4)
 
 
 @sse2_isa.pattern("regfp32", "F64TOF32(regfp64)", size=6, cycles=3, energy=3)

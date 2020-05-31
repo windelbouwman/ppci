@@ -99,16 +99,14 @@ class MipsArch(Architecture):
             yield instructions.Addi(registers.sp, registers.sp, size)
 
         # Callee save registers:
-        for reg in registers.callee_save:
-            if frame.is_used(reg):
-                yield instructions.Push(reg)
+        for reg in self.get_callee_saved(frame):
+            yield instructions.Push(reg)
 
     def gen_epilogue(self, frame):
         """ Return epilogue sequence """
         # Pop save registers back:
-        for reg in reversed(registers.callee_save):
-            if frame.is_used(reg):
-                yield instructions.Pop(reg)
+        for reg in reversed(self.get_callee_saved(frame)):
+            yield instructions.Pop(reg)
 
         if frame.stacksize > 0:
             size = round_up(frame.stacksize)
@@ -122,6 +120,13 @@ class MipsArch(Architecture):
 
         # Return
         yield instructions.Jr(registers.lr)
+
+    def get_callee_saved(self, frame):
+        saved_registers = []
+        for reg in registers.callee_save:
+            if frame.is_used(reg, self.info.alias):
+                saved_registers.append(reg)
+        return saved_registers
 
     def gen_call(self, frame, label, args, rv):
         arg_types = [a[0] for a in args]

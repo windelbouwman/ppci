@@ -52,6 +52,10 @@ def instantiate(
 
     reporter.heading(2, "Wasm instantiation")
 
+    if "wasm_rt" in imports:
+        raise ValueError("wasm_rt is a special import section")
+
+    symbols = {}
     # Check if all required imports are given:
     for definition in module:
         if isinstance(definition, Import):
@@ -66,19 +70,16 @@ def instantiate(
                         name, modname
                     )
                 )
+            symbols["{}_{}".format(modname, name)] = imports[modname][name]
 
     # Inject wasm runtime functions:
-    if "wasm_rt" in imports:
-        raise ValueError("wasm_rt is a special import section")
-    imports = imports.copy()  # otherwise we'd render the imports unsuable
-    imports["wasm_rt"] = create_runtime()
-
-    imports = flatten_imports(imports)
+    for func_name, func in create_runtime().items():
+        symbols["wasm_rt_{}".format(func_name)] = func
 
     if target == "native":
-        instance = native_instantiate(module, imports, reporter, cache_file)
+        instance = native_instantiate(module, symbols, reporter, cache_file)
     elif target == "python":
-        instance = python_instantiate(module, imports, reporter, cache_file)
+        instance = python_instantiate(module, symbols, reporter, cache_file)
     else:
         raise ValueError("Unknown instantiation target {}".format(target))
 
@@ -198,15 +199,6 @@ def python_instantiate(module, imports, reporter, cache_file):
     return instance
 
 
-def flatten_imports(imports):
-    """ Go from a two level dict to a single level dict """
-    flat_imports = {}
-    for mod_name, funcs in imports.items():
-        for func_name, func in funcs.items():
-            flat_imports["{}_{}".format(mod_name, func_name)] = func
-    return flat_imports
-
-
 class ModuleInstance:
     """ Web assembly module instance """
 
@@ -229,6 +221,23 @@ class NativeModuleInstance(ModuleInstance):
 
     def __init__(self, obj, imports):
         super().__init__()
+        for name in list(imports):
+            imp_obj = imports[name]
+            if isinstance(imp_obj, Table):
+
+                # print(name, obj)
+                ptr_size = 8  # TODO: determine this?
+                table_byte_size = imp_obj.max * ptr_size
+
+                # Allocate native memory page for table.
+                self._table_obj = MemoryPage(table_byte_size)
+
+                # Enter table memory page in extra symbols:
+                magic_key = "func_table"
+                assert magic_key not in imports
+                imports[magic_key] = self._table_obj
+                imports[name] = self._table_obj
+
         imports["wasm_rt_memory_grow"] = self.memory_grow
         imports["wasm_rt_memory_size"] = self.memory_size
         self._code_module = load_obj(obj, imports=imports)

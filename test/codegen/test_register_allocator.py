@@ -5,6 +5,7 @@ from ppci.api import get_arch
 from ppci.arch.arch import Frame
 from ppci.arch.example import Def, Use, Add, Mov, R0, R1, ExampleRegister
 from ppci.arch.example import R10, R10l, DefHalf, UseHalf
+from ppci.arch.x86_64.registers import XmmRegisterSingle, xmm6
 
 
 class GraphColoringRegisterAllocatorTestCase(unittest.TestCase):
@@ -149,6 +150,17 @@ class GraphColoringRegisterAllocatorTestCase(unittest.TestCase):
     def test_coalesc(self):
         pass
         # self.register_allocator.coalesc()
+
+    @unittest.skip('TODO!')
+    def test_is_used(self):
+        arch = get_arch('x86_64')
+        frame = Frame('tst')
+        vreg = XmmRegisterSingle('vreg99', num=6)
+        frame.used_regs.add(vreg)
+        assert vreg is not xmm6
+        assert vreg == xmm6
+        assert frame.is_used(vreg, arch.info.alias)
+        assert frame.is_used(xmm6, arch.info.alias)
 
 
 if __name__ == '__main__':

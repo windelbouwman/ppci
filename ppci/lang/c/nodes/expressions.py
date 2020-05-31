@@ -9,6 +9,8 @@ from . import types
 class CExpression:
     """ Base C expression with a type and location """
 
+    __slots__ = ("location", "typ", "lvalue")
+
     def __init__(self, typ, lvalue, location: SourceLocation):
         assert isinstance(typ, types.CType)
         self.location = location
@@ -18,6 +20,8 @@ class CExpression:
 
 class FunctionCall(CExpression):
     """ Function call """
+
+    __slots__ = ("callee", "args")
 
     def __init__(self, callee, args, typ, lvalue, location):
         super().__init__(typ, lvalue, location)
@@ -30,6 +34,8 @@ class FunctionCall(CExpression):
 
 class TernaryOperator(CExpression):
     """ Ternary operator """
+
+    __slots__ = ("a", "op", "b", "c")
 
     def __init__(self, a, op, b, c, typ, lvalue, location):
         super().__init__(typ, lvalue, location)
@@ -107,6 +113,8 @@ class ImplicitInitialValue(Initializer):
 class BinaryOperator(CExpression):
     """ Binary operator """
 
+    __slots__ = ("a", "op", "b")
+
     def __init__(self, a, op, b, typ, lvalue, location):
         super().__init__(typ, lvalue, location)
         assert isinstance(a, CExpression)
@@ -121,6 +129,8 @@ class BinaryOperator(CExpression):
 
 class UnaryOperator(CExpression):
     """ Unary operator """
+
+    __slots__ = ("a", "op")
 
     def __init__(self, op, a, typ, lvalue, location):
         super().__init__(typ, lvalue, location)
@@ -168,6 +178,8 @@ class Sizeof(CExpression):
 class ArrayIndex(CExpression):
     """ Array indexing """
 
+    __slots__ = ("base", "index")
+
     def __init__(self, base, index, typ, lvalue, location):
         super().__init__(typ, lvalue, location)
         self.base = base
@@ -179,6 +191,8 @@ class ArrayIndex(CExpression):
 
 class FieldSelect(CExpression):
     """ Select a field in a struct """
+
+    __slots__ = ("base", "field")
 
     def __init__(self, base, field, typ, lvalue, location):
         super().__init__(typ, lvalue, location)
@@ -204,6 +218,12 @@ class VariableAccess(CExpression):
 class Literal(CExpression):
     """ Literal value such as 'h' or 1.22 """
 
+    __slots__ = ('value',)
+
+    def __init__(self, value, typ, lvalue, location):
+        super().__init__(typ, lvalue, location)
+        self.value = value
+
     def __repr__(self):
         return "Literal {} <{}>".format(self.value, self.typ)
 
@@ -212,8 +232,7 @@ class CharLiteral(Literal):
     """ A character literal """
 
     def __init__(self, value, typ, location):
-        super().__init__(typ, False, location)
-        self.value = value
+        super().__init__(value, typ, False, location)
 
     def __repr__(self):
         return "Char literal '{}'".format(self.value)
@@ -223,8 +242,7 @@ class NumericLiteral(Literal):
     """ A numeric literal """
 
     def __init__(self, value, typ, location):
-        super().__init__(typ, False, location)
-        self.value = value
+        super().__init__(value, typ, False, location)
 
     def __repr__(self):
         return "Numeric literal {} <{}>".format(self.value, self.typ)
@@ -234,8 +252,7 @@ class StringLiteral(Literal):
     """ A string literal """
 
     def __init__(self, value, typ, location):
-        super().__init__(typ, True, location)
-        self.value = value
+        super().__init__(value, typ, True, location)
 
     def __repr__(self):
         return 'String literal "{}"'.format(self.value)

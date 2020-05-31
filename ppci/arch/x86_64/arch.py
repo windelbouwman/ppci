@@ -36,7 +36,8 @@ from .instructions import Call, Ret, bits16, RmReg16, bits32, RmReg32
 from .x87_instructions import x87_isa
 from .sse2_instructions import sse1_isa, sse2_isa, Movss, Movsd
 from .sse2_instructions import RmXmmRegSingle, RmXmmRegDouble
-from .sse2_instructions import PushXmm, PopXmm
+from .sse2_instructions import PushXmmRegisterDouble, PopXmmRegisterDouble
+from .sse2_instructions import PushXmmRegisterSingle, PopXmmRegisterSingle
 from .registers import rax, rcx, rdi, rsi
 from .registers import register_classes, caller_save, callee_save
 from .registers import Register64
@@ -181,7 +182,9 @@ class X86_64Arch(Architecture):
             src, registers.Register64
         ):
             return bits64.MovRegRm(dst, RmReg64(src), ismove=True)
-        elif isinstance(dst, registers.XmmRegisterDouble) and isinstance(src, registers.XmmRegisterDouble):
+        elif isinstance(dst, registers.XmmRegisterDouble) and isinstance(
+            src, registers.XmmRegisterDouble
+        ):
             return Movsd(dst, RmXmmRegDouble(src), ismove=True)
         elif isinstance(dst, registers.XmmRegisterSingle) and isinstance(
             src, registers.XmmRegisterSingle
@@ -216,14 +219,18 @@ class X86_64Arch(Architecture):
     @staticmethod
     def push(register):
         if isinstance(register, registers.XmmRegisterDouble):
-            return PushXmm(register)
+            return PushXmmRegisterDouble(register)
+        elif isinstance(register, registers.XmmRegisterSingle):
+            return PushXmmRegisterSingle(register)
         else:
             return Push(register)
 
     @staticmethod
     def pop(register):
         if isinstance(register, registers.XmmRegisterDouble):
-            return PopXmm(register)
+            return PopXmmRegisterDouble(register)
+        elif isinstance(register, registers.XmmRegisterSingle):
+            return PopXmmRegisterSingle(register)
         else:
             return Pop(register)
 
@@ -562,11 +569,14 @@ class X86_64Arch(Architecture):
         # Save rbp:
         yield self.push(rbp)
 
+        # We are 16 byte aligned here, since return address + rbp are both
+        # pushed onto the stack.
+
         # Setup frame pointer:
         yield bits64.MovRegRm(rbp, RmReg64(rsp))
 
         # Callee save registers:
-        saved_registers = [reg for reg in callee_save if frame.is_used(reg)]
+        saved_registers = self.get_callee_saved(frame)
 
         # Determine how much space already was taken:
         saved_size = sum(r.bitsize // 8 for r in saved_registers)
@@ -587,7 +597,7 @@ class X86_64Arch(Architecture):
         """ Return epilogue sequence for a frame. Adjust frame pointer
             and add constant pool
         """
-        saved_registers = [reg for reg in callee_save if frame.is_used(reg)]
+        saved_registers = self.get_callee_saved(frame)
         saved_size = sum(r.bitsize // 8 for r in saved_registers)
 
         # Pop save registers back:
@@ -614,6 +624,12 @@ class X86_64Arch(Architecture):
             else:  # pragma: no cover
                 raise NotImplementedError("Constant of type {}".format(value))
 
+    def get_callee_saved(self, frame):
+        saved_registers = []
+        for reg in callee_save:
+            if frame.is_used(reg, self.info.alias):
+                saved_registers.append(reg)
+        return saved_registers
 
 def round_up16(s, already_taken):
     total = s + already_taken

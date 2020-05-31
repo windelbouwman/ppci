@@ -232,6 +232,8 @@ class Module:
 class Value:
     """ Base of all values """
 
+    __slots__ = ('name', 'ty', 'used_by')
+
     def __init__(self, name: str, ty: Typ):
         # Has a name and a type?
         super().__init__()
@@ -283,6 +285,8 @@ class Binding:
 
 class GlobalValue(Value):
     """ A global value (with a name and an address) """
+
+    __slots__ = ('binding',)
 
     def __init__(self, name, binding):
         super().__init__(name, ptr)
