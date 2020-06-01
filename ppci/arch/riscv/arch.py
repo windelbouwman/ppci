@@ -66,7 +66,7 @@ class RiscvAssembler(BaseAssembler):
 
 class RiscvArch(Architecture):
     name = "riscv"
-    option_names = ("rvc", "rvf","rvfx")
+    option_names = ("rvc", "rvf", "rvfx")
 
     def __init__(self, options=None):
         super().__init__(options=options)
