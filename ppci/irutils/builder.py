@@ -8,15 +8,34 @@ from ..binutils.debuginfo import DebugLocation
 
 
 def split_block(block, pos=None, newname="splitblock"):
-    """ Split a basic block into two which are connected """
+    """ Split a basic block into two which are connected.
+
+    Note to take care of phi instructions of successors
+    and make sure to update those phi instructions.
+    """
+
+    downstream_phis = []
+    for successor_block in block.successors:
+        for phi in successor_block.phis:
+            downstream_phis.append(phi)
+
     if pos is None:
         pos = int(len(block) / 2)
     rest = block.instructions[pos:]
+    assert all(not i.is_phi for i in rest)
+
+    # Create new block, and move instructions into it:
     block2 = ir.Block(newname)
     block.function.add_block(block2)
     for instruction in rest:
         block.remove_instruction(instruction)
         block2.add_instruction(instruction)
+
+    # Update successor phi nodes:
+    for phi in downstream_phis:
+        value = phi.get_value(block)
+        phi.del_incoming(block)
+        phi.set_incoming(block2, value)
 
     # Add a jump to the original block:
     block.add_instruction(ir.Jump(block2))

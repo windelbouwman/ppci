@@ -624,7 +624,7 @@ class Block:
     @property
     def phis(self):
         """ Return all :class:`Phi` instructions of this block """
-        return [i for i in self.instructions if isinstance(i, Phi)]
+        return [i for i in self.instructions if i.is_phi]
 
     @property
     def successors(self):
@@ -763,6 +763,11 @@ class Instruction:
     def is_terminator(self):
         """ Check if this instruction is a block terminating instruction """
         return isinstance(self, FinalInstruction)
+
+    @property
+    def is_phi(self):
+        """ Test if this instruction is a phi instruction. """
+        return isinstance(self, Phi)
 
 
 # TODO: hmm, multiple inheritance used..

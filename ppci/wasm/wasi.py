@@ -58,6 +58,24 @@ class WasiApi:
         memory = self._instance.exports["memory"]
         memory.write(address, data)
 
+    def _read_mem_u16(self, address: int) -> int:
+        return self._read_mem_fmt(address, "<H")
+
+    def _read_mem_u32(self, address: int) -> int:
+        return self._read_mem_fmt(address, "<I")
+
+    def _read_mem_u64(self, address: int) -> int:
+        return self._read_mem_fmt(address, "<Q")
+
+    def _read_mem_fmt(self, address: int, fmt: str):
+        size = struct.calcsize(fmt)
+        data = self._read_mem_data(address, size)
+        return struct.unpack(fmt, data)[0]
+
+    def _read_mem_data(self, address: int, size: int) -> bytes:
+        memory = self._instance.exports["memory"]
+        return memory.read(address, size)
+
     def fd_prestat_get(self, fd: ir.i32, buf: ir.i32) -> ir.i32:
         self.logger.debug("fd_prestat_get(%s, %s)", fd, buf)
         if fd in self._available_fd:
@@ -138,9 +156,29 @@ class WasiApi:
         raise NotImplementedError()
 
     def fd_write(
-        self, fd: ir.i32, iovs: ir.i32, x: ir.i32, x2: ir.i32
+        self, fd: ir.i32, iovs: ir.i32, iovs_len: ir.i32, n_written: ir.i32
     ) -> ir.i32:
-        raise NotImplementedError()
+        self.logger.debug("fd_write %s iovs!", iovs_len)
+
+        total_bytes = 0
+
+        # Loop over all iovs:
+        for i in range(iovs_len):
+            ciovec_offset = iovs + i * 8
+            buf_addr = self._read_mem_u32(ciovec_offset)
+            buf_size = self._read_mem_u32(ciovec_offset + 4)
+            self.logger.debug(
+                "Read %s bytes from address %s", buf_size, buf_addr
+            )
+            data = self._read_mem_data(buf_addr, buf_size)
+            total_bytes += len(data)
+
+            # Assume standard output:
+            print(data.decode("ascii", errors="ignore"), end="")
+            # sys.stdout.write(data)
+
+        self._write_mem_u32(n_written, total_bytes)
+        return ESUCCESS
 
     def environ_sizes_get(
         self, environc_ptr: ir.i32, environ_buf_size_ptr: ir.i32

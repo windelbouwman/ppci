@@ -1,8 +1,12 @@
+import logging
 from ._instantiate import instantiate
 from . import wasi
 
 
-def execute_wasm(module, args, target="python", function=None):
+logger = logging.getLogger("wasm-execute")
+
+
+def execute_wasm(module, args, target="python", function=None, reporter=None):
     """ Execute the given wasm module. """
     wasi_api = wasi.WasiApi()
     imports = {
@@ -21,9 +25,9 @@ def execute_wasm(module, args, target="python", function=None):
             "environ_get": wasi_api.environ_get,
         }
     }
-    instance = instantiate(module, imports, target=target)
+    instance = instantiate(module, imports, target=target, reporter=reporter)
 
-    print("Created instance", instance)
+    logger.info("Created instance %s", instance)
 
     # Hack hack hack, give wasi api access to the instance:
     # This is handy for memory access.
@@ -35,4 +39,4 @@ def execute_wasm(module, args, target="python", function=None):
         print("Result:", result)
     else:
         # Assume WASI
-        instance.exports._start()
+        instance.exports["_start"]()

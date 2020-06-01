@@ -441,8 +441,12 @@ class WatTupleLoader(TupleParser):
         data = bytearray()
         while not self.match(Token.RPAR):
             txt = self.take()
-            assert isinstance(txt, str)
-            data.extend(datastring2bytes(txt))
+            if isinstance(txt, bytes):
+                blob = txt
+            else:
+                assert isinstance(txt, str)
+                blob = datastring2bytes(txt)
+            data.extend(blob)
         data = bytes(data)
         return data
 

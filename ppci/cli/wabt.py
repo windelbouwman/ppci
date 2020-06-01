@@ -94,7 +94,7 @@ run_parser.add_argument(
 def wabt(args=None):
     """ Compile wasm to native code """
     args = parser.parse_args(args)
-    with LogSetup(args):
+    with LogSetup(args) as log_setup:
         if args.command == "wat2wasm":
             wasm_module = read_wat(args.wat)
             wasm_module.to_file(args.output)
@@ -113,6 +113,7 @@ def wabt(args=None):
                 args.wasm_arguments,
                 target=args.wasm_target,
                 function=args.wasm_function,
+                reporter=log_setup.reporter
             )
         else:  # pragma: no cover
             parser.print_usage()

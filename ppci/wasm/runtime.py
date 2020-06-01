@@ -73,42 +73,71 @@ def i64_popcnt(v: ir.i64) -> ir.i64:
 
 
 # Conversions:
-def i32_trunc_f32_s(v: ir.f32) -> ir.i32:
-    return int(v)
+def i32_trunc_f32_s(value: ir.f32) -> ir.i32:
+    if math.isinf(value):
+        return 0  # undefined
+    else:
+        return int(value)
 
 
-def i32_trunc_f32_u(v: ir.f32) -> ir.i32:
-    return make_int(v, 32)
+def i32_trunc_f32_u(value: ir.f32) -> ir.i32:
+    if math.isinf(value):
+        return 0  # undefined
+    else:
+        return make_int(value, 32)
 
 
-def i32_trunc_f64_s(v: ir.f64) -> ir.i32:
-    return int(v)
+def i32_trunc_f64_s(value: ir.f64) -> ir.i32:
+    if math.isinf(value):
+        return 0  # undefined
+    else:
+        return int(value)
 
 
-def i32_trunc_f64_u(v: ir.f64) -> ir.i32:
-    return make_int(v, 32)
+def i32_trunc_f64_u(value: ir.f64) -> ir.i32:
+    if math.isinf(value):
+        return 0  # undefined
+    else:
+        return make_int(value, 32)
 
 
-def i64_trunc_f32_s(v: ir.f32) -> ir.i64:
-    return int(v)
+def i64_trunc_f32_s(value: ir.f32) -> ir.i64:
+    if math.isinf(value):
+        return 0  # undefined
+    else:
+        return int(value)
 
 
-def i64_trunc_f32_u(v: ir.f32) -> ir.i64:
-    return make_int(v, 64)
+def i64_trunc_f32_u(value: ir.f32) -> ir.i64:
+    if math.isinf(value):
+        return 0  # undefined
+    else:
+        return make_int(value, 64)
 
 
-def i64_trunc_f64_s(v: ir.f64) -> ir.i64:
-    return int(v)
+def i64_trunc_f64_s(value: ir.f64) -> ir.i64:
+    if math.isinf(value):
+        return 0  # undefined
+    else:
+        return int(value)
 
 
-def i64_trunc_f64_u(v: ir.f64) -> ir.i64:
-    return make_int(v, 64)
+def i64_trunc_f64_u(value: ir.f64) -> ir.i64:
+    if math.isinf(value):
+        return 0  # undefined
+    else:
+        return make_int(value, 64)
 
 
 # saturated trunc
 
 
 def satured_truncate(value: float, lower_limit, upper_limit) -> int:
+    if math.isinf(value):
+        if value > 0:
+            return upper_limit
+        else:
+            return lower_limit
     if value > upper_limit:
         return upper_limit
     elif value < lower_limit:
@@ -225,35 +254,59 @@ def f64_abs(x: ir.f64) -> ir.f64:
 
 
 def f32_floor(x: ir.f32) -> ir.f32:
-    return float(math.floor(x))
+    if math.isinf(x):
+        return x
+    else:
+        return float(math.floor(x))
 
 
 def f64_floor(x: ir.f64) -> ir.f64:
-    return float(math.floor(x))
+    if math.isinf(x):
+        return x
+    else:
+        return float(math.floor(x))
 
 
 def f32_ceil(x: ir.f32) -> ir.f32:
-    return float(math.ceil(x))
+    if math.isinf(x):
+        return x
+    else:
+        return float(math.ceil(x))
 
 
 def f64_ceil(x: ir.f64) -> ir.f64:
-    return float(math.ceil(x))
+    if math.isinf(x):
+        return x
+    else:
+        return float(math.ceil(x))
 
 
 def f32_nearest(x: ir.f32) -> ir.f32:
-    return float(round(x))
+    if math.isinf(x):
+        return x
+    else:
+        return float(round(x))
 
 
 def f64_nearest(x: ir.f64) -> ir.f64:
-    return float(round(x))
+    if math.isinf(x):
+        return x
+    else:
+        return float(round(x))
 
 
 def f32_trunc(x: ir.f32) -> ir.f32:
-    return float(math.trunc(x))
+    if math.isinf(x):
+        return x
+    else:
+        return float(math.trunc(x))
 
 
 def f64_trunc(x: ir.f64) -> ir.f64:
-    return float(math.trunc(x))
+    if math.isinf(x):
+        return x
+    else:
+        return float(math.trunc(x))
 
 
 def unreachable() -> None:
