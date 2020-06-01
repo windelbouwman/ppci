@@ -340,21 +340,19 @@ class GraphColoringRegisterAllocator:
 
         if t in self.precolored:
             # Check aliases:
-            if t.reg in self.alias:
-                for reg2 in self.alias[t.reg]:
-                    if self.frame.ig.has_node(reg2):
-                        t2 = self.frame.ig.get_node(reg2, create=False)
-                        if self.frame.ig.has_edge(t2, r):
-                            return True
+            for reg2 in self.alias[t.reg]:
+                if self.frame.ig.has_node(reg2):
+                    t2 = self.frame.ig.get_node(reg2, create=False)
+                    if self.frame.ig.has_edge(t2, r):
+                        return True
 
         if r in self.precolored:
             # Check aliases:
-            if r.reg in self.alias:
-                for reg2 in self.alias[r.reg]:
-                    if self.frame.ig.has_node(reg2):
-                        r2 = self.frame.ig.get_node(reg2, create=False)
-                        if self.frame.ig.has_edge(t, r2):
-                            return True
+            for reg2 in self.alias[r.reg]:
+                if self.frame.ig.has_node(reg2):
+                    r2 = self.frame.ig.get_node(reg2, create=False)
+                    if self.frame.ig.has_edge(t, r2):
+                        return True
 
         return False
 
@@ -408,6 +406,12 @@ class GraphColoringRegisterAllocator:
         num_blocked = sum(self.q(B, j.reg_class) for j in node.adjecent)
         return num_blocked
 
+    def release_pressure(self, node, reg_class):
+        """ Remove some register pressure from the given node.
+        """
+        if node in self._num_blocked:
+            self._num_blocked[node] -= self.q(node.reg_class, reg_class)
+
     def NodeMoves(self, n):
         return n.moves
 
@@ -426,9 +430,7 @@ class GraphColoringRegisterAllocator:
         # Pop out of graph, we place it back later:
         self.frame.ig.mask_node(n)
         for m in n.adjecent:
-            if m in self._num_blocked:
-                relieve = self.q(m.reg_class, n.reg_class)
-                self._num_blocked[m] -= relieve
+            self.release_pressure(m, n.reg_class)
             self.decrement_degree(m)
 
     def decrement_degree(self, m):
@@ -538,17 +540,35 @@ class GraphColoringRegisterAllocator:
         if self.verbose:
             self.logger.debug("Combining %s and %s", u, v)
 
+        # Remove v from work list:
         if v in self.freeze_worklist:
             self.freeze_worklist.remove(v)
         else:
             self.spill_worklist.remove(v)
-        self.frame.ig.combine(u, v)
+
+        # update _num_blocked of neighbours fine grained:
+        for t in u.adjecent:
+            self.release_pressure(t, u.reg_class)
+
+        for t in v.adjecent:
+            self.release_pressure(t, v.reg_class)
+
+        # Determine new register class:
         u.reg_class = self.common_reg_class(u.reg_class, v.reg_class)
 
+        self.frame.ig.combine(u, v)
+
         # Update node pseudo-degree:
-        self._num_blocked[u] = self.calc_num_blocked(u)
+        if u in self._num_blocked:
+            # Brute force re-calculate.
+            # We could figure out the shared edges
+            # and do careful book keeping, but this
+            # might be as intensive as well.
+            self._num_blocked[u] = self.calc_num_blocked(u)
+
         for t in u.adjecent:
-            self._num_blocked[t] = self.calc_num_blocked(t)
+            if t in self._num_blocked:
+                self._num_blocked[t] += self.q(t.reg_class, u.reg_class)
 
         if self.verbose:
             self.logger.debug("Combined node: %s", u)

@@ -36,6 +36,11 @@ class AvrWordRegister(Register):
         return AvrRegister.from_num(self.num + 1)
 
 
+class SuperLowAvrWordRegister(AvrWordRegister):
+    # The lowest word registers
+    pass
+
+
 class HighAvrWordRegister(AvrWordRegister):
     # The higher half of word registers
     pass
@@ -120,7 +125,7 @@ r29 = HighAvrRegister("r29", num=29)
 r30 = HighAvrRegister("r30", num=30)
 r31 = HighAvrRegister("r31", num=31)
 
-r1r0 = AvrWordRegister("r1:r0", num=0, aliases=(r1, r0))
+r1r0 = SuperLowAvrWordRegister("r1:r0", num=0, aliases=(r1, r0))
 r3r2 = AvrWordRegister("r3:r2", num=2, aliases=(r3, r2))
 r5r4 = AvrWordRegister("r5:r4", num=4, aliases=(r5, r4))
 r7r6 = AvrWordRegister("r7:r6", num=6, aliases=(r7, r6))
@@ -233,4 +238,5 @@ register_classes = [
         "reg16", [ir.i16, ir.u16, ir.ptr], AvrWordRegister, alloc_w_regs
     ),
     RegisterClass("hireg16", [], HighAvrWordRegister, hi_w_regs),
+    RegisterClass("firstreg16", [], SuperLowAvrWordRegister, [r1r0]),
 ]
