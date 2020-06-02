@@ -58,11 +58,10 @@ logging.getLogger().setLevel(logging.DEBUG)
 black_list = [
     'linking',  # Requires linking. This does not work yet.
     'imports',  # Import support is too limited for now.
-    'data',  # Importing of memory not implemented
     'elem',  # Importing of table not implemented
-    'float_exprs',  # TODO: what is the issue here?
-    'float_memory',  # TODO: handle signalling nan's
-    'float_literals',  # TODO: what is the issue here?
+    # 'float_exprs',  # TODO: what is the issue here?
+    # 'float_memory',  # TODO: handle signalling nan's
+    # 'float_literals',  # TODO: handle nan's of all types.
     'skip-stack-guard-page',  # This is some stack overflow stuff?
     'func',  # TODO: this function is malformed!
 ]
@@ -95,8 +94,6 @@ black_list_expr = {
 
 
 def perform_test(filename, target):
-    # if not os.path.basename(filename).startswith('z'):
-    #     return
     logger = logging.getLogger()
     logger.info('Loading %s', filename)
     base_name = os.path.splitext(os.path.split(filename)[1])[0]

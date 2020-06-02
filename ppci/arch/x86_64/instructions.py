@@ -2205,6 +2205,7 @@ def pattern_i64toi16(context, tree, c0):
 
 
 @isa.pattern("reg64", "I16TOI64(reg16)", size=4)
+@isa.pattern("reg64", "I16TOU64(reg16)", size=4)
 def pattern_i16_to_i64(context, tree, c0):
     dst = context.new_reg(Register64)
     # sign extend:
@@ -2214,7 +2215,6 @@ def pattern_i16_to_i64(context, tree, c0):
 
 @isa.pattern("reg64", "U16TOU64(reg16)", size=4)
 @isa.pattern("reg64", "U16TOI64(reg16)", size=4)
-@isa.pattern("reg64", "I16TOU64(reg16)", size=4)
 def pattern_u16toi64(context, tree, c0):
     defu1 = RegisterUseDef()
     defu1.add_def(rax)
@@ -2252,8 +2252,8 @@ def pattern_i64toi32(context, tree, c0):
 
 @isa.pattern("reg64", "U32TOU64(reg32)", size=4)
 @isa.pattern("reg64", "U32TOI64(reg32)", size=4)
-@isa.pattern("reg64", "I32TOU64(reg32)", size=4)
 def pattern_u32toi64(context, tree, c0):
+    """ Zero extend 32 to 64 bits. """
     defu1 = RegisterUseDef()
     defu1.add_def(rax)
     context.emit(defu1)
@@ -2271,8 +2271,10 @@ def pattern_u32toi64(context, tree, c0):
     return d
 
 
+@isa.pattern("reg64", "I32TOU64(reg32)", size=4)
 @isa.pattern("reg64", "I32TOI64(reg32)", size=4)
 def pattern_i32toi64(context, tree, c0):
+    """ Sign extend 32 to 64 bits. """
     defu1 = RegisterUseDef()
     defu1.add_def(rax)
     context.emit(defu1)
@@ -2310,7 +2312,9 @@ def pattern_i32toi16(context, tree, c0):
 
 
 @isa.pattern("reg32", "I16TOI32(reg16)", size=4)
+@isa.pattern("reg32", "I16TOU32(reg16)", size=4)
 def pattern_i16_to_i32(context, tree, c0):
+    """ Sign extend 16 to 32 bits. """
     dst = context.new_reg(Register32)
 
     # sign extend:
@@ -2320,7 +2324,6 @@ def pattern_i16_to_i32(context, tree, c0):
 
 @isa.pattern("reg32", "U16TOU32(reg16)", size=4)
 @isa.pattern("reg32", "U16TOI32(reg16)", size=4)
-@isa.pattern("reg32", "I16TOU32(reg16)", size=4)
 def pattern_u16toi32(context, tree, c0):
     defu1 = RegisterUseDef()
     defu1.add_def(eax)
@@ -2356,6 +2359,7 @@ def pattern_i32toi8(context, tree, c0):
 
 
 @isa.pattern("reg32", "I8TOI32(reg8)", size=4)
+@isa.pattern("reg32", "I8TOU32(reg8)", size=4)
 def pattern_i8toi32(context, tree, c0):
     dst = context.new_reg(Register32)
     context.emit(MovsxReg32Rm8(dst, RmReg8(c0)))
@@ -2364,7 +2368,6 @@ def pattern_i8toi32(context, tree, c0):
 
 @isa.pattern("reg32", "U8TOI32(reg8)", size=4)
 @isa.pattern("reg32", "U8TOU32(reg8)", size=4)
-@isa.pattern("reg32", "I8TOU32(reg8)", size=4)
 def pattern_u8toi32(context, tree, c0):
     defu1 = RegisterUseDef()
     defu1.add_def(eax)
@@ -2402,7 +2405,9 @@ def pattern_i64toi8(context, tree, c0):
 
 
 @isa.pattern("reg64", "I8TOI64(reg8)", size=4)
+@isa.pattern("reg64", "I8TOU64(reg8)", size=4)
 def pattern_i8toi64(context, tree, c0):
+    """ Sign extend 8 to 64 bits. """
     dst = context.new_reg(Register64)
     context.emit(MovsxReg64Rm8(dst, RmReg8(c0)))
     return dst
@@ -2410,7 +2415,6 @@ def pattern_i8toi64(context, tree, c0):
 
 @isa.pattern("reg64", "U8TOI64(reg8)", size=4)
 @isa.pattern("reg64", "U8TOU64(reg8)", size=4)
-@isa.pattern("reg64", "I8TOU64(reg8)", size=4)
 def pattern_u8toi64(context, tree, c0):
     defu1 = RegisterUseDef()
     defu1.add_def(rax)

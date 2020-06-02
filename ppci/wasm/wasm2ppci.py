@@ -32,38 +32,6 @@ def wasm_to_ir(
     return ppci_module
 
 
-def create_memories(wasm_module):
-    """ Create a memory slab for the given wasm module.
-
-    This function is intended to be called from the wasm runtime support
-    libraries.
-    """
-    memories = []
-    initializations = []
-    for definition in wasm_module:
-        if isinstance(definition, components.Memory):
-            min_size = definition.min
-            max_size = definition.max
-            if max_size is None:
-                max_size = 0x10000
-            memories.append((bytearray(min_size * 65536), min_size, max_size))
-        elif isinstance(definition, components.Data):
-            assert len(definition.offset) == 1
-            assert definition.offset[0].opcode == "i32.const"
-            offset = definition.offset[0].args[0]
-            memory_index = definition.ref.index
-            assert isinstance(memory_index, int)
-            data = definition.data
-            initializations.append((memory_index, offset, data))
-
-    # Initialize various parts:
-    for memory_index, offset, data in initializations:
-        memory = memories[memory_index]
-        memory[0][offset : offset + len(data)] = data
-
-    return memories
-
-
 class WasmToIrCompiler:
     """ Convert WASM instructions into PPCI IR instructions.
     """

@@ -687,13 +687,9 @@ class WatTupleLoader(TupleParser):
     def _parse_keyword_arguments(self):
         """ Parse some arguments of shape key=value. """
         attributes = {}
-        while (
-            isinstance(self._lookahead(1)[0], str)
-            and "=" in self._lookahead(1)[0]
-        ):
+        while is_kwarg(self._lookahead(1)[0]):
             arg = self.take()
-            assert isinstance(arg, str)
-            assert "=" in arg
+            assert is_kwarg(arg)
             key, value = arg.split("=", 1)
             assert key not in attributes
             attributes[key] = value
@@ -743,6 +739,11 @@ def is_ref(x):
 
 def is_dollar(x):
     return isinstance(x, str) and x.startswith("$")
+
+
+def is_kwarg(x):
+    """ return if x is something like 'offset=12' """
+    return isinstance(x, str) and "=" in x
 
 
 def round_up(value, multiple):
