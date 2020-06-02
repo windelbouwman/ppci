@@ -4,10 +4,10 @@
 
 import struct
 import math
-from .. import ir
-from ..utils.bitfun import rotr, rotl, to_signed, to_unsigned
-from ..utils.bitfun import clz, ctz, popcnt, sign_extend
-from .util import make_int
+from ... import ir
+from ...utils.bitfun import rotr, rotl, to_signed, to_unsigned
+from ...utils.bitfun import clz, ctz, popcnt, sign_extend
+from ..util import make_int
 
 
 class Unreachable(RuntimeError):

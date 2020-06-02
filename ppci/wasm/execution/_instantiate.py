@@ -15,15 +15,15 @@ import struct
 import logging
 from types import ModuleType
 
-from ..arch.arch_info import TypeInfo
-from ..utils.codepage import load_obj, MemoryPage
-from ..utils.reporting import DummyReportGenerator
-from ..irutils import verify_module
-from .. import ir
-from . import wasm_to_ir
-from .components import Export, Import, Table
-from .wasm2ppci import create_memories
-from .util import PAGE_SIZE
+from ...arch.arch_info import TypeInfo
+from ...utils.codepage import load_obj, MemoryPage
+from ...utils.reporting import DummyReportGenerator
+from ...irutils import verify_module
+from ... import ir
+from .. import wasm_to_ir
+from ..components import Export, Import, Table
+from ..wasm2ppci import create_memories
+from ..util import PAGE_SIZE
 from .runtime import create_runtime
 
 __all__ = ("instantiate",)
@@ -91,7 +91,7 @@ def instantiate(
 
 def native_instantiate(module, imports, reporter, cache_file):
     """ Load wasm module native """
-    from ..api import ir_to_object, get_current_arch
+    from ...api import ir_to_object, get_current_arch
 
     logger.info("Instantiating wasm module as native code")
     arch = get_current_arch()
@@ -150,7 +150,7 @@ def native_instantiate(module, imports, reporter, cache_file):
 
 def python_instantiate(module, imports, reporter, cache_file):
     """ Load wasm module as a PythonModuleInstance """
-    from ..api import ir_to_python
+    from ...api import ir_to_python
 
     logger.info("Instantiating wasm module as python")
     ptr_info = TypeInfo(4, 4)

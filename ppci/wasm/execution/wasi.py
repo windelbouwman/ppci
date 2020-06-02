@@ -8,7 +8,7 @@ See also: https://wasi.dev
 import time
 import logging
 import struct
-from .. import ir
+from ... import ir
 
 ESUCCESS = 0
 EBADF = 8
