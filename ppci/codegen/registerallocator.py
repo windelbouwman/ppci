@@ -89,8 +89,8 @@ The process consists of the following steps:
 
 - build an interference graph from the instruction list
 - remove trivial colorable nodes.
-- (optional) coalesce registers to remove redundant moves
-- (optional) spill registers
+- coalesce registers to remove redundant moves
+- spill registers
 - select registers
 
 See: https://en.wikipedia.org/wiki/Register_allocation
@@ -229,27 +229,49 @@ class GraphColoringRegisterAllocator:
         Args:
             frame: The frame to perform register allocation on.
         """
-        self.spill_rounds = 0
-        self.init_data(frame)
+        spill_rounds = 0
+
         self.logger.debug("Starting iterative coloring")
         while True:
-            # self.check_invariants()
+            self.init_data(frame)
 
-            # Run one of the possible steps:
-            if self.simplify_worklist:
-                self.simplify()
-            elif self.worklistMoves:
-                self.coalesc()
-            elif self.freeze_worklist:
-                self.freeze()
-            elif self.spill_worklist:
-                self.spill()
-                self.logger.debug("Starting over")
-                self.init_data(frame)
+            # Process all work lists:
+            while True:
+                # self.check_invariants()
+
+                # Run one of the possible steps:
+                if self.simplify_worklist:
+                    self.simplify()
+                elif self.worklistMoves:
+                    self.coalesc()
+                elif self.freeze_worklist:
+                    self.freeze()
+                elif self.spill_worklist:
+                    self.select_spill()
+                else:
+                    break
+
+            self.logger.debug("Now assinging colors")
+            spilled_nodes = self.assign_colors()
+            if spilled_nodes:
+                spill_rounds += 1
+
+                self.logger.debug("Spilling round %s", spill_rounds)
+                max_spill_rounds = 30
+                if spill_rounds > max_spill_rounds:
+                    raise RuntimeError(
+                        "Give up: more than {} spill rounds done!".format(
+                            max_spill_rounds
+                        )
+                    )
+
+                # Rewrite program now.
+                for node in spilled_nodes:
+                    self.rewrite_program(node)
             else:
-                break  # Done!
-        self.logger.debug("Now assinging colors")
-        self.assign_colors()
+                # Done!
+                break
+
         self.remove_redundant_moves()
         self.apply_colors()
 
@@ -612,8 +634,10 @@ class GraphColoringRegisterAllocator:
             self.logger.debug("freezing %s", u)
 
         self.simplify_worklist.add(u)
+        self.freeze_moves(u)
 
-        # Freeze moves for node u
+    def freeze_moves(self, u):
+        """ Freeze moves for node u """
         for m in list(self.NodeMoves(u)):
             if m in self.activeMoves:
                 self.activeMoves.remove(m)
@@ -634,12 +658,16 @@ class GraphColoringRegisterAllocator:
                 self.freeze_worklist.remove(v)
                 self.simplify_worklist.add(v)
 
-    def spill(self):
-        """ Do spilling """
-        self.logger.debug("Spilling round %s", self.spill_rounds)
-        self.spill_rounds += 1
-        if self.spill_rounds > 30:
-            raise RuntimeError("Give up: more than 10 spill rounds done!")
+    def select_spill(self):
+        """ Select potential spill node.
+
+        Select a node to be spilled. This is optimistic,
+        since this might be turned into a real spill.
+        Continue nevertheless, to discover more potential
+        spills, or we might be lucky and able to color the
+        graph any ways.
+        """
+
         # TODO: select a node which is certainly not a node that was
         # introduced during spilling?
         # Select to be spilled variable:
@@ -653,8 +681,11 @@ class GraphColoringRegisterAllocator:
             self.logger.debug("%s has spill priority=%s", n, priority)
             p.append((n, priority))
         node = min(p, key=lambda x: x[1])[0]
-        # TODO: mark now, rewrite later?
-        self.rewrite_program(node)
+
+        # Potential spill node, place in simplify worklist:
+        self.spill_worklist.remove(node)
+        self.simplify_worklist.add(node)
+        self.freeze_moves(node)
 
     def rewrite_program(self, node):
         """ Rewrite program by creating a load and a store for each use """
@@ -665,27 +696,42 @@ class GraphColoringRegisterAllocator:
         alignment = size
         slot = self.frame.alloc(size, alignment)
         self.logger.debug("Allocating stack slot %s", slot)
+
         # TODO: maybe break-up coalesced node before doing this?
         for tmp in node.temps:
             instructions = OrderedSet(
                 self.frame.ig.uses(tmp) + self.frame.ig.defs(tmp)
             )
             for instruction in instructions:
+                # print('Updating {}'.format(instruction))
                 vreg2 = self.frame.new_reg(type(tmp))
                 self.logger.debug("tmp: %s, new: %s", tmp, vreg2)
                 instruction.replace_register(tmp, vreg2)
+
                 if instruction.reads_register(vreg2):
                     code = self.spill_gen.gen_load(self.frame, vreg2, slot)
+                    # print('code before', list(map(str, code)))
                     self.frame.insert_code_before(instruction, code)
+
                 if instruction.writes_register(vreg2):
                     code = self.spill_gen.gen_store(self.frame, vreg2, slot)
+                    # print('code after', list(map(str, code)))
                     self.frame.insert_code_after(instruction, code)
 
     def assign_colors(self):
-        """ Add nodes back to the graph to color it. """
-        while self.select_stack:
-            node = self.select_stack.pop(-1)  # Start with the last added
+        """ Add nodes back to the graph to color it.
+
+        Any potential spills might turn into real spills
+        at this stage.
+        """
+        spilled_nodes = []
+
+        # Start with the last node added:
+        for node in reversed(self.select_stack):
+            # Place node back into graph:
             self.frame.ig.unmask_node(node)
+
+            # Check registers occupied by neighbours:
             takenregs = set()
             for m in node.adjecent:
                 if m.reg in self.alias:
@@ -694,13 +740,19 @@ class GraphColoringRegisterAllocator:
                 else:
                     takenregs.add(m.reg)
             ok_regs = self.cls_regs[node.reg_class] - takenregs
-            assert ok_regs
-            reg = ok_regs[0]
 
-            if self.verbose:
-                self.logger.debug("Assign %s to node %s", reg, node)
+            if ok_regs:
+                assert ok_regs
+                reg = ok_regs[0]
 
-            node.reg = reg
+                if self.verbose:
+                    self.logger.debug("Assign %s to node %s", reg, node)
+
+                node.reg = reg
+            else:
+                spilled_nodes.append(node)
+
+        return spilled_nodes
 
     def remove_redundant_moves(self):
         """ Remove coalesced moves """
@@ -711,6 +763,7 @@ class GraphColoringRegisterAllocator:
         """ Assign colors to registers """
         # Apply all colors:
         for node in self.frame.ig:
+            assert node.reg is not None
             for reg in node.temps:
                 if reg.is_colored:
                     assert reg.color == node.reg.color

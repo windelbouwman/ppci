@@ -49,7 +49,7 @@ def native_instantiate(module, imports, reporter, cache_file):
                 s["ppci_module"] = ppci_module
     instance = NativeModuleInstance(obj, imports)
     instance._wasm_function_names = ppci_module._wasm_function_names
-    instance._wasm_globals = ppci_module._wasm_globals
+    instance._wasm_global_names = ppci_module._wasm_global_names
     return instance
 
 
@@ -126,8 +126,7 @@ class NativeModuleInstance(ModuleInstance):
     def memory_create(self, min_size, max_size):
         assert len(self._memories) == 0
         self._memory_data_page = MemoryPage(min_size * PAGE_SIZE)
-        mem0 = NativeWasmMemory(min_size, max_size)
-        mem0._instance = self
+        mem0 = NativeWasmMemory(self, min_size, max_size)
         self._memories.append(mem0)
         self.set_mem_base_ptr(self._memory_data_page.addr)
 
@@ -145,22 +144,26 @@ class NativeModuleInstance(ModuleInstance):
         return getattr(self._code_module, exported_name)
 
     def get_global_by_index(self, index: int):
-        global_name = self._wasm_globals[index]
+        global_name = self._wasm_global_names[index]
         return NativeWasmGlobal(global_name, self._code_module)
 
 
 class NativeWasmMemory(WasmMemory):
     """ Native wasm memory emulation """
+    def __init__(self, instance, min_size, max_size):
+        super().__init__(min_size, max_size)
+        self._instance = instance
 
     def memory_size(self) -> int:
         """ return memory size in pages """
         return self._memory_data_page.size // PAGE_SIZE
 
-    def write(self, address, data):
+    def write(self, address: int, data):
+        """ Write some data to memory """
         self._instance._memory_data_page.seek(address)
         self._instance._memory_data_page.write(data)
 
-    def read(self, address, size):
+    def read(self, address: int, size: int) -> bytes:
         self._instance._memory_data_page.seek(address)
         data = self._instance._memory_data_page.read(size)
         assert len(data) == size
@@ -168,9 +171,9 @@ class NativeWasmMemory(WasmMemory):
 
 
 class NativeWasmGlobal(WasmGlobal):
-    def __init__(self, name, memory):
+    def __init__(self, name, code_obj):
         super().__init__(name)
-        self._code_obj = memory
+        self._code_obj = code_obj
 
     def _get_ptr(self):
         # print('Getting address of', self.name)

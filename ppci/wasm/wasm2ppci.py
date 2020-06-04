@@ -210,7 +210,7 @@ class WasmToIrCompiler:
 
         # TODO: hack to pass this information alongside module
         self.builder.module._wasm_function_names = function_names
-        self.builder.module._wasm_globals = global_names
+        self.builder.module._wasm_global_names = global_names
 
         return self.builder.module
 

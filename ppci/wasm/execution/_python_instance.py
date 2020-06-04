@@ -32,7 +32,7 @@ def python_instantiate(module, imports, reporter, cache_file):
 
     instance = PythonModuleInstance(_py_module, imports)
     instance._wasm_function_names = ppci_module._wasm_function_names
-    instance._wasm_globals = ppci_module._wasm_globals
+    instance._wasm_global_names = ppci_module._wasm_global_names
     return instance
 
 
@@ -82,9 +82,7 @@ class PythonModuleInstance(ModuleInstance):
         self._py_module.store_i32(self.mem0_start, mem0_ptr_ptr)
 
         # Create memory object:
-        mem0 = PythonWasmMemory(min_size, max_size)
-        # TODO: HACK HACK HACK:
-        mem0._module = self
+        mem0 = PythonWasmMemory(self, min_size, max_size)
         self._memories.append(mem0)
 
     def memory_grow(self, amount):
@@ -112,12 +110,16 @@ class PythonModuleInstance(ModuleInstance):
         return getattr(self._py_module, exported_name)
 
     def get_global_by_index(self, index: int):
-        global_name = self._wasm_globals[index]
+        global_name = self._wasm_global_names[index]
         return PythonWasmGlobal(global_name, self)
 
 
 class PythonWasmMemory(WasmMemory):
     """ Python wasm memory emulation """
+
+    def __init__(self, instance, min_size, max_size):
+        super().__init__(min_size, max_size)
+        self._module = instance
 
     def write(self, address: int, data: bytes):
         address = self._module.mem0_start + address

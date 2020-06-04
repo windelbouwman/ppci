@@ -67,3 +67,4 @@ ppci/wasm/libwabt_*.js
 test/wasm/spec_suite_*/
 
 test/hypo/.hypothesis
+test/.hypothesis

@@ -58,13 +58,6 @@ class WatTupleLoader(TupleParser):
 
     def load_module(self, t):
         """ Load a module from a tuple """
-        self.id_maps = {
-            "type": {},
-            "func": {},
-            "table": {},
-            "memory": {},
-            "global": {},
-        }
         self._feed(t)
 
         self.expect(Token.LPAR)
@@ -109,37 +102,45 @@ class WatTupleLoader(TupleParser):
         self.module.definitions = self.gather_definitions()
 
     def resolve_references(self):
+        id_maps = {
+            "type": {},
+            "func": {},
+            "table": {},
+            "memory": {},
+            "global": {},
+        }
+
         # TODO: maybe this is not needed at this point?
         # Fill imports and other objects:
         for d in self.definitions["import"]:
-            id_map = self.id_maps[d.kind]
+            id_map = id_maps[d.kind]
             id_map[d.id] = len(id_map)
 
         for space in ["type", "global", "memory", "table", "func"]:
             for d in self.definitions[space]:
-                self.id_maps[space][d.id] = len(self.id_maps[space])
+                id_maps[space][d.id] = len(id_maps[space])
 
         # resolve any unresolved items:
         for item in self.resolve_backlog:
-            item.index = item.resolve(self.id_maps)
+            item.index = item.resolve(id_maps)
 
         # Resolve inside functions:
         assert len(self.func_backlog) == len(self.definitions["func"])
         for bl, func in zip(self.func_backlog, self.definitions["func"]):
             # Fill map with local id's:
-            type_idx = func.ref.resolve(self.id_maps)
+            type_idx = func.ref.resolve(id_maps)
             func_type = self.definitions["type"][type_idx]
-            self.id_maps["local"] = dict(
+            id_maps["local"] = dict(
                 (param[0], i) for i, param in enumerate(func_type.params)
             )
             for i, lokal in enumerate(
                 func.locals, start=len(func_type.params)
             ):
                 if is_dollar(lokal[0]):
-                    self.id_maps["local"][lokal[0]] = i
+                    id_maps["local"][lokal[0]] = i
 
             for item in bl:
-                item.index = item.resolve(self.id_maps)
+                item.index = item.resolve(id_maps)
 
     def gather_definitions(self):
         """ Take all definitions by section id order: """
