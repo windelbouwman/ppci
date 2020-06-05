@@ -1075,7 +1075,7 @@ class CParser(RecursiveDescentParser):
         # print('prio=', prio, self.peek)
         while self._binop_take(self.peek, priority):
             op = self.consume()
-            op_associativity, op_prio = self.prio_map[op.val]
+            op_prio = self.prio_map[op.val][1]
             if op.val == "?":
                 # Eat middle part:
                 middle = self.parse_expression()

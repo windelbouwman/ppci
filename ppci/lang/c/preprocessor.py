@@ -23,6 +23,7 @@ from ...common import CompilerError
 from .lexer import CLexer, CToken, lex_text, SourceFile
 from .utils import cnum, charval, replace_escape_codes, LineInfo
 from .macro import Macro, FunctionMacro
+from .nodes import types, expressions
 
 
 class CPreProcessor:
@@ -36,6 +37,7 @@ class CPreProcessor:
         self.macros = {}  # A mapping of macros
         self.files = []  # Stack of included files.
         self.counter = 0  # For the __COUNTER__ macro
+        self._int_type = types.BasicType(types.BasicType.INT)
 
         self.predefine_builtin_macros()
 
@@ -990,14 +992,14 @@ class CPreProcessor:
         """
         token = self.consume()
 
-        if token.typ == "!":
-            lhs = Unop("!", self.parse_expression(11))
-        elif token.typ == "-":
-            lhs = Unop("-", self.parse_expression(11))
+        if token.typ in ["!", "-", "~"]:
+            op = token.typ
+            a = self.parse_expression(11)
+            lhs = expressions.UnaryOperator(
+                op, a, self._int_type, True, token.loc
+            )
         elif token.typ == "+":
             lhs = self.parse_expression(11)
-        elif token.typ == "~":
-            lhs = Unop("~", self.parse_expression(11))
         elif token.typ == "(":
             self.files[-1].paren_level += 1
             lhs = self.parse_expression()
@@ -1019,15 +1021,15 @@ class CPreProcessor:
                 if self.verbose:
                     self.logger.warning('Attention: undefined "%s"', name)
                 lhs = 0
-            lhs = Const(lhs)
+            lhs = expressions.NumericLiteral(lhs, self._int_type, token.loc)
         elif token.typ == "NUMBER":
             lhs, _ = cnum(token.val)
             # TODO: check type specifier?
-            lhs = Const(lhs)
+            lhs = expressions.NumericLiteral(lhs, self._int_type, token.loc)
         elif token.typ == "CHAR":
             lhs, _ = charval(replace_escape_codes(token.val))
             # TODO: check type specifier?
-            lhs = Const(lhs)
+            lhs = expressions.NumericLiteral(lhs, self._int_type, token.loc)
         else:
             raise NotImplementedError(token.val)
 
@@ -1042,16 +1044,8 @@ class CPreProcessor:
             op = token.typ
 
             # Determine if the operator has a low enough priority:
-            if op in self.OP_MAP:
-                op_prio, right_associative = self.OP_MAP[op][:2]
-                left_associative = not right_associative
-                if left_associative and (op_prio >= priority):
-                    pass
-                elif right_associative and (op_prio > priority):
-                    pass
-                else:
-                    self.unget_token(token)
-                    break
+            if self._binop_take(op, priority):
+                op_prio = self.OP_MAP[op][0]
             else:
                 self.unget_token(token)
                 break
@@ -1069,9 +1063,13 @@ class CPreProcessor:
             if op in self.OP_MAP:
                 func = self.OP_MAP[op][2]
                 if func:
-                    lhs = Binop(lhs, op, rhs)
+                    lhs = expressions.BinaryOperator(
+                        lhs, op, rhs, self._int_type, True, token.loc
+                    )
                 elif op == "?":
-                    lhs = Ternop(lhs, middle, rhs)
+                    lhs = expressions.TernaryOperator(
+                        lhs, op, middle, rhs, self._int_type, True, token.loc
+                    )
                     # middle if lhs != 0 else rhs
                 else:  # pragma: no cover
                     raise NotImplementedError(op)
@@ -1080,11 +1078,23 @@ class CPreProcessor:
 
         return lhs
 
+    def _binop_take(self, op, priority: int) -> bool:
+        """ Test if we must take the next operator. """
+        if op in self.OP_MAP:
+            op_prio, right_associative = self.OP_MAP[op][:2]
+            left_associative = not right_associative
+            if left_associative:
+                return op_prio > priority
+            else:
+                return op_prio >= priority
+        else:
+            return False
+
     def _eval_tree(self, expr):
         """ Evaluate a parsed tree """
-        if isinstance(expr, Const):
+        if isinstance(expr, expressions.NumericLiteral):
             value = expr.value
-        elif isinstance(expr, Unop):
+        elif isinstance(expr, expressions.UnaryOperator):
             value = self._eval_tree(expr.a)
             if expr.op == "!":
                 value = int(not bool(value))
@@ -1094,21 +1104,23 @@ class CPreProcessor:
                 value = ~value
             else:  # pragma: no cover
                 raise NotImplementedError(expr.op)
-        elif isinstance(expr, Binop):
+        elif isinstance(expr, expressions.BinaryOperator):
             if expr.op == "||":
                 # Short circuit logic:
                 value = self._eval_tree(expr.a)
                 if not value:
                     value = self._eval_tree(expr.b)
+                value = int(bool(value))
             elif expr.op == "&&":
                 # Short circuit logic:
                 value = self._eval_tree(expr.a)
                 if value:
                     value = self._eval_tree(expr.b)
+                value = int(bool(value))
             else:
                 func = self.OP_MAP[expr.op][2]
                 value = func(self._eval_tree(expr.a), self._eval_tree(expr.b))
-        elif isinstance(expr, Ternop):
+        elif isinstance(expr, expressions.TernaryOperator):
             value = self._eval_tree(expr.a)
             if value:
                 value = self._eval_tree(expr.b)
@@ -1294,31 +1306,6 @@ class LineParser(LineEater):
             self.consume(typ)
             return True
         return False
-
-
-class Const:
-    def __init__(self, value):
-        self.value = value
-
-
-class Unop:
-    def __init__(self, op, a):
-        self.op = op
-        self.a = a
-
-
-class Binop:
-    def __init__(self, a, op, b):
-        self.a = a
-        self.op = op
-        self.b = b
-
-
-class Ternop:
-    def __init__(self, a, b, c):
-        self.a = a
-        self.b = b
-        self.c = c
 
 
 class IfState:

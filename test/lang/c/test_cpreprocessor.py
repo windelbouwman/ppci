@@ -76,6 +76,52 @@ class CPreProcessorTestCase(unittest.TestCase):
         end"""
         self.preprocess(src, expected)
 
+    def test_expression_binding(self):
+        """ Test if operator associativity is correct. """
+        src = r"""
+        #if 2 * 3 / 2 == 3
+        ok
+        #endif
+        end"""
+        expected = r"""# 1 "dummy.t"
+
+
+        ok
+
+        end"""
+        self.preprocess(src, expected)
+
+    def test_boolean_expression_value(self):
+        """ Test the value of logical operators. """
+        src = r"""
+        #if (7 && 3) == 1
+        ok1
+        #endif
+
+        #if (7 || 3) == 1
+        ok2
+        #endif
+
+        #if (0 || 3) == 1
+        ok3
+        #endif
+        end"""
+        expected = r"""# 1 "dummy.t"
+
+
+        ok1
+
+
+
+        ok2
+
+
+
+        ok3
+
+        end"""
+        self.preprocess(src, expected)
+
     def test_empty_macro_expansion(self):
         """ See what happens when on the next line, the first token is
         macro-expanded into nothing.
