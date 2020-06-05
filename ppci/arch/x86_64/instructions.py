@@ -1981,7 +1981,7 @@ def pattern_xor_32(context, tree, c0, c1):
 @isa.pattern("reg16", "XORU16(reg16, rm16)", size=3, energy=3)
 @isa.pattern("reg16", "XORI16(reg16, rm16)", size=3, energy=3)
 def pattern_xor16(context, tree, c0, c1):
-    d = context.new_reg(Register8)
+    d = context.new_reg(Register16)
     context.move(d, c0)
     context.emit(bits16.XorRegRm(d, c1))
     return d
@@ -2189,6 +2189,7 @@ def pattern_reg8(context, tree):
 
 # Conversions:
 @isa.pattern("reg16", "U64TOU16(reg64)", size=4)
+@isa.pattern("reg16", "U64TOI16(reg64)", size=4)
 @isa.pattern("reg16", "I64TOU16(reg64)", size=4)
 @isa.pattern("reg16", "I64TOI16(reg64)", size=4)
 def pattern_i64toi16(context, tree, c0):

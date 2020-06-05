@@ -218,7 +218,7 @@ class VariableAccess(CExpression):
 class Literal(CExpression):
     """ Literal value such as 'h' or 1.22 """
 
-    __slots__ = ('value',)
+    __slots__ = ("value",)
 
     def __init__(self, value, typ, lvalue, location):
         super().__init__(typ, lvalue, location)

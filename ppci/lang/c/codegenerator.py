@@ -110,8 +110,7 @@ class CCodeGenerator:
 
     def emit_alloca(self, typ):
         """ Helper function to reserve some room on the stack. """
-        size = self.context.sizeof(typ)
-        alignment = self.context.alignment(typ)
+        size, alignment = self.data_layout(typ)
         name = "alloca"
         ir_var = self.emit(ir.Alloc(name, size, alignment))
         ir_var = self.emit(ir.AddressOf(ir_var, name + "_addr"))
@@ -119,8 +118,7 @@ class CCodeGenerator:
 
     def emit_global_variable(self, name, binding, typ, ivalue):
         """ Helper to emit a global variable. """
-        size = self.context.sizeof(typ)
-        alignment = self.context.alignment(typ)
+        size, alignment = self.data_layout(typ)
         ir_var = ir.Variable(name, binding, size, alignment, value=ivalue)
         self.builder.module.add_variable(ir_var)
         return ir_var
@@ -228,7 +226,7 @@ class CCodeGenerator:
         assert isinstance(ival, expressions.ArrayInitializer)
         assert ival.typ is typ
 
-        element_size = self.context.sizeof(typ.element_type)
+        element_size = self.sizeof(typ.element_type)
         implicit_value = tuple([bytes([0] * element_size)])
 
         mem = tuple()
@@ -241,7 +239,6 @@ class CCodeGenerator:
             mem = mem + element_mem
 
         array_size = self.context.eval_expr(typ.size)
-        print(array_size)
 
         if len(ival.values) < array_size:
             extra_implicit = array_size - len(ival.values)
@@ -259,7 +256,7 @@ class CCodeGenerator:
         # Initialize the first field!
         field = ival.field
         mem = mem + self.gen_global_ival(field.typ, ival.value)
-        size = self.context.sizeof(typ)
+        size = self.sizeof(typ)
         filling = size - len(mem)
         assert filling >= 0
         mem = mem + (bytes([0] * filling),)
@@ -302,7 +299,7 @@ class CCodeGenerator:
                     value = ival.values[field]
                     mem = mem + self.gen_global_ival(field.typ, value)
                 else:
-                    field_size = self.context.sizeof(field.typ)
+                    field_size = self.sizeof(field.typ)
                     mem = mem + (bytes([0] * field_size),)
 
         # Purge last remaining bits:
@@ -829,7 +826,7 @@ class CCodeGenerator:
         if isinstance(typ, (BasicType, types.PointerType, types.EnumType)):
             value = self.gen_expr(expr, rvalue=True)
             self._store_value(value, ptr)
-            inc = self.context.sizeof(typ)
+            inc = self.sizeof(typ)
             ptr = self.builder.emit_add(ptr, inc, ir.ptr)
         elif isinstance(typ, types.ArrayType):
             ptr, inc = self.gen_local_init_array(ptr, typ, expr)
@@ -865,7 +862,7 @@ class CCodeGenerator:
             # TODO: do array elements need to be aligned?
             if value is None:
                 # Implicit value (a hole between other valid values.)
-                pad_inc = self.context.sizeof(typ.element_type)
+                pad_inc = self.sizeof(typ.element_type)
                 ptr = self.builder.emit_add(ptr, pad_inc, ir.ptr)
                 inc2 = pad_inc
             else:
@@ -1374,8 +1371,7 @@ class CCodeGenerator:
 
         # If return value is complex, reserve room for it an pass pointer
         if ftyp.return_type.is_struct:
-            size = self.context.sizeof(ftyp.return_type)
-            alignment = self.context.alignment(ftyp.return_type)
+            size, alignment = self.data_layout(ftyp.return_type)
             rval_alloc = self.emit(ir.Alloc("rval_alloc", size, alignment))
             rval_ptr = self.emit(ir.AddressOf(rval_alloc, "rval_ptr"))
             ir_arguments.append(rval_ptr)
@@ -1407,8 +1403,7 @@ class CCodeGenerator:
             size = 0
             alignment = 1
             for va in var_args:
-                va_size = self.context.sizeof(va.typ)
-                va_alignment = self.context.alignment(va.typ)
+                va_size, va_alignment = self.data_layout(va.typ)
                 # If not aligned, make it happen:
                 size += required_padding(size, va_alignment)
                 size += va_size
@@ -1420,8 +1415,7 @@ class CCodeGenerator:
             offset = 0
             for argument in var_args:
                 value = self.gen_expr(argument, rvalue=True)
-                va_size = self.context.sizeof(argument.typ)
-                va_alignment = self.context.alignment(argument.typ)
+                va_size, va_alignment = self.data_layout(argument.typ)
 
                 # handle alignment:
                 padding = required_padding(offset, va_alignment)
@@ -1477,7 +1471,7 @@ class CCodeGenerator:
         index = self.gen_expr(expr.index, rvalue=True)
 
         # Calculate offset:
-        element_size = self.context.sizeof(expr.base.typ.element_type)
+        element_size = self.sizeof(expr.base.typ.element_type)
         index = self.builder.emit_cast(index, ir.ptr)
         offset = self.builder.emit_mul(index, element_size, ir.ptr)
 
@@ -1515,9 +1509,7 @@ class CCodeGenerator:
         ir_typ = self.get_ir_type(expr.typ)
         # Load the variable argument:
         value = self.emit(ir.Load(va_ptr, "va_arg", ir_typ))
-        size = self.emit(
-            ir.Const(self.context.sizeof(expr.typ), "size", ir.ptr)
-        )
+        size = self.emit(ir.Const(self.sizeof(expr.typ), "size", ir.ptr))
         va_ptr = self.emit(ir.add(va_ptr, size, "incptr", ir.ptr))
         self.emit(ir.Store(va_ptr, valist_ptrptr))
         return value
@@ -1562,10 +1554,10 @@ class CCodeGenerator:
         """ Generate code for sizeof construction """
         if isinstance(expr.sizeof_typ, types.CType):
             # Get size of the given type:
-            type_size = self.context.sizeof(expr.sizeof_typ)
+            type_size = self.sizeof(expr.sizeof_typ)
         else:
             # And get its size:
-            type_size = self.context.sizeof(expr.sizeof_typ.typ)
+            type_size = self.sizeof(expr.sizeof_typ.typ)
 
         return self.emit_const(type_size, expr.typ)
 
@@ -1581,11 +1573,20 @@ class CCodeGenerator:
         elif isinstance(typ, types.EnumType):
             return self.get_ir_type(self._root_scope.get_type(["int"]))
         elif isinstance(typ, (types.UnionType, types.StructType)):
-            size = self.context.sizeof(typ)
-            alignment = self.context.alignment(typ)
+            size, alignment = self.data_layout(typ)
             return ir.BlobDataTyp(size, alignment=alignment)
         else:  # pragma: no cover
             raise NotImplementedError(str(typ))
+
+    def data_layout(self, typ: types.CType):
+        """ Get size and alignment of the given type. """
+        size = self.sizeof(typ)
+        alignment = self.context.alignment(typ)
+        return size, alignment
+
+    def sizeof(self, typ):
+        """ Return the size of the given type. """
+        return self.context.sizeof(typ)
 
     def get_debug_type(self, typ: types.CType):
         """ Get or create debug type info in the debug information """
@@ -1638,10 +1639,16 @@ class CCodeGenerator:
                         field_offset = 0
                         dbg_typ.add_field(field.name, field_typ, field_offset)
         elif isinstance(typ, types.ArrayType):
-            element_typ = self.get_debug_type(typ.element_type)
-            size = self.context.eval_expr(typ.size)
-            dbg_typ = debuginfo.DebugArrayType(element_typ, size)
-            self.debug_db.enter(typ, dbg_typ)
+            if typ.size is None:
+                # Assume int[] --> int*
+                ptype = self.get_debug_type(typ.element_type)
+                dbg_typ = debuginfo.DebugPointerType(ptype)
+                self.debug_db.enter(typ, dbg_typ)
+            else:
+                element_typ = self.get_debug_type(typ.element_type)
+                size = self.context.eval_expr(typ.size)
+                dbg_typ = debuginfo.DebugArrayType(element_typ, size)
+                self.debug_db.enter(typ, dbg_typ)
         else:  # pragma: no cover
             raise NotImplementedError(str(typ))
         return dbg_typ

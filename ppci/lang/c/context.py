@@ -85,60 +85,68 @@ class CContext:
             raise TypeError("typ should be CType: {}".format(typ))
 
         if isinstance(typ, types.ArrayType):
-            element_size = self.sizeof(typ.element_type)
             if typ.size is None:
-                self.error(
-                    "Size of array could not be determined!", typ.location
-                )
-            if isinstance(typ.size, int):
-                array_size = typ.size
+                # Assume type like int[] --> map to int*
+                size = self.arch_info.get_size("ptr")
+                # self.error(
+                #     "Size of array could not be determined!", typ.location
+                # )
             else:
-                array_size = self.eval_expr(typ.size)
-            return element_size * array_size
+                element_size = self.sizeof(typ.element_type)
+                if isinstance(typ.size, int):
+                    array_size = typ.size
+                else:
+                    array_size = self.eval_expr(typ.size)
+                size = element_size * array_size
         elif isinstance(typ, types.BasicType):
-            return self.type_size_map[typ.type_id][0]
+            size = self.type_size_map[typ.type_id][0]
         elif isinstance(typ, types.StructType):
             if not typ.complete:
                 self.error("Storage size unknown", typ.location)
-            return self.get_field_offsets(typ)[0]
+            size = self.get_field_offsets(typ)[0]
         elif isinstance(typ, types.UnionType):
             if not typ.complete:
                 self.error("Type is incomplete, size unknown", typ)
-            return max(self.sizeof(part.typ) for part in typ.fields)
+            size = max(self.sizeof(part.typ) for part in typ.fields)
         elif isinstance(typ, types.EnumType):
             if not typ.complete:
                 self.error("Storage size unknown", typ)
             # For enums take int as the type
-            return self.arch_info.get_size("int")
+            size = self.arch_info.get_size("int")
         elif isinstance(typ, (types.PointerType, types.FunctionType)):
-            return self.arch_info.get_size("ptr")
+            size = self.arch_info.get_size("ptr")
         else:  # pragma: no cover
             raise NotImplementedError(str(typ))
+        return size
 
     def alignment(self, typ: types.CType):
         """ Given a type, determine its alignment in bytes """
         assert isinstance(typ, types.CType)
         if isinstance(typ, types.ArrayType):
-            return self.alignment(typ.element_type)
+            if typ.size is None:
+                alignment = self.arch_info.get_alignment("ptr")
+            else:
+                alignment = self.alignment(typ.element_type)
         elif isinstance(typ, types.BasicType):
-            return self.type_size_map[typ.type_id][1]
+            alignment = self.type_size_map[typ.type_id][1]
         elif isinstance(typ, types.StructType):
             if not typ.complete:
                 self.error("Storage size unknown", typ.location)
-            return max(self.alignment(part.typ) for part in typ.fields)
+            alignment = max(self.alignment(part.typ) for part in typ.fields)
         elif isinstance(typ, types.UnionType):
             if not typ.complete:
                 self.error("Type is incomplete, size unknown", typ)
-            return max(self.alignment(part.typ) for part in typ.fields)
+            alignment = max(self.alignment(part.typ) for part in typ.fields)
         elif isinstance(typ, types.EnumType):
             if not typ.complete:
                 self.error("Storage size unknown", typ)
             # For enums take int as the type
-            return self.arch_info.get_alignment("int")
+            alignment = self.arch_info.get_alignment("int")
         elif isinstance(typ, (types.PointerType, types.FunctionType)):
-            return self.arch_info.get_alignment("ptr")
+            alignment = self.arch_info.get_alignment("ptr")
         else:  # pragma: no cover
             raise NotImplementedError(str(typ))
+        return alignment
 
     def layout_struct(self, typ):
         """ Layout the fields in the struct.

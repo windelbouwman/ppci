@@ -174,7 +174,9 @@ class WasiApi:
             total_bytes += len(data)
 
             # Assume standard output:
-            print(data.decode("ascii", errors="ignore"), end="")
+            import os
+            os.write(1, data)
+            # print(data.decode("ascii", errors="ignore"), end="")
             # sys.stdout.write(data)
 
         self._write_mem_u32(n_written, total_bytes)
