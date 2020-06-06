@@ -184,7 +184,12 @@ class PointerType(IndexableType):
         return "Pointer-type"
 
 
-class EnumType(CType):
+class TaggedType(CType):
+    """ A Type which can be inserted in the tag namespace.
+    """
+
+
+class EnumType(TaggedType):
     """ Enum type """
 
     def __init__(self, constants=None):
@@ -200,7 +205,7 @@ class EnumType(CType):
         return "Enum-type"
 
 
-class StructOrUnionType(CType):
+class StructOrUnionType(TaggedType):
     """ Common base for struct and union types """
 
     def __init__(self, tag=None, fields=None):

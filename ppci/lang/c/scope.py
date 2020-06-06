@@ -133,10 +133,11 @@ class Scope:
 
     def __init__(self, parent=None):
         self.parent = parent
+
         # Different namespaces in this scope:
         self.var_map = OrderedDict()
-        self.tags = {}
-        self.labels = {}
+        self._tags = OrderedDict()
+        self.labels = OrderedDict()
 
     def get_defined_names(self):
         """ Get all defined symbols in this scope, and scopes above. """
@@ -160,7 +161,7 @@ class Scope:
     def is_definition(self, name: str):
         """ Check if this name is a definition. """
         if self.is_defined(name, all_scopes=False):
-            sym = self.get(name)
+            sym = self.get_identifier(name)
             return sym.declaration.is_definition()
         else:
             return False
@@ -190,29 +191,34 @@ class Scope:
             r.append(d)
         return r
 
-    def has_tag(self, name: str):
-        if self.parent:
-            # TODO: make tags a flat space?
+    def has_tag(self, name: str, all_scopes=True):
+        """ Check the tag namespace for the given name. """
+        if name in self._tags:
+            return True
+        elif self.parent and all_scopes:
             return self.parent.has_tag(name)
-        return name in self.tags
+        else:
+            return False
 
-    def get_tag(self, name: str):
+    def get_tag(self, name: str, all_scopes=True):
         """ Get a struct by tag """
-        if self.parent:
+        if name in self._tags:
+            return self._tags[name]
+        elif self.parent and all_scopes:
             return self.parent.get_tag(name)
-        return self.tags[name]
+        else:
+            raise KeyError(name)
 
-    def add_tag(self, name: str, o):
-        if self.parent:
-            return self.parent.add_tag(name, o)
-        self.tags[name] = o
+    def add_tag(self, name: str, item):
+        """ Add the given item to the tag namespace. """
+        self._tags[name] = item
 
-    def get(self, name: str):
+    def get_identifier(self, name: str):
         """ Get the symbol with the given name """
         if name in self.var_map:
             return self.var_map[name]
         elif self.parent:
-            return self.parent.get(name)
+            return self.parent.get_identifier(name)
         else:
             raise KeyError(name)
 

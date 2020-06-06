@@ -248,7 +248,7 @@ class CSemantics:
         typ = self.apply_type_modifiers(modifiers, typ)
         declaration = declarations.Typedef(typ, name, location)
         if self.scope.is_defined(name, all_scopes=False):
-            sym = self.scope.get(name)
+            sym = self.scope.get_identifier(name)
             self.check_redeclaration_type(sym, declaration)
             sym.add_redeclaration(declaration)
         else:
@@ -275,7 +275,7 @@ class CSemantics:
         # Check if the declared name is already defined:
         if self.scope.is_defined(declaration.name, all_scopes=False):
             # Get the already declared name and figure out what now!
-            sym = self.scope.get(declaration.name)
+            sym = self.scope.get_identifier(declaration.name)
             self.check_redeclaration_type(sym, declaration)
 
             # re-declarations are only allowed on top level
@@ -345,7 +345,7 @@ class CSemantics:
     def on_typename(self, name, location):
         """ Handle the case when a typedef is refered """
         # Lookup typedef
-        typedef = self.scope.get(name).declaration
+        typedef = self.scope.get_identifier(name).declaration
         assert isinstance(typedef, declarations.Typedef)
         ctyp = typedef.typ
         return ctyp  # types.IdentifierType(name, ctyp)
@@ -354,30 +354,40 @@ class CSemantics:
         """ Called when a type itself is described """
         return self.apply_type_modifiers(modifiers, typ)
 
-    def on_struct_or_union(self, kind, tag, fields, location):
-        """ Handle struct or union definition """
+    def on_struct_or_union(self, kind, tag, is_definition, fields, location):
+        """ Handle struct or union definition.
+
+        A definition of a struct occurs when we have:
+        struct S;
+        struct S { int f; };
+        struct { int f; };
+        """
         # Layout the struct here!
         assert tag or fields
 
         mp = {"struct": types.StructType, "union": types.UnionType}
         klass = mp[kind]
 
-        if tag:
-            # Get the tag, or register it
-            if self.scope.has_tag(tag):
-                ctyp = self.scope.get_tag(tag)
+        if is_definition:
+            # Struct definition.
+            if tag:
+                ctyp = self.define_tag_type(tag, klass, location)
+            else:
+                ctyp = klass()
+
+            if fields:
+                ctyp.fields = fields
+        else:
+            assert tag
+            # Struct usage / declaration:
+            if self.scope.has_tag(tag, all_scopes=True):
+                ctyp = self.scope.get_tag(tag, all_scopes=True)
                 if not isinstance(ctyp, klass):
                     self.error("Wrong tag kind", location)
             else:
                 ctyp = klass()
                 self.scope.add_tag(tag, ctyp)
-        else:
-            ctyp = klass()
 
-        if fields:
-            if ctyp.complete:
-                self.error("Multiple definitions", location)
-            ctyp.fields = fields
         return ctyp
 
     def on_field_def(
@@ -400,23 +410,23 @@ class CSemantics:
         field = types.Field(ctyp, name, bitsize)
         return field
 
-    def on_enum(self, tag, location):
+    def on_enum(self, tag, is_definition, location):
         """ Handle enum declaration """
-        if tag:
-            if self.scope.has_tag(tag):
-                ctyp = self.scope.get_tag(tag)
+        if is_definition:
+            if tag:
+                ctyp = self.define_tag_type(tag, types.EnumType, location)
+            else:
+                ctyp = types.EnumType()
+        else:
+            assert tag
+            if self.scope.has_tag(tag, all_scopes=True):
+                ctyp = self.scope.get_tag(tag, all_scopes=True)
                 if not isinstance(ctyp, types.EnumType):
                     self.error("This tag does not refer to an enum", location)
             else:
                 ctyp = types.EnumType()
                 self.scope.add_tag(tag, ctyp)
-        else:
-            ctyp = types.EnumType()
         return ctyp
-
-    def enter_enum_values(self, ctyp, location):
-        if ctyp.complete:
-            self.error("Enum defined multiple times", location)
 
     def on_enum_value(self, ctyp, name, value, location):
         """ Handle a single enum value definition """
@@ -428,7 +438,7 @@ class CSemantics:
         )
 
         if self.scope.is_defined(name, all_scopes=False):
-            sym = self.scope.get(declaration.name)
+            sym = self.scope.get_identifier(declaration.name)
             self.invalid_redeclaration(sym, declaration)
         else:
             self.scope.insert(declaration)
@@ -442,6 +452,21 @@ class CSemantics:
         # min(enum_values)
         # max(enum_values)
         # TODO: determine storage type!
+
+    def define_tag_type(self, tag: str, klass: types.TaggedType, location):
+        """ Get or create a tagged type with the given tag kind. """
+        if self.scope.has_tag(tag, all_scopes=False):
+            ctyp = self.scope.get_tag(tag, all_scopes=False)
+            if not isinstance(ctyp, klass):
+                self.error("Wrong tag kind", location)
+
+            if ctyp.complete:
+                self.error("Multiple definitions", location)
+
+        else:
+            ctyp = klass()
+            self.scope.add_tag(tag, ctyp)
+        return ctyp
 
     @staticmethod
     def on_type_qualifiers(type_qualifiers, ctyp):
@@ -922,7 +947,7 @@ class CSemantics:
                 location,
                 hints=hints,
             )
-        symbol = self.scope.get(name)
+        symbol = self.scope.get_identifier(name)
         declaration = symbol.declaration
         typ = declaration.typ
 

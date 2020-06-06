@@ -265,6 +265,27 @@ class CFrontendTestCase(unittest.TestCase):
         """
         self.do(src)
 
+    def test_tag_scoping(self):
+        src = """
+        void f(int n) {
+          struct S { int a; } s;
+          union U { int a; } u;
+          enum E { E1, E2 } e;
+          if (n == 10) {
+              struct S { int b; } s;
+              s.b = 1;
+              union U { int b; } u;
+              u.b = 1;
+              enum E { E3, E4 } e;
+              e = E3;
+          }
+          s.a = 2;
+          u.a = 2;
+          e = E1;
+        }
+        """
+        self.do(src)
+
     def test_struct_copy(self):
         """ Test struct behavior when copied around. """
         src = """

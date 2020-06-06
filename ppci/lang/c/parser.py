@@ -299,13 +299,17 @@ class CParser(RecursiveDescentParser):
                 keyword.loc,
             )
 
+        is_definition = (self.peek == "{") or (
+            (tag is not None) and self.peek == ";"
+        )
+
         if self.peek == "{":
             fields = self.parse_struct_fields()
         else:
             fields = None
 
         return self.semantics.on_struct_or_union(
-            keyword.val, tag, fields, keyword.loc
+            keyword.val, tag, is_definition, fields, keyword.loc
         )
 
     def parse_struct_fields(self):
@@ -363,7 +367,11 @@ class CParser(RecursiveDescentParser):
                 keyword.loc,
             )
 
-        ctyp = self.semantics.on_enum(tag, keyword.loc)
+        is_definition = (self.peek == "{") or (
+            (tag is not None) and self.peek == ";"
+        )
+
+        ctyp = self.semantics.on_enum(tag, is_definition, keyword.loc)
 
         # If we have a body, either after tag or directly, parse it:
         if self.peek == "{":
@@ -374,7 +382,6 @@ class CParser(RecursiveDescentParser):
     def parse_enum_fields(self, ctyp, location):
         """ Parse enum declarations """
         self.consume("{")
-        self.semantics.enter_enum_values(ctyp, location)
         constants = []
         while self.peek != "}":
             name = self.consume("ID")
