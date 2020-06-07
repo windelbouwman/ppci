@@ -8,6 +8,7 @@ from helper_util import do_long_tests, make_filename
 from ppci import api
 from ppci.utils.reporting import HtmlReportGenerator
 from ppci.irutils import print_module, read_module, to_json, from_json
+from ppci.irutils import verify_module
 
 
 @unittest.skipUnless(do_long_tests("python"), "skipping slow tests")
@@ -32,6 +33,7 @@ class TestSamplesOnPython(unittest.TestCase):
 
             # Test roundtrip of ir_modules
             for ir_module in ir_modules:
+                verify_module(ir_module)
                 serialization_roundtrip(ir_module)
                 api.optimize(
                     ir_module, level=self.opt_level, reporter=reporter
@@ -68,7 +70,7 @@ def serialization_roundtrip(ir_module):
     f = io.StringIO()
     print_module(ir_module, file=f)
     txt1 = f.getvalue()
-    print(txt1)
+    # print(txt1)
 
     # Round trip via json:
     d = to_json(ir_module)

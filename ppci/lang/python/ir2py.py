@@ -240,21 +240,22 @@ class IrToPythonCompiler:
         args = ",".join(a.name for a in ir_function.arguments)
         self.emit("def {}({}):".format(ir_function.name, args))
         with self.indented():
-            try:
-                # TODO: remove this to enable shape style:
-                raise ValueError
-                shape, _rmap = relooper.find_structure(ir_function)
-                src = io.StringIO()
-                relooper.print_shape(shape, file=src)
-                self.reporter.dump_source(ir_function.name, src.getvalue())
-                self._rmap = _rmap
-                self._shape_style = True
-                self.generate_shape(shape)
-            except ValueError:
-                self.logger.debug("Falling back to block-switch-style")
-                # Fall back to block switch stack!
-                self._shape_style = False
-                self.generate_function_fallback(ir_function)
+            # TODO: enable shape style:
+            # try:
+            #     # TODO: remove this to enable shape style:
+            #     raise ValueError
+            #     shape, _rmap = relooper.find_structure(ir_function)
+            #     src = io.StringIO()
+            #     relooper.print_shape(shape, file=src)
+            #     self.reporter.dump_source(ir_function.name, src.getvalue())
+            #     self._rmap = _rmap
+            #     self._shape_style = True
+            #     self.generate_shape(shape)
+            # except ValueError:
+            self.logger.debug("Falling back to block-switch-style")
+            # Fall back to block switch stack!
+            self._shape_style = False
+            self.generate_function_fallback(ir_function)
 
         # Register function for function pointers:
         self.emit("_irpy_func_pointers.append({})".format(ir_function.name))

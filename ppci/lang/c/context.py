@@ -85,19 +85,13 @@ class CContext:
             raise TypeError("typ should be CType: {}".format(typ))
 
         if isinstance(typ, types.ArrayType):
-            if typ.size is None:
-                # Assume type like int[] --> map to int*
-                size = self.arch_info.get_size("ptr")
-                # self.error(
-                #     "Size of array could not be determined!", typ.location
-                # )
+            assert typ.size is not None
+            element_size = self.sizeof(typ.element_type)
+            if isinstance(typ.size, int):
+                array_size = typ.size
             else:
-                element_size = self.sizeof(typ.element_type)
-                if isinstance(typ.size, int):
-                    array_size = typ.size
-                else:
-                    array_size = self.eval_expr(typ.size)
-                size = element_size * array_size
+                array_size = self.eval_expr(typ.size)
+            size = element_size * array_size
         elif isinstance(typ, types.BasicType):
             size = self.type_size_map[typ.type_id][0]
         elif isinstance(typ, types.StructType):

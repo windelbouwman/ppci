@@ -145,6 +145,8 @@ class UnaryOperator(CExpression):
 class Cast(CExpression):
     """ A cast operation """
 
+    __slots__ = ("to_typ", "expr")
+
     def __init__(self, expr, typ, lvalue, location):
         super().__init__(typ, lvalue, location)
         self.to_typ = typ

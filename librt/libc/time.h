@@ -46,5 +46,23 @@ size_t strftime(char* ptr, size_t maxsize, const char* format, const struct tm* 
 char* asctime(const struct tm * timeptr);
 char* asctime_r(const struct tm * timeptr, char* buf);
 
+// Linux specific?
+#ifndef __clockid_t_defined
+typedef int clockid_t;
+#define __clockid_t_defined 1
+#endif
+
+#ifndef _STRUCT_TIMESPEC
+#define _STRUCT_TIMESPEC 1
+struct timespec {
+    time_t tv_sec;
+    long tv_nsec;
+};
+#endif
+
+int clock_gettime(clockid_t clockid, struct timespec *tp);
+
+#define CLOCK_REALTIME 0
+#define CLOCK_MONOTONIC 1
 
 #endif

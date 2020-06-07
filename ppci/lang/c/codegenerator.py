@@ -902,7 +902,7 @@ class CCodeGenerator:
                         value = expr.values[field]
                         ptr, inc2 = self.gen_local_init(ptr, field.typ, value)
                     else:
-                        pad_inc = self.context.sizeof(field.typ)
+                        pad_inc = self.sizeof(field.typ)
                         ptr = self.builder.emit_add(ptr, pad_inc, ir.ptr)
                         inc2 = pad_inc
                 offset += inc2
@@ -1165,7 +1165,7 @@ class CCodeGenerator:
         loaded = self._load_value(ir_a, expr.typ)
         # for pointers, this is not one, but sizeof
         if isinstance(expr.typ, types.PointerType):
-            one = self.context.sizeof(expr.typ.element_type)
+            one = self.sizeof(expr.typ.element_type)
         else:
             one = 1
 
@@ -1198,12 +1198,12 @@ class CCodeGenerator:
             # when an integer refered always to a array cell!
             if isinstance(expr.a.typ, types.IndexableType):
                 # TODO: assert is_integer(expr.b.typ)
-                esize = self.context.sizeof(expr.a.typ.element_type)
+                esize = self.sizeof(expr.a.typ.element_type)
                 rhs = self.builder.emit_mul(rhs, esize, rhs.ty)
                 rhs = self.builder.emit_cast(rhs, ir.ptr)
             elif isinstance(expr.b.typ, types.IndexableType):
                 # TODO: assert is_integer(expr.a.typ)
-                esize = self.context.sizeof(expr.b.typ.element_type)
+                esize = self.sizeof(expr.b.typ.element_type)
                 lhs = self.builder.emit_mul(lhs, esize, lhs.ty)
                 lhs = self.builder.emit_cast(lhs, ir.ptr)
             else:
@@ -1233,7 +1233,7 @@ class CCodeGenerator:
             if expr.op == "=" and expr.a.typ.is_struct:
                 lhs = self.gen_expr(expr.a, rvalue=False)
                 rhs = self.gen_expr(expr.b, rvalue=False)
-                amount = self.context.sizeof(expr.a.typ)
+                amount = self.sizeof(expr.a.typ)
                 self.gen_copy_struct(lhs, rhs, amount)
                 value = None
             else:
@@ -1319,26 +1319,13 @@ class CCodeGenerator:
 
     def gen_call(self, expr: expressions.FunctionCall):
         """ Generate code for a function call """
-        if isinstance(expr.callee.typ, types.FunctionType):
-            ftyp = expr.callee.typ
-        else:
-            ftyp = expr.callee.typ.element_type
+        assert expr.callee.typ.is_pointer
+        ftyp = expr.callee.typ.element_type
+        assert isinstance(ftyp, types.FunctionType)
 
         ir_arguments, rval_alloc = self.prepare_arguments(ftyp, expr.args)
 
-        # Get function pointer or label:
-        if isinstance(expr.callee.typ, types.FunctionType):
-            # Normal call, get global value:
-            # print(expr.callee, expr.location)
-            # if isinstance(expr.callee
-            # ir_function = self.gen_expr(expr.callee, rvalue=False)
-            callee = self.ir_var_map[expr.callee.variable.declaration]
-        elif isinstance(expr.callee.typ, types.PointerType) and isinstance(
-            expr.callee.typ.element_type, types.FunctionType
-        ):
-            callee = self.gen_expr(expr.callee, rvalue=True)
-        else:  # pragma: no cover
-            raise NotImplementedError()
+        callee = self.gen_expr(expr.callee, rvalue=True)
 
         # Use function or procedure call depending on return type:
         if ftyp.return_type.is_void:
@@ -1439,7 +1426,7 @@ class CCodeGenerator:
 
         return vararg_ptr
 
-    def gen_compound_literal(self, expr):
+    def gen_compound_literal(self, expr: expressions.CompoundLiteral):
         """ Generate code for a compound literal data """
         # Alloc some room:
         ir_addr = self.emit_alloca(expr.typ)
@@ -1478,7 +1465,7 @@ class CCodeGenerator:
         # Calculate address:
         return self.builder.emit_add(base, offset, ir.ptr)
 
-    def gen_builtin(self, expr):
+    def gen_builtin(self, expr: expressions.BuiltIn):
         """ Generate appropriate built-in functionality """
         if isinstance(expr, expressions.BuiltInVaArg):
             value = self.gen_va_arg(expr)
@@ -1543,7 +1530,12 @@ class CCodeGenerator:
         else:
             value = self.gen_expr(expr.expr, rvalue=True)
 
-        if expr.to_typ.is_void:
+        # In some cases we do not need to emit a cast instruction:
+        if expr.to_typ.is_pointer and isinstance(
+            expr.expr.typ, types.FunctionType
+        ):
+            value
+        elif expr.to_typ.is_void:
             value = None
         else:
             ir_typ = self.get_ir_type(expr.to_typ)
@@ -1599,7 +1591,7 @@ class CCodeGenerator:
                 dbg_typ = debuginfo.DebugBaseType(typ.type_id, 0, 1)
             else:
                 dbg_typ = debuginfo.DebugBaseType(
-                    typ.type_id, self.context.sizeof(typ), 1
+                    typ.type_id, self.sizeof(typ), 1
                 )
             self.debug_db.enter(typ, dbg_typ)
         elif isinstance(typ, types.EnumType):
@@ -1639,16 +1631,11 @@ class CCodeGenerator:
                         field_offset = 0
                         dbg_typ.add_field(field.name, field_typ, field_offset)
         elif isinstance(typ, types.ArrayType):
-            if typ.size is None:
-                # Assume int[] --> int*
-                ptype = self.get_debug_type(typ.element_type)
-                dbg_typ = debuginfo.DebugPointerType(ptype)
-                self.debug_db.enter(typ, dbg_typ)
-            else:
-                element_typ = self.get_debug_type(typ.element_type)
-                size = self.context.eval_expr(typ.size)
-                dbg_typ = debuginfo.DebugArrayType(element_typ, size)
-                self.debug_db.enter(typ, dbg_typ)
+            assert typ.size is not None
+            element_typ = self.get_debug_type(typ.element_type)
+            size = self.context.eval_expr(typ.size)
+            dbg_typ = debuginfo.DebugArrayType(element_typ, size)
+            self.debug_db.enter(typ, dbg_typ)
         else:  # pragma: no cover
             raise NotImplementedError(str(typ))
         return dbg_typ

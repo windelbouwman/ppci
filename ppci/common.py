@@ -65,7 +65,7 @@ class CompilerError(Exception):
 
     def print(self, file=None):
         """ Print the error inside some nice context """
-        if self.loc:
+        if self.loc and self.loc.filename:
             self.loc.print_message(self.msg, file=file)
         else:
             print(self.msg, file=file)

@@ -38,7 +38,7 @@ class CSemantics:
         # Define the type for a string:
         self.int_type = self.get_type(["int"])
         self.char_type = self.get_type(["char"])
-        self.intptr_type = types.PointerType(self.int_type)
+        self.intptr_type = self.int_type.pointer_to()
 
         # Working variables:
         self.compounds = []
@@ -93,7 +93,7 @@ class CSemantics:
         assert isinstance(typ, types.CType), str(typ)
         for modifier in reversed(type_modifiers):
             if modifier[0] == "POINTER":
-                typ = types.PointerType(typ)
+                typ = typ.pointer_to()
                 type_qualifiers = modifier[1]
                 typ = self.on_type_qualifiers(type_qualifiers, typ)
             elif modifier[0] == "ARRAY":
@@ -126,6 +126,12 @@ class CSemantics:
     def on_function_argument(self, typ, name, modifiers, location):
         """ Process a function argument into the proper class """
         typ = self.apply_type_modifiers(modifiers, typ)
+
+        # Change 'int a[]' into the equivalent int* a
+        if typ.is_array:
+            # TODO: figure out behavior of:
+            # 'int a[10]' --> clang turns it into 'int* a'?
+            typ = typ.decay()
         parameter = declarations.ParameterDeclaration(
             None, typ, name, location
         )
@@ -196,6 +202,7 @@ class CSemantics:
                 init_cursor.enter_compound(target_typ, value.location, True)
                 target_typ = init_cursor.at_typ()
             else:
+                value = self.pointer(value)
                 value = self.coerce(value, target_typ)
                 break
 
@@ -563,6 +570,7 @@ class CSemantics:
                 self.error(
                     "Cannot return a value from this function", location
                 )
+            value = self.pointer(value)
             value = self.coerce(value, return_type)
         else:
             if not return_type.is_void:
@@ -637,9 +645,12 @@ class CSemantics:
 
     def on_ternop(self, lhs, op, mid, rhs, location):
         """ Handle ternary operator 'a ? b : c' """
+        lhs = self.pointer(lhs)
         lhs = self.coerce(lhs, self.int_type)
         # TODO: For now, we use the common type of b and c as the result
         # But is this correct?
+        mid = self.pointer(mid)
+        rhs = self.pointer(rhs)
         common_type = self.get_common_type(mid.typ, rhs.typ, location)
         mid = self.coerce(mid, common_type)
         rhs = self.coerce(rhs, common_type)
@@ -649,6 +660,9 @@ class CSemantics:
 
     def on_binop(self, lhs, op, rhs, location):
         """ Check binary operator """
+        lhs = self.pointer(lhs)
+        rhs = self.pointer(rhs)
+
         if op in ["||", "&&"]:
             result_typ = self.get_type(["int"])
             lhs = self.coerce(lhs, result_typ)
@@ -710,15 +724,15 @@ class CSemantics:
                 self.error("Expected lvalue", a.location)
             expr = expressions.UnaryOperator(op, a, a.typ, False, location)
         elif op in ["-", "~"]:
+            a = self.pointer(a)
             expr = expressions.UnaryOperator(op, a, a.typ, False, location)
         elif op == "+":
-            expr = a
+            expr = self.pointer(a)
         elif op == "*":
+            a = self.pointer(a)
             if not isinstance(a.typ, types.IndexableType):
                 self.error(
-                    "Cannot pointer derefence type {}".format(
-                        type_to_str(a.typ)
-                    ),
+                    "Cannot dereference type {}".format(type_to_str(a.typ)),
                     a.location,
                 )
             typ = a.typ.element_type
@@ -726,6 +740,7 @@ class CSemantics:
         elif op == "&":
             expr = self.on_take_address(a, location)
         elif op == "!":
+            a = self.pointer(a)
             a = self.coerce(a, self.int_type)
             expr = expressions.UnaryOperator(
                 op, a, self.int_type, False, location
@@ -744,7 +759,7 @@ class CSemantics:
             # L-value access:
             if not a.lvalue:
                 self.error("Expected lvalue", a.location)
-            typ = types.PointerType(a.typ)
+            typ = a.typ.pointer_to()
             expr = expressions.UnaryOperator("&", a, typ, False, location)
         return expr
 
@@ -787,7 +802,7 @@ class CSemantics:
             # If so, give a hint about this.
             hints = []
             if (
-                isinstance(base.typ, types.PointerType)
+                base.typ.is_pointer
                 and base.typ.element_type.is_struct_or_union
             ):
                 lhs = expr_to_str(base)
@@ -874,9 +889,8 @@ class CSemantics:
 
     def on_call(self, callee, arguments, location):
         """ Check function call for validity """
-        if isinstance(callee.typ, types.FunctionType):
-            function_type = callee.typ
-        elif isinstance(callee.typ, types.PointerType) and isinstance(
+        callee = self.pointer(callee)
+        if callee.typ.is_pointer and isinstance(
             callee.typ.element_type, types.FunctionType
         ):
             # Function pointer
@@ -909,12 +923,14 @@ class CSemantics:
         for argument, argument_type in zip(
             arguments, function_type.argument_types
         ):
-            value = self.coerce(argument, argument_type)
-            coerced_arguments.append(value)
+            argument = self.pointer(argument)
+            argument = self.coerce(argument, argument_type)
+            coerced_arguments.append(argument)
 
         # Append evetual variadic arguments:
         if num_given > num_expected:
             for argument in arguments[num_expected:]:
+                argument = self.pointer(argument)
                 coerced_arguments.append(argument)
 
         # Determine lvalue. If we return a struct, we return an lvalue.
@@ -959,8 +975,6 @@ class CSemantics:
         elif isinstance(declaration, declarations.ParameterDeclaration):
             lvalue = True
         elif isinstance(declaration, declarations.FunctionDeclaration):
-            # Function pointer:
-            # expr.typ = types.PointerType(variable.typ)
             lvalue = False
         else:  # pragma: no cover
             self.not_impl("Access to {}".format(declaration), location)
@@ -970,7 +984,8 @@ class CSemantics:
 
     # Helpers!
     def coerce(self, expr: expressions.CExpression, typ: types.CType):
-        """ Try to fit the given expression into the given type """
+        """ Try to fit the given expression into the given type.
+        """
         assert isinstance(typ, types.CType)
         assert isinstance(expr, expressions.CExpression)
         do_cast = False
@@ -983,28 +998,11 @@ class CSemantics:
             from_type, (types.PointerType, types.EnumType)
         ) and isinstance(to_type, types.BasicType):
             do_cast = True
-        elif isinstance(
-            from_type, (types.PointerType, types.ArrayType)
-        ) and isinstance(to_type, types.PointerType):
+        elif from_type.is_pointer and to_type.is_pointer:
             do_cast = True
-        elif (
-            isinstance(from_type, types.FunctionType)
-            and isinstance(to_type, types.PointerType)
-            and isinstance(to_type.element_type, types.FunctionType)
-            and self._root_scope.equal_types(from_type, to_type.element_type)
-        ):
-            # Function used as value for pointer to function is fine!
-            do_cast = False
         elif isinstance(from_type, types.BasicType) and isinstance(
             to_type, types.IndexableType
         ):
-            do_cast = True
-        elif isinstance(from_type, types.IndexableType) and isinstance(
-            to_type, types.IndexableType
-        ):
-            # and \
-            # self._root_scope.equal_types(
-            #    from_type.element_type, to_type.element_type):
             do_cast = True
         elif isinstance(
             from_type, (types.BasicType, types.EnumType)
@@ -1021,6 +1019,27 @@ class CSemantics:
             expr = expressions.ImplicitCast(expr, typ, False, expr.location)
         return expr
 
+    def pointer(self, expr):
+        """ Handle several conversions.
+
+        Things handled:
+        - Array to pointer decay.
+        - Function to function pointer
+        """
+        if isinstance(expr.typ, types.ArrayType):
+            typ = expr.typ.decay()
+            conversion = expressions.ImplicitCast(
+                expr, typ, False, expr.location
+            )
+        elif isinstance(expr.typ, types.FunctionType):
+            typ = expr.typ.pointer_to()
+            conversion = expressions.ImplicitCast(
+                expr, typ, False, expr.location
+            )
+        else:
+            conversion = expr
+        return conversion
+
     def get_type(self, type_specifiers):
         """ Retrieve a type by type specifiers """
         return self._root_scope.get_type(type_specifiers)
@@ -1030,13 +1049,6 @@ class CSemantics:
 
         The common type is a type they can both be cast to.
         """
-        # Auto cast to pointer to function.
-        # TBD: this is probably not the best place to do this?
-        if isinstance(typ1, types.FunctionType):
-            typ1 = types.PointerType(typ1)
-
-        if isinstance(typ2, types.FunctionType):
-            typ2 = types.PointerType(typ1)
 
         return max([typ1, typ2], key=lambda t: self._get_rank(t, location))
 
@@ -1071,7 +1083,7 @@ class CSemantics:
                 )
         elif isinstance(typ, types.EnumType):
             return 80
-        elif isinstance(typ, types.PointerType):
+        elif typ.is_pointer:
             return 83
         elif isinstance(typ, types.ArrayType):
             return 83

@@ -67,6 +67,8 @@ def is_struct_or_union(typ):
 class CType:
     """ Base class for all types """
 
+    __slots__ = ("qualifiers",)
+
     def __init__(self, qualifiers=None):
         self.qualifiers = qualifiers
 
@@ -160,6 +162,8 @@ class FunctionType(CType):
 class IndexableType(CType):
     """ Array or pointer type """
 
+    __slots__ = ("element_type",)
+
     def __init__(self, element_type):
         super().__init__()
         assert isinstance(element_type, CType)
@@ -169,12 +173,18 @@ class IndexableType(CType):
 class ArrayType(IndexableType):
     """ Array type """
 
+    __slots__ = ("size",)
+
     def __init__(self, element_type, size):
         super().__init__(element_type)
         self.size = size
 
     def __repr__(self):
         return "Array-type"
+
+    def decay(self):
+        """ Decay into pointer type. """
+        return PointerType(self.element_type)
 
 
 class PointerType(IndexableType):
@@ -347,6 +357,8 @@ class BasicType(CType):
     FLOAT_TYPES = {FLOAT, DOUBLE, LONGDOUBLE}
 
     NUMERIC_TYPES = INTEGER_TYPES | FLOAT_TYPES
+
+    __slots__ = ("type_id",)
 
     def __init__(self, type_id):
         super().__init__()
