@@ -57,6 +57,9 @@ coptions.add_define('FLAGS_STR', '"-w0000t"')
 # Prevent malloc / free usage:
 coptions.add_define('MEM_METHOD', 'MEM_STATIC')
 
+# TODO: Hack to enable %f formatting:
+coptions.add_define('__x86_64__', '1')
+
 objs = []
 
 crt0_asm = os.path.join(linux64_folder, 'glue.asm')

@@ -62,6 +62,10 @@ bsp_syscall:
     mov rdi, rsi ; abi param 2
     mov rsi, rdx ; abi param 3
     mov rdx, rcx ; abi param 4
+    ; mov eax, edi ; abi param 1
+    ; mov edi, esi ; abi param 2
+    ; mov esi, edx ; abi param 3
+    ; mov edx, ecx ; abi param 4
     syscall
     ret
 """
@@ -81,7 +85,7 @@ module bsp;
 
 public function void putc(byte c)
 {
-    syscall(1, 1, cast<int>(&c), 1);
+    syscall(1, 1, cast<int64_t>(&c), 1);
 }
 
 public function void exit()
@@ -89,7 +93,7 @@ public function void exit()
     syscall(60, 0, 0, 0);
 }
 
-function void syscall(int nr, int a, int b, int c);
+function void syscall(int64_t nr, int64_t a, int64_t b, int64_t c);
 
 """
 

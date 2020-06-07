@@ -54,7 +54,7 @@ AddressRegister.registers = (
     a14,
     a15,
 )
-num_address_reg_map = {r.num:r for r in AddressRegister.registers}
+num_address_reg_map = {r.num: r for r in AddressRegister.registers}
 
 callee_save = (a12, a13, a14)
 caller_save = (a2, a3, a4, a5, a6, a7, a8, a9, a10, a11)
@@ -63,7 +63,7 @@ f0 = FloatRegister("f0", num=0)
 f1 = FloatRegister("f1", num=1)
 
 FloatRegister.registers = (f0, f1)
-num_float_reg_map = {r.num:r for r in FloatRegister.registers}
+num_float_reg_map = {r.num: r for r in FloatRegister.registers}
 
 register_classes = [
     RegisterClass(

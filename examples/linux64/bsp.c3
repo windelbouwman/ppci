@@ -2,7 +2,7 @@ module bsp;
 
 public function void putc(byte c)
 {
-  syscall(1, 1, cast<int>(&c), 1);
+  syscall(1, 1, cast<int64_t>(&c), 1);
 }
 
 public function void sleep(int ms)
@@ -11,7 +11,7 @@ public function void sleep(int ms)
     var struct { int seconds; int nanos; } delay;
     delay.seconds = 0;
     delay.nanos = ms * 1000000;
-    var int delay_addr = cast<int>(&delay);
+    var int64_t delay_addr = cast<int64_t>(&delay);
     syscall(35, delay_addr, 0, 0);
 }
 
@@ -32,5 +32,5 @@ public function bool get_key(int* key)
 // rsi is paramater 2
 // rdx is paramater 3
 // TODO: check return value:
-function void syscall(int nr, int a, int b, int c);
+function void syscall(int64_t nr, int64_t a, int64_t b, int64_t c);
 

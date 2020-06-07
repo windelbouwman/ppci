@@ -94,6 +94,7 @@ int printf(const char* txt, ...)
         char* s = va_arg(args, char*);
         puts(s);
       }
+#ifdef __x86_64__
       else if (*txt == 'f')
       {
         txt++;
@@ -102,6 +103,7 @@ int printf(const char* txt, ...)
         itoa((int)real, buffer, 10);
         puts(buffer);
       }
+#endif
       else
       {
         txt--;

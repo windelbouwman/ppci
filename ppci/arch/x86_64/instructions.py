@@ -2297,6 +2297,7 @@ def pattern_i32toi64(context, tree, c0):
 
 
 @isa.pattern("reg16", "U32TOU16(reg32)", size=4)
+@isa.pattern("reg16", "U32TOI16(reg32)", size=4)
 @isa.pattern("reg16", "I32TOU16(reg32)", size=4)
 @isa.pattern("reg16", "I32TOI16(reg32)", size=4)
 def pattern_i32toi16(context, tree, c0):

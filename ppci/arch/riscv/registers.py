@@ -111,7 +111,7 @@ MIE = RiscvCsrRegister("mie", num=0x304)
 MTVEC = RiscvCsrRegister("mtvec", num=0x305)
 MEPC = RiscvCsrRegister("mepc", num=0x341)
 MCAUSE = RiscvCsrRegister("mcause", num=0x342)
-MHARTID = RiscvCsrRegister("mhartid", num=0xf14)
+MHARTID = RiscvCsrRegister("mhartid", num=0xF14)
 FRM = RiscvCsrRegister("frm", num=0x2)
 
 registers = [

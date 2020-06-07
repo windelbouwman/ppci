@@ -1,4 +1,4 @@
-CC = python -m ppci cc
+CC = python -m ppci cc --html-report hello_report.html
 CFLAGS = -O1
 
 all: hello

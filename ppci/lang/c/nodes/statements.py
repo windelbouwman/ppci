@@ -9,6 +9,8 @@ from ...generic.nodes import Node
 class CStatement(Node):
     """ Base C statement """
 
+    __slots__ = ("location",)
+
     def __init__(self, location):
         self.location = location
 
@@ -27,6 +29,8 @@ class Compound(CStatement):
 
 class If(CStatement):
     """ If statement """
+
+    __slots__ = ("condition", "yes", "no")
 
     def __init__(self, condition, yes, no, location):
         super().__init__(location)
@@ -53,6 +57,8 @@ class Switch(CStatement):
 class While(CStatement):
     """ While statement """
 
+    __slots__ = ("condition", "body")
+
     def __init__(self, condition, body, location):
         super().__init__(location)
         self.condition = condition
@@ -65,6 +71,8 @@ class While(CStatement):
 class DoWhile(CStatement):
     """ Do-while statement """
 
+    __slots__ = ("condition", "body")
+
     def __init__(self, body, condition, location):
         super().__init__(location)
         self.condition = condition
@@ -76,6 +84,8 @@ class DoWhile(CStatement):
 
 class For(CStatement):
     """ For statement """
+
+    __slots__ = ("init", "condition", "post", "body")
 
     def __init__(self, init, condition, post, body, location):
         super().__init__(location)
@@ -157,6 +167,8 @@ class Label(CStatement):
 class Goto(CStatement):
     """ Goto statement """
 
+    __slots__ = ("label",)
+
     def __init__(self, label, location):
         super().__init__(location)
         self.label = label
@@ -167,6 +179,8 @@ class Goto(CStatement):
 
 class Return(CStatement):
     """ Return statement """
+
+    __slots__ = ("value",)
 
     def __init__(self, value, location):
         super().__init__(location)
@@ -186,6 +200,8 @@ class Empty(CStatement):
 class ExpressionStatement(CStatement):
     """ An expression used as a statment """
 
+    __slots__ = ("expression",)
+
     def __init__(self, expression):
         super().__init__(expression.location)
         self.expression = expression
@@ -196,6 +212,8 @@ class ExpressionStatement(CStatement):
 
 class DeclarationStatement(CStatement):
     """ A declaration """
+
+    __slots__ = ("declaration",)
 
     def __init__(self, declaration, location):
         super().__init__(location)

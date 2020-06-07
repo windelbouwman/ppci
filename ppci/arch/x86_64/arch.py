@@ -119,23 +119,41 @@ class X86_64Arch(Architecture):
 
     def __init__(self, options=None):
         super().__init__(options=options)
+        type_infos = {
+            ir.i8: TypeInfo(1, 1),
+            ir.u8: TypeInfo(1, 1),
+            ir.i16: TypeInfo(2, 2),
+            ir.u16: TypeInfo(2, 2),
+            ir.i32: TypeInfo(4, 4),
+            ir.u32: TypeInfo(4, 4),
+            ir.i64: TypeInfo(8, 8),
+            ir.u64: TypeInfo(8, 8),
+            ir.f32: TypeInfo(4, 4),
+            ir.f64: TypeInfo(8, 8),
+            ir.ptr: ir.u64,
+            "ptr": ir.u64,
+        }
+        # See:
+        # https://en.wikipedia.org/wiki/64-bit_computing#64-bit_data_models
+        data_model = "LP64"
+        # TODO: make this more flexibel!
+        if data_model == "ILP64":
+            # ILP64 mode: ppci mode :)
+            type_infos["int"] = ir.i64
+            type_infos["long"] = ir.i64
+        elif data_model == "LP64":
+            # LP64 mode: linux mode
+            type_infos["int"] = ir.i32
+            type_infos["long"] = ir.i64
+        elif data_model == "LLP64":
+            # LLP64 mode: windows mode
+            type_infos["int"] = ir.i32
+            type_infos["long"] = ir.i32
+        else:
+            raise ValueError("Unknown data model: {}".format(data_model))
+
         self.info = ArchInfo(
-            type_infos={
-                ir.i8: TypeInfo(1, 1),
-                ir.u8: TypeInfo(1, 1),
-                ir.i16: TypeInfo(2, 2),
-                ir.u16: TypeInfo(2, 2),
-                ir.i32: TypeInfo(4, 4),
-                ir.u32: TypeInfo(4, 4),
-                ir.i64: TypeInfo(8, 8),
-                ir.u64: TypeInfo(8, 8),
-                ir.f32: TypeInfo(4, 4),
-                ir.f64: TypeInfo(8, 8),
-                "int": ir.i64,
-                "ptr": ir.u64,
-                ir.ptr: ir.u64,
-            },
-            register_classes=register_classes,
+            type_infos=type_infos, register_classes=register_classes,
         )
 
         self.isa = isa + data_isa + sse1_isa + sse2_isa
@@ -630,6 +648,7 @@ class X86_64Arch(Architecture):
             if frame.is_used(reg, self.info.alias):
                 saved_registers.append(reg)
         return saved_registers
+
 
 def round_up16(s, already_taken):
     total = s + already_taken

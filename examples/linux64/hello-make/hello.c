@@ -1,7 +1,7 @@
 void puts(char *s);
 void putc(char c);
 void exit(int status);
-void syscall(int nr, int a, int b, int c);
+void syscall(long nr, long a, long b, long c);
 
 int main()
 {
@@ -22,7 +22,7 @@ void puts(char *s)
 
 void putc(char c)
 {
-    syscall(1, 1, (int)&c, 1);
+    syscall(1, 1, (long int)&c, 1);
 }
 
 void exit(int status)
@@ -30,7 +30,7 @@ void exit(int status)
     syscall(60, status, 0, 0);
 }
 
-void syscall(int nr, int a, int b, int c)
+void syscall(long nr, long a, long b, long c)
 {
     asm(
         "mov rax, %0 \n"

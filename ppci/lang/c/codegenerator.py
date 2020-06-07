@@ -37,6 +37,7 @@ class CCodeGenerator:
         int_types = {2: ir.i16, 4: ir.i32, 8: ir.i64}
         uint_types = {2: ir.i16, 4: ir.u32, 8: ir.u64}
         int_size = self.context.arch_info.get_size("int")
+        long_size = self.context.arch_info.get_size("long")
         self.ptr_size = self.context.arch_info.get_size("ptr")
         self.ir_type_map = {
             BasicType.CHAR: (ir.i8, 1),
@@ -45,8 +46,8 @@ class CCodeGenerator:
             BasicType.USHORT: (ir.u16, 2),
             BasicType.INT: (int_types[int_size], int_size),
             BasicType.UINT: (uint_types[int_size], int_size),
-            BasicType.LONG: (ir.i32, 4),
-            BasicType.ULONG: (ir.u32, 4),
+            BasicType.LONG: (int_types[long_size], long_size),
+            BasicType.ULONG: (uint_types[long_size], long_size),
             BasicType.LONGLONG: (ir.i64, 8),
             BasicType.ULONGLONG: (ir.u64, 8),
             BasicType.FLOAT: (ir.f32, 4),

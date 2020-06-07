@@ -25,6 +25,7 @@ class Mcs6500Arch(Architecture):
                 ir.i16: TypeInfo(2, 2),
                 ir.u16: TypeInfo(2, 2),
                 "int": ir.i16,
+                "long": ir.i32,
                 "ptr": ir.u16,
             },
             register_classes=registers.register_classes,

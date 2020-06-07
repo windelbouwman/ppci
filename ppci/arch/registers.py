@@ -31,11 +31,11 @@ class Register:
             if self.is_colored:
                 reg = self.from_num(self.color)
             else:
-                reg = '-'
-            return '{}[{}]'.format(self.name, reg)
+                reg = "-"
+            return "{}[{}]".format(self.name, reg)
         else:
             return self.name
-    
+
     def __str__(self):
         if self._num is None:
             if self.is_colored:

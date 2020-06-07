@@ -80,7 +80,7 @@ class CodePageTestCase(unittest.TestCase):
     def test_jit_example(self):
         """ Test loading of C code from jit example """
         source = io.StringIO("""
-        int x(int* a, int* b, int count) {
+        int mega_complex_stuff(int* a, int* b, int count) {
           int sum = 0;
           int i;
           for (i=0; i < count; i++)
@@ -94,15 +94,13 @@ class CodePageTestCase(unittest.TestCase):
             obj = cc(source, arch, debug=True, reporter=reporter)
         m = load_obj(obj)
         # print(m.x.argtypes)
-        T = ctypes.c_int * 6
+        count = 6
+        T = ctypes.c_int * count
         a = T()
-        # TODO: integers in ctypes are 32 bit, they are 64 bit in ppci?
         a[:] = 1, 0, 2, 0, 3, 0
-        # ap = ctypes.cast(a, ctypes.POINTER(ctypes.c_long))
         b = T()
         b[:] = 5, 0, 4, 0, 9, 0
-        # bp = ctypes.cast(b, ctypes.POINTER(ctypes.c_long))
-        y = m.x(a, b, 3)
+        y = m.mega_complex_stuff(a, b, count)
         self.assertEqual(40, y)
 
 

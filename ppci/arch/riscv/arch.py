@@ -111,6 +111,7 @@ class RiscvArch(Architecture):
                 ir.f32: TypeInfo(4, 4),
                 ir.f64: TypeInfo(4, 4),
                 "int": ir.i32,
+                "long": ir.i32,
                 "ptr": ir.u32,
                 ir.ptr: ir.u32,
             },

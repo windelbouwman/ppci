@@ -593,8 +593,9 @@ class CSemantics:
         input_operands2 = []
         for constraint, asm_input_expr in input_operands:
             if constraint == "r":
+                # TODO: how to determine what type to cast to?
                 asm_input_expr = self.coerce(
-                    asm_input_expr, self.get_type(["int"])
+                    asm_input_expr, self.get_type(["long"])
                 )
             else:
                 raise NotImplementedError(

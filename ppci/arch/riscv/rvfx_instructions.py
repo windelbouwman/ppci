@@ -56,9 +56,6 @@ FDiv = make_fregfregfreg("fdiv", 0b111, 0b0001100)
 FSgnjn = make_fregfregfreg("fsgnjn", 0b001, 0b0010000)
 
 
-
-
-
 def negf(dst, src):
     """ Move src into dst register """
     return FSgnjn(dst, src, src)
@@ -118,10 +115,6 @@ class Fcvtwus(RiscvInstruction):
         "rs2": 0b00001,
         "funct7": 0b1100000,
     }
-
-
-
-
 
 
 def make_fcmp(mnemonic, func3, invert):

@@ -34,7 +34,7 @@ obj_py = ir_to_object([mod], 'x86_64')
 c_glue = """
 
 void mandelbrot();
-void syscall(int nr, int a, int b, int c);
+void syscall(long nr, long a, long b, long c);
 void exit(int status);
 void putc(char c);
 void puts(char *s);
@@ -57,7 +57,7 @@ void puts(char *s)
 
 void putc(char c)
 {
-    syscall(1, 1, (int)&c, 1);
+    syscall(1, 1, (long)&c, 1);
 }
 
 void exit(int status)
@@ -65,7 +65,7 @@ void exit(int status)
     syscall(60, status, 0, 0);
 }
 
-void syscall(int nr, int a, int b, int c)
+void syscall(long nr, long a, long b, long c)
 {
     asm(
         "mov rax, %0 \n"

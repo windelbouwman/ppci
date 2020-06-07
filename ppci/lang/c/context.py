@@ -30,10 +30,12 @@ class CContext:
         # Grab integer size from arch info:
         int_size = self.arch_info.get_size("int")
         int_alignment = self.arch_info.get_alignment("int")
+        long_size = self.arch_info.get_size("long")
+        long_alignment = self.arch_info.get_alignment("long")
 
         # C requires sizeof(int) <= sizeof(long):
-        long_size = max(int_size, 4)
-        long_alignment = max(int_alignment, 4)
+        long_size = max(int_size, long_size)
+        long_alignment = max(int_alignment, long_alignment)
         longlong_size = max(int_size, 8)
         longlong_alignment = max(int_alignment, 8)
 
@@ -76,8 +78,8 @@ class CContext:
             BasicType.INT: int_map[int_size].lower(),
             BasicType.UINT: int_map[int_size].upper(),
             "ptr": int_map[ptr_size].upper(),
-            BasicType.LONG: "l",
-            BasicType.ULONG: "L",
+            BasicType.LONG: int_map[long_size].lower(),
+            BasicType.ULONG: int_map[long_size].upper(),
             BasicType.LONGLONG: "q",
             BasicType.ULONGLONG: "Q",
             BasicType.FLOAT: "f",

@@ -59,6 +59,7 @@ class WasmArchitecture(VirtualMachineArchitecture):
                 ir.f32: TypeInfo(4, 1),
                 ir.f64: TypeInfo(8, 1),
                 "int": ir.i32,
+                "long": ir.i32,
                 "ptr": ir.i32,
             },
             register_classes=register_classes,

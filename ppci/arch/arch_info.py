@@ -101,9 +101,9 @@ class ArchInfo:
                     for r2 in dfs_alias(register):
                         alias[register].add(r2)
                         alias[r2].add(register)
-        
+
         self.alias = dict(alias)
-    
+
 
 def dfs_alias(register):
     """ Do a depth first search on the aliases member.

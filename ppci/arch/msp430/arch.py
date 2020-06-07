@@ -55,6 +55,7 @@ class Msp430Arch(Architecture):
                 ir.f32: TypeInfo(4, 4),
                 ir.f64: TypeInfo(8, 8),
                 "int": ir.i16,
+                "long": ir.i32,
                 "ptr": ir.u16,
                 ir.ptr: ir.u16,
             },
