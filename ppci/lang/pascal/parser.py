@@ -289,7 +289,9 @@ class Parser(RecursiveDescentParser):
     def parse_array_type_definition(self, packed):
         location = self.consume("array").loc
         if self.has_consumed("["):
-            array_dimensions = self.parse_one_or_more(self.parse_ordinal_type, ',')
+            array_dimensions = self.parse_one_or_more(
+                self.parse_ordinal_type, ","
+            )
             self.consume("]")
         else:
             self.error("Expected array size definition")

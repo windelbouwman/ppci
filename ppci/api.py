@@ -530,8 +530,7 @@ def objcopy(obj: ObjectFile, image_name: str, fmt: str, output_filename):
             write_elf(obj, output_file, type=elf_type)
 
         if elf_type == "executable":
-            status = os.stat(output_filename)
-            os.chmod(output_filename, status.st_mode | stat.S_IEXEC)
+            chmod_x(output_filename)
 
     elif fmt == "hex":
         image = obj.get_image(image_name)
@@ -564,3 +563,9 @@ def objcopy(obj: ObjectFile, image_name: str, fmt: str, output_filename):
             writer.write(obj, output_file)
     else:  # pragma: no cover
         raise NotImplementedError("output format not implemented")
+
+
+def chmod_x(filename):
+    """ Perform sort of chmod +x on filename. """
+    status = os.stat(filename)
+    os.chmod(filename, status.st_mode | stat.S_IEXEC)

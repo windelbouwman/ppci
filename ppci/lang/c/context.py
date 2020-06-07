@@ -26,10 +26,17 @@ class CContext:
 
         self._field_offsets = {}
         self._enum_values = {}
+
+        # Grab integer size from arch info:
         int_size = self.arch_info.get_size("int")
         int_alignment = self.arch_info.get_alignment("int")
+
+        # C requires sizeof(int) <= sizeof(long):
         long_size = max(int_size, 4)
         long_alignment = max(int_alignment, 4)
+        longlong_size = max(int_size, 8)
+        longlong_alignment = max(int_alignment, 8)
+
         ptr_size = self.arch_info.get_size("ptr")
         double_size = self.arch_info.get_size(ir.f64)
         double_alignment = self.arch_info.get_alignment(ir.f64)
@@ -42,8 +49,8 @@ class CContext:
             BasicType.UINT: (int_size, int_alignment),
             BasicType.LONG: (long_size, long_alignment),
             BasicType.ULONG: (long_size, long_alignment),
-            BasicType.LONGLONG: (8, 8),
-            BasicType.ULONGLONG: (8, 8),
+            BasicType.LONGLONG: (longlong_size, longlong_alignment),
+            BasicType.ULONGLONG: (longlong_size, longlong_alignment),
             BasicType.FLOAT: (4, 4),
             BasicType.DOUBLE: (double_size, double_alignment),
             BasicType.LONGDOUBLE: (10, 10),

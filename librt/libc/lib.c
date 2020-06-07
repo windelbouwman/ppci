@@ -58,6 +58,11 @@ char* itoa(int value, char* str, int base)
   return str;
 }
 
+static void puts(char* s)
+{
+  while (*s) bsp_putc(*s++);
+}
+
 // Variadic argument function!
 int printf(const char* txt, ...)
 {
@@ -75,13 +80,27 @@ int printf(const char* txt, ...)
         txt++;
         int v = va_arg(args, int);
         itoa(v, buffer, 10);
-        printf(buffer);
+        puts(buffer);
       }
       else if (*txt == 'c')
       {
         txt++;
         char c = va_arg(args, char);
         bsp_putc(c);
+      }
+      else if (*txt == 's')
+      {
+        txt++;
+        char* s = va_arg(args, char*);
+        puts(s);
+      }
+      else if (*txt == 'f')
+      {
+        txt++;
+        double real = va_arg(args, double);
+        // TODO: ugh, float formatting?
+        itoa((int)real, buffer, 10);
+        puts(buffer);
       }
       else
       {

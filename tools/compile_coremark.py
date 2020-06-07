@@ -8,7 +8,7 @@ https://github.com/eembc/coremark
 import glob
 import os
 import io
-from ppci import api
+from ppci import api, __version__ as ppci_version
 from ppci.lang.c import COptions
 from ppci.common import CompilerError
 from ppci.format.elf import write_elf
@@ -51,12 +51,19 @@ coptions = COptions()
 coptions.add_include_path(core_mark_folder)
 coptions.add_include_path(port_folder)
 coptions.add_include_path(libc_folder)
+coptions.add_define('COMPILER_VERSION', '"ppci {}"'.format(ppci_version))
 coptions.add_define('FLAGS_STR', '"-w0000t"')
+
+# Prevent malloc / free usage:
+coptions.add_define('MEM_METHOD', 'MEM_STATIC')
 
 objs = []
 
-objs.append(api.asm(os.path.join(linux64_folder, 'glue.asm'), march))
-objs.append(api.c3c([os.path.join(linux64_folder, 'bsp.c3')], [], march))
+crt0_asm = os.path.join(linux64_folder, 'glue.asm')
+crt0_c3 = os.path.join(linux64_folder, 'bsp.c3')
+linker_script = os.path.join(linux64_folder, 'linux64.mmap')
+objs.append(api.asm(crt0_asm, march))
+objs.append(api.c3c([crt0_c3], [], march))
 objs.append(api.cc(io.StringIO(hacked_libc_extras), march, coptions=coptions))
 
 sources = list(glob.glob(os.path.join(core_mark_folder, '*.c')))
@@ -76,7 +83,10 @@ for source_file in sources:
 
 print(objs)
 
-full_obj = api.link(objs)
+full_obj = api.link(objs, layout=linker_script)
 
-with open('coremark.elf', 'wb') as f:
+exe_filename = 'coremark.elf'
+with open(exe_filename, 'wb') as f:
     write_elf(full_obj, f)
+
+api.chmod_x(exe_filename)
