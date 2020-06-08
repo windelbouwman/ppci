@@ -56,13 +56,16 @@ def link(args=None):
     """ Run linker from command line """
     args = parser.parse_args(args)
     relocatable = args.relocatable
+    print("lib=%s" % args.library)
     with LogSetup(args):
+        # TSF linker library issue: add libraries arg
         obj = api.link(
             args.obj,
             layout=args.layout,
             debug=args.g,
             partial_link=relocatable,
             entry=args.entry,
+            libraries=args.library,
         )
         if relocatable:
             with open(args.output, "w") as output:
