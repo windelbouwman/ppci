@@ -7,8 +7,11 @@ Release 1.0 (Planned)
 
 * platform.python_compiler() returns 'ppci 1.0'
 
-Release 0.5.8 (Upcoming)
+Release 0.5.9 (Upcoming)
 ------------------------
+
+Release 0.5.8 (Jun 8, 2020)
+---------------------------
 
 * Add inline asm support to C frontend.
 * Work on pascal frontend
