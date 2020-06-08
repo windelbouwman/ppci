@@ -320,7 +320,10 @@ class CSemantics:
         old_storage_class = sym.declaration.storage_class
         new_storage_class = declaration.storage_class
         # None == automatic storage class.
-        invalid_combos = [(None, "static"), ("extern", "static")]
+        # changes of linkage between internal and external are illegal
+        invalid_combos = [(None, "static"),
+                          ("extern", "static"),
+                          ("static", None)]
         combo = (old_storage_class, new_storage_class)
         if combo in invalid_combos:
             message = "Invalid redefine of storage class. Was {}, but now {}".format(
@@ -328,9 +331,10 @@ class CSemantics:
             )
             self.invalid_redeclaration(sym, declaration, message)
 
-        if not declaration.storage_class:
-            if sym.declaration.storage_class:
-                declaration.storage_class = sym.declaration.storage_class
+        # if new storage-class is "extern", keep the old storage-class
+        # otherwise use the new one
+        if new_storage_class == "extern":
+            declaration.storage_class = old_storage_class
 
     def invalid_redeclaration(
         self, sym, declaration, message="Invalid redefinition"
