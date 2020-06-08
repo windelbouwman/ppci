@@ -14,6 +14,7 @@ Release 0.5.8 (Upcoming)
 * Work on pascal frontend
 * Add initial support for relocatable ELF file
 * Add initial command to run wasm files directly
+* CoreMark benchmark can be compiled and run
 
 Release 0.5.7 (Dec 31, 2019)
 ----------------------------

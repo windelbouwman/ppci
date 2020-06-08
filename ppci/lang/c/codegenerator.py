@@ -931,15 +931,15 @@ class CCodeGenerator:
         self.gen_condition(expr, yes_block, no_block)
 
         self.builder.set_block(yes_block)
-        ir_typ = self.get_ir_type(expr.typ)
-        yes_value = self.builder.emit_const(1, ir_typ)
+        yes_value = self.emit_const(1, expr.typ)
         self.builder.emit_jump(end_block)
 
         self.builder.set_block(no_block)
-        no_value = self.builder.emit_const(0, ir_typ)
+        no_value = self.emit_const(0, expr.typ)
         self.builder.emit_jump(end_block)
 
         self.builder.set_block(end_block)
+        ir_typ = self.get_ir_type(expr.typ)
         value = self.emit(ir.Phi("phi", ir_typ))
         value.set_incoming(yes_block, yes_value)
         value.set_incoming(no_block, no_value)

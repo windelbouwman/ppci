@@ -671,9 +671,9 @@ class CSemantics:
         rhs = self.pointer(rhs)
 
         if op in ["||", "&&"]:
-            result_typ = self.get_type(["int"])
-            lhs = self.coerce(lhs, result_typ)
-            rhs = self.coerce(rhs, result_typ)
+            lhs = self.check_condition(lhs)
+            rhs = self.check_condition(rhs)
+            result_typ = self.int_type
         elif op in [
             "=",
             "+=",
@@ -747,8 +747,7 @@ class CSemantics:
         elif op == "&":
             expr = self.on_take_address(a, location)
         elif op == "!":
-            a = self.pointer(a)
-            a = self.coerce(a, self.int_type)
+            a = self.check_condition(a)
             expr = expressions.UnaryOperator(
                 op, a, self.int_type, False, location
             )
