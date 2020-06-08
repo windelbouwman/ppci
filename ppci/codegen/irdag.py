@@ -473,6 +473,13 @@ class SelectionGraphBuilder:
             sgnode = self.new_node(op, node.ty, a)
             self.add_map(node, sgnode.new_output(node.name))
 
+    def do_undefined(self, node):
+        """ Create node for undefined value. """
+        op = "UND"
+        sgnode = self.new_node(op, node.ty)
+        self.debug_db.map(node, sgnode)
+        self.add_map(node, sgnode.new_output(node.name))
+
     def _prep_call_arguments(self, node):
         """ Prepare call arguments into proper locations """
         # This is the moment to move all parameters to new temp registers.

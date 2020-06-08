@@ -85,6 +85,8 @@ class Register:
 
 
 class RegisterClass:
+    __slots__ = ('name', 'ir_types', 'typ', 'registers')
+
     def __init__(self, name, ir_types, typ, registers):
         self.name = name
         self.ir_types = ir_types

@@ -38,6 +38,15 @@ def is_double(typ):
     return isinstance(typ, BasicType) and typ.type_id == BasicType.DOUBLE
 
 
+def is_promotable(typ):
+    """ Check if this type is of small integer type and can be promoted.
+    """
+    return (
+        isinstance(typ, BasicType)
+        and typ.type_id in BasicType.PROMOTABLE_INTEGER_TYPES
+    )
+
+
 def is_float(typ):
     """ Check if the given type is float """
     return isinstance(typ, BasicType) and typ.type_id == BasicType.FLOAT
@@ -111,6 +120,10 @@ class CType:
     def is_integer(self):
         """ Check if this type is an integer type """
         return is_integer(self)
+
+    @property
+    def is_promotable(self):
+        return is_promotable(self)
 
     @property
     def is_signed(self):
@@ -351,6 +364,8 @@ class BasicType(CType):
     SIGNED_INTEGER_TYPES = {CHAR, SHORT, INT, LONG, LONGLONG}
 
     UNSIGNED_INTEGER_TYPES = {UCHAR, USHORT, UINT, ULONG, ULONGLONG}
+
+    PROMOTABLE_INTEGER_TYPES = {CHAR, UCHAR, SHORT, USHORT}
 
     INTEGER_TYPES = SIGNED_INTEGER_TYPES | UNSIGNED_INTEGER_TYPES
 

@@ -932,6 +932,7 @@ class CSemantics:
         if num_given > num_expected:
             for argument in arguments[num_expected:]:
                 argument = self.pointer(argument)
+                argument = self.promote(argument)
                 coerced_arguments.append(argument)
 
         # Determine lvalue. If we return a struct, we return an lvalue.
@@ -1040,6 +1041,17 @@ class CSemantics:
         else:
             conversion = expr
         return conversion
+
+    def promote(self, expr):
+        """ Perform integer promotion on expression.
+
+        Integer promotion happens when using char and short
+        types in expressions. Those values are promoted
+        to int type before performing the operation.
+        """
+        if expr.typ.is_promotable:
+            expr = self.coerce(expr, self.int_type)
+        return expr
 
     def get_type(self, type_specifiers):
         """ Retrieve a type by type specifiers """

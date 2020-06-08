@@ -171,9 +171,17 @@ class Verifier:
             assert self.instruction_dominates(
                 value, instruction
             ), "{} does not dominate {}".format(value, instruction)
+
             # Check that a value is not undefined:
             if isinstance(value, ir.Undefined):
-                raise IrFormError("{} is used".format(value))
+                self.logger.warning(
+                    "Undefined value '{}' is used".format(value)
+                )
+                # TODO: usage of undefined data is not good
+                # raise error or warning here?
+                # To enable compilation with optimization, this occurs
+                # frequently in the case of many c programs.
+                # raise IrFormError("{} is used".format(value))
 
     def verify_subroutine_call(self, instruction):
         """ Check some properties of a function call """

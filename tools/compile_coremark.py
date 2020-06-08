@@ -77,8 +77,9 @@ for source_file in sources:
     print(source_file)
     try:
         with open(source_file, 'r') as f:
-            obj = api.cc(f, march, coptions=coptions)
+            obj = api.cc(f, march, coptions=coptions, opt_level=2)
     except CompilerError as ex:
+        print('ERROR!')
         print(ex)
         ex.print()
     else:

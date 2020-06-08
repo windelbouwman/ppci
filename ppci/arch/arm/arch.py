@@ -40,7 +40,7 @@ class ArmArch(Architecture):
             # Registers usable by register allocator:
             register_classes = [
                 RegisterClass(
-                    "loreg",
+                    "reg",
                     [ir.i8, ir.i32, ir.ptr, ir.u8, ir.u32, ir.i16, ir.u16],
                     LowArmRegister,
                     [R0, R1, R2, R3, R4, R5, R6, R7],

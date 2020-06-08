@@ -83,6 +83,7 @@ ops = [
     "INV",  # Unary operations
     "MOV",
     "REG",
+    "UND",  # Undefined value
     "LDR",
     "STR",
     "CONST",  # Data
@@ -266,6 +267,9 @@ class InstructionSelector1:
         self.sys.add_rule("stm", Tree("CALL"), 0, None, self.call_function)
         self.sys.add_rule("stm", Tree("ASM"), 0, None, self.inline_asm)
 
+        # Add undefined value for register classes:
+        self._create_undefined_rules()
+
         # Add all isa patterns:
         for pattern in arch.isa.patterns:
             cost = (
@@ -283,6 +287,36 @@ class InstructionSelector1:
 
         self.sys.check()
         self.tree_selector = TreeSelector(self.sys)
+
+    def _create_undefined_rules(self):
+        """ Create rules for undefined values based on register classes.
+        """
+        und_map = {}
+        for register_class in self.arch.info.register_classes:
+            for ir_typ in register_class.ir_types:
+                if ir_typ in ir.value_types:
+                    und_map[ir_typ] = (register_class.name, register_class.typ)
+
+        for ir_typ, info in und_map.items():
+            reg_class_name, reg_class = info
+            self._mk_undefined_rule(reg_class_name, reg_class, ir_typ)
+
+    def _mk_undefined_rule(self, reg_class_name, reg_class, ir_ty):
+        """ Create rule for undefined value.
+
+        For example, create UNDU16 which defines
+        a 16 bits registers and returns it.
+        """
+        suffix = ir_ty.name.upper()
+
+        def und_pattern(context, tree):
+            r = context.new_reg(reg_class)
+            context.emit(RegisterUseDef(defs=(r,)))
+            return r
+
+        self.sys.add_rule(
+            reg_class_name, Tree("UND{}".format(suffix)), 0, None, und_pattern
+        )
 
     def call_function(self, context, tree):
         label, args, rv = tree.value
