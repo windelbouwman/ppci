@@ -122,7 +122,9 @@ int printf(const char* txt, ...)
       else if (*txt == 'c')
       {
         txt++;
-        char c = va_arg(args, char);
+        // TODO: how to grab a character from varargs?
+        // during calling, it is promoted to integer!
+        char c = va_arg(args, int);
         bsp_putc(c);
       }
       else if (*txt == 's')

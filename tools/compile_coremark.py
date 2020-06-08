@@ -46,13 +46,14 @@ port_folder = os.path.join(core_mark_folder, 'linux64')
 libc_folder = os.path.join(this_dir, "..", "librt", "libc")
 linux64_folder = os.path.join(this_dir, '..', 'examples', 'linux64')
 
+opt_level = 2
 march = api.get_arch('x86_64')
 coptions = COptions()
 coptions.add_include_path(core_mark_folder)
 coptions.add_include_path(port_folder)
 coptions.add_include_path(libc_folder)
 coptions.add_define('COMPILER_VERSION', '"ppci {}"'.format(ppci_version))
-coptions.add_define('FLAGS_STR', '"-w0000t"')
+coptions.add_define('FLAGS_STR', '"-O{}"'.format(opt_level))
 
 # Prevent malloc / free usage:
 coptions.add_define('MEM_METHOD', 'MEM_STATIC')
@@ -77,7 +78,7 @@ for source_file in sources:
     print(source_file)
     try:
         with open(source_file, 'r') as f:
-            obj = api.cc(f, march, coptions=coptions, opt_level=2)
+            obj = api.cc(f, march, coptions=coptions, opt_level=opt_level)
     except CompilerError as ex:
         print('ERROR!')
         print(ex)

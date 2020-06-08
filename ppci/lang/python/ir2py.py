@@ -405,6 +405,8 @@ class IrToPythonCompiler:
         elif isinstance(ins, ir.Exit):
             self.reset_stack()
             self.emit("return")
+        elif isinstance(ins, ir.Undefined):
+            self.emit("{} = 0".format(ins.name))
         else:  # pragma: no cover
             self.emit("not implemented: {}".format(ins))
             raise NotImplementedError(str(type(ins)))

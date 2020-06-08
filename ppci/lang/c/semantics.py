@@ -512,9 +512,15 @@ class CSemantics:
         """ Helper to emit a statement into the current block. """
         self.compounds[-1].append(statement)
 
+    def check_condition(self, condition):
+        condition = self.pointer(condition)
+        if not condition.typ.is_integer:
+            condition = self.coerce(condition, self.get_type(["int"]))
+        return condition
+
     def on_if(self, condition, then_statement, no, location):
         """ Check if statement """
-        condition = self.coerce(condition, self.get_type(["int"]))
+        condition = self.check_condition(condition)
         return statements.If(condition, then_statement, no, location)
 
     def on_switch_enter(self, expression):
@@ -548,18 +554,18 @@ class CSemantics:
 
     def on_while(self, condition, body, location):
         """ Handle the while statement """
-        condition = self.coerce(condition, self.get_type(["int"]))
+        condition = self.check_condition(condition)
         return statements.While(condition, body, location)
 
     def on_do(self, body, condition, location):
         """ The almost extinct dodo! """
-        condition = self.coerce(condition, self.get_type(["int"]))
+        condition = self.check_condition(condition)
         return statements.DoWhile(body, condition, location)
 
     def on_for(self, initial, condition, post, body, location):
         """ Check for loop construction """
         if condition:
-            condition = self.coerce(condition, self.get_type(["int"]))
+            condition = self.check_condition(condition)
         return statements.For(initial, condition, post, body, location)
 
     def on_return(self, value, location):
