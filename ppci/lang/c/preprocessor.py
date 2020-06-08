@@ -23,6 +23,7 @@ from ...common import CompilerError
 from .lexer import CLexer, CToken, lex_text, SourceFile
 from .utils import cnum, charval, replace_escape_codes, LineInfo
 from .macro import Macro, FunctionMacro
+from .nodes import types, expressions
 
 
 class CPreProcessor:
@@ -36,6 +37,7 @@ class CPreProcessor:
         self.macros = {}  # A mapping of macros
         self.files = []  # Stack of included files.
         self.counter = 0  # For the __COUNTER__ macro
+        self._int_type = types.BasicType(types.BasicType.INT)
 
         self.predefine_builtin_macros()
 
@@ -426,53 +428,97 @@ class CPreProcessor:
 
     def gatherargs(self, macro):
         """ Collect expanded arguments for macro """
+        args, commas = self.parse_arguments()
+
+        # Check amount of arguments:
+        if macro.variadic:
+            # macro.variadic, len(macro.args)
+            req_args = len(macro.args)
+            if len(args) < req_args:
+                self.error(
+                    "Macro {} got {} arguments ({})"
+                    ", but required at least {}".format(
+                        macro.name, len(args), args, req_args
+                    )
+                )
+
+            # Split args:
+            args, va_args_args = args[:req_args], args[req_args:]
+
+            # Flatten comma's and arguments into single token sequence:
+            va_args = []
+            if va_args_args:
+                va_args_commas = [None] + commas[req_args:]
+                assert len(va_args_commas) == len(va_args_args)
+                for comma, part in zip(va_args_commas, va_args_args):
+                    if comma:
+                        va_args.append(comma)
+                    va_args.extend(part)
+
+            # Append va_args as the last argument
+            args.append(va_args)
+        else:
+            # Fixed parameter count macro.
+            if len(macro.args) > 0:
+                if len(args) != len(macro.args):
+                    self.error(
+                        "Macro {} got {} arguments, but expected {}".format(
+                            macro.name, len(args), len(macro.args)
+                        )
+                    )
+            else:
+                assert len(args) > 0
+                if args[0] or len(args) > 1:
+                    self.error(
+                        "Macro {} got unexpected arguments".format(macro.name)
+                    )
+                args = []
+
+        self.normalize_space(args)
+        return args
+
+    def normalize_space(self, args):
+        """ Normalize spaces in macro expansions.
+
+        If we have space, it will be a single space.
+        """
+        for arg in args:
+            for token in arg:
+                if token.space:
+                    token.space = " "
+
+    def parse_arguments(self):
+        """ Parse arguments for a function like macro.
+
+        - Keep track of parenthesis level.
+        """
         args = []
-        parens = 1
+        commas = []
+        parens = 1  # We already parsed the opening '('
         arg = []
 
         while parens > 0:
             token = self.next_token(expand=False)
+
+            # Keep track of parenthesis level:
             if token.typ == "(":
                 parens += 1
-
-            if token.typ == ")":
+            elif token.typ == ")":
                 parens -= 1
 
-            if (token.typ == "," and parens == 1) or (parens == 0):
-                if (
-                    token.typ == ","
-                    and macro.variadic
-                    and len(args) == len(macro.args)
-                ):
-                    arg.append(token)
-                else:
-                    # We have a complete argument, add it to the list:
-                    if arg:
-                        # TODO: implement a better check?
-                        # This condition occurs when we have ',,'
-                        args.append(arg)
-                    arg = []
+            if parens == 0:
+                args.append(arg)
+            elif token.typ == "," and parens == 1:
+                # We have a complete argument, add it to the list:
+                args.append(arg)
+                arg = []
+                # Add comma token to the list:
+                commas.append(token)
             else:
                 arg.append(token)
 
-        # Check amount of arguments:
-        if macro.variadic:
-            if len(args) != len(macro.args) + 1:
-                self.error(
-                    "Got {} arguments ({})"
-                    ", but required at least {}".format(
-                        len(args), args, len(macro.args) + 1
-                    )
-                )
-        else:
-            if len(args) != len(macro.args):
-                self.error(
-                    "Got {} arguments ({}), but expected {}".format(
-                        len(args), args, len(macro.args)
-                    )
-                )
-
-        return args
+        assert len(args) == len(commas) + 1
+        return args, commas
 
     def expand_token_sequence(self, tokens):
         """ Macro expand a sequence of tokens. """
@@ -553,8 +599,21 @@ class CPreProcessor:
         return new_line
 
     def stringify(self, hash_token, snippet, loc):
-        """ Handle the '#' stringify operator """
-        string_value = '"{}"'.format("".join(map(str, snippet)))
+        """ Handle the '#' stringify operator.
+
+        Take care of:
+        - single space between the tokens being stringified
+        - no spaces before first and after last token
+        - escape double quotes of strings and backslash inside strings.
+        """
+
+        def escape(t):
+            if t.typ in ["STRING", "CHAR"]:
+                return t.val.replace("\\", "\\\\").replace('"', '\\"')
+            else:
+                return t.val
+
+        string_value = '"{}"'.format(" ".join(map(escape, snippet)))
         return CToken("STRING", string_value, hash_token.space, False, loc)
 
     def concat(self, lhs, rhs):
@@ -933,14 +992,14 @@ class CPreProcessor:
         """
         token = self.consume()
 
-        if token.typ == "!":
-            lhs = Unop("!", self.parse_expression(11))
-        elif token.typ == "-":
-            lhs = Unop("-", self.parse_expression(11))
+        if token.typ in ["!", "-", "~"]:
+            op = token.typ
+            a = self.parse_expression(11)
+            lhs = expressions.UnaryOperator(
+                op, a, self._int_type, True, token.loc
+            )
         elif token.typ == "+":
             lhs = self.parse_expression(11)
-        elif token.typ == "~":
-            lhs = Unop("~", self.parse_expression(11))
         elif token.typ == "(":
             self.files[-1].paren_level += 1
             lhs = self.parse_expression()
@@ -962,15 +1021,15 @@ class CPreProcessor:
                 if self.verbose:
                     self.logger.warning('Attention: undefined "%s"', name)
                 lhs = 0
-            lhs = Const(lhs)
+            lhs = expressions.NumericLiteral(lhs, self._int_type, token.loc)
         elif token.typ == "NUMBER":
             lhs, _ = cnum(token.val)
             # TODO: check type specifier?
-            lhs = Const(lhs)
+            lhs = expressions.NumericLiteral(lhs, self._int_type, token.loc)
         elif token.typ == "CHAR":
             lhs, _ = charval(replace_escape_codes(token.val))
             # TODO: check type specifier?
-            lhs = Const(lhs)
+            lhs = expressions.NumericLiteral(lhs, self._int_type, token.loc)
         else:
             raise NotImplementedError(token.val)
 
@@ -985,16 +1044,8 @@ class CPreProcessor:
             op = token.typ
 
             # Determine if the operator has a low enough priority:
-            if op in self.OP_MAP:
-                op_prio, right_associative = self.OP_MAP[op][:2]
-                left_associative = not right_associative
-                if left_associative and (op_prio >= priority):
-                    pass
-                elif right_associative and (op_prio > priority):
-                    pass
-                else:
-                    self.unget_token(token)
-                    break
+            if self._binop_take(op, priority):
+                op_prio = self.OP_MAP[op][0]
             else:
                 self.unget_token(token)
                 break
@@ -1012,9 +1063,13 @@ class CPreProcessor:
             if op in self.OP_MAP:
                 func = self.OP_MAP[op][2]
                 if func:
-                    lhs = Binop(lhs, op, rhs)
+                    lhs = expressions.BinaryOperator(
+                        lhs, op, rhs, self._int_type, True, token.loc
+                    )
                 elif op == "?":
-                    lhs = Ternop(lhs, middle, rhs)
+                    lhs = expressions.TernaryOperator(
+                        lhs, op, middle, rhs, self._int_type, True, token.loc
+                    )
                     # middle if lhs != 0 else rhs
                 else:  # pragma: no cover
                     raise NotImplementedError(op)
@@ -1023,11 +1078,23 @@ class CPreProcessor:
 
         return lhs
 
+    def _binop_take(self, op, priority: int) -> bool:
+        """ Test if we must take the next operator. """
+        if op in self.OP_MAP:
+            op_prio, right_associative = self.OP_MAP[op][:2]
+            left_associative = not right_associative
+            if left_associative:
+                return op_prio > priority
+            else:
+                return op_prio >= priority
+        else:
+            return False
+
     def _eval_tree(self, expr):
         """ Evaluate a parsed tree """
-        if isinstance(expr, Const):
+        if isinstance(expr, expressions.NumericLiteral):
             value = expr.value
-        elif isinstance(expr, Unop):
+        elif isinstance(expr, expressions.UnaryOperator):
             value = self._eval_tree(expr.a)
             if expr.op == "!":
                 value = int(not bool(value))
@@ -1037,21 +1104,23 @@ class CPreProcessor:
                 value = ~value
             else:  # pragma: no cover
                 raise NotImplementedError(expr.op)
-        elif isinstance(expr, Binop):
+        elif isinstance(expr, expressions.BinaryOperator):
             if expr.op == "||":
                 # Short circuit logic:
                 value = self._eval_tree(expr.a)
                 if not value:
                     value = self._eval_tree(expr.b)
+                value = int(bool(value))
             elif expr.op == "&&":
                 # Short circuit logic:
                 value = self._eval_tree(expr.a)
                 if value:
                     value = self._eval_tree(expr.b)
+                value = int(bool(value))
             else:
                 func = self.OP_MAP[expr.op][2]
                 value = func(self._eval_tree(expr.a), self._eval_tree(expr.b))
-        elif isinstance(expr, Ternop):
+        elif isinstance(expr, expressions.TernaryOperator):
             value = self._eval_tree(expr.a)
             if value:
                 value = self._eval_tree(expr.b)
@@ -1239,31 +1308,6 @@ class LineParser(LineEater):
         return False
 
 
-class Const:
-    def __init__(self, value):
-        self.value = value
-
-
-class Unop:
-    def __init__(self, op, a):
-        self.op = op
-        self.a = a
-
-
-class Binop:
-    def __init__(self, a, op, b):
-        self.a = a
-        self.op = op
-        self.b = b
-
-
-class Ternop:
-    def __init__(self, a, b, c):
-        self.a = a
-        self.b = b
-        self.c = c
-
-
 class IfState:
     """ If status for use on the if-stack """
 
@@ -1290,11 +1334,19 @@ def skip_ws(tokens):
 def string_convert(tokens):
     """ Phase 5 of compilation.
 
-    Process escaped string constants into unicode. """
-    # Process
+    Tasks:
+    - Strip quotes.
+    - Process escaped string constants into unicode.
+    """
+
     for token in tokens:
+        # Strip double quotes from string:
+        if token.typ == "STRING":
+            token.val = token.val[1:-1]
+
         if token.typ in ["STRING", "CHAR"]:
             token.val = replace_escape_codes(token.val)
+
         yield token
 
 
@@ -1306,7 +1358,7 @@ def string_concat(tokens):
     for token in tokens:
         if token.typ == "STRING":
             if string_token:
-                string_token.val += token.val
+                string_token.val = string_token.val + token.val
             else:
                 string_token = token
         else:

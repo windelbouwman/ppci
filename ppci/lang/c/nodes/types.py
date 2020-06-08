@@ -38,6 +38,15 @@ def is_double(typ):
     return isinstance(typ, BasicType) and typ.type_id == BasicType.DOUBLE
 
 
+def is_promotable(typ):
+    """ Check if this type is of small integer type and can be promoted.
+    """
+    return (
+        isinstance(typ, BasicType)
+        and typ.type_id in BasicType.PROMOTABLE_INTEGER_TYPES
+    )
+
+
 def is_float(typ):
     """ Check if the given type is float """
     return isinstance(typ, BasicType) and typ.type_id == BasicType.FLOAT
@@ -58,9 +67,16 @@ def is_struct(typ):
     return isinstance(typ, StructType)
 
 
+def is_struct_or_union(typ):
+    """ Check if the given type is either struct or union type. """
+    return isinstance(typ, StructOrUnionType)
+
+
 # A type system:
 class CType:
     """ Base class for all types """
+
+    __slots__ = ("qualifiers",)
 
     def __init__(self, qualifiers=None):
         self.qualifiers = qualifiers
@@ -106,6 +122,10 @@ class CType:
         return is_integer(self)
 
     @property
+    def is_promotable(self):
+        return is_promotable(self)
+
+    @property
     def is_signed(self):
         """ Check if this type is of signed integer type """
         return is_signed_integer(self)
@@ -124,6 +144,11 @@ class CType:
     def is_union(self):
         """ Check if this type is of union type """
         return is_union(self)
+
+    @property
+    def is_struct_or_union(self):
+        """ Check if this type is either struct or union type. """
+        return is_struct_or_union(self)
 
     def pointer_to(self):
         """ Create a new pointer type to this type. """
@@ -150,6 +175,8 @@ class FunctionType(CType):
 class IndexableType(CType):
     """ Array or pointer type """
 
+    __slots__ = ("element_type",)
+
     def __init__(self, element_type):
         super().__init__()
         assert isinstance(element_type, CType)
@@ -159,12 +186,18 @@ class IndexableType(CType):
 class ArrayType(IndexableType):
     """ Array type """
 
+    __slots__ = ("size",)
+
     def __init__(self, element_type, size):
         super().__init__(element_type)
         self.size = size
 
     def __repr__(self):
         return "Array-type"
+
+    def decay(self):
+        """ Decay into pointer type. """
+        return PointerType(self.element_type)
 
 
 class PointerType(IndexableType):
@@ -174,7 +207,12 @@ class PointerType(IndexableType):
         return "Pointer-type"
 
 
-class EnumType(CType):
+class TaggedType(CType):
+    """ A Type which can be inserted in the tag namespace.
+    """
+
+
+class EnumType(TaggedType):
     """ Enum type """
 
     def __init__(self, constants=None):
@@ -190,7 +228,7 @@ class EnumType(CType):
         return "Enum-type"
 
 
-class StructOrUnionType(CType):
+class StructOrUnionType(TaggedType):
     """ Common base for struct and union types """
 
     def __init__(self, tag=None, fields=None):
@@ -214,26 +252,34 @@ class StructOrUnionType(CType):
         return self._fields
 
     def _set_fields(self, fields):
+        """ Set the fields of this type, updating the field map. """
         self._fields = fields
         if fields:
-            self._field_map = {f.name: f for f in fields}
+            self._field_map = {
+                f[-1].name: f for f in self.get_named_field_paths()
+            }
 
     fields = property(_get_fields, _set_fields)
 
-    def get_named_fields(self):
-        """ Create a list of fields, including those in anonymous members. """
-        fields = []
+    def get_named_field_paths(self):
+        """ Create a list of field-paths, including those in anonymous members.
+
+        A field path is a sequence of fields to arrive at the named field.
+
+        """
+        field_paths = []
         for field in self.fields:
-            if field.name is None:
-                if isinstance(field.typ, StructOrUnionType):
-                    fields.extend(field.typ.get_named_fields())
+            if field.is_anonymous:
+                if field.typ.is_struct_or_union:
+                    for sub_field_path in field.typ.get_named_field_paths():
+                        field_paths.append((field,) + sub_field_path)
             else:
-                fields.append(field)
-        return fields
+                field_paths.append((field,))
+        return field_paths
 
     def get_field_names(self):
         """ Get a list of valid field names. """
-        return [f.name for f in self.get_named_fields()]
+        return [f[-1].name for f in self.get_named_field_paths()]
 
     def has_field(self, name: str):
         """ Check if this type has the given field """
@@ -243,6 +289,13 @@ class StructOrUnionType(CType):
     def get_field(self, name: str):
         """ Get the field with the given name """
         assert isinstance(name, str)
+        return self._field_map[name][-1]
+
+    def get_field_path(self, name: str):
+        """ Return the full path to a specific field.
+
+        This takes into account eventual anonymous struct members.
+        """
         return self._field_map[name]
 
 
@@ -271,6 +324,11 @@ class Field:
             return "Struct-field .{}".format(self.name)
         else:
             return "Struct-field .{} : {}".format(self.name, self.bitsize)
+
+    @property
+    def is_anonymous(self):
+        """ Test if this is an anonymous field. """
+        return self.name is None
 
     @property
     def is_bitfield(self):
@@ -307,11 +365,15 @@ class BasicType(CType):
 
     UNSIGNED_INTEGER_TYPES = {UCHAR, USHORT, UINT, ULONG, ULONGLONG}
 
+    PROMOTABLE_INTEGER_TYPES = {CHAR, UCHAR, SHORT, USHORT}
+
     INTEGER_TYPES = SIGNED_INTEGER_TYPES | UNSIGNED_INTEGER_TYPES
 
     FLOAT_TYPES = {FLOAT, DOUBLE, LONGDOUBLE}
 
     NUMERIC_TYPES = INTEGER_TYPES | FLOAT_TYPES
+
+    __slots__ = ("type_id",)
 
     def __init__(self, type_id):
         super().__init__()

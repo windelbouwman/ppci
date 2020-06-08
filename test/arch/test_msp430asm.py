@@ -138,10 +138,10 @@ class Msp430AssemblerTestCase(AsmTestCaseBase):
 
 class Msp430Syntax(unittest.TestCase):
     def test_add(self):
-        add = instructions.Add(
+        add = instructions.Addw(
             instructions.RegSrc(registers.r2),
             instructions.RegDst(registers.r3))
-        self.assertEqual('add.w R2, R3', str(add))
+        self.assertEqual('add.w r2, r3', str(add))
 
 
 class Msp430InstructionUseDef(unittest.TestCase):
@@ -175,7 +175,7 @@ class Msp430InstructionUseDef(unittest.TestCase):
         self.assertEqual([], mv.defined_registers)
 
     def test_add_regs(self):
-        mv = instructions.Add(
+        mv = instructions.Addw(
             instructions.RegSrc(registers.r4),
             instructions.RegDst(registers.r5))
         self.assertEqual([registers.r4, registers.r5], mv.used_registers)

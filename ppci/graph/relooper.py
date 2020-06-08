@@ -135,7 +135,7 @@ class StructureDetector:
         elif len(entry.successors) == 1:
             # Simple straight ahead:
             self.logger.debug("--> code: %s", entry)
-            follow_up, = entry.successors
+            (follow_up,) = entry.successors
             shape = BasicShape(entry)
             s2 = self.test(follow_up)
             if s2:

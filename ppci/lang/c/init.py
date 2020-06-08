@@ -24,6 +24,10 @@ class InitCursor:
         """ The current initial level. """
         return self._stack[-1]
 
+    @property
+    def is_toplevel(self):
+        return len(self._stack) == 0
+
     def at_end(self):
         """ Check if we point the cursor into the void. """
         return self.level.at_end()
@@ -42,7 +46,7 @@ class InitCursor:
 
     def enter_compound(self, typ, location, implicit):
         """ Contrapt new initializer element, and append to stack. """
-        is_toplevel = len(self._stack) == 0
+        is_toplevel = self.is_toplevel
         # Get current initializer:
         if is_toplevel:
             initializer = None
@@ -101,6 +105,24 @@ class InitCursor:
             self.leave_compound()
             self.level.go_next()
 
+    def select_field(self, field_name, location):
+        """ Select the given field name taking anonymous structs into account. """
+        assert not self.is_toplevel
+        typ = self.level.typ
+        assert typ.is_struct_or_union
+
+        field_path = typ.get_field_path(field_name)
+
+        assert len(field_path) > 0
+        if len(field_path) > 1:
+            # We must first enter anonymous structs on the init stack
+            # Those are implicit init levels.
+            for field in field_path[:-1]:
+                self.level.go_to_field(field)
+                self.enter_compound(field.typ, location, True)
+
+        self.level.go_to_field(field_path[-1])
+
 
 class InitLevel(metaclass=abc.ABCMeta):
     """ An in progress initializer. """
@@ -119,10 +141,15 @@ class InitLevel(metaclass=abc.ABCMeta):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def get_value(self):
+    def go_next(self):  # pragma: no cover
         raise NotImplementedError()
 
-    def set_value(self, value):
+    @abc.abstractmethod
+    def get_value(self):  # pragma: no cover
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def set_value(self, value):  # pragma: no cover
         raise NotImplementedError()
 
 

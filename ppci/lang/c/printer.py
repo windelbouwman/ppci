@@ -33,6 +33,13 @@ def expr_to_str(expr):
     return printer.gen_expr(expr)
 
 
+def type_to_str(typ):
+    """ Render a type as text """
+    f = io.StringIO()
+    printer = CPrinter(f)
+    return printer.render_type(typ)
+
+
 class CPrinter:
     """ Render a C program as text
 
@@ -172,6 +179,12 @@ class CPrinter:
             self._print("case {}:".format(statement.value))
             with self._indented(1):
                 self.gen_statement(statement.statement)
+        elif isinstance(statement, statements.RangeCase):
+            self._print(
+                "case {} ... {}:".format(statement.value1, statement.value2)
+            )
+            with self._indented(1):
+                self.gen_statement(statement.statement)
         elif isinstance(statement, statements.Default):
             self._print("default:")
             with self._indented(1):
@@ -197,6 +210,23 @@ class CPrinter:
                 )
             else:
                 self._print("return;")
+        elif isinstance(statement, statements.InlineAssemblyCode):
+            self._print("asm (")
+            with self._indented(1):
+                self._print(statement.template)
+                self._print(":")
+                outputs = ",".join(
+                    "{} ({})".format(constraint, self.gen_expr(expression))
+                    for constraint, expression in statement.output_operands
+                )
+                self._print(outputs)
+                self._print(":")
+                inputs = ",".join(
+                    "{} ({})".format(constraint, self.gen_expr(expression))
+                    for constraint, expression in statement.input_operands
+                )
+                self._print(inputs)
+            self._print(");")
         elif isinstance(statement, statements.DeclarationStatement):
             self.gen_declaration(statement.declaration)
         elif isinstance(statement, statements.ExpressionStatement):
@@ -242,15 +272,25 @@ class CPrinter:
             else:
                 thing = self.gen_expr(expr.sizeof_typ)
             return "sizeof({})".format(thing)
-        elif isinstance(expr, expressions.InitializerList):
-            thing = ", ".join(self.gen_expr(e) for e in expr.elements)
-            return "{" + thing + "}"
         elif isinstance(expr, expressions.ArrayInitializer):
             thing = ", ".join(self.gen_expr(e) for e in expr.values)
+            return "{" + thing + "}"
+        elif isinstance(expr, expressions.StructInitializer):
+            thing = ", ".join(
+                ".{}={}".format(f, self.gen_expr(e))
+                for f, e in expr.values.items()
+            )
+            return "{" + thing + "}"
+        elif isinstance(expr, expressions.UnionInitializer):
+            thing = ".{}={}".format(expr.field, self.gen_expr(expr.value))
             return "{" + thing + "}"
         elif isinstance(expr, expressions.Cast):
             return "({})({})".format(
                 self.render_type(expr.to_typ), self.gen_expr(expr.expr)
+            )
+        elif isinstance(expr, expressions.CompoundLiteral):
+            return "({}) {{ {} }}".format(
+                self.render_type(expr.typ), self.gen_expr(expr.init)
             )
         elif isinstance(expr, expressions.BuiltInOffsetOf):
             return "offsetof({}, {})".format(

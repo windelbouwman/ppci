@@ -9,6 +9,7 @@ from .asm_printer import RiscvAsmPrinter
 from .instructions import isa, Align, Section
 from .rvc_instructions import rvcisa
 from .rvf_instructions import rvfisa, movf
+from .rvfx_instructions import rvfxisa
 from .registers import RiscvRegister, RiscvFRegister, gdb_registers, Register
 from .registers import R0, LR, SP, FP
 from .registers import R10, R11, R12
@@ -65,7 +66,7 @@ class RiscvAssembler(BaseAssembler):
 
 class RiscvArch(Architecture):
     name = "riscv"
-    option_names = ("rvc", "rvf")
+    option_names = ("rvc", "rvf", "rvfx")
 
     def __init__(self, options=None):
         super().__init__(options=options)
@@ -73,6 +74,11 @@ class RiscvArch(Architecture):
             self.isa = isa + rvcisa + data_isa
             self.store = CSwsp
             self.load = CLwsp
+            self.regclass = register_classes_swfp
+        elif self.has_option("rvfx"):
+            self.isa = isa + rvfxisa + data_isa
+            self.store = Sw
+            self.load = Lw
             self.regclass = register_classes_swfp
         elif self.has_option("rvf"):
             self.isa = isa + rvfisa + data_isa
@@ -105,6 +111,7 @@ class RiscvArch(Architecture):
                 ir.f32: TypeInfo(4, 4),
                 ir.f64: TypeInfo(4, 4),
                 "int": ir.i32,
+                "long": ir.i32,
                 "ptr": ir.u32,
                 ir.ptr: ir.u32,
             },
@@ -348,23 +355,22 @@ class RiscvArch(Architecture):
             yield Addi(FP, SP, 8)  # Setup frame pointer
         # yield Addi(FP, SP, 8)  # Setup frame pointer
 
-        rsize = 0
-        for register in self.callee_save:
-            if frame.is_used(register):
-                rsize += 4
+        saved_registers = self.get_callee_saved(frame)
+        rsize = 4 * len(saved_registers)
         rsize = round_up(rsize)
+
         if self.has_option("rvc") and isinsrange(10, rsize):
             yield CAddi16sp(-rsize)  # Reserve stack space
         else:
             yield Addi(SP, SP, -rsize)  # Reserve stack space
+
         i = 0
-        for register in self.callee_save:
-            if frame.is_used(register):
-                i -= 4
-                if self.has_option("rvc"):
-                    yield CSwsp(register, i + rsize)
-                else:
-                    yield Sw(register, i + rsize, SP)
+        for register in saved_registers:
+            i -= 4
+            if self.has_option("rvc"):
+                yield CSwsp(register, i + rsize)
+            else:
+                yield Sw(register, i + rsize, SP)
 
         # Allocate space for outgoing calls:
         extras = max(frame.out_calls) if frame.out_calls else 0
@@ -413,21 +419,19 @@ class RiscvArch(Architecture):
                 yield CAddi16sp(ssize)  # Reserve stack space
             else:
                 yield Addi(SP, SP, ssize)  # Reserve stack space
+
         # Callee saved registers:
-        rsize = 0
-        for register in self.callee_save:
-            if frame.is_used(register):
-                rsize += 4
+        saved_registers = self.get_callee_saved(frame)
+        rsize = 4 * len(saved_registers)
         rsize = round_up(rsize)
 
         i = 0
-        for register in self.callee_save:
-            if frame.is_used(register):
-                i -= 4
-                if self.has_option("rvc"):
-                    yield CLwsp(register, i + rsize)
-                else:
-                    yield Lw(register, i + rsize, SP)
+        for register in saved_registers:
+            i -= 4
+            if self.has_option("rvc"):
+                yield CLwsp(register, i + rsize)
+            else:
+                yield Lw(register, i + rsize, SP)
 
         if self.has_option("rvc") and isinsrange(10, rsize):
             yield CAddi16sp(rsize)  # Reserve stack space
@@ -457,6 +461,13 @@ class RiscvArch(Architecture):
         for instruction in self.litpool(frame):
             yield instruction
         yield Align(4)  # Align at 4 bytes
+
+    def get_callee_saved(self, frame):
+        saved_registers = []
+        for register in self.callee_save:
+            if frame.is_used(register, self.info.alias):
+                saved_registers.append(register)
+        return saved_registers
 
 
 def round_up(s):

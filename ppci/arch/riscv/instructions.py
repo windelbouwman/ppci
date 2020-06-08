@@ -722,26 +722,14 @@ def pattern_reg(context, tree):
     return tree.value
 
 
-@isa.pattern("reg", "U32TOU32(reg)", size=0)
-@isa.pattern("reg", "U32TOI32(reg)", size=0)
-@isa.pattern("reg", "I32TOU32(reg)", size=0)
-@isa.pattern("reg", "I32TOI32(reg)", size=0)
 @isa.pattern("reg", "U32TOU16(reg)", size=0)
 @isa.pattern("reg", "U32TOI16(reg)", size=0)
 @isa.pattern("reg", "I32TOI16(reg)", size=0)
 @isa.pattern("reg", "I32TOU16(reg)", size=0)
-@isa.pattern("reg", "U16TOU16(reg)", size=0)
-@isa.pattern("reg", "U16TOI16(reg)", size=0)
-@isa.pattern("reg", "I16TOI16(reg)", size=0)
-@isa.pattern("reg", "I16TOU16(reg)", size=0)
 @isa.pattern("reg", "U16TOU8(reg)", size=0)
 @isa.pattern("reg", "U16TOI8(reg)", size=0)
 @isa.pattern("reg", "I16TOI8(reg)", size=0)
 @isa.pattern("reg", "I16TOU8(reg)", size=0)
-@isa.pattern("reg", "U8TOU8(reg)", size=0)
-@isa.pattern("reg", "U8TOI8(reg)", size=0)
-@isa.pattern("reg", "I8TOI8(reg)", size=0)
-@isa.pattern("reg", "I8TOU8(reg)", size=0)
 @isa.pattern("reg", "F32TOF64(reg)", size=10)
 @isa.pattern("reg", "F64TOF32(reg)", size=10)
 def pattern_i32_to_i32(context, tree, c0):
@@ -834,7 +822,7 @@ def pattern_const_i32(context, tree):
 @isa.pattern("reg", "CONSTF64", size=10)
 def pattern_const_f32(context, tree):
     float_const = struct.pack("f", tree.value)
-    c0, = struct.unpack("i", float_const)
+    (c0,) = struct.unpack("i", float_const)
     d = context.new_reg(RiscvRegister)
     context.emit(Li(d, c0))
     return d

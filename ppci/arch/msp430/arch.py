@@ -32,7 +32,7 @@ from .registers import r10, r11, r12, r13, r14, r15
 from .registers import r4, r5, r6, r7, r8, r9, SP
 from .registers import r1, register_classes, Msp430Register
 from .instructions import isa, mov, Ret, Pop, call, MemSrcOffset, Mov
-from .instructions import push, Add, Sub, ConstSrc, RegDst
+from .instructions import push, Addw, Subw, ConstSrc, RegDst
 
 
 class Msp430Arch(Architecture):
@@ -55,6 +55,7 @@ class Msp430Arch(Architecture):
                 ir.f32: TypeInfo(4, 4),
                 ir.f64: TypeInfo(8, 8),
                 "int": ir.i16,
+                "long": ir.i32,
                 "ptr": ir.u16,
                 ir.ptr: ir.u16,
             },
@@ -87,13 +88,12 @@ class Msp430Arch(Architecture):
         yield Label(frame.name)
 
         # Callee save registers:
-        for reg in self.callee_save:
-            if frame.is_used(reg):
-                yield push(reg)
+        for reg in self.get_callee_saved(frame):
+            yield push(reg)
 
         # Adjust stack:
         if frame.stacksize:
-            yield Sub(
+            yield Subw(
                 ConstSrc(self.round_upwards(frame.stacksize)), RegDst(r1)
             )
 
@@ -104,14 +104,13 @@ class Msp430Arch(Architecture):
 
         # Adjust stack:
         if frame.stacksize:
-            yield Add(
+            yield Addw(
                 ConstSrc(self.round_upwards(frame.stacksize)), RegDst(r1)
             )
 
         # Pop save registers back:
-        for reg in reversed(self.callee_save):
-            if frame.is_used(reg):
-                yield Pop(reg)
+        for reg in reversed(self.get_callee_saved(frame)):
+            yield Pop(reg)
 
         # Return from function:
         yield Ret()
@@ -119,6 +118,13 @@ class Msp430Arch(Architecture):
         # Add final literal pool:
         for instruction in self.litpool(frame):
             yield instruction
+
+    def get_callee_saved(self, frame):
+        saved_registers = []
+        for reg in self.callee_save:
+            if frame.is_used(reg, self.info.alias):
+                saved_registers.append(reg)
+        return saved_registers
 
     def gen_call(self, frame, label, args, rv):
         arg_types = [a[0] for a in args]
@@ -142,7 +148,7 @@ class Msp430Arch(Architecture):
         yield call(label, clobbers=self.caller_save)
 
         if saved_space:
-            yield Add(ConstSrc(saved_space), RegDst(SP))
+            yield Addw(ConstSrc(saved_space), RegDst(SP))
 
         if rv:
             retval_loc = self.determine_rv_location(rv[0])

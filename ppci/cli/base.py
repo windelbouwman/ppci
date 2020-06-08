@@ -82,7 +82,12 @@ base_parser.add_argument(
     version=version_text,
     help="Display version and exit",
 )
-
+base_parser.add_argument(
+    "--pudb",
+    dest="drop_into_pudb",
+    action="store_true",
+    help="Drop into post mortem pudb session on crash",
+)
 
 march_parser = argparse.ArgumentParser(add_help=False)
 march_parser.add_argument(
@@ -150,6 +155,15 @@ class LogSetup:
         self.logger = logging.getLogger()
         cgitb.enable(format="text")
 
+        if args.drop_into_pudb:
+
+            def hook(typ, value, tb):
+                import pudb
+
+                pudb.post_mortem(tb)
+
+            sys.excepthook = hook
+
     def __enter__(self):
         self.logger.setLevel(logging.DEBUG)
         self.console_handler = logging.StreamHandler()
@@ -202,11 +216,13 @@ class LogSetup:
             err = True
 
         if exc_value is not None:
+            # TODO: fix this for buffered outputs
             # Exception happened, close file and remove
-            if hasattr(self.args, "output"):
-                if os.path.exists(self.args.output):
-                    filename = self.args.output
-                    os.remove(filename)
+            # if hasattr(self.args, "output"):
+            #     if os.path.exists(self.args.output):
+            #         filename = self.args.output
+            #         os.remove(filename)
+            pass
 
         self.logger.debug("Removing loggers")
         if self.args.report:

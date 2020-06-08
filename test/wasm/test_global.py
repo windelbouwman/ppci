@@ -14,14 +14,14 @@ def test_global0():
     g = Global(
         '$foo', 'i32', False, [Instruction('i32.const', 7)]
     )
-    assert g.to_string() == '(global $foo i32 (i32.const 7))'
+    assert g.to_string() == '(global $foo i32 i32.const 7)'
     # TODO: do we still wish to support this:
     # assert Global(g.to_string()).to_string() == g.to_string()
 
     g = Global(
         '$foo', 'i32', True, [Instruction('i32.const', 7)]
     )
-    assert g.to_string() == '(global $foo (mut i32) (i32.const 7))'
+    assert g.to_string() == '(global $foo (mut i32) i32.const 7)'
     # TODO: do we still wish to support this:
     # assert Global(g.to_string()).to_string() == g.to_string()
 
@@ -30,15 +30,14 @@ def test_global1():
 
     CODE0 = dedent(r"""
     (module
-        (type $print (func (param i32)))
-        (type $2 (func))
-        (import "js" "print_ln" (func $print (type $print)))
-        (global $foo i32 (i32.const 7))
-        (start $main)
-        (func $main (type $2)
-            (get_global $foo)
-            (call $print)
-        )
+      (type $print (func (param i32)))
+      (type $2 (func))
+      (import "js" "print_ln" (func $print (type $print)))
+      (global $foo i32 i32.const 7)
+      (start $main)
+      (func $main (type $2)
+        global.get $foo
+        call $print)
     )
     """)
 

@@ -16,22 +16,21 @@ def test_instructions1():
     # The canonical form
     CODE0 = dedent("""
     (module
-        (type $print (func (param i32)))
-        (type $2 (func))
-        (import "js" "print_ln" (func $print (type $print)))
-        (start $main)
-        (func $main (type $2)
-            (i32.const 1)
-            (if)
-                (i32.const 4)
-                (i32.const 3)
-                (i32.add)
-                (call $print)
-            (else)
-                (i32.const 5)
-                (call $print)
-            (end)
-        )
+      (type $print (func (param i32)))
+      (type $2 (func))
+      (import "js" "print_ln" (func $print (type $print)))
+      (start $main)
+      (func $main (type $2)
+        i32.const 1
+        if
+          i32.const 4
+          i32.const 3
+          i32.add
+          call $print
+        else
+          i32.const 5
+          call $print
+        end)
     )
     """)
 
@@ -52,15 +51,16 @@ def test_instructions1():
         (import "js" "print_ln" (func $print (type $print)))
         (start $main)
         (func $main (type $2)
-            (if (i32.const 1))
+            (i32.const 1)
+            if
             (i32.const 4)
             (i32.const 3)
             (i32.add)
             (call $print)
-            (else)
+            else
             (i32.const 5)
             (call $print)
-            (end)
+            end
         )
     )
     """)
@@ -78,13 +78,16 @@ def test_instructions1():
         (start $main)
         (func $main (type $2)
             (if (i32.const 1)
+              (then
                 (i32.const 4)
                 (i32.const 3)
                 (i32.add)
                 (call $print)
-            (else)
+              )
+              (else
                 (i32.const 5)
                 (call $print)
+              )
             )
         )
     )
@@ -105,10 +108,12 @@ def test_instructions1():
         (start $main)
         (func $main (type $2)
             (if (i32.const 1)
+              (then
                 (i32.const 4)
                 (i32.const 3)
                 (i32.add)
                 (call $print)
+              )
             )
         )
     )

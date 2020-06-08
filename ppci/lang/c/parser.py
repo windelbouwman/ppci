@@ -18,6 +18,7 @@ Sources of inspiration:
 import logging
 from ..tools.recursivedescent import RecursiveDescentParser
 from .nodes import statements, expressions
+from .printer import type_to_str
 
 
 LEFT_ASSOCIATIVE = "left-associative"
@@ -90,6 +91,7 @@ class CParser(RecursiveDescentParser):
             "struct",
             "union",
             "enum",
+            "asm",
             "__builtin_va_arg",
             "__builtin_va_start",
             "__builtin_va_copy",
@@ -263,8 +265,8 @@ class CParser(RecursiveDescentParser):
         if type_specifiers:
             if typ:
                 self.error(
-                    "Type specifiers {} given in addition to type {}".format(
-                        type_specifiers, typ
+                    "Type specifiers {} given in addition to type '{}'".format(
+                        type_specifiers, type_to_str(typ)
                     ),
                     location,
                 )
@@ -297,13 +299,17 @@ class CParser(RecursiveDescentParser):
                 keyword.loc,
             )
 
+        is_definition = (self.peek == "{") or (
+            (tag is not None) and self.peek == ";"
+        )
+
         if self.peek == "{":
             fields = self.parse_struct_fields()
         else:
             fields = None
 
         return self.semantics.on_struct_or_union(
-            keyword.val, tag, fields, keyword.loc
+            keyword.val, tag, is_definition, fields, keyword.loc
         )
 
     def parse_struct_fields(self):
@@ -361,7 +367,11 @@ class CParser(RecursiveDescentParser):
                 keyword.loc,
             )
 
-        ctyp = self.semantics.on_enum(tag, keyword.loc)
+        is_definition = (self.peek == "{") or (
+            (tag is not None) and self.peek == ";"
+        )
+
+        ctyp = self.semantics.on_enum(tag, is_definition, keyword.loc)
 
         # If we have a body, either after tag or directly, parse it:
         if self.peek == "{":
@@ -372,7 +382,6 @@ class CParser(RecursiveDescentParser):
     def parse_enum_fields(self, ctyp, location):
         """ Parse enum declarations """
         self.consume("{")
-        self.semantics.enter_enum_values(ctyp, location)
         constants = []
         while self.peek != "}":
             name = self.consume("ID")
@@ -533,11 +542,8 @@ class CParser(RecursiveDescentParser):
             initializer = self.parse_array_string_initializer(typ)
         else:
             expr = self.parse_constant_expression()
+            expr = self.semantics.pointer(expr)
             initializer = self.semantics.coerce(expr, typ)
-
-        if typ.is_array and typ.size is None:
-            # Fill size of array if it was unknown
-            typ.size = len(initializer.values)
 
         return initializer
 
@@ -581,13 +587,12 @@ class CParser(RecursiveDescentParser):
             init_cursor, typ, location, False
         )
 
-        while True:
+        # TODO: an initializer list must not be empty, or can it be empty?
+        # TBD: this might depend upon an option / gcc behavior
+        while self.peek != "}":
             self.parse_initializer_list_element(init_cursor)
 
             if not self.has_consumed(","):
-                break
-
-            if self.peek == "}":
                 break
 
         self.consume("}")
@@ -812,19 +817,19 @@ class CParser(RecursiveDescentParser):
             "continue": self.parse_continue_statement,
             "goto": self.parse_goto_statement,
             "return": self.parse_return_statement,
+            "asm": self.parse_asm_statement,
             "{": self.parse_compound_statement,
             ";": self.parse_empty_statement,
         }
         if self.peek in m:
             statement = m[self.peek]()
+        elif self.peek == "ID" and self.look_ahead(1).val == ":":
+            statement = self.parse_label()
         else:
             # Expression statement!
-            if self.peek == "ID" and self.look_ahead(1).val == ":":
-                statement = self.parse_label()
-            else:
-                expression = self.parse_expression()
-                statement = self.semantics.on_expression_statement(expression)
-                self.consume(";")
+            expression = self.parse_expression()
+            statement = self.semantics.on_expression_statement(expression)
+            self.consume(";")
         return statement
 
     def parse_label(self):
@@ -872,9 +877,23 @@ class CParser(RecursiveDescentParser):
         return self.semantics.on_switch_exit(expression, statement, location)
 
     def parse_case_statement(self):
-        """ Parse a case """
+        """ Parse a case.
+
+        For example:
+        'case 5:'
+
+        Or, a gnu extension:
+
+        'case 5 ... 10:'
+        """
         location = self.consume("case").loc
         value = self.parse_expression()
+        if self.peek == "...":
+            # gnu extension!
+            self.consume("...")
+            value2 = self.parse_expression()
+            value = (value, value2)
+
         self.consume(":")
         statement = self.parse_statement()
         return self.semantics.on_case(value, statement, location)
@@ -924,6 +943,7 @@ class CParser(RecursiveDescentParser):
     def parse_for_statement(self):
         """ Parse a for statement """
         location = self.consume("for").loc
+        self.semantics.enter_scope()  # for loops have their own scope.
         self.consume("(")
         if self.peek == ";":
             initial = None
@@ -953,6 +973,7 @@ class CParser(RecursiveDescentParser):
         self.consume(")")
 
         body = self.parse_statement()
+        self.semantics.leave_scope()
         return self.semantics.on_for(initial, condition, post, body, location)
 
     def parse_return_statement(self):
@@ -964,6 +985,59 @@ class CParser(RecursiveDescentParser):
             value = self.parse_expression()
         self.consume(";")
         return self.semantics.on_return(value, location)
+
+    # Inline assembly section!
+    def parse_asm_statement(self):
+        """ Parse an inline assembly statement.
+
+        See also: https://gcc.gnu.org/onlinedocs/gcc/Extended-Asm.html
+        """
+        location = self.consume("asm").loc
+        valid_qualifiers = ["volatile", "inline", "goto"]
+        # while self.peek in
+        # TODO qualifiers
+        self.consume("(")
+        template = self.parse_string()
+
+        output_operands = self.parse_asm_operands()
+        input_operands = self.parse_asm_operands()
+        clobbers = self.parse_clobbers()
+
+        self.consume(")")
+        return self.semantics.on_asm(
+            template, output_operands, input_operands, clobbers, location
+        )
+
+    def parse_asm_operands(self):
+        """ Parse a series of assembly operands. Empty list is allowed. """
+        operands = []
+        if self.has_consumed(":"):
+            if self.peek not in [")", ":"]:
+                operand = self.parse_asm_operand()
+                operands.append(operand)
+                while self.has_consumed(","):
+                    operand = self.parse_asm_operand()
+                    operands.append(operand)
+        return operands
+
+    def parse_asm_operand(self):
+        """ Parse a single asm operand. """
+        constraint = self.parse_string()
+        self.consume("(")
+        variable = self.parse_expression()
+        self.consume(")")
+        return (constraint, variable)
+
+    def parse_clobbers(self):
+        clobbers = []
+        if self.has_consumed(":"):
+            if self.peek != ")":
+                clobber = self.parse_string()
+                clobbers.append(clobber)
+                while self.has_consumed(","):
+                    clobber = self.parse_string()
+                    clobbers.append(clobber)
+        return clobbers
 
     # Expression parts:
     def parse_condition(self):
@@ -1009,7 +1083,7 @@ class CParser(RecursiveDescentParser):
         # print('prio=', prio, self.peek)
         while self._binop_take(self.peek, priority):
             op = self.consume()
-            op_associativity, op_prio = self.prio_map[op.val]
+            op_prio = self.prio_map[op.val][1]
             if op.val == "?":
                 # Eat middle part:
                 middle = self.parse_expression()
@@ -1099,7 +1173,9 @@ class CParser(RecursiveDescentParser):
                 self.consume(")")
                 if self.peek == "{":
                     init = self.parse_initializer_list(to_typ)
-                    expr = expressions.CompoundLiteral(to_typ, init, loc)
+                    expr = self.semantics.on_compound_literal(
+                        to_typ, init, loc
+                    )
                 else:
                     casted_expr = self.parse_primary_expression()
                     expr = self.semantics.on_cast(to_typ, casted_expr, loc)
@@ -1164,6 +1240,9 @@ class CParser(RecursiveDescentParser):
             if self.token.typ == "ID" and self.token.val in self.typedefs:
                 return True
         return False
+
+    def parse_string(self):
+        return self.consume("STRING").val
 
 
 class DeclSpec:

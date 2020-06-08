@@ -35,6 +35,7 @@ class XtensaArch(Architecture):
                 ir.f32: TypeInfo(4, 4),
                 ir.f64: TypeInfo(8, 8),
                 "int": ir.i32,
+                "long": ir.i32,
                 "ptr": ir.u32,
                 ir.ptr: ir.u32,
             },
@@ -119,16 +120,14 @@ class XtensaArch(Architecture):
             yield instructions.Addi(registers.a1, registers.a1, size)
 
         # Callee save registers:
-        for reg in self.callee_save:
-            if frame.is_used(reg):
-                yield instructions.Push(reg)
+        for reg in self.get_callee_saved(frame):
+            yield instructions.Push(reg)
 
     def gen_epilogue(self, frame):
         """ Return epilogue sequence """
         # Pop save registers back:
-        for reg in reversed(self.callee_save):
-            if frame.is_used(reg):
-                yield instructions.Pop(reg)
+        for reg in reversed(self.get_callee_saved(frame)):
+            yield instructions.Pop(reg)
 
         if frame.stacksize > 0:
             size = round_up(frame.stacksize)
@@ -141,6 +140,13 @@ class XtensaArch(Architecture):
 
         # Return
         yield instructions.Ret()
+
+    def get_callee_saved(self, frame):
+        saved_registers = []
+        for reg in self.callee_save:
+            if frame.is_used(reg, self.info.alias):
+                saved_registers.append(reg)
+        return saved_registers
 
     def gen_call(self, frame, label, args, rv):
         arg_types = [a[0] for a in args]

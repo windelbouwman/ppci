@@ -5,7 +5,8 @@ C3 language
 Introduction
 ------------
 
-As an example language, the c3 language was created. As pointed out clearly
+As an example of designing and implementing a custom language within
+the PPCI framework, the C3 language was created. As pointed out
 in c2lang_, the C language is widely used, but has some strange contraptions.
 These include the following:
 
@@ -18,7 +19,7 @@ These include the following:
 
 In part for these reasons (and of course, for fun), C3 was created.
 
-The hello world example in c3 is:
+The hello world example in C3 is:
 
 .. code::
 
@@ -37,11 +38,11 @@ Modules
 ~~~~~~~
 
 Modules in C3 live in file, and can be defined in multiple files. Modules can
-import each other by using the import statement.
+import each other by using the ``import`` statement.
 
 For example:
 
-`pkg1.c3`:
+*pkg1.c3*:
 
 .. code::
 
@@ -49,7 +50,7 @@ For example:
     import pkg2;
 
 
-`pkg2.c3`:
+*pkg2.c3*:
 
 .. code::
 
@@ -60,7 +61,7 @@ For example:
 Functions
 ~~~~~~~~~
 
-Function can be defined by using the function keyword, followed by a type
+Function can be defined by using the ``function`` keyword, followed by a type
 and the function name.
 
 .. code::
@@ -79,7 +80,7 @@ and the function name.
 Variables
 ~~~~~~~~~
 
-Variables require the var keyword, and can be either global are function local.
+Variables require the ``var`` keyword, and can be either global or function-local.
 
 .. code::
 
@@ -97,7 +98,8 @@ Variables require the var keyword, and can be either global are function local.
 Types
 ~~~~~
 
-Types can be specified when a variable is declared, and also typedeffed.
+Types can be specified when a variable is declared, and also typedef'ed using
+the ``type`` keyword.
 
 .. code::
 
@@ -111,7 +113,7 @@ Types can be specified when a variable is declared, and also typedeffed.
 If statement
 ~~~~~~~~~~~~
 
-The following code example demonstrates the if statement. The else part
+The following code example demonstrates the ``if`` statement. The ``else`` part
 is optional.
 
 .. code::
@@ -139,7 +141,7 @@ is optional.
 While statement
 ~~~~~~~~~~~~~~~
 
-The while statement can be used as follows:
+The ``while`` statement can be used as follows:
 
 .. code::
 
@@ -157,7 +159,7 @@ The while statement can be used as follows:
 For statement
 ~~~~~~~~~~~~~
 
-The for statement works like in C. The first item
+The ``for`` statement works like in C. The first item
 is initialized before the loop. The second is the condition
 for the loop. The third part is executed when one run of the
 loop is done.
@@ -182,7 +184,7 @@ Other
 -----
 
 C3 does not contain a preprocessor. For these kind of things it might be
-better to use a templating engine such as `ninja2 <http://jinja.pocoo.org/>`_.
+better to use a templating engine such as `Jinja2 <http://jinja.pocoo.org/>`_.
 
 Module reference
 ----------------

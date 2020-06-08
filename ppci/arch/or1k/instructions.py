@@ -357,6 +357,8 @@ def pattern_addi32(context, tree, c0, c1):
 
 @orbis32.pattern("reg", "ANDI8(reg, reg)", size=4, cycles=1, energy=1)
 @orbis32.pattern("reg", "ANDU8(reg, reg)", size=4, cycles=1, energy=1)
+@orbis32.pattern("reg", "ANDI16(reg, reg)", size=4, cycles=1, energy=1)
+@orbis32.pattern("reg", "ANDU16(reg, reg)", size=4, cycles=1, energy=1)
 @orbis32.pattern("reg", "ANDI32(reg, reg)", size=4, cycles=1, energy=1)
 @orbis32.pattern("reg", "ANDU32(reg, reg)", size=4, cycles=1, energy=1)
 def pattern_andi32(context, tree, c0, c1):
@@ -367,6 +369,10 @@ def pattern_andi32(context, tree, c0, c1):
 
 @orbis32.pattern("reg", "SHRI32(reg, reg)", size=4, cycles=1, energy=1)
 @orbis32.pattern("reg", "SHRU32(reg, reg)", size=4, cycles=1, energy=1)
+@orbis32.pattern("reg", "SHRU16(reg, reg)", size=4, cycles=1, energy=1)
+@orbis32.pattern("reg", "SHRI16(reg, reg)", size=4, cycles=1, energy=1)
+@orbis32.pattern("reg", "SHRU8(reg, reg)", size=4, cycles=1, energy=1)
+@orbis32.pattern("reg", "SHRI8(reg, reg)", size=4, cycles=1, energy=1)
 def pattern_shri32(context, tree, c0, c1):
     d = context.new_reg(Or1kRegister)
     context.emit(Srl(d, c0, c1))
@@ -378,6 +384,24 @@ def pattern_shri32(context, tree, c0, c1):
 def pattern_shli32(context, tree, c0, c1):
     d = context.new_reg(Or1kRegister)
     context.emit(Sll(d, c0, c1))
+    return d
+
+
+@orbis32.pattern("reg", "SHLI16(reg, reg)", size=4, cycles=1, energy=1)
+@orbis32.pattern("reg", "SHLU16(reg, reg)", size=4, cycles=1, energy=1)
+def pattern_shl_i16(context, tree, c0, c1):
+    d = context.new_reg(Or1kRegister)
+    context.emit(Sll(d, c0, c1))
+    context.emit(Andi(d, d, Immediate(0xFFFF)))
+    return d
+
+
+@orbis32.pattern("reg", "SHLI8(reg, reg)", size=4, cycles=1, energy=1)
+@orbis32.pattern("reg", "SHLU8(reg, reg)", size=4, cycles=1, energy=1)
+def pattern_shl_i8(context, tree, c0, c1):
+    d = context.new_reg(Or1kRegister)
+    context.emit(Sll(d, c0, c1))
+    context.emit(Andi(d, d, Immediate(0xFF)))
     return d
 
 
@@ -397,6 +421,8 @@ def pattern_divu32(context, tree, c0, c1):
 
 @orbis32.pattern("reg", "ORI8(reg, reg)", size=4, cycles=1, energy=1)
 @orbis32.pattern("reg", "ORU8(reg, reg)", size=4, cycles=1, energy=1)
+@orbis32.pattern("reg", "ORI16(reg, reg)", size=4, cycles=1, energy=1)
+@orbis32.pattern("reg", "ORU16(reg, reg)", size=4, cycles=1, energy=1)
 @orbis32.pattern("reg", "ORI32(reg, reg)", size=4, cycles=1, energy=1)
 @orbis32.pattern("reg", "ORU32(reg, reg)", size=4, cycles=1, energy=1)
 def pattern_ori32(context, tree, c0, c1):
@@ -491,6 +517,29 @@ def pattern_ldri8(context, tree, c0):
     return d
 
 
+@orbis32.pattern("stm", "STRI16(mem, reg)", size=4, cycles=1, energy=1)
+@orbis32.pattern("stm", "STRU16(mem, reg)", size=4, cycles=1, energy=1)
+def pattern_str16(context, tree, c0, c1):
+    reg, offset = c0
+    context.emit(Sh(offset, reg, c1))
+
+
+@orbis32.pattern("reg", "LDRU16(mem)", size=4)
+def pattern_ldr_u16(context, tree, c0):
+    d = context.new_reg(Or1kRegister)
+    reg, offset = c0
+    context.emit(Lhz(d, offset, reg))
+    return d
+
+
+@orbis32.pattern("reg", "LDRI16(mem)", size=4)
+def pattern_ldr_i16(context, tree, c0):
+    d = context.new_reg(Or1kRegister)
+    reg, offset = c0
+    context.emit(Lhs(d, offset, reg))
+    return d
+
+
 @orbis32.pattern("stm", "STRI32(mem, reg)", size=4, cycles=1, energy=1)
 @orbis32.pattern("stm", "STRU32(mem, reg)", size=4, cycles=1, energy=1)
 def pattern_str32(context, tree, c0, c1):
@@ -543,7 +592,7 @@ def pattern_jmp(context, tree):
 
 @orbis32.pattern("stm", "CJMPI32(reg, reg)", size=10)
 @orbis32.pattern("stm", "CJMPI8(reg, reg)", size=10)
-def pattern_cjmp(context, tree, lhs, rhs):
+def pattern_cjmp_signed(context, tree, lhs, rhs):
     op, true_tgt, false_tgt = tree.value
     opnames = {
         "<": Sflts,
@@ -552,6 +601,27 @@ def pattern_cjmp(context, tree, lhs, rhs):
         "!=": Sfne,
         ">=": Sfges,
         "<=": Sfles,
+    }
+    op_ins = opnames[op]
+    context.emit(op_ins(lhs, rhs))
+    jmp_ins = J(false_tgt.name, jumps=[false_tgt])
+    context.emit(Bf(true_tgt.name, jumps=[true_tgt, jmp_ins]))
+    context.emit(Nop(0))  # Fill delay slot
+    context.emit(jmp_ins)
+    context.emit(Nop(0))  # Fill delay slot
+
+
+@orbis32.pattern("stm", "CJMPU32(reg, reg)", size=10)
+@orbis32.pattern("stm", "CJMPU8(reg, reg)", size=10)
+def pattern_cjmp_unsigned(context, tree, lhs, rhs):
+    op, true_tgt, false_tgt = tree.value
+    opnames = {
+        "<": Sfltu,
+        ">": Sfgtu,
+        "==": Sfeq,
+        "!=": Sfne,
+        ">=": Sfgeu,
+        "<=": Sfleu,
     }
     op_ins = opnames[op]
     context.emit(op_ins(lhs, rhs))
@@ -574,6 +644,8 @@ def pattern_label(context, tree):
 
 @orbis32.pattern("reg", "CONSTI8", size=8, cycles=2, energy=2)
 @orbis32.pattern("reg", "CONSTU8", size=8, cycles=2, energy=2)
+@orbis32.pattern("reg", "CONSTI16", size=8, cycles=2, energy=2)
+@orbis32.pattern("reg", "CONSTU16", size=8, cycles=2, energy=2)
 @orbis32.pattern("reg", "CONSTU32", size=8, cycles=2, energy=2)
 @orbis32.pattern("reg", "CONSTI32", size=8, cycles=2, energy=2)
 def pattern_const32(context, tree):
@@ -590,7 +662,15 @@ def pattern_const32(context, tree):
     size=4,
     cycles=1,
     energy=1,
-    condition=lambda t: t.value in range(0, 0xFFFF),
+    condition=lambda t: t.value in range(0, 0x10000),
+)
+@orbis32.pattern(
+    "reg",
+    "CONSTU16",
+    size=4,
+    cycles=1,
+    energy=1,
+    condition=lambda t: t.value in range(0, 0x10000),
 )
 @orbis32.pattern(
     "reg",
@@ -598,7 +678,7 @@ def pattern_const32(context, tree):
     size=4,
     cycles=1,
     energy=1,
-    condition=lambda t: t.value in range(0, 0xFFFF),
+    condition=lambda t: t.value in range(0, 0x10000),
 )
 @orbis32.pattern(
     "reg",
@@ -606,18 +686,20 @@ def pattern_const32(context, tree):
     size=4,
     cycles=1,
     energy=1,
-    condition=lambda t: t.value in range(0, 0xFFFF),
+    condition=lambda t: t.value in range(0, 0x10000),
 )
 def pattern_const16(context, tree):
     # Play clever with the r0 register (always assumed 0)
     d = context.new_reg(Or1kRegister)
     cnst = tree.value
-    context.emit(Addi(d, registers.r0, Immediate(cnst)))
+    context.emit(Ori(d, registers.r0, Immediate(cnst)))
     return d
 
 
 @orbis32.pattern("stm", "MOVI8(reg)", size=4, cycles=1, energy=1)
 @orbis32.pattern("stm", "MOVU8(reg)", size=4, cycles=1, energy=1)
+@orbis32.pattern("stm", "MOVI16(reg)", size=4, cycles=1, energy=1)
+@orbis32.pattern("stm", "MOVU16(reg)", size=4, cycles=1, energy=1)
 @orbis32.pattern("stm", "MOVI32(reg)", size=4, cycles=1, energy=1)
 @orbis32.pattern("stm", "MOVU32(reg)", size=4, cycles=1, energy=1)
 def pattern_mov(context, tree, c0):
@@ -627,6 +709,8 @@ def pattern_mov(context, tree, c0):
 
 @orbis32.pattern("reg", "REGI32", size=0, cycles=0, energy=0)
 @orbis32.pattern("reg", "REGU32", size=0, cycles=0, energy=0)
+@orbis32.pattern("reg", "REGI16", size=0, cycles=0, energy=0)
+@orbis32.pattern("reg", "REGU16", size=0, cycles=0, energy=0)
 @orbis32.pattern("reg", "REGI8", size=0, cycles=0, energy=0)
 @orbis32.pattern("reg", "REGU8", size=0, cycles=0, energy=0)
 def pattern_reg(context, tree):
@@ -634,12 +718,8 @@ def pattern_reg(context, tree):
 
 
 # Data conversion patterns:
-@orbis32.pattern("reg", "U32TOI32(reg)", size=0, cycles=0, energy=0)
-@orbis32.pattern("reg", "I32TOI32(reg)", size=0, cycles=0, energy=0)
-@orbis32.pattern("reg", "U32TOU32(reg)", size=0, cycles=0, energy=0)
-@orbis32.pattern("reg", "I32TOU32(reg)", size=0, cycles=0, energy=0)
-def pattern_i32toi32(context, tree, c0):
-    return c0
+
+# 32 -- 8 bits relations
 
 
 @orbis32.pattern("reg", "I8TOI32(reg)", size=4, cycles=1, energy=1)
@@ -651,9 +731,10 @@ def pattern_i8toi32(context, tree, c0):
 
 @orbis32.pattern("reg", "U8TOU32(reg)", size=4, cycles=1, energy=1)
 @orbis32.pattern("reg", "U8TOI32(reg)", size=4, cycles=1, energy=1)
+@orbis32.pattern("reg", "I8TOU32(reg)", size=4, cycles=1, energy=1)
 def pattern_u8tou32(context, tree, c0):
     d = context.new_reg(Or1kRegister)
-    context.emit(Extbz(d, c0))
+    context.emit(Extbz(d, c0))  # zero extend
     return d
 
 
@@ -661,12 +742,45 @@ def pattern_u8tou32(context, tree, c0):
 @orbis32.pattern("reg", "I32TOU8(reg)", size=4, cycles=1, energy=1)
 def pattern_i32tou8(context, tree, c0):
     d = context.new_reg(Or1kRegister)
-    context.emit(Extbz(d, c0))
-    return c0
+    context.emit(Extbz(d, c0))  # zero extend
+    return d
 
 
 @orbis32.pattern("reg", "I32TOI8(reg)", size=4, cycles=1, energy=1)
 def pattern_i32toi8(context, tree, c0):
     d = context.new_reg(Or1kRegister)
     context.emit(Extbs(d, c0))
-    return c0
+    return d
+
+
+# 32 -- 16 bits relations
+@orbis32.pattern("reg", "I16TOI32(reg)", size=4, cycles=1, energy=1)
+def pattern_i16_to_i32(context, tree, c0):
+    d = context.new_reg(Or1kRegister)
+    context.emit(Exths(d, c0))
+    return d
+
+
+@orbis32.pattern("reg", "U16TOU32(reg)", size=4, cycles=1, energy=1)
+@orbis32.pattern("reg", "U16TOI32(reg)", size=4, cycles=1, energy=1)
+@orbis32.pattern("reg", "I16TOU32(reg)", size=4, cycles=1, energy=1)
+def pattern_u16_to_u32(context, tree, c0):
+    d = context.new_reg(Or1kRegister)
+    context.emit(Exthz(d, c0))  # zero extend
+    return d
+
+
+@orbis32.pattern("reg", "U32TOU16(reg)", size=4, cycles=1, energy=1)
+@orbis32.pattern("reg", "I32TOU16(reg)", size=4, cycles=1, energy=1)
+@orbis32.pattern("reg", "U32TOI16(reg)", size=4, cycles=1, energy=1)
+def pattern_u32_to_u16(context, tree, c0):
+    d = context.new_reg(Or1kRegister)
+    context.emit(Exthz(d, c0))  # zero extend
+    return d
+
+
+@orbis32.pattern("reg", "I32TOI16(reg)", size=4, cycles=1, energy=1)
+def pattern_i32_to_i16(context, tree, c0):
+    d = context.new_reg(Or1kRegister)
+    context.emit(Exths(d, c0))  # sign extend
+    return d

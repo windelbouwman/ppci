@@ -39,6 +39,7 @@ class ExampleArch(Architecture):
                 ir.f32: TypeInfo(4, 4),
                 ir.f64: TypeInfo(8, 8),
                 "int": ir.i32,
+                "long": ir.i32,
                 "ptr": ir.u32,
             },
             register_classes=register_classes,
@@ -79,11 +80,20 @@ class ExampleRegister(Register):
 
     bitsize = 32
 
+    @classmethod
+    def from_num(cls, num):
+        return num_reg_map[num]
+
 
 class HalfExampleRegister(Register):
     """ Example register class """
 
     bitsize = 16
+
+    @classmethod
+    def from_num(cls, num):
+        assert num == 100
+        return R10l
 
 
 R0 = ExampleRegister("r0", 0)
@@ -93,10 +103,12 @@ R3 = ExampleRegister("r3", 3)
 R4 = ExampleRegister("r4", 4)
 R5 = ExampleRegister("r5", 5)
 R6 = ExampleRegister("r6", 6)
-
 # Two aliasing registers:
 R10 = ExampleRegister("r10", 10)
 R10l = HalfExampleRegister("r10l", 100, aliases=(R10,))
+
+all_regs = [R0, R1, R2, R3, R4, R5, R6, R10]
+num_reg_map = {r.num: r for r in all_regs}
 
 gdb_registers = (R0, R1, R2)
 

@@ -35,7 +35,7 @@ A wasm module can be exported to text or binary form:
     >>> code = '(module (func $truth (result i32) (i32.const 42) (return)))'
     >>> m = wasm.Module(code)
     >>> m.to_string()
-    '(module\n    (type $0 (func (result i32)))\n    (func $truth (type $0)\n        (i32.const 42)\n        (return)\n    )\n)\n'
+    '(module\n  (type $0 (func (result i32)))\n  (func $truth (type $0)\n    i32.const 42\n    return)\n)\n'
     >>> m.to_bytes()
     b'\x00asm\x01\x00\x00\x00\x01\x05\x01`\x00\x01\x7f\x03\x02\x01\x00\n\x07\x01\x05\x00A*\x0f\x0b'
 
@@ -45,11 +45,10 @@ And can also be "displayed" in these forms:
 
     >>> m.show()
     (module
-        (type $0 (func (result i32)))
-        (func $truth (type $0)
-            (i32.const 42)
-            (return)
-        )
+      (type $0 (func (result i32)))
+      (func $truth (type $0)
+        i32.const 42
+        return)
     )
     <BLANKLINE>
     >>> m.show_bytes()

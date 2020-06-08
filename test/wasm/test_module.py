@@ -9,56 +9,54 @@ def dedent(code):
     return '\n'.join(line[4: ]for line in code.splitlines()).strip() + '\n'
 
 
-# TODO: check how (loop) is handled. Is this a loop with no contents? Or is
-# it the start of a loop?
-def tst_module1():
+def test_module1():
 
     instructions1 = [
-        ('loop', None, 'emptyblock'),
+        ('loop', None, 'emptyblock',
             # print iter
-            ('get_local', 0), ('call', '$print'),
+            ('local.get', 0), ('call', '$print'),
             # Increase iter
-            ('f64.const', 1), ('get_local', 0), ('f64.add', ),
-            ('tee_local', 0), ('f64.const', 10),
+            ('f64.const', 1), ('local.get', 0), ('f64.add', ),
+            ('local.tee', 0), ('f64.const', 10),
             ('f64.lt', ), ('br_if', 0),
-        ('end', ),
-        ]
+        )
+    ]
     
     instructions2 = [
-        ('loop', 'emptyblock'),
+        ('loop', 'emptyblock',
             # write iter
-            ('get_local', 0),
+            ('local.get', 0),
             ('call', '$print'),
             # Increase iter
             ('f64.const', 1),
-            ('get_local', 0),
+            ('local.get', 0),
             ('f64.add', ),
-            ('tee_local', 0),
+            ('local.tee', 0),
             ('f64.const', 10),
             ('f64.lt', ),
             ('br_if', 0),
-        ('end', ),
-        ]
+        )
+    ]
 
     CODE0 = dedent("""
     (module
-        (type $print (func (param f64)))
-        (type $1 (func))
-        (import "js" "print_ln" (func $print (type $print)))
-        (start $main)
-        (func $main (type $1) (local f64)
-            loop
-                (get_local 0)
-                (call $print)
-                (f64.const 1)
-                (get_local 0)
-                (f64.add)
-                (tee_local 0)
-                (f64.const 10)
-                (f64.lt)
-                (br_if 0)
-            (end)
-        )
+      (type $print (func (param f64)))
+      (type $1 (func))
+      (import "js" "print_ln" (func $print (type $print)))
+      (start $main)
+      (func $main (type $1)
+        (local f64)
+        loop
+          local.get 0
+          call $print
+          f64.const 1.0
+          local.get 0
+          f64.add
+          local.tee 0
+          f64.const 10.0
+          f64.lt
+          br_if 0
+        end)
     )
     """)
 
@@ -81,10 +79,10 @@ def tst_module1():
             (func $main (local f64)
                 (loop
                     ;; print iter
-                    (get_local 0) (call $print)
+                    (local.get 0) (call $print)
                     ;; increase iter
-                    (f64.const 1) (get_local 0) (f64.add)
-                    (tee_local 0) (f64.const 10)
+                    (f64.const 1) (local.get 0) (f64.add)
+                    (local.tee 0) (f64.const 10)
                     (f64.lt) (br_if 0)
                 )
             )
@@ -114,32 +112,32 @@ def tst_module1():
 
     # ------ Definition instances with tuple instructions
 
-    m4 = wasm.Module(
-        wasm.Type('$print_sig', [(0, 'f64')], []),
-        wasm.Type('$main_sig', [], []),
-        wasm.Import('js', 'print_ln', 'func', '$print', ('$print_sig', ), ),
-        wasm.Start('$main'),
-        wasm.Func('$main', wasm.Ref('type', name='$main_sig'), [(None, 'f64')], instructions1),
-    )
+    # m4 = wasm.Module(
+    #     wasm.Type('$print_sig', [(0, 'f64')], []),
+    #     wasm.Type('$main_sig', [], []),
+    #     wasm.Import('js', 'print_ln', 'func', '$print', ('$print_sig', ), ),
+    #     wasm.Start('$main'),
+    #     wasm.Func('$main', wasm.Ref('type', name='$main_sig'), [(None, 'f64')], instructions1),
+    # )
 
-    assert m4.to_bytes() == b0
+    # assert m4.to_bytes() == b0
 
     # ------ Definition instances with Instruction instances
 
-    m5 = wasm.Module(
-        wasm.Type('$print_sig', [(0, 'f64')], []),
-        wasm.Type('$main_sig', [], []),
-        wasm.Import('js', 'print_ln', 'func', '$print', ('$print_sig', ), ),
-        wasm.Start('$main'),
-        wasm.Func('$main', wasm.Ref('type', name='$main_sig'), [(None, 'f64')], instructions2),
-    )
+    # m5 = wasm.Module(
+    #     wasm.Type('$print_sig', [(0, 'f64')], []),
+    #     wasm.Type('$main_sig', [], []),
+    #     wasm.Import('js', 'print_ln', 'func', '$print', ('$print_sig', ), ),
+    #     wasm.Start('$main'),
+    #     wasm.Func('$main', wasm.Ref('type', name='$main_sig'), [(None, 'f64')], instructions2),
+    # )
 
-    assert m5.to_bytes() == b0
+    # assert m5.to_bytes() == b0
 
     # ------ From module elements
 
-    m6 = wasm.Module(*m0)
-    assert m6.to_bytes() == b0
+    # m6 = wasm.Module(*m0)
+    # assert m6.to_bytes() == b0
 
     # ------ to_string()
 

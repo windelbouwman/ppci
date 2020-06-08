@@ -27,9 +27,8 @@ class LengauerTarjanTestCase(unittest.TestCase):
         node_7.add_edge(node_2)
         self.assertEqual(7, len(graph))
         idom = calculate_idom(graph, node_1)
-        self.assertEqual(7, len(idom))
+        self.assertEqual(6, len(idom))
         correct_idom = {
-            node_1: None,
             node_2: node_1,
             node_3: node_2,
             node_4: node_2,
@@ -75,9 +74,8 @@ class LengauerTarjanTestCase(unittest.TestCase):
         node_l.add_edge(node_m)
         self.assertEqual(13, len(graph))
         idom = calculate_idom(graph, node_a)
-        self.assertEqual(13, len(idom))
+        self.assertEqual(12, len(idom))
         correct_idom = {
-            node_a: None,
             node_b: node_a,
             node_c: node_a,
             node_d: node_b,

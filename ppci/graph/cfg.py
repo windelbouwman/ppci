@@ -22,7 +22,35 @@ from .algorithm.fixed_point_dominator import (
 )
 from collections import namedtuple
 
-DomTreeNode = namedtuple("DomTreeNode", ["node", "children"])
+
+class DomTreeNode:
+    """ A single node in the dominator tree.
+    """
+
+    __slots__ = ('node', 'children', 'interval')
+
+    def __init__(self, node, children, interval):
+        self.node = node
+        self.children = children
+        self.interval = interval
+
+    def below_or_same(self, other):
+        """ Test if this node is a descendant of this node (or is self)
+        """
+        return (
+            other.interval[0] <= self.interval[0]
+            and self.interval[1] <= other.interval[1]
+        )
+
+    def below(self, other):
+        """ Test if this node is a descendant of this node.
+        """
+        return (
+            other.interval[0] < self.interval[0]
+            and self.interval[1] < other.interval[1]
+        )
+
+
 Loop = namedtuple("Loop", ["header", "rest"])
 logger = logging.getLogger("cfg")
 
@@ -96,8 +124,6 @@ class ControlFlowGraph(DiGraph):
         self.exit_node = None
 
         # Dominator info:
-        self._dom = None  # dominators
-        self._sdom = None  # Strict dominators
         self._idom = None  # immediate_dominators
 
         # Post dominator info:
@@ -113,16 +139,21 @@ class ControlFlowGraph(DiGraph):
         assert self.exit_node
 
     def dominates(self, one, other):
-        """ Test whether a node dominates another node """
-        if self._dom is None:
+        """ Test whether a node dominates another node.
+
+        To test this, use the dominator tree, check where
+        of the other node is below the one node in the tree
+        by comparing discovery and finish intervals.
+        """
+        if self._idom is None:
             self._calculate_dominator_info()
-        return one in self._dom[other]
+        return self.tree_map[other].below_or_same(self.tree_map[one])
 
     def strictly_dominates(self, one, other):
         """ Test whether a node strictly dominates another node """
-        if self._sdom is None:
+        if self._idom is None:
             self._calculate_dominator_info()
-        return one in self._sdom[other]
+        return self.tree_map[other].below(self.tree_map[one])
 
     def post_dominates(self, one, other):
         """ Test whether a node post dominates another node """
@@ -134,7 +165,7 @@ class ControlFlowGraph(DiGraph):
         """ Retrieve a nodes immediate dominator """
         if self._idom is None:
             self._calculate_dominator_info()
-        return self._idom[node]
+        return self._idom.get(node, None)
 
     def get_immediate_post_dominator(self, node):
         """ Retrieve a nodes immediate post dominator """
@@ -155,8 +186,12 @@ class ControlFlowGraph(DiGraph):
         self._idom = lt.calculate_idom(self, self.entry_node)
         self._calculate_dominator_tree()
 
+    def _legacy_dom_sets(self):
         # Now calculate dominator sets:
         # Old method used the fixed point iteration:
+
+        # These dominator sets have lookup time O(1) but suffer
+        # from large memory usage.
         # self._dom = calculate_dominators(self.nodes, self.entry_node)
         self._dom = {}
         for parent, t in pre_order(self.root_tree):
@@ -164,6 +199,9 @@ class ControlFlowGraph(DiGraph):
                 self._dom[t.node] = {t.node} | self._dom[parent.node]
             else:
                 self._dom[t.node] = {t.node}
+            logger.debug("Ugh %s, %s", t.node, len(self._dom[t.node]))
+
+        logger.debug("calculate sdom")
 
         self._sdom = {}
         for node in self.nodes:
@@ -173,23 +211,59 @@ class ControlFlowGraph(DiGraph):
             else:
                 self._sdom[node] = self._dom[node] - {node}
 
+        logger.debug("calculate sdom --> DONE")
+
     def _calculate_dominator_tree(self):
-        # Create a tree:
-        if self._idom is None:
-            self.calculate_immediate_dominators()
+        """ Create a dominator tree. """
 
         self.tree_map = {}
         for node in self.nodes:
-            self.tree_map[node] = DomTreeNode(node, list())
+            self.tree_map[node] = DomTreeNode(node, list(), None)
 
         # Add all nodes except for the root node into the tree:
         for node in self.nodes:
-            if self._idom[node]:
-                parent = self.tree_map[self._idom[node]]
+            idom_node = self.get_immediate_dominator(node)
+            if idom_node:
+                parent = self.tree_map[idom_node]
                 node = self.tree_map[node]
                 parent.children.append(node)
 
         self.root_tree = self.tree_map[self.entry_node]
+
+        self._number_dominator_tree()
+
+    def _number_dominator_tree(self):
+        """ Assign intervals to the dominator tree.
+
+        Very cool idea to check if one node dominates
+        another node.
+
+        First, assign an interval to each node in the dominator
+        tree, which marks its entrance and exit of depth
+        first search of the tree.
+
+        To test dominance, determine the interval of both
+        nodes. If the interval of node a falls within the
+        interval of node b, b dominates a. This allows for
+        constant time dominance checking!
+        """
+
+        t = 0
+
+        worklist = [self.root_tree]
+        discovered = {}  # when the node was discovered
+        while worklist:
+            node = worklist[-1]
+            if node.node in discovered:
+                # finished event
+                node.interval = (discovered[node.node], t)
+                worklist.pop()
+            else:
+                # discovery event
+                discovered[node.node] = t
+                for child in node.children:
+                    worklist.append(child)
+            t += 1
 
     def _calculate_post_dominator_info(self):
         """ Calculate the post dominator sets iteratively.

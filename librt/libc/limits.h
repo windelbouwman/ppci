@@ -26,4 +26,7 @@
 #define LONG_MAX 9223372036854775807
 #define ULONG_MAX 18446744073709551615
 
+// This is a controversial define:
+#define PATH_MAX 4096
+
 #endif

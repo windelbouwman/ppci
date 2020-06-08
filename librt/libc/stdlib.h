@@ -16,9 +16,13 @@ void exit(int status);
 
 void qsort(void* base, size_t num, size_t size, int(*compar)(const void*, const void*));
 
+// String conversions
 int atoi(const char * str);
 long int atol(const char * str);
 double atof(const char * str);
+unsigned long int strtoul(const char* str, char** endptr, int base);
+long int strtol(const char* str, char** endptr, int base);
+double strtod(const char* str, char** endptr);
 
 #define NULL 0
 

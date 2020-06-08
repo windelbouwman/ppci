@@ -195,12 +195,12 @@ class PythonFuncToWasmCompiler:
                 self.syntax_error(node, "Unsupported assignment")
             idx = self.name_idx(node.targets[0].id)
             self._compile_expr(node.value, True)
-            self.instructions.append(("set_local", idx))
+            self.instructions.append(("local.set", idx))
             assert not push_stack
 
         elif isinstance(node, ast.Name):
             assert push_stack
-            self.instructions.append(("get_local", self.name_idx(node.id)))
+            self.instructions.append(("local.get", self.name_idx(node.id)))
 
         elif isinstance(node, ast.Num):
             self.instructions.append(("f64.const", node.n))
@@ -274,10 +274,10 @@ class PythonFuncToWasmCompiler:
             for e in node.body:
                 self._compile_expr(e, False)
             if node.orelse:
-                self.instructions.append(("else",))
+                self.instructions.append("else")
                 for e in node.orelse:
                     self._compile_expr(e, False)
-            self.instructions.append(("end",))
+            self.instructions.append("end")
             self.pop_block("if")
 
         elif isinstance(node, ast.For):
@@ -316,37 +316,41 @@ class PythonFuncToWasmCompiler:
                 )
 
             # reversed order, pop from stack
-            self.instructions.append(("set_local", step_stub))
-            self.instructions.append(("set_local", end_stub))
-            self.instructions.append(("set_local", start_stub))
+            self.instructions.append(("local.set", step_stub))
+            self.instructions.append(("local.set", end_stub))
+            self.instructions.append(("local.set", start_stub))
 
             # Body
             target = self.name_idx(node.target.id)
             self.push_block("for")
-            for i in [
-                ("get_local", start_stub),
-                ("set_local", target),  # Init target
-                "block",  # ('block', 'emptyblock'),
-                "loop",  # ('loop', 'emptyblock'),  # enter loop
-                ("get_local", target),
-                ("get_local", end_stub),
-                ("f64.ge",),
-                ("br_if", 1),  # break (level 2)
-            ]:
-                self.instructions.append(i)
+            self.instructions.extend(
+                [
+                    ("local.get", start_stub),
+                    ("local.set", target),  # Init target
+                    "block",  # ('block', 'emptyblock'),
+                    "loop",  # ('loop', 'emptyblock'),  # enter loop
+                    ("local.get", target),
+                    ("local.get", end_stub),
+                    ("f64.ge",),
+                    ("br_if", 1),  # break (level 2)
+                ]
+            )
+
             for subnode in node.body:
                 self._compile_expr(subnode, False)
 
-            for i in [
-                ("get_local", target),
-                ("get_local", step_stub),
-                ("f64.add",),
-                ("set_local", target),  # next iter
-                ("br", 0),  # loop
-                ("end",),
-                ("end",),  # end of loop and outer block
-            ]:
-                self.instructions.append(i)
+            self.instructions.extend(
+                [
+                    ("local.get", target),
+                    ("local.get", step_stub),
+                    ("f64.add",),
+                    ("local.set", target),  # next iter
+                    ("br", 0),  # loop
+                    "end",
+                    "end",  # end of loop and outer block
+                ]
+            )
+
             self.pop_block("for")
 
         elif isinstance(node, ast.While):

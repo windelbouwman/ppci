@@ -22,22 +22,20 @@ def test_type1():
     # The canonical form
     CODE0 = dedent("""
     (module
-        (type $0 (func (param i32)))
-        (type $1 (func (param i32 i32) (result i32)))
-        (type $2 (func))
-        (import "js" "print_ln" (func $print (type $0)))
-        (start $main)
-        (func $add (type $1)
-            (get_local 0)
-            (get_local 1)
-            (i32.add)
-        )
-        (func $main (type $2)
-            (i32.const 4)
-            (i32.const 3)
-            (call $add)
-            (call $print)
-        )
+      (type $0 (func (param i32)))
+      (type $1 (func (param i32 i32) (result i32)))
+      (type $2 (func))
+      (import "js" "print_ln" (func $print (type $0)))
+      (start $main)
+      (func $add (type $1)
+        local.get 0
+        local.get 1
+        i32.add)
+      (func $main (type $2)
+        i32.const 4
+        i32.const 3
+        call $add
+        call $print)
     )
     """)
 
@@ -56,15 +54,15 @@ def test_type1():
         (import "js" "print_ln" (func $print (param i32)))
         (start $main)
         (func $add (param i32 i32) (result i32)
-            (get_local 0)
-            (get_local 1)
+            (local.get 0)
+            (local.get 1)
             (i32.add)
         )
         (func $main
-            (i32.const 4)
-            (i32.const 3)
-            (call $add)
-            (call $print)
+            i32.const 4
+            i32.const 3
+            call $add
+            call $print
         )
     )
     """
@@ -80,40 +78,35 @@ def test_type2():
     # Canonical form
     CODE0 = dedent("""
     (module
-        (type $0 (func (param i32)))
-        (type $1 (func (param i32) (result i32)))
-        (type $2 (func (result i32)))
-        (type $3 (func))
-        (import "js" "print_ln" (func $print (type $0)))
-        (start $main)
-        (func $test_11 (type $1)
-            (i32.const 111)
-            (call $print)
-            (i32.const 0)
-        )
-        (func $test_10 (type $0)
-            (i32.const 110)
-            (call $print)
-        )
-        (func $test_01 (type $2)
-            (i32.const 101)
-            (call $print)
-            (i32.const 0)
-        )
-        (func $test_00 (type $3)
-            (i32.const 100)
-            (call $print)
-        )
-        (func $main (type $3)
-            (i32.const 0)
-            (call $test_11)
-            (drop)
-            (i32.const 0)
-            (call $test_10)
-            (call $test_01)
-            (drop)
-            (call $test_00)
-        )
+      (type $0 (func (param i32)))
+      (type $1 (func (param i32) (result i32)))
+      (type $2 (func (result i32)))
+      (type $3 (func))
+      (import "js" "print_ln" (func $print (type $0)))
+      (start $main)
+      (func $test_11 (type $1)
+        i32.const 111
+        call $print
+        i32.const 0)
+      (func $test_10 (type $0)
+        i32.const 110
+        call $print)
+      (func $test_01 (type $2)
+        i32.const 101
+        call $print
+        i32.const 0)
+      (func $test_00 (type $3)
+        i32.const 100
+        call $print)
+      (func $main (type $3)
+        i32.const 0
+        call $test_11
+        drop
+        i32.const 0
+        call $test_10
+        call $test_01
+        drop
+        call $test_00)
     )
     """)
 

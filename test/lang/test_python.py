@@ -35,6 +35,27 @@ def a(x: int) -> int:
 """
 
 
+src4 = """
+def test() -> int:
+    a = 1
+    return a
+"""
+
+src5 = """
+def test() -> int:
+  if 1 == 1:
+    return 1
+  return 2
+"""
+
+src6 = """
+def p1(a: int):
+    if a > 2:
+        return
+    
+"""
+
+
 @unittest.skipUnless(api.is_platform_supported(), 'skipping codepage tests')
 class PythonJitLoadingTestCase(unittest.TestCase):
     """ Check the on the fly compiling of python code """
@@ -77,20 +98,36 @@ class PythonJitLoadingTestCase(unittest.TestCase):
 
 class PythonToIrCompilerTestCase(unittest.TestCase):
     """ Check the compilation of python code to ir """
+    def do(self, src, imports=None):
+        mod = python_to_ir(io.StringIO(src), imports=imports)
+        f = io.StringIO()
+        irutils.print_module(mod, file=f)
+
+        # Round trip test:
+        irutils.read_module(io.StringIO(f.getvalue()))
+
     def test_snippet1(self):
-        python_to_ir(io.StringIO(src1))
+        self.do(src1)
 
     def test_snippet2(self):
         imports = {
             'myprint': (None, (int,))
         }
-        mod = python_to_ir(io.StringIO(src2), imports=imports)
-        f = io.StringIO()
-        irutils.print_module(mod, file=f)
+        self.do(src2, imports=imports)
+        # mod = python_to_ir(io.StringIO(src2), imports=imports)
         # print(f.getvalue())
 
     def test_snippet3(self):
-        python_to_ir(io.StringIO(src3))
+        self.do(src3)
+
+    def test_snippet4(self):
+        self.do(src4)
+
+    def test_snippet5(self):
+        self.do(src5)
+
+    def test_snippet6(self):
+        self.do(src6)
 
 
 if __name__ == '__main__':

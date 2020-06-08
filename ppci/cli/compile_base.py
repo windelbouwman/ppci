@@ -8,7 +8,7 @@ from .. import api, irutils
 from ..binutils.outstream import TextOutputStream
 from .base import out_parser
 from ..wasm import ir_to_wasm
-from ..instrument import add_tracer
+from ..irutils.instrument import add_tracer
 
 
 compile_parser = argparse.ArgumentParser(add_help=False, parents=[out_parser])

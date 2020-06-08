@@ -1,25 +1,25 @@
-
-Jitting
+JITting
 =======
 
 .. warning::
 
     This section is a work in progress. It is outlined as to how things
     should work, but it is not thorougly tested. Also, keep in mind
-    that C support is very premature. An alternative is c3.
+    that C support is very premature. An alternative is C3.
 
 This howto is about how to JIT (just-in-time-compile) code and use it from
-python. It can occur that at some point in time, you have some python code
+Python. It can occur that at some point in time, you have some Python code
 that becomes a performance bottleneck. At this point, you have multiple
 options:
 
 - Rewrite your code in C/Fortran/Rust/Go/Swift, compile it to machine code
-  with gcc and load it with swig/ctypes.
-- Use pypy, which contains a built-in JIT function. Usually the usage of pypy
-  means more speed.
+  with GCC or similar compiler and load it with SWIG/ctypes.
+- Use PyPy, which contains a built-in JIT functionality. Usually the usage
+  of PyPy means more speed.
+- Use a specialized JIT engine, like Numba.
 
-There are lots of more options, but in this howto we will use ppci to compile
-and load a piece of code that forms a bottleneck.
+In this HowTo we will implement our own specialized JIT engine, using PPCI
+as a backend.
 
 To do this, first we need some example code. Take the following function
 as an example:
@@ -40,7 +40,7 @@ C-way
 -----
 
 Now, after profiling we could potentially discover that this function is
-a major bottleneck. So we decide to rewrite the thing in C:
+a bottleneck. We may decide to rewrite it in C:
 
 .. code-block:: c
 
@@ -49,7 +49,7 @@ a major bottleneck. So we decide to rewrite the thing in C:
       return a + b + 13;
     }
 
-Having this function, we put this function in a python string and compile it.
+Having this function, we put this function in a Python string and compile it.
 
 .. doctest:: jitting
 
@@ -65,7 +65,7 @@ Having this function, we put this function in a python string and compile it.
     CodeObject of ... bytes
 
 Now that the object is compiled, we can load it into the current
-python process:
+Python process:
 
 .. doctest:: jitting
 
@@ -83,12 +83,12 @@ Now, lets call the function:
     >>> m.x(2, 3)
     18
 
-Follow-up
----------
+Python-way
+----------
 
 Instead of translating our code to C, we can as well compile
-python directly, by using type hints and a restricted subset of
-the python language. For this we can use the :mod:`ppci.lang.python` module:
+Python code directly, by using type hints and a restricted subset of
+the Python language. For this we can use the :mod:`ppci.lang.python` module:
 
 
 .. doctest:: jitting
@@ -104,11 +104,12 @@ the python language. For this we can use the :mod:`ppci.lang.python` module:
 
 By doing this, we do not need to reimplement the function in C,
 but only need to add some type hints to make it work. This might
-be more preferable to C. Please note that integer arithmatic is
-unlimited on python, but not when using compiled code.
+be more preferable to C. Please note that integer arithmetic is
+arbitrary-precision in Python, but witth the compiled code above,
+large value will silently wrap around.
 
-To easily load you code as native code, use the :func:`ppci.lang.python.jit`
-function:
+To easily compile some of your Python functions to native code,
+use the :func:`ppci.lang.python.jit` decorator:
 
 .. testcode:: jitting
 
@@ -118,8 +119,8 @@ function:
     def y(a: int, b: int) -> int:
         return a + b + 13
 
-Now the function can be called as before, except that now native code is
-invoked:
+Now the function can be called as a normal function, JIT compilation
+and calling native code is handled transparently:
 
 .. doctest:: jitting
 
@@ -127,10 +128,10 @@ invoked:
    18
 
 
-Calling python functions
-------------------------
+Calling Python functions from native code
+-----------------------------------------
 
-In order to callback python functions, we can do the following:
+In order to callback Python functions, we can do the following:
 
 .. doctest:: jitting
 
@@ -147,11 +148,11 @@ In order to callback python functions, we can do the following:
     x= 5
     18
 
-Benchmarking
-------------
+Benchmarking and call overheads
+-------------------------------
 
-Now for an intersting plot twist, lets compare the two functions in a
-benchmark:
+To conclude this section, let's benchmark the original function ``x`` with
+which we started this section, and its JIT counterpart:
 
 .. code:: python
 
@@ -161,12 +162,12 @@ benchmark:
     >>> timeit.timeit('x(2,3)', number=100000, globals={'x': m.x})
     0.07410199400010242
 
-Turns out that the compiled code is actually slower. This can be due to
-the overhead of calling C functions or bad compilation.
-Lessons learned: first profile, then use pypy, then improve python code,
-and lastly: convert your code into C.
+Turns out that the compiled code is actually slower. This is due to
+the fact that for a trivial function like that, argument conversion and
+call preparation overheads dominate the execution time. To see benefits
+of native code execution, we would need to JIT functions which perform
+many operations in a loop, e.g. while processing large arrays.
 
 .. warning::
     Before optimizing anything, run a profiler. Your
     expectations about performance bottlenecks might be wrong!
-

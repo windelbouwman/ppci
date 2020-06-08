@@ -11,7 +11,7 @@ from .ppci2wasm import ir_to_wasm
 from .arch import WasmArchitecture
 from .util import run_wasm_in_node, export_wasm_example
 from .util import run_wasm_in_notebook, has_node
-from ._instantiate import instantiate
+from .execution import instantiate, execute_wasm
 
 
 def read_wasm(input) -> Module:

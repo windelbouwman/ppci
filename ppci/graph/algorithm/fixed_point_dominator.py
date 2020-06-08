@@ -70,9 +70,6 @@ def calculate_immediate_dominators(nodes, _dom, _sdom):
                     # This must be the only definition of idom:
                     assert node not in _idom
                     _idom[node] = x
-        else:
-            # No strict dominators, hence also no immediate dominator:
-            _idom[node] = None
     return _idom
 
 

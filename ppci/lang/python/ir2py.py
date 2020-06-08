@@ -1,5 +1,6 @@
 """ Python back-end. Generates python code from ir-code. """
 
+import math
 import contextlib
 import io
 import logging
@@ -23,7 +24,7 @@ def ir_to_python(ir_modules, f, reporter=None):
     generator.header()
     for ir_module in ir_modules:
         if not isinstance(ir_module, ir.Module):
-            raise TypeError('ir_modules must be list of ir.Module')
+            raise TypeError("ir_modules must be list of ir.Module")
         generator.generate(ir_module)
 
     if reporter:
@@ -73,11 +74,11 @@ class IrToPythonCompiler:
         self.emit("import struct")
         self.emit("import math")
         self.emit("")
-        self.emit("heap = bytearray()")
-        self.emit("stack = bytearray()")
+        self.emit("_irpy_heap = bytearray()")
+        self.emit("_irpy_stack = bytearray()")
         self.emit("HEAP_START = 0x10000000")
-        self.emit("func_pointers = list()")
-        self.emit("externals = {}")
+        self.emit("_irpy_func_pointers = list()")
+        self.emit("_irpy_externals = {}")
         self.emit("")
 
         self.generate_builtins()
@@ -86,29 +87,29 @@ class IrToPythonCompiler:
     def generate_memory_builtins(self):
         self.emit("def read_mem(address, size):")
         with self.indented():
-            self.emit("mem, address = get_memory(address)")
+            self.emit("mem, address = _irpy_get_memory(address)")
             self.emit("assert address+size <= len(mem), str(hex(address))")
             self.emit("return mem[address:address+size]")
         self.emit("")
 
         self.emit("def write_mem(address, data):")
         with self.indented():
-            self.emit("mem, address = get_memory(address)")
+            self.emit("mem, address = _irpy_get_memory(address)")
             self.emit("size = len(data)")
             self.emit("assert address+size <= len(mem), str(hex(address))")
             self.emit("mem[address:address+size] = data")
         self.emit("")
 
-        self.emit("def get_memory(v):")
+        self.emit("def _irpy_get_memory(v):")
         self.print(1, "if v >= HEAP_START:")
-        self.print(2, "return heap, v - HEAP_START")
+        self.print(2, "return _irpy_heap, v - HEAP_START")
         self.print(1, "else:")
-        self.print(2, "return stack, v")
+        self.print(2, "return _irpy_stack, v")
         self.emit("")
 
-        self.emit("def heap_top():")
+        self.emit("def _irpy_heap_top():")
         with self.indented():
-            self.emit("return len(heap) + HEAP_START")
+            self.emit("return len(_irpy_heap) + HEAP_START")
         self.emit("")
 
         # Generate load functions:
@@ -128,23 +129,23 @@ class IrToPythonCompiler:
 
         for ty, fmt, size in foo:
             # Generate load helpers:
-            self.print(0, "def load_{}(p):".format(ty.name))
+            self.emit("def load_{}(p):".format(ty.name))
             self.print(
                 1,
                 'return struct.unpack("{0}", read_mem(p, {1}))[0]'.format(
                     fmt, size
                 ),
             )
-            self.print(0, "")
+            self.emit("")
 
             # Generate store helpers:
-            self.print(0, "def store_{}(v, p):".format(ty.name))
+            self.emit("def store_{}(v, p):".format(ty.name))
             self.print(1, 'write_mem(p, struct.pack("{0}", v))'.format(fmt))
-            self.print(0, "")
+            self.emit("")
 
     def generate_builtins(self):
         # Wrap type helper:
-        self.emit("def correct(value, bits, signed):")
+        self.emit("def _irpy_correct(value, bits, signed):")
         self.print(1, "base = 1 << bits")
         self.print(1, "value %= base")
         self.print(1, "if signed and value.bit_length() == bits:")
@@ -153,41 +154,54 @@ class IrToPythonCompiler:
         self.print(2, "return value")
         self.emit("")
 
-        # Truncating integer divide
-        self.emit("def idiv(x, y):")
-        self.print(1, "return int(math.trunc(x/y))")
+        # More C like integer divide
+        self.emit("def _irpy_idiv(x, y):")
+        with self.indented():
+            self.emit("sign = False")
+            self.emit("if x < 0: x = -x; sign = not sign")
+            self.emit("if y < 0: y = -y; sign = not sign")
+            self.emit("v = x // y")
+            self.emit("return -v if sign else v")
         self.emit("")
 
         # More c like remainder:
-        self.emit("def irem(x, y):")
-        self.print(1, "sign = x < 0")
-        self.print(1, "v = abs(x) % abs(y)")
-        self.print(1, "if sign:")
-        self.print(2, "return -v")
+        # Note: sign of y is not relevant for result sign
+        self.emit("def _irpy_irem(x, y):")
+        self.print(1, "if x < 0:")
+        self.print(2, "x = -x")
+        self.print(2, "sign = True")
         self.print(1, "else:")
-        self.print(2, "return v")
+        self.print(2, "sign = False")
+        self.print(1, "if y < 0: y = -y")
+        self.print(1, "v = x % y")
+        self.print(1, "return -v if sign else v")
         self.emit("")
 
         # More c like shift left:
-        self.emit("def ishl(x, amount, bits):")
-        self.print(1, "amount = amount % bits")
-        self.print(1, "return x << amount")
+        self.emit("def _irpy_ishl(x, amount, bits):")
+        with self.indented():
+            self.emit("amount = amount % bits")
+            self.emit("return x << amount")
+        self.emit("")
 
         # More c like shift right:
-        self.emit("def ishr(x, amount, bits):")
-        self.print(1, "amount = amount % bits")
-        self.print(1, "return x >> amount")
+        self.emit("def _irpy_ishr(x, amount, bits):")
+        with self.indented():
+            self.emit("amount = amount % bits")
+            self.emit("return x >> amount")
+        self.emit("")
 
-        self.emit("def _alloca(amount):")
-        self.print(1, "ptr = len(stack)")
-        self.print(1, "stack.extend(bytes(amount))")
-        self.print(1, "return (ptr, amount)")
-        self.print(0, "")
+        self.emit("def _irpy_alloca(amount):")
+        with self.indented():
+            self.emit("ptr = len(_irpy_stack)")
+            self.emit("_irpy_stack.extend(bytes(amount))")
+            self.emit("return (ptr, amount)")
+        self.emit("")
 
-        self.print(0, "def _free(amount):")
+        self.emit("def _irpy_free(amount):")
         self.print(1, "for _ in range(amount):")
-        self.print(2, "stack.pop()")
-        self.print(0, "")
+        self.print(2, "_irpy_stack.pop()")
+        self.emit("")
 
     def generate(self, ir_mod):
         """ Write ir-code to file f """
@@ -198,16 +212,16 @@ class IrToPythonCompiler:
 
         # Allocate room for global variables:
         for var in ir_mod.variables:
-            self.emit("{} = heap_top()".format(var.name))
+            self.emit("{} = _irpy_heap_top()".format(var.name))
             if var.value:
                 for part in var.value:
                     if isinstance(part, bytes):
                         for byte in part:
-                            self.emit("heap.append({})".format(byte))
+                            self.emit("_irpy_heap.append({})".format(byte))
                     else:  # pragma: no cover
                         raise NotImplementedError()
             else:
-                self.emit("heap.extend(bytes({}))".format(var.amount))
+                self.emit("_irpy_heap.extend(bytes({}))".format(var.amount))
 
         # Generate functions:
         for function in ir_mod.functions:
@@ -215,9 +229,9 @@ class IrToPythonCompiler:
 
         # emit labeled literals:
         for lit in self.literals:
-            self.emit("{} = heap_top()".format(literal_label(lit)))
+            self.emit("{} = _irpy_heap_top()".format(literal_label(lit)))
             for val in lit.data:
-                self.emit("heap.append({})".format(val))
+                self.emit("_irpy_heap.append({})".format(val))
         self.emit("")
 
     def generate_function(self, ir_function):
@@ -226,24 +240,25 @@ class IrToPythonCompiler:
         args = ",".join(a.name for a in ir_function.arguments)
         self.emit("def {}({}):".format(ir_function.name, args))
         with self.indented():
-            try:
-                # TODO: remove this to enable shape style:
-                raise ValueError
-                shape, _rmap = relooper.find_structure(ir_function)
-                src = io.StringIO()
-                relooper.print_shape(shape, file=src)
-                self.reporter.dump_source(ir_function.name, src.getvalue())
-                self._rmap = _rmap
-                self._shape_style = True
-                self.generate_shape(shape)
-            except ValueError:
-                self.logger.debug("Falling back to block-switch-style")
-                # Fall back to block switch stack!
-                self._shape_style = False
-                self.generate_function_fallback(ir_function)
+            # TODO: enable shape style:
+            # try:
+            #     # TODO: remove this to enable shape style:
+            #     raise ValueError
+            #     shape, _rmap = relooper.find_structure(ir_function)
+            #     src = io.StringIO()
+            #     relooper.print_shape(shape, file=src)
+            #     self.reporter.dump_source(ir_function.name, src.getvalue())
+            #     self._rmap = _rmap
+            #     self._shape_style = True
+            #     self.generate_shape(shape)
+            # except ValueError:
+            self.logger.debug("Falling back to block-switch-style")
+            # Fall back to block switch stack!
+            self._shape_style = False
+            self.generate_function_fallback(ir_function)
 
         # Register function for function pointers:
-        self.emit("func_pointers.append({})".format(ir_function.name))
+        self.emit("_irpy_func_pointers.append({})".format(ir_function.name))
         self.func_ptr_map[ir_function] = len(self.func_ptr_map)
         self.emit("")
 
@@ -285,14 +300,14 @@ class IrToPythonCompiler:
     def generate_function_fallback(self, ir_function):
         """ Generate a while-true with a switch-case on current block.
 
-        This is an non-optimal, but always working strategy.
+        This is a non-optimal, but always working strategy.
         """
-        self.emit("prev_block = None")
-        self.emit("current_block = '{}'".format(ir_function.entry.name))
+        self.emit("_irpy_prev_block = None")
+        self.emit("_irpy_current_block = '{}'".format(ir_function.entry.name))
         self.emit("while True:")
         with self.indented():
             for block in ir_function.blocks:
-                self.emit('if current_block == "{}":'.format(block.name))
+                self.emit('if _irpy_current_block == "{}":'.format(block.name))
                 with self.indented():
                     self.generate_block(block)
         self.emit("")
@@ -314,42 +329,29 @@ class IrToPythonCompiler:
             self.emit("{} = {}".format(phi_names, value_names))
 
     def reset_stack(self):
-        self.emit("_free({})".format(self.stack_size))
+        self.emit("_irpy_free({})".format(self.stack_size))
         self.stack_size = 0
+
+    def emit_jump(self, target: ir.Block):
+        """ Perform a jump in block mode. """
+        assert isinstance(target, ir.Block)
+        self.emit("_irpy_prev_block = _irpy_current_block")
+        self.emit('_irpy_current_block = "{}"'.format(target.name))
 
     def generate_instruction(self, ins, block):
         """ Generate python code for this instruction """
         if isinstance(ins, ir.CJump):
-            if self._shape_style:
-                self.fill_phis(block)
-                self.emit(
-                    "if {} {} {}:".format(ins.a.name, ins.cond, ins.b.name)
-                )
-            else:
-                self.emit(
-                    "if {} {} {}:".format(ins.a.name, ins.cond, ins.b.name)
-                )
-                with self.indented():
-                    self.emit("prev_block = current_block")
-                    self.emit('current_block = "{}"'.format(ins.lab_yes.name))
-                self.emit("else:")
-                with self.indented():
-                    self.emit("prev_block = current_block")
-                    self.emit('current_block = "{}"'.format(ins.lab_no.name))
+            self.gen_cjump(ins)
         elif isinstance(ins, ir.Jump):
-            if self._shape_style:
-                self.fill_phis(block)
-                self.emit("pass")
-            else:
-                self.emit("prev_block = current_block")
-                self.emit('current_block = "{}"'.format(ins.target.name))
+            self.gen_jump(ins)
         elif isinstance(ins, ir.Alloc):
-            self.emit("{} = _alloca({})".format(ins.name, ins.amount))
+            self.emit("{} = _irpy_alloca({})".format(ins.name, ins.amount))
             self.stack_size += ins.amount
         elif isinstance(ins, ir.AddressOf):
-            self.emit("{} = {}[0]".format(ins.name, ins.src.name))
+            src = self.fetch_value(ins.src)
+            self.emit("{} = {}[0]".format(ins.name, src))
         elif isinstance(ins, ir.Const):
-            self.emit("{} = {}".format(ins.name, ins.value))
+            self.gen_const(ins)
         elif isinstance(ins, ir.LiteralData):
             assert isinstance(ins.data, bytes)
             self.literals.append(ins)
@@ -360,50 +362,20 @@ class IrToPythonCompiler:
             )
         elif isinstance(ins, ir.Unop):
             op = ins.operation
+            a = self.fetch_value(ins.a)
             self.emit("{} = {}{}".format(ins.name, op, ins.a.name))
             if ins.ty.is_integer:
                 self.emit(
-                    "{0} = correct({0}, {1}, {2})".format(
+                    "{0} = _irpy_correct({0}, {1}, {2})".format(
                         ins.name, ins.ty.bits, ins.ty.signed
                     )
                 )
         elif isinstance(ins, ir.Binop):
-            # Assume int for now.
-            op = ins.operation
-            int_ops = {"/": "idiv", "%": "irem"}
-
-            shift_ops = {">>": "ishr", "<<": "ishl"}
-
-            if op in int_ops and ins.ty.is_integer:
-                fname = int_ops[op]
-                self.emit(
-                    "{} = {}({}, {})".format(
-                        ins.name, fname, ins.a.name, ins.b.name
-                    )
-                )
-            elif op in shift_ops and ins.ty.is_integer:
-                fname = shift_ops[op]
-                self.emit(
-                    "{} = {}({}, {}, {})".format(
-                        ins.name, fname, ins.a.name, ins.b.name, ins.ty.bits
-                    )
-                )
-            else:
-                self.emit(
-                    "{} = {} {} {}".format(
-                        ins.name, ins.a.name, op, ins.b.name
-                    )
-                )
-            if ins.ty.is_integer:
-                self.emit(
-                    "{0} = correct({0}, {1}, {2})".format(
-                        ins.name, ins.ty.bits, ins.ty.signed
-                    )
-                )
+            self.gen_binop(ins)
         elif isinstance(ins, ir.Cast):
             if ins.ty.is_integer:
                 self.emit(
-                    "{} = correct(int(round({})), {}, {})".format(
+                    "{} = _irpy_correct(int(round({})), {}, {})".format(
                         ins.name, ins.src.name, ins.ty.bits, ins.ty.signed
                     )
                 )
@@ -414,63 +386,136 @@ class IrToPythonCompiler:
             else:  # pragma: no cover
                 raise NotImplementedError(str(ins))
         elif isinstance(ins, ir.Store):
-            if isinstance(ins.value.ty, ir.BlobDataTyp):
-                self.emit(
-                    "write_mem({0}, {1}, {2})".format(
-                        ins.address.name, ins.value.ty.size, ins.value.name
-                    )
-                )
-            else:
-                if isinstance(ins.value, ir.SubRoutine):
-                    # Function pointer!
-                    fidx = self.func_ptr_map[ins.value]
-                    v = str(fidx)
-                else:
-                    v = ins.value.name
-                self.emit(
-                    "store_{0}({2}, {1})".format(
-                        ins.value.ty.name, ins.address.name, v
-                    )
-                )
+            self.gen_store(ins)
         elif isinstance(ins, ir.Load):
-            if isinstance(ins.ty, ir.BlobDataTyp):
-                self.emit(
-                    "{0} = read_mem({1}, {2})".format(
-                        ins.name, ins.address.name, ins.ty.size
-                    )
-                )
-            else:
-                self.emit(
-                    "{0} = load_{1}({2})".format(
-                        ins.name, ins.ty.name, ins.address.name
-                    )
-                )
+            self.gen_load(ins)
         elif isinstance(ins, ir.FunctionCall):
-            args = ", ".join(a.name for a in ins.arguments)
-            self._fetch_callee(ins.callee)
-            self.emit("{} = _fptr({})".format(ins.name, args))
+            args = ", ".join(self.fetch_value(a) for a in ins.arguments)
+            callee = self._fetch_callee(ins.callee)
+            self.emit("{} = {}({})".format(ins.name, callee, args))
         elif isinstance(ins, ir.ProcedureCall):
-            args = ", ".join(a.name for a in ins.arguments)
-            self._fetch_callee(ins.callee)
-            self.emit("_fptr({})".format(args))
+            args = ", ".join(self.fetch_value(a) for a in ins.arguments)
+            callee = self._fetch_callee(ins.callee)
+            self.emit("{}({})".format(callee, args))
         elif isinstance(ins, ir.Phi):
             pass  # Phi is filled by predecessor
         elif isinstance(ins, ir.Return):
             self.reset_stack()
-            self.emit("return {}".format(ins.result.name))
+            self.emit("return {}".format(self.fetch_value(ins.result)))
         elif isinstance(ins, ir.Exit):
             self.reset_stack()
             self.emit("return")
+        elif isinstance(ins, ir.Undefined):
+            self.emit("{} = 0".format(ins.name))
         else:  # pragma: no cover
             self.emit("not implemented: {}".format(ins))
             raise NotImplementedError(str(type(ins)))
 
+    def gen_cjump(self, ins):
+        a = self.fetch_value(ins.a)
+        b = self.fetch_value(ins.b)
+        if self._shape_style:
+            self.fill_phis(block)
+            self.emit("if {} {} {}:".format(a, ins.cond, b))
+        else:
+            self.emit("if {} {} {}:".format(a, ins.cond, b))
+            with self.indented():
+                self.emit_jump(ins.lab_yes)
+            self.emit("else:")
+            with self.indented():
+                self.emit_jump(ins.lab_no)
+
+    def gen_jump(self, ins):
+        if self._shape_style:
+            self.fill_phis(block)
+            self.emit("pass")
+        else:
+            self.emit_jump(ins.target)
+
+    def gen_binop(self, ins):
+        a = self.fetch_value(ins.a)
+        b = self.fetch_value(ins.b)
+        # Assume int for now.
+        op = ins.operation
+        int_ops = {"/": "_irpy_idiv", "%": "_irpy_irem"}
+
+        shift_ops = {">>": "_irpy_ishr", "<<": "_irpy_ishl"}
+
+        if op in int_ops and ins.ty.is_integer:
+            fname = int_ops[op]
+            self.emit("{} = {}({}, {})".format(ins.name, fname, a, b))
+        elif op in shift_ops and ins.ty.is_integer:
+            fname = shift_ops[op]
+            self.emit(
+                "{} = {}({}, {}, {})".format(
+                    ins.name, fname, a, b, ins.ty.bits
+                )
+            )
+        else:
+            self.emit("{} = {} {} {}".format(ins.name, a, op, b))
+
+        if ins.ty.is_integer:
+            self.emit(
+                "{0} = _irpy_correct({0}, {1}, {2})".format(
+                    ins.name, ins.ty.bits, ins.ty.signed
+                )
+            )
+
+    def gen_load(self, ins):
+        address = self.fetch_value(ins.address)
+        if isinstance(ins.ty, ir.BlobDataTyp):
+            self.emit(
+                "{0} = read_mem({1}, {2})".format(
+                    ins.name, address, ins.ty.size
+                )
+            )
+        else:
+            self.emit(
+                "{0} = load_{1}({2})".format(ins.name, ins.ty.name, address)
+            )
+
+    def gen_store(self, ins):
+        if isinstance(ins.value.ty, ir.BlobDataTyp):
+            self.emit(
+                "write_mem({0}, {1}, {2})".format(
+                    ins.address.name, ins.value.ty.size, ins.value.name
+                )
+            )
+        else:
+            v = self.fetch_value(ins.value)
+            self.emit(
+                "store_{0}({2}, {1})".format(
+                    ins.value.ty.name, ins.address.name, v
+                )
+            )
+
+    def gen_const(self, ins):
+        if math.isinf(ins.value):
+            if ins.value > 0:
+                value = "math.inf"
+            else:
+                value = "-math.inf"
+        else:
+            value = str(ins.value)
+        self.emit("{} = {}".format(ins.name, value))
+
     def _fetch_callee(self, callee):
         """ Retrieves a callee and puts it into _fptr variable """
         if isinstance(callee, ir.SubRoutine):
-            self.emit("_fptr = {}".format(callee.name))
+            expr = "{}".format(callee.name)
         elif isinstance(callee, ir.ExternalSubRoutine):
-            self.emit("_fptr = {}".format(callee.name))
-            # self.print(3, '_fptr = externals["{}"]'.format(callee.name))
+            expr = "_irpy_externals['{}']".format(callee.name)
         else:
-            self.emit("_fptr = func_pointers[{}]".format(callee.name))
+            expr = "_irpy_func_pointers[{}]".format(callee.name)
+        return expr
+
+    def fetch_value(self, value):
+        if isinstance(value, ir.SubRoutine):
+            # Function pointer!
+            fidx = self.func_ptr_map[value]
+            expr = str(fidx)
+        elif isinstance(value, ir.ExternalVariable):
+            expr = "_irpy_externals['{}']".format(value.name)
+        else:
+            expr = value.name
+        return expr

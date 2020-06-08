@@ -24,54 +24,17 @@ class Visitor:
                 self.visit(node.value)
         elif isinstance(node, declarations.Typedef):
             self.visit(node.typ)
-        elif isinstance(node, expressions.TernaryOperator):
-            self.visit(node.a)
-            self.visit(node.b)
-            self.visit(node.c)
-        elif isinstance(node, expressions.BinaryOperator):
-            self.visit(node.a)
-            self.visit(node.b)
-            self.visit(node.typ)
-        elif isinstance(node, expressions.UnaryOperator):
-            self.visit(node.a)
-            self.visit(node.typ)
-        elif isinstance(node, expressions.Literal):
-            self.visit(node.typ)
-        elif isinstance(node, expressions.InitializerList):
-            for element in node.elements:
-                self.visit(element)
-        elif isinstance(node, expressions.Cast):
-            self.visit(node.to_typ)
-            self.visit(node.expr)
-        elif isinstance(node, expressions.Sizeof):
-            self.visit(node.sizeof_typ)
-        elif isinstance(node, expressions.ArrayIndex):
-            self.visit(node.base)
-            self.visit(node.index)
-            self.visit(node.typ)
-        elif isinstance(node, expressions.FieldSelect):
-            self.visit(node.base)
-        elif isinstance(node, expressions.FunctionCall):
-            self.visit(node.callee)
-            for argument in node.args:
-                self.visit(argument)
-        elif isinstance(node, types.FunctionType):
-            for parameter in node.arguments:
-                self.visit(parameter)
-            self.visit(node.return_type)
-        elif isinstance(node, types.PointerType):
-            self.visit(node.element_type)
-        elif isinstance(node, types.ArrayType):
-            self.visit(node.element_type)
-            if isinstance(node.size, expressions.CExpression):
-                self.visit(node.size)
-        elif isinstance(node, (types.StructType, types.UnionType)):
-            pass
-        elif isinstance(node, (types.EnumType,)):
-            pass
-        elif isinstance(node, types.BasicType):
-            pass
-        elif isinstance(node, statements.Compound):
+        elif isinstance(node, expressions.CExpression):
+            self.visit_expression(node)
+        elif isinstance(node, statements.CStatement):
+            self.visit_statement(node)
+        elif isinstance(node, types.CType):
+            self.visit_type(node)
+        else:  # pragma: no cover
+            raise NotImplementedError(str(type(node)))
+
+    def visit_statement(self, node):
+        if isinstance(node, statements.Compound):
             for statement in node.statements:
                 self.visit(statement)
         elif isinstance(node, statements.For):
@@ -96,25 +59,67 @@ class Visitor:
         elif isinstance(node, statements.Switch):
             self.visit(node.expression)
             self.visit(node.statement)
-        elif isinstance(
-            node, (statements.Goto, statements.Break, statements.Continue)
-        ):
-            pass
         elif isinstance(node, (statements.Label, statements.Default)):
             self.visit(node.statement)
         elif isinstance(node, (statements.Case,)):
+            self.visit(node.value)
+            self.visit(node.statement)
+        elif isinstance(node, (statements.RangeCase,)):
+            self.visit(node.value1)
+            self.visit(node.value2)
             self.visit(node.statement)
         elif isinstance(node, statements.Return):
             if node.value:
                 self.visit(node.value)
+        elif isinstance(node, statements.InlineAssemblyCode):
+            for _, output in node.output_operands:
+                self.visit(output)
+            for _, input_operand in node.input_operands:
+                self.visit(input_operand)
         elif isinstance(node, statements.Empty):
+            pass
+        elif isinstance(
+            node, (statements.Goto, statements.Break, statements.Continue)
+        ):
             pass
         elif isinstance(node, statements.DeclarationStatement):
             self.visit(node.declaration)
         elif isinstance(node, statements.ExpressionStatement):
             self.visit(node.expression)
-        elif isinstance(node, expressions.VariableAccess):
+        else:  # pragma: no cover
+            raise NotImplementedError(str(type(node)))
+
+    def visit_expression(self, node):
+        if isinstance(node, expressions.VariableAccess):
             pass
+        elif isinstance(node, expressions.TernaryOperator):
+            self.visit(node.a)
+            self.visit(node.b)
+            self.visit(node.c)
+        elif isinstance(node, expressions.BinaryOperator):
+            self.visit(node.a)
+            self.visit(node.b)
+            self.visit(node.typ)
+        elif isinstance(node, expressions.UnaryOperator):
+            self.visit(node.a)
+            self.visit(node.typ)
+        elif isinstance(node, expressions.Literal):
+            self.visit(node.typ)
+        elif isinstance(node, expressions.Cast):
+            self.visit(node.to_typ)
+            self.visit(node.expr)
+        elif isinstance(node, expressions.Sizeof):
+            self.visit(node.sizeof_typ)
+        elif isinstance(node, expressions.ArrayIndex):
+            self.visit(node.base)
+            self.visit(node.index)
+            self.visit(node.typ)
+        elif isinstance(node, expressions.FieldSelect):
+            self.visit(node.base)
+        elif isinstance(node, expressions.FunctionCall):
+            self.visit(node.callee)
+            for argument in node.args:
+                self.visit(argument)
         elif isinstance(node, expressions.BuiltInVaStart):
             self.visit(node.arg_pointer)
         elif isinstance(node, expressions.BuiltInVaArg):
@@ -138,8 +143,28 @@ class Visitor:
         elif isinstance(node, expressions.UnionInitializer):
             if node.value:
                 self.visit(node.value)
+        elif isinstance(node, expressions.CompoundLiteral):
+            self.visit(node.typ)
+            self.visit(node.init)
         else:  # pragma: no cover
             raise NotImplementedError(str(type(node)))
 
     def visit_type(self, node):
-        raise NotImplementedError("todo: to reduce visit function size")
+        if isinstance(node, types.FunctionType):
+            for parameter in node.arguments:
+                self.visit(parameter)
+            self.visit(node.return_type)
+        elif isinstance(node, types.PointerType):
+            self.visit(node.element_type)
+        elif isinstance(node, types.ArrayType):
+            self.visit(node.element_type)
+            if isinstance(node.size, expressions.CExpression):
+                self.visit(node.size)
+        elif isinstance(node, (types.StructType, types.UnionType)):
+            pass
+        elif isinstance(node, (types.EnumType,)):
+            pass
+        elif isinstance(node, types.BasicType):
+            pass
+        else:  # pragma: no cover
+            raise NotImplementedError(str(type(node)))

@@ -19,6 +19,7 @@ def link(
     debug=False,
     extra_symbols=None,
     libraries=None,
+    entry=None,
 ):
     """ Links the iterable of objects into one using the given layout.
 
@@ -33,6 +34,7 @@ def link(
         extra_symbols: a dict of extra symbols which can be used during
             linking.
         libraries: a list of libraries to use when searching for symbols.
+        entry: the entry symbol where execution should begin.
 
     Returns:
         The linked object file
@@ -72,6 +74,7 @@ def link(
         debug=debug,
         extra_symbols=extra_symbols,
         libraries=libraries,
+        entry_symbol_name=entry,
     )
     return output_obj
 
@@ -95,6 +98,7 @@ class Linker:
         debug=False,
         extra_symbols=None,
         libraries=None,
+        entry_symbol_name=None,
     ):
         """ Link together the given object files using the layout """
         assert isinstance(input_objects, (list, tuple))
@@ -111,11 +115,24 @@ class Linker:
         if debug:
             self.dst.debug_info = DebugInfo()
 
+        # Take entry symbol from layout if not specified alreay:
+        if not entry_symbol_name and layout and layout.entry:
+            # TODO: what to do if two symbols are defined?
+            # for now the symbol given via command line overrides
+            # the entry in the linker script.
+            entry_symbol_name = layout.entry.symbol_name
+
+        # Define entry symbol:
+        if entry_symbol_name:
+            self.dst.entry_symbol_id = self.inject_symbol(
+                entry_symbol_name, "global", None, None, 'object', 0
+            ).id
+
         # Define extra symbols:
         extra_symbols = extra_symbols or {}
         for symbol_name, value in extra_symbols.items():
             self.logger.debug("Defining extra symbol %s", symbol_name)
-            self.inject_symbol(symbol_name, "global", None, value)
+            self.inject_symbol(symbol_name, "global", None, value, 'object', 0)
 
         # First merge all sections into output sections:
         self.merge_objects(input_objects, debug)
@@ -177,8 +194,8 @@ class Linker:
     def inject_object(self, obj, debug):
         """ Paste object into destination object. """
         self.logger.debug("Merging %s", obj)
-        section_offsets = {}
 
+        section_offsets = {}
         for input_section in obj.sections:
             # Get or create the output section:
             output_section = self.dst.get_section(
@@ -215,11 +232,11 @@ class Linker:
 
             if symbol.binding == "global":
                 new_symbol = self.merge_global_symbol(
-                    symbol.name, section, value
+                    symbol.name, section, value, symbol.typ, symbol.size
                 )
             else:
                 new_symbol = self.inject_symbol(
-                    symbol.name, symbol.binding, section, value
+                    symbol.name, symbol.binding, section, value, symbol.typ, symbol.size
                 )
 
             symbol_id_mapping[symbol.id] = new_symbol.id
@@ -236,12 +253,22 @@ class Linker:
             )
             self.dst.add_relocation(new_reloc)
 
+        # Merge entry symbol:
+        if obj.entry_symbol_id is not None:
+            if self.dst.entry_symbol_id is None:
+                self.dst.entry_symbol_id = symbol_id_mapping[
+                    obj.entry_symbol_id
+                ]
+            else:
+                # TODO: improve error message?
+                raise CompilerError("Multiple entry points defined")
+
         # Merge debug info:
         if debug and obj.debug_info:
             replicator = SymbolIdAdjustingReplicator(symbol_id_mapping)
             replicator.replicate(obj.debug_info, self.dst.debug_info)
 
-    def merge_global_symbol(self, name, section, value):
+    def merge_global_symbol(self, name, section, value, typ, size):
         """ Insert or merge a global name. """
         if self.dst.has_symbol(name):
             new_symbol = self.dst.get_symbol(name)
@@ -257,15 +284,15 @@ class Linker:
                         "Multiple defined symbol: {}".format(name)
                     )
         else:
-            new_symbol = self.inject_symbol(name, "global", section, value)
+            new_symbol = self.inject_symbol(name, "global", section, value, typ, size)
 
         return new_symbol
 
-    def inject_symbol(self, name, binding, section, value):
+    def inject_symbol(self, name, binding, section, value, typ, size):
         """ Generate new symbol into object file. """
         symbol_id = len(self.dst.symbols)
         new_symbol = self.dst.add_symbol(
-            symbol_id, name, binding, value, section
+            symbol_id, name, binding, value, section, typ, size
         )
         return new_symbol
 
@@ -320,7 +347,7 @@ class Linker:
                     section = self.dst.get_section(section_name, create=True)
                     section.address = current_address
                     section.alignment = 1
-                    self.merge_global_symbol(symbol_name, section_name, 0)
+                    self.merge_global_symbol(symbol_name, section_name, 0, 'object', 0)
                     image.add_section(section)
                 elif isinstance(memory_input, Align):
                     while (current_address % memory_input.alignment) != 0:
@@ -581,6 +608,11 @@ class Linker:
 
     def do_relocations(self):
         """ Perform the correct relocation as listed """
+        self.logger.debug(
+            "Performing {} linker relocations".format(
+                len(self.dst.relocations)
+            )
+        )
         for reloc in self.dst.relocations:
             self._do_relocation(reloc)
 
@@ -590,7 +622,6 @@ class Linker:
         This involves hammering some specific bits in the section data
         according to symbol location and relocation location in the file.
         """
-        self.logger.debug("Performing linker relaxation")
         sym_value = self.get_symbol_value(relocation.symbol_id)
         section = self.dst.get_section(relocation.section)
 

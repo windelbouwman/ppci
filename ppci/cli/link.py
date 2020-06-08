@@ -5,6 +5,7 @@ to produce another resulting object file with images.
 """
 
 import argparse
+import sys
 from .base import base_parser, out_parser, LogSetup
 from .. import api
 
@@ -21,7 +22,7 @@ parser.add_argument(
     "--library",
     help="Add library to use when searching for symbols.",
     type=argparse.FileType("r"),
-    action='append',
+    action="append",
     default=[],
     metavar="library-filename",
 )
@@ -36,16 +37,50 @@ parser.add_argument(
 parser.add_argument(
     "-g", help="retain debug information", action="store_true", default=False
 )
+parser.add_argument(
+    "--relocatable",
+    "-r",
+    help="Generate relocatable output",
+    action="store_true",
+    default=False,
+)
+parser.add_argument(
+    "--entry",
+    "-e",
+    help="Use entry as the starting symbol of execution of the program.",
+    default=None,
+)
 
 
 def link(args=None):
     """ Run linker from command line """
     args = parser.parse_args(args)
+    relocatable = args.relocatable
     with LogSetup(args):
-        print(args.library)
-        obj = api.link(args.obj, layout=args.layout, debug=args.g)
-        with open(args.output, "w") as output:
-            obj.save(output)
+        obj = api.link(
+            args.obj,
+            layout=args.layout,
+            debug=args.g,
+            partial_link=relocatable,
+            entry=args.entry,
+        )
+        if relocatable:
+            with open(args.output, "w") as output:
+                obj.save(output)
+        else:
+            create_platform_executable(obj, args.output)
+
+
+def create_platform_executable(obj, output_filename):
+    """ Produce platform binary by spitting out exe/elf file. """
+    if sys.platform == "linux":
+        executable_filename = output_filename
+        api.objcopy(obj, None, "elf", executable_filename)
+    else:
+        # TODO: create windows exe.
+        # raise NotImplementedError('Executable output not support for platform: {}'.format(sys.platform))
+        executable_filename = output_filename
+        api.objcopy(obj, None, "elf", executable_filename)
 
 
 if __name__ == "__main__":

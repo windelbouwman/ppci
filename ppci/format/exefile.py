@@ -212,7 +212,9 @@ class ExeWriter:
         # TODO: use address map to fixup imported calls.
         address_map = {}
         symbol_id = len(obj.symbols)
-        obj.add_symbol(symbol_id, "_iat_begin", "global", f.tell(), "import")
+        obj.add_symbol(
+            symbol_id, "_iat_begin", "global", f.tell(), "import", "object", 0
+        )
 
         # Create thunk table:
         for dll_name, idt in zip(dll_names, idts):
@@ -225,6 +227,8 @@ class ExeWriter:
                     "global",
                     f.tell(),
                     "import",
+                    "object",
+                    0,
                 )
                 address_map[symbol_name] = f.tell() + import_rva
                 f.write(struct.pack("<Q", ordinals[symbol_name]))
@@ -233,7 +237,9 @@ class ExeWriter:
             # TODO: does the thunk table need a null terminator at the end?
             f.write(struct.pack("<Q", 0))
         symbol_id = len(obj.symbols)
-        obj.add_symbol(symbol_id, "_iat_end", "global", f.tell(), "import")
+        obj.add_symbol(
+            symbol_id, "_iat_end", "global", f.tell(), "import", "object", 0
+        )
         assert f.tell() == size_of_headers
 
         # Write out the import directory:

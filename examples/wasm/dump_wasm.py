@@ -3,8 +3,6 @@ This script converts the rocket game what was written in rust:
 
 https://github.com/aochagavia/rocket_wasm
 
-Currently broken.
-
 """
 
 import logging

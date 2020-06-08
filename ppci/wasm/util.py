@@ -78,10 +78,34 @@ def make_float(s):
         raise NotImplementedError(str(s))
 
 
-def sanitize_name(name):
+class SlugTable:
+    """ A translation table which allows simple ascii characters.
+    """
+
+    def __getitem__(self, item):
+        #
+        if item < 128:
+            # Allow 0-9, A-Z, a-z and _:
+            if (
+                48 <= item <= 57
+                or 65 <= item <= 90
+                or 97 <= item <= 122
+                or item == 95
+            ):
+                return chr(item)
+            else:
+                # Format the character as A + the hex code point value
+                return "A{:02X}".format(item)
+        else:
+            # Format the character as U + the hex code point value
+            return "U{:04X}".format(item)
+
+
+def sanitize_name(name: str):
     """ Strip illegal characters from name, such as '.' and '-' """
-    # TODO: we need to escape many things..
-    name = name.replace(".", "_").replace("-", "_").replace("/", "_")
+    # First filtering on weird characters
+    table = SlugTable()
+    name = name.translate(table)
 
     # To allow access by python attribute, check if the name is a
     # python keyword:
@@ -91,6 +115,10 @@ def sanitize_name(name):
     # No identifiers starting with a digit:
     if name and name[0].isdigit():
         name = "_" + name
+
+    # Handle empty string case:
+    if not name:
+        name = "_empty_stringzor"
 
     return name
 
@@ -127,16 +155,6 @@ def datastring2bytes(s):
         else:
             f.write(s[i].encode())
             i += 1
-    return f.getvalue()
-
-
-def bytes2datastring(b):
-    f = io.StringIO()
-    for v in b:
-        if 48 >= v >= 122 and v not in (92, 96):
-            f.write(chr(v))
-        else:
-            f.write("\\" + hex(v)[2:].rjust(2, "0"))
     return f.getvalue()
 
 

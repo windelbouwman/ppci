@@ -1,0 +1,29 @@
+i=0 j=0 k=0
+i=0 j=0 k=1
+i=0 j=0 k=2
+i=0 j=1 k=0
+i=0 j=1 k=1
+i=0 j=1 k=2
+i=0 j=2 k=0
+i=0 j=2 k=1
+i=0 j=2 k=2
+i=1 j=0 k=0
+i=1 j=0 k=1
+i=1 j=0 k=2
+i=1 j=1 k=0
+i=1 j=1 k=1
+i=1 j=1 k=2
+i=1 j=2 k=0
+i=1 j=2 k=1
+i=1 j=2 k=2
+i=2 j=0 k=0
+i=2 j=0 k=1
+i=2 j=0 k=2
+i=2 j=1 k=0
+i=2 j=1 k=1
+i=2 j=1 k=2
+i=2 j=2 k=0
+i=2 j=2 k=1
+i=2 j=2 k=2
+True 1
+True 2

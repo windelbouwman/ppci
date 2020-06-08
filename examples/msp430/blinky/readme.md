@@ -1,5 +1,5 @@
 
-This is an example intended for use with the msp430 launchpad development kit.
+This is an example intended for use with the MSP430 Launchpad development kit.
 
 Build it with:
 

@@ -21,6 +21,8 @@ class ConstantExpressionEvaluator:
             value = expr.value
         elif isinstance(expr, expressions.StringLiteral):
             value = self.eval_string_literal(expr)
+        elif isinstance(expr, expressions.CompoundLiteral):
+            value = self.eval_compound_literal(expr)
         elif isinstance(expr, expressions.Cast):
             value = self.eval_cast(expr)
         elif isinstance(expr, expressions.Sizeof):
@@ -62,6 +64,9 @@ class ConstantExpressionEvaluator:
     def eval_string_literal(self, expr):
         raise NotImplementedError()
 
+    def eval_compound_literal(self, expr):
+        raise NotImplementedError()
+
     def eval_cast(self, expr):
         """ Evaluate cast expression. """
         value = self.eval_expr(expr.expr)
@@ -81,9 +86,14 @@ class ConstantExpressionEvaluator:
             a = self.eval_expr(expr.a)
             op_map = {"-": lambda x: -x}
             value = op_map[expr.op](a)
+        elif expr.op == "&":
+            value = self.eval_take_address(expr.a)
         else:  # pragma: no cover
             raise NotImplementedError(str(expr))
         return value
+
+    def eval_take_address(self, expr):
+        raise NotImplementedError("take address operator: &")
 
     def eval_binop(self, expr):
         """ Evaluate binary operator. """

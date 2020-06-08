@@ -43,7 +43,16 @@ char* itoa(int value, char* str, int base)
   while (value != 0)
   {
     int rem = value % base;
-    str[i++] = rem + '0';
+    char c;
+    if (rem < 10)
+    {
+      c = rem + '0';
+    }
+    else 
+    {
+      c = rem - 10 + 'a';
+    }
+    str[i++] = c;
     value = value / base;
   }
 
@@ -58,6 +67,11 @@ char* itoa(int value, char* str, int base)
   return str;
 }
 
+static void puts(char* s)
+{
+  while (*s) bsp_putc(*s++);
+}
+
 // Variadic argument function!
 int printf(const char* txt, ...)
 {
@@ -69,14 +83,66 @@ int printf(const char* txt, ...)
   {
     if (*txt == '%')
     {
-      txt++;
+      txt++; // Consume '%'
+
+      // Parse width:
+      while (*txt >= '0' && *txt <= '9')
+      {
+        txt++;
+      }
+
+      // Parse length field:
+      while (*txt == 'l')
+      {
+        txt++;
+      }
+
+      // Parse type field:
       if (*txt == 'd')
       {
         txt++;
         int v = va_arg(args, int);
         itoa(v, buffer, 10);
-        printf(buffer);
+        puts(buffer);
       }
+      else if (*txt == 'u')  // unsigned int
+      {
+        txt++;
+        int v = va_arg(args, int);
+        itoa(v, buffer, 10);
+        puts(buffer);
+      }
+      else if (*txt == 'x')  // hexadecimal int
+      {
+        txt++;
+        int v = va_arg(args, int);
+        itoa(v, buffer, 16);
+        puts(buffer);
+      }
+      else if (*txt == 'c')
+      {
+        txt++;
+        // TODO: how to grab a character from varargs?
+        // during calling, it is promoted to integer!
+        char c = va_arg(args, int);
+        bsp_putc(c);
+      }
+      else if (*txt == 's')
+      {
+        txt++;
+        char* s = va_arg(args, char*);
+        puts(s);
+      }
+#ifdef __x86_64__
+      else if (*txt == 'f')
+      {
+        txt++;
+        double real = va_arg(args, double);
+        // TODO: ugh, float formatting?
+        itoa((int)real, buffer, 10);
+        puts(buffer);
+      }
+#endif
       else
       {
         txt--;

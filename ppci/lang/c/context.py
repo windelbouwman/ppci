@@ -26,8 +26,19 @@ class CContext:
 
         self._field_offsets = {}
         self._enum_values = {}
+
+        # Grab integer size from arch info:
         int_size = self.arch_info.get_size("int")
         int_alignment = self.arch_info.get_alignment("int")
+        long_size = self.arch_info.get_size("long")
+        long_alignment = self.arch_info.get_alignment("long")
+
+        # C requires sizeof(int) <= sizeof(long):
+        long_size = max(int_size, long_size)
+        long_alignment = max(int_alignment, long_alignment)
+        longlong_size = max(int_size, 8)
+        longlong_alignment = max(int_alignment, 8)
+
         ptr_size = self.arch_info.get_size("ptr")
         double_size = self.arch_info.get_size(ir.f64)
         double_alignment = self.arch_info.get_alignment(ir.f64)
@@ -38,10 +49,10 @@ class CContext:
             BasicType.USHORT: (2, 2),
             BasicType.INT: (int_size, int_alignment),
             BasicType.UINT: (int_size, int_alignment),
-            BasicType.LONG: (4, 4),
-            BasicType.ULONG: (4, 4),
-            BasicType.LONGLONG: (8, 8),
-            BasicType.ULONGLONG: (8, 8),
+            BasicType.LONG: (long_size, long_alignment),
+            BasicType.ULONG: (long_size, long_alignment),
+            BasicType.LONGLONG: (longlong_size, longlong_alignment),
+            BasicType.ULONGLONG: (longlong_size, longlong_alignment),
             BasicType.FLOAT: (4, 4),
             BasicType.DOUBLE: (double_size, double_alignment),
             BasicType.LONGDOUBLE: (10, 10),
@@ -67,8 +78,8 @@ class CContext:
             BasicType.INT: int_map[int_size].lower(),
             BasicType.UINT: int_map[int_size].upper(),
             "ptr": int_map[ptr_size].upper(),
-            BasicType.LONG: "l",
-            BasicType.ULONG: "L",
+            BasicType.LONG: int_map[long_size].lower(),
+            BasicType.ULONG: int_map[long_size].upper(),
             BasicType.LONGLONG: "q",
             BasicType.ULONGLONG: "Q",
             BasicType.FLOAT: "f",
@@ -83,66 +94,76 @@ class CContext:
             raise TypeError("typ should be CType: {}".format(typ))
 
         if isinstance(typ, types.ArrayType):
+            assert typ.size is not None
             element_size = self.sizeof(typ.element_type)
-            if typ.size is None:
-                self.error(
-                    "Size of array could not be determined!", typ.location
-                )
             if isinstance(typ.size, int):
                 array_size = typ.size
             else:
                 array_size = self.eval_expr(typ.size)
-            return element_size * array_size
+            size = element_size * array_size
         elif isinstance(typ, types.BasicType):
-            return self.type_size_map[typ.type_id][0]
+            size = self.type_size_map[typ.type_id][0]
         elif isinstance(typ, types.StructType):
             if not typ.complete:
                 self.error("Storage size unknown", typ.location)
-            return self.get_field_offsets(typ)[0]
+            size = self.get_field_offsets(typ)[0]
         elif isinstance(typ, types.UnionType):
             if not typ.complete:
                 self.error("Type is incomplete, size unknown", typ)
-            return max(self.sizeof(part.typ) for part in typ.fields)
+            size = max(self.sizeof(part.typ) for part in typ.fields)
         elif isinstance(typ, types.EnumType):
             if not typ.complete:
                 self.error("Storage size unknown", typ)
             # For enums take int as the type
-            return self.arch_info.get_size("int")
+            size = self.arch_info.get_size("int")
         elif isinstance(typ, (types.PointerType, types.FunctionType)):
-            return self.arch_info.get_size("ptr")
+            size = self.arch_info.get_size("ptr")
         else:  # pragma: no cover
             raise NotImplementedError(str(typ))
+        return size
 
     def alignment(self, typ: types.CType):
         """ Given a type, determine its alignment in bytes """
         assert isinstance(typ, types.CType)
         if isinstance(typ, types.ArrayType):
-            return self.alignment(typ.element_type)
+            if typ.size is None:
+                alignment = self.arch_info.get_alignment("ptr")
+            else:
+                alignment = self.alignment(typ.element_type)
         elif isinstance(typ, types.BasicType):
-            return self.type_size_map[typ.type_id][1]
+            alignment = self.type_size_map[typ.type_id][1]
         elif isinstance(typ, types.StructType):
             if not typ.complete:
                 self.error("Storage size unknown", typ.location)
-            return max(self.alignment(part.typ) for part in typ.fields)
+            alignment = max(self.alignment(part.typ) for part in typ.fields)
         elif isinstance(typ, types.UnionType):
             if not typ.complete:
                 self.error("Type is incomplete, size unknown", typ)
-            return max(self.alignment(part.typ) for part in typ.fields)
+            alignment = max(self.alignment(part.typ) for part in typ.fields)
         elif isinstance(typ, types.EnumType):
             if not typ.complete:
                 self.error("Storage size unknown", typ)
             # For enums take int as the type
-            return self.arch_info.get_alignment("int")
+            alignment = self.arch_info.get_alignment("int")
         elif isinstance(typ, (types.PointerType, types.FunctionType)):
-            return self.arch_info.get_alignment("ptr")
+            alignment = self.arch_info.get_alignment("ptr")
         else:  # pragma: no cover
             raise NotImplementedError(str(typ))
+        return alignment
 
-    def layout_struct(self, kind, fields):
-        """ Layout the fields in the struct """
-        offsets = {}
-        offset = 0  # Offset in bits
-        for field in fields:
+    def layout_struct(self, typ):
+        """ Layout the fields in the struct.
+
+        Things to take in account:
+        - alignment
+        - bit packing
+        - anonynous types
+        """
+        kind = "struct" if isinstance(typ, types.StructType) else "union"
+
+        bit_offsets = {}
+        bit_offset = 0  # Offset in bits
+        for field in typ.fields:
             # Calculate bit size:
             if field.bitsize:
                 bitsize = self.eval_expr(field.bitsize)
@@ -152,24 +173,35 @@ class CContext:
                 alignment = self.alignment(field.typ) * 8
 
             # alignment handling:
-            offset += required_padding(offset, alignment)
+            bit_offset += required_padding(bit_offset, alignment)
 
-            offsets[field] = offset
+            # We are now at the position of this field
+            bit_offsets[field] = bit_offset
+
+            if field.name is None:
+                # If the field is anonymous, fill the offsets of named subfields:
+                assert field.typ.is_struct_or_union
+                _, sub_field_bit_offsets = self.layout_struct(field.typ)
+                for (
+                    sub_field,
+                    sub_field_bit_offset,
+                ) in sub_field_bit_offsets.items():
+                    bit_offsets[sub_field] = bit_offset + sub_field_bit_offset
+
             if kind == "struct":
-                offset += bitsize
+                bit_offset += bitsize
 
         # TODO: should we take care here of maximum alignment as well?
         # Finally align at 8 bits:
-        offset += required_padding(offset, 8)
-        assert offset % 8 == 0
-        offset //= 8
-        return offset, offsets
+        bit_offset += required_padding(bit_offset, 8)
+        assert bit_offset % 8 == 0
+        byte_size = bit_offset // 8
+        return byte_size, bit_offsets
 
     def get_field_offsets(self, typ):
         """ Get a dictionary with offset of fields """
         if typ not in self._field_offsets:
-            kind = "struct" if isinstance(typ, types.StructType) else "union"
-            size, offsets = self.layout_struct(kind, typ.fields)
+            size, offsets = self.layout_struct(typ)
             self._field_offsets[typ] = size, offsets
         return self._field_offsets[typ]
 
@@ -183,19 +215,18 @@ class CContext:
 
     def has_field(self, typ, field_name):
         """ Check if the given type has the given field. """
-        if not isinstance(typ, types.StructOrUnionType):
+        if not typ.is_struct_or_union:
             raise TypeError("typ must be union or struct type")
 
-        return field_name in typ.get_field_names()
+        return typ.has_field(field_name)
 
     def get_field(self, typ, field_name):
         """ Get the given field. """
-        if not isinstance(typ, types.StructOrUnionType):
+        if not typ.is_struct_or_union:
             raise TypeError("typ must be union or struct type")
 
-        for field in typ.get_named_fields():
-            if field.name == field_name:
-                return field
+        if typ.has_field(field_name):
+            return typ.get_field(field_name)
         raise KeyError(field_name)
 
     def get_enum_value(self, enum_typ, enum_constant):

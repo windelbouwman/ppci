@@ -1,16 +1,18 @@
 """
-Selected instructions use virtual registers and physical registers.
-Register allocation is the process of assigning a register to the virtual
-registers.
+Instructions generated during instruction selection phase use virtual
+registers and some physical registers (e.g. when an instruction expects
+arguments in particular register(s)). Register allocation is the process
+of assigning physical location (register or memory) to the remaining
+virtual registers.
 
 Some key concepts in the domain of register allocation are:
 
-- **virtual register**: A value which must be mapped to a physical register.
-- **physical register**: A real register
-- **interference graph**: A graph in which each node represents a register.
-  An edge indicates that the two registers cannot have the same register
-  assigned.
-- **pre-colored register**: A register that is already assigned a specific
+- **virtual register**: A location which must be mapped to a physical register.
+- **physical register**: A real CPU register
+- **interference graph**: A graph in which each node represents a location.
+  An edge indicates that the two locations cannot have the same physical
+  register assigned.
+- **pre-colored register**: A location that is already assigned a specific
   physical register.
 - **coalescing**: The process of merging two nodes in an interference graph
   which do not interfere and are connected by a move instruction.
@@ -25,7 +27,7 @@ Some key concepts in the domain of register allocation are:
 **Interference graph**
 
 Each instruction in the instruction list may use or define certain registers.
-A register is live between a use and define of a register. Registers that
+A register is live between a definition and a use of that register. Registers that
 are live at the same point in the program interfere with each other.
 An interference graph is a graph in which each node represents a register
 and each edge represents interference between those two registers.
@@ -36,9 +38,11 @@ In 1981 Chaitin presented the idea to use graph coloring for register
 allocation.
 
 In a graph a node can be colored if it has less neighbours than
-possible colors. This is true because when each neighbour has a different
-color, there is still a valid color left for the node itself.
+possible colors (referred to as K from now on). This is true because when
+each neighbour has a different color, there is still a valid color left for
+the node itself.
 
+The outline of the algorithm is:
 Given a graph, if a node can be colored, remove this node from the graph and
 put it on a stack. When added back to the graph, it can be given a color.
 Now repeat this process recursively with the remaining graph. When the
@@ -62,15 +66,15 @@ Coalescing a move instruction is easy when an interference graph is present.
 Two nodes that are used by a move instruction can be coalesced when they do
 not interfere.
 
-However, if we coalesc all moves, the graph can become incolorable, and
+However, if we coalesce too many moves, the graph can become uncolorable, and
 spilling has to be done. To prevent spilling, coalescing must be done
-conservatively.
+in a controlled manner.
 
-A conservative approach is the following: if the merged node has fewer than
-K nodes of significant degree, then the nodes can be coalesced. The prove for
+A conservative approach to the coalescing is the following: if the merged node has fewer than
+K neighbours, then the nodes can be coalesced. The reason for
 this is that when all nodes that can be colored are removed and the merged
-node and its non-colorable neighbours remain, the merged node can be colored.
-This ensures that the coalescing of the node does not have a negative
+node and its non-colored neighbours remain, the merged node can be colored.
+This ensures that the coalescing of the nodes does not have a negative
 effect on the colorability of the graph.
 
 [Briggs1994]_
@@ -85,8 +89,8 @@ The process consists of the following steps:
 
 - build an interference graph from the instruction list
 - remove trivial colorable nodes.
-- (optional) coalesc registers to remove redundant moves
-- (optional) spill registers
+- coalesce registers to remove redundant moves
+- spill registers
 - select registers
 
 See: https://en.wikipedia.org/wiki/Register_allocation
@@ -95,7 +99,7 @@ See: https://en.wikipedia.org/wiki/Register_allocation
 
 **Graph coloring with more register classes**
 
-Most instruction sets are not ideal, and hence simple graph coloring cannot
+Most instruction sets are not uniform, and hence simple graph coloring cannot
 be used. The algorithm can be modified to work with several register
 classes that possibly interfere.
 
@@ -107,14 +111,10 @@ classes that possibly interfere.
 
 The following class can be used to perform register allocation.
 
-.. autoclass:: ppci.codegen.registerallocator.GraphColoringRegisterAllocator
-    :members: alloc_frame, simplify, coalesc, freeze, is_colorable
-
 """
 
 import logging
 from functools import lru_cache
-from collections import defaultdict
 from .flowgraph import FlowGraph
 from .interferencegraph import InterferenceGraph
 from ..arch.arch import Architecture, Frame
@@ -151,20 +151,19 @@ class MiniGen:
     def gen_load(self, frame, vreg, slot):
         """ Generate instructions to load vreg from a stack slot """
         at = self.make_at(slot)
+        fmt = self.make_fmt(vreg)
+
         t = Tree(
-            "MOVI{}".format(vreg.bitsize),
-            Tree("LDRI{}".format(vreg.bitsize), at),
-            value=vreg,
+            "MOV{}".format(fmt), Tree("LDR{}".format(fmt), at), value=vreg,
         )
         return self.gen(frame, t)
 
     def gen_store(self, frame, vreg, slot):
         """ Generate instructions to store vreg at a stack slot """
         at = self.make_at(slot)
+        fmt = self.make_fmt(vreg)
         t = Tree(
-            "STRI{}".format(vreg.bitsize),
-            at,
-            Tree("REGI{}".format(vreg.bitsize), value=vreg),
+            "STR{}".format(fmt), at, Tree("REG{}".format(fmt), value=vreg),
         )
         return self.gen(frame, t)
 
@@ -174,24 +173,18 @@ class MiniGen:
         self.selector.gen_tree(ctx, tree)
         return ctx.l
 
+    def make_fmt(self, vreg):
+        """ Determine the type suffix, such as I32 or F64.
+        """
+        # TODO: hack to retrieve register type (U, I or F):
+        ty = getattr(vreg, "ty", "I")
+        fmt = "{}{}".format(ty, vreg.bitsize)
+        return fmt
+
     def make_at(self, slot):
         bitsize = self.arch.get_size("ptr") * 8
         offset_tree = Tree("FPRELU{}".format(bitsize), value=slot)
-        # 'ADDI{}'.format(bitsize),
-        #    Tree('REGI{}'.format(bitsize), value=self.arch.fp),
-        #    Tree('CONSTI{}'.format(bitsize), value=offset))
         return offset_tree
-
-
-def dfs_alias(r):
-    """ Do a depth first search on the aliases member.
-
-    This can be used to find aliases of aliases.
-    """
-    for r2 in r.aliases:
-        for r3 in dfs_alias(r2):
-            yield r3
-        yield r2
 
 
 # TODO: implement linear scan allocator and other allocators!
@@ -212,11 +205,13 @@ class GraphColoringRegisterAllocator:
         self.arch = arch
         self.spill_gen = MiniGen(arch, instruction_selector)
 
+        # A map with register alias info:
+        self.alias = arch.info.alias
+
         # Register information:
         # TODO: Improve different register classes
         self.K = {}  # type: Dict[Register, int]
         self.cls_regs = {}  # Mapping from class to register set
-        self.alias = defaultdict(OrderedSet)
         for reg_class in self.arch.info.register_classes:
             kls, regs = reg_class.typ, reg_class.registers
             if self.verbose:
@@ -224,11 +219,6 @@ class GraphColoringRegisterAllocator:
 
             self.K[kls] = len(regs)
             self.cls_regs[kls] = OrderedSet(regs)
-            for r in regs:
-                self.alias[r].add(r)  # The trivial alias: itself!
-                for r2 in dfs_alias(r):
-                    self.alias[r].add(r2)
-                    self.alias[r2].add(r)
 
     def alloc_frame(self, frame: Frame):
         """ Do iterated register allocation for a single frame.
@@ -239,27 +229,49 @@ class GraphColoringRegisterAllocator:
         Args:
             frame: The frame to perform register allocation on.
         """
-        self.spill_rounds = 0
-        self.init_data(frame)
+        spill_rounds = 0
+
         self.logger.debug("Starting iterative coloring")
         while True:
-            # self.check_invariants()
+            self.init_data(frame)
 
-            # Run one of the possible steps:
-            if self.simplify_worklist:
-                self.simplify()
-            elif self.worklistMoves:
-                self.coalesc()
-            elif self.freeze_worklist:
-                self.freeze()
-            elif self.spill_worklist:
-                self.spill()
-                self.logger.debug("Starting over")
-                self.init_data(frame)
+            # Process all work lists:
+            while True:
+                # self.check_invariants()
+
+                # Run one of the possible steps:
+                if self.simplify_worklist:
+                    self.simplify()
+                elif self.worklistMoves:
+                    self.coalesc()
+                elif self.freeze_worklist:
+                    self.freeze()
+                elif self.spill_worklist:
+                    self.select_spill()
+                else:
+                    break
+
+            self.logger.debug("Now assinging colors")
+            spilled_nodes = self.assign_colors()
+            if spilled_nodes:
+                spill_rounds += 1
+
+                self.logger.debug("Spilling round %s", spill_rounds)
+                max_spill_rounds = 30
+                if spill_rounds > max_spill_rounds:
+                    raise RuntimeError(
+                        "Give up: more than {} spill rounds done!".format(
+                            max_spill_rounds
+                        )
+                    )
+
+                # Rewrite program now.
+                for node in spilled_nodes:
+                    self.rewrite_program(node)
             else:
-                break  # Done!
-        self.logger.debug("Now assinging colors")
-        self.assign_colors()
+                # Done!
+                break
+
         self.remove_redundant_moves()
         self.apply_colors()
 
@@ -278,7 +290,7 @@ class GraphColoringRegisterAllocator:
         if move in dst.moves:
             dst.moves.remove(move)
 
-    def init_data(self, frame):
+    def init_data(self, frame: Frame):
         """ Initialize data structures """
         self.frame = frame
 
@@ -317,6 +329,8 @@ class GraphColoringRegisterAllocator:
         self.freeze_worklist = OrderedSet()
         self.simplify_worklist = OrderedSet()
         self.precolored = OrderedSet()
+
+        self._num_blocked = {}
 
         # Divide nodes into categories:
         for node in self.frame.ig.nodes:
@@ -365,7 +379,7 @@ class GraphColoringRegisterAllocator:
         return False
 
     @lru_cache(maxsize=None)
-    def q(self, B, C):
+    def q(self, B, C) -> int:
         """ The number of class B registers that can be blocked by class C. """
         assert issubclass(B, Register)
         assert issubclass(C, Register)
@@ -378,7 +392,7 @@ class GraphColoringRegisterAllocator:
             )
         return x
 
-    def is_colorable(self, node):
+    def is_colorable(self, node) -> bool:
         """
         Helper function to determine whether a node is trivially
         colorable. This means: no matter the colors of the nodes neighbours,
@@ -394,9 +408,31 @@ class GraphColoringRegisterAllocator:
         if node.is_colored:
             return True
 
+        if node in self._num_blocked:
+            num_blocked = self._num_blocked[node]
+        else:
+            num_blocked = self.calc_num_blocked(node)
+            self._num_blocked[node] = num_blocked
+        # This invariant should hold:
+        # assert num_blocked == self.calc_num_blocked(node)
+        return num_blocked < self.K[node.reg_class]
+
+    def calc_num_blocked(self, node):
+        """ Calculate for the given node how many registers are blocked
+        by it's adjecent nodes.
+
+        This is an advanced form of a nodes degree, but then for
+        register of different classes.
+        """
         B = node.reg_class
         num_blocked = sum(self.q(B, j.reg_class) for j in node.adjecent)
-        return num_blocked < self.K[B]
+        return num_blocked
+
+    def release_pressure(self, node, reg_class):
+        """ Remove some register pressure from the given node.
+        """
+        if node in self._num_blocked:
+            self._num_blocked[node] -= self.q(node.reg_class, reg_class)
 
     def NodeMoves(self, n):
         return n.moves
@@ -416,6 +452,7 @@ class GraphColoringRegisterAllocator:
         # Pop out of graph, we place it back later:
         self.frame.ig.mask_node(n)
         for m in n.adjecent:
+            self.release_pressure(m, n.reg_class)
             self.decrement_degree(m)
 
     def decrement_degree(self, m):
@@ -525,18 +562,42 @@ class GraphColoringRegisterAllocator:
         if self.verbose:
             self.logger.debug("Combining %s and %s", u, v)
 
+        # Remove v from work list:
         if v in self.freeze_worklist:
             self.freeze_worklist.remove(v)
         else:
             self.spill_worklist.remove(v)
-        self.frame.ig.combine(u, v)
+
+        # update _num_blocked of neighbours fine grained:
+        for t in u.adjecent:
+            self.release_pressure(t, u.reg_class)
+
+        for t in v.adjecent:
+            self.release_pressure(t, v.reg_class)
+
+        # Determine new register class:
         u.reg_class = self.common_reg_class(u.reg_class, v.reg_class)
+
+        self.frame.ig.combine(u, v)
+
+        # Update node pseudo-degree:
+        if u in self._num_blocked:
+            # Brute force re-calculate.
+            # We could figure out the shared edges
+            # and do careful book keeping, but this
+            # might be as intensive as well.
+            self._num_blocked[u] = self.calc_num_blocked(u)
+
+        for t in u.adjecent:
+            if t in self._num_blocked:
+                self._num_blocked[t] += self.q(t.reg_class, u.reg_class)
 
         if self.verbose:
             self.logger.debug("Combined node: %s", u)
 
         # See if any adjecent nodes dropped in degree by merging u and v
         # This can happen when u and v both interfered with t.
+
         for t in u.adjecent:
             self.decrement_degree(t)
 
@@ -573,8 +634,10 @@ class GraphColoringRegisterAllocator:
             self.logger.debug("freezing %s", u)
 
         self.simplify_worklist.add(u)
+        self.freeze_moves(u)
 
-        # Freeze moves for node u
+    def freeze_moves(self, u):
+        """ Freeze moves for node u """
         for m in list(self.NodeMoves(u)):
             if m in self.activeMoves:
                 self.activeMoves.remove(m)
@@ -595,12 +658,16 @@ class GraphColoringRegisterAllocator:
                 self.freeze_worklist.remove(v)
                 self.simplify_worklist.add(v)
 
-    def spill(self):
-        """ Do spilling """
-        self.logger.debug("Spilling round %s", self.spill_rounds)
-        self.spill_rounds += 1
-        if self.spill_rounds > 30:
-            raise RuntimeError("Give up: more than 10 spill rounds done!")
+    def select_spill(self):
+        """ Select potential spill node.
+
+        Select a node to be spilled. This is optimistic,
+        since this might be turned into a real spill.
+        Continue nevertheless, to discover more potential
+        spills, or we might be lucky and able to color the
+        graph any ways.
+        """
+
         # TODO: select a node which is certainly not a node that was
         # introduced during spilling?
         # Select to be spilled variable:
@@ -614,8 +681,11 @@ class GraphColoringRegisterAllocator:
             self.logger.debug("%s has spill priority=%s", n, priority)
             p.append((n, priority))
         node = min(p, key=lambda x: x[1])[0]
-        # TODO: mark now, rewrite later?
-        self.rewrite_program(node)
+
+        # Potential spill node, place in simplify worklist:
+        self.spill_worklist.remove(node)
+        self.simplify_worklist.add(node)
+        self.freeze_moves(node)
 
     def rewrite_program(self, node):
         """ Rewrite program by creating a load and a store for each use """
@@ -626,39 +696,63 @@ class GraphColoringRegisterAllocator:
         alignment = size
         slot = self.frame.alloc(size, alignment)
         self.logger.debug("Allocating stack slot %s", slot)
+
         # TODO: maybe break-up coalesced node before doing this?
         for tmp in node.temps:
             instructions = OrderedSet(
                 self.frame.ig.uses(tmp) + self.frame.ig.defs(tmp)
             )
             for instruction in instructions:
+                # print('Updating {}'.format(instruction))
                 vreg2 = self.frame.new_reg(type(tmp))
                 self.logger.debug("tmp: %s, new: %s", tmp, vreg2)
                 instruction.replace_register(tmp, vreg2)
+
                 if instruction.reads_register(vreg2):
                     code = self.spill_gen.gen_load(self.frame, vreg2, slot)
+                    # print('code before', list(map(str, code)))
                     self.frame.insert_code_before(instruction, code)
+
                 if instruction.writes_register(vreg2):
                     code = self.spill_gen.gen_store(self.frame, vreg2, slot)
+                    # print('code after', list(map(str, code)))
                     self.frame.insert_code_after(instruction, code)
 
     def assign_colors(self):
-        """ Add nodes back to the graph to color it. """
-        while self.select_stack:
-            node = self.select_stack.pop(-1)  # Start with the last added
+        """ Add nodes back to the graph to color it.
+
+        Any potential spills might turn into real spills
+        at this stage.
+        """
+        spilled_nodes = []
+
+        # Start with the last node added:
+        for node in reversed(self.select_stack):
+            # Place node back into graph:
             self.frame.ig.unmask_node(node)
+
+            # Check registers occupied by neighbours:
             takenregs = set()
             for m in node.adjecent:
-                for r in self.alias[m.reg]:
-                    takenregs.add(r)
+                if m.reg in self.alias:
+                    for r in self.alias[m.reg]:
+                        takenregs.add(r)
+                else:
+                    takenregs.add(m.reg)
             ok_regs = self.cls_regs[node.reg_class] - takenregs
-            assert ok_regs
-            reg = ok_regs[0]
 
-            if self.verbose:
-                self.logger.debug("Assign %s to node %s", reg, node)
+            if ok_regs:
+                assert ok_regs
+                reg = ok_regs[0]
 
-            node.reg = reg
+                if self.verbose:
+                    self.logger.debug("Assign %s to node %s", reg, node)
+
+                node.reg = reg
+            else:
+                spilled_nodes.append(node)
+
+        return spilled_nodes
 
     def remove_redundant_moves(self):
         """ Remove coalesced moves """
@@ -669,6 +763,7 @@ class GraphColoringRegisterAllocator:
         """ Assign colors to registers """
         # Apply all colors:
         for node in self.frame.ig:
+            assert node.reg is not None
             for reg in node.temps:
                 if reg.is_colored:
                     assert reg.color == node.reg.color
@@ -676,7 +771,7 @@ class GraphColoringRegisterAllocator:
                     reg.set_color(node.reg.color)
 
                 # Mark the register as used in this frame:
-                self.frame.used_regs.add(node.reg)
+                self.frame.used_regs.add(node.reg.get_real())
                 # TODO:
                 # if self.frame.debug_db:
                 #    self.frame.debug_db.map(

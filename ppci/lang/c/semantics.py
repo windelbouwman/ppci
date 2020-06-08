@@ -22,7 +22,7 @@ import logging
 from .nodes import nodes, types, declarations, statements, expressions
 from . import utils, init
 from .scope import Scope, RootScope
-from .printer import expr_to_str
+from .printer import expr_to_str, type_to_str
 
 
 class CSemantics:
@@ -38,7 +38,7 @@ class CSemantics:
         # Define the type for a string:
         self.int_type = self.get_type(["int"])
         self.char_type = self.get_type(["char"])
-        self.intptr_type = types.PointerType(self.int_type)
+        self.intptr_type = self.int_type.pointer_to()
 
         # Working variables:
         self.compounds = []
@@ -65,7 +65,7 @@ class CSemantics:
         # Nice clean slate:
         assert not self.switch_stack
         self.current_function = function
-        self.scope = Scope(self.scope)
+        self.enter_scope()
 
         # Define function parameters:
         for argument in function.typ.arguments:
@@ -77,7 +77,7 @@ class CSemantics:
     def end_function(self, body):
         """ Called at the end of a function """
         # Pop scope and function
-        self.scope = self.scope.parent
+        self.leave_scope()
         function = self.current_function
         self.current_function = None
 
@@ -93,7 +93,7 @@ class CSemantics:
         assert isinstance(typ, types.CType), str(typ)
         for modifier in reversed(type_modifiers):
             if modifier[0] == "POINTER":
-                typ = types.PointerType(typ)
+                typ = typ.pointer_to()
                 type_qualifiers = modifier[1]
                 typ = self.on_type_qualifiers(type_qualifiers, typ)
             elif modifier[0] == "ARRAY":
@@ -126,6 +126,12 @@ class CSemantics:
     def on_function_argument(self, typ, name, modifiers, location):
         """ Process a function argument into the proper class """
         typ = self.apply_type_modifiers(modifiers, typ)
+
+        # Change 'int a[]' into the equivalent int* a
+        if typ.is_array:
+            # TODO: figure out behavior of:
+            # 'int a[10]' --> clang turns it into 'int* a'?
+            typ = typ.decay()
         parameter = declarations.ParameterDeclaration(
             None, typ, name, location
         )
@@ -158,19 +164,19 @@ class CSemantics:
         if self.scope.is_definition(variable.name):
             self.error("Invalid redefinition.", variable.location)
 
+        self.patch_size_from_initializer(variable.typ, expression)
         variable.initial_value = expression
 
-        # Fill array size from elements!
-        if (
-            isinstance(variable.typ, types.ArrayType)
-            and variable.typ.size is None
-        ):
-            if isinstance(expression, expressions.InitializerList):
-                variable.typ.size = len(expression.elements)
-            # elif isinstance(expression, expressions.StringLiteral):
-            #     variable.typ.size = len(expression.value) + 1
-            else:
-                pass
+    def patch_size_from_initializer(self, typ, initializer):
+        """ Fill array size from elements! """
+
+        if typ.is_array and typ.size is None:
+            if isinstance(initializer, expressions.ArrayInitializer):
+                typ.size = len(initializer.values)
+            else:  # pragma: no cover
+                raise NotImplementedError(
+                    "What else could be used to init an array?"
+                )
 
     def new_init_cursor(self):
         return init.InitCursor(self.context)
@@ -196,6 +202,7 @@ class CSemantics:
                 init_cursor.enter_compound(target_typ, value.location, True)
                 target_typ = init_cursor.at_typ()
             else:
+                value = self.pointer(value)
                 value = self.coerce(value, target_typ)
                 break
 
@@ -230,21 +237,17 @@ class CSemantics:
 
     def on_field_designator(self, init_cursor, field_name, location):
         """ Check field designator. """
-        init_level = init_cursor.level
-        typ = init_level.typ
+        typ = init_cursor.level.typ
 
-        if not (typ.is_struct or typ.is_union):
+        if not typ.is_struct_or_union:
             self.error(
                 "Cannot use designator in non-struct/union type", location
             )
 
         if typ.has_field(field_name):
-            field = typ.get_field(field_name)
+            init_cursor.select_field(field_name, location)
         else:
             self.error("No such field {}".format(field_name), location)
-
-        # Determine position of field inside the structure:
-        init_level.go_to_field(field)
 
     # Declarations:
     def on_typedef(self, typ, name, modifiers, location):
@@ -252,7 +255,7 @@ class CSemantics:
         typ = self.apply_type_modifiers(modifiers, typ)
         declaration = declarations.Typedef(typ, name, location)
         if self.scope.is_defined(name, all_scopes=False):
-            sym = self.scope.get(name)
+            sym = self.scope.get_identifier(name)
             self.check_redeclaration_type(sym, declaration)
             sym.add_redeclaration(declaration)
         else:
@@ -279,7 +282,7 @@ class CSemantics:
         # Check if the declared name is already defined:
         if self.scope.is_defined(declaration.name, all_scopes=False):
             # Get the already declared name and figure out what now!
-            sym = self.scope.get(declaration.name)
+            sym = self.scope.get_identifier(declaration.name)
             self.check_redeclaration_type(sym, declaration)
 
             # re-declarations are only allowed on top level
@@ -349,7 +352,7 @@ class CSemantics:
     def on_typename(self, name, location):
         """ Handle the case when a typedef is refered """
         # Lookup typedef
-        typedef = self.scope.get(name).declaration
+        typedef = self.scope.get_identifier(name).declaration
         assert isinstance(typedef, declarations.Typedef)
         ctyp = typedef.typ
         return ctyp  # types.IdentifierType(name, ctyp)
@@ -358,30 +361,40 @@ class CSemantics:
         """ Called when a type itself is described """
         return self.apply_type_modifiers(modifiers, typ)
 
-    def on_struct_or_union(self, kind, tag, fields, location):
-        """ Handle struct or union definition """
+    def on_struct_or_union(self, kind, tag, is_definition, fields, location):
+        """ Handle struct or union definition.
+
+        A definition of a struct occurs when we have:
+        struct S;
+        struct S { int f; };
+        struct { int f; };
+        """
         # Layout the struct here!
         assert tag or fields
 
         mp = {"struct": types.StructType, "union": types.UnionType}
         klass = mp[kind]
 
-        if tag:
-            # Get the tag, or register it
-            if self.scope.has_tag(tag):
-                ctyp = self.scope.get_tag(tag)
+        if is_definition:
+            # Struct definition.
+            if tag:
+                ctyp = self.define_tag_type(tag, klass, location)
+            else:
+                ctyp = klass()
+
+            if fields:
+                ctyp.fields = fields
+        else:
+            assert tag
+            # Struct usage / declaration:
+            if self.scope.has_tag(tag, all_scopes=True):
+                ctyp = self.scope.get_tag(tag, all_scopes=True)
                 if not isinstance(ctyp, klass):
                     self.error("Wrong tag kind", location)
             else:
                 ctyp = klass()
                 self.scope.add_tag(tag, ctyp)
-        else:
-            ctyp = klass()
 
-        if fields:
-            if ctyp.complete:
-                self.error("Multiple definitions", location)
-            ctyp.fields = fields
         return ctyp
 
     def on_field_def(
@@ -394,28 +407,33 @@ class CSemantics:
         else:
             # Bit fields must be of integer type:
             if not ctyp.is_integer:
-                self.error("Invalid type for bit-field", location)
+                self.error(
+                    "Invalid type ({}) for bit-field".format(
+                        type_to_str(ctyp)
+                    ),
+                    location,
+                )
 
         field = types.Field(ctyp, name, bitsize)
         return field
 
-    def on_enum(self, tag, location):
+    def on_enum(self, tag, is_definition, location):
         """ Handle enum declaration """
-        if tag:
-            if self.scope.has_tag(tag):
-                ctyp = self.scope.get_tag(tag)
+        if is_definition:
+            if tag:
+                ctyp = self.define_tag_type(tag, types.EnumType, location)
+            else:
+                ctyp = types.EnumType()
+        else:
+            assert tag
+            if self.scope.has_tag(tag, all_scopes=True):
+                ctyp = self.scope.get_tag(tag, all_scopes=True)
                 if not isinstance(ctyp, types.EnumType):
                     self.error("This tag does not refer to an enum", location)
             else:
                 ctyp = types.EnumType()
                 self.scope.add_tag(tag, ctyp)
-        else:
-            ctyp = types.EnumType()
         return ctyp
-
-    def enter_enum_values(self, ctyp, location):
-        if ctyp.complete:
-            self.error("Enum defined multiple times", location)
 
     def on_enum_value(self, ctyp, name, value, location):
         """ Handle a single enum value definition """
@@ -427,7 +445,7 @@ class CSemantics:
         )
 
         if self.scope.is_defined(name, all_scopes=False):
-            sym = self.scope.get(declaration.name)
+            sym = self.scope.get_identifier(declaration.name)
             self.invalid_redeclaration(sym, declaration)
         else:
             self.scope.insert(declaration)
@@ -441,6 +459,21 @@ class CSemantics:
         # min(enum_values)
         # max(enum_values)
         # TODO: determine storage type!
+
+    def define_tag_type(self, tag: str, klass: types.TaggedType, location):
+        """ Get or create a tagged type with the given tag kind. """
+        if self.scope.has_tag(tag, all_scopes=False):
+            ctyp = self.scope.get_tag(tag, all_scopes=False)
+            if not isinstance(ctyp, klass):
+                self.error("Wrong tag kind", location)
+
+            if ctyp.complete:
+                self.error("Multiple definitions", location)
+
+        else:
+            ctyp = klass()
+            self.scope.add_tag(tag, ctyp)
+        return ctyp
 
     @staticmethod
     def on_type_qualifiers(type_qualifiers, ctyp):
@@ -458,12 +491,20 @@ class CSemantics:
     def on_label(name, statement, location):
         return statements.Label(name, statement, location)
 
-    def enter_compound_statement(self, location):
+    def enter_scope(self):
+        """ Enter a new symbol scope. """
         self.scope = Scope(self.scope)
+
+    def leave_scope(self):
+        """ Leave a symbol scope. """
+        self.scope = self.scope.parent
+
+    def enter_compound_statement(self, location):
+        self.enter_scope()
         self.compounds.append([])
 
     def on_compound_statement(self, location):
-        self.scope = self.scope.parent
+        self.leave_scope()
         inner_statements = self.compounds.pop()
         return statements.Compound(inner_statements, location)
 
@@ -471,9 +512,15 @@ class CSemantics:
         """ Helper to emit a statement into the current block. """
         self.compounds[-1].append(statement)
 
+    def check_condition(self, condition):
+        condition = self.pointer(condition)
+        if not condition.typ.is_integer:
+            condition = self.coerce(condition, self.get_type(["int"]))
+        return condition
+
     def on_if(self, condition, then_statement, no, location):
         """ Check if statement """
-        condition = self.coerce(condition, self.get_type(["int"]))
+        condition = self.check_condition(condition)
         return statements.If(condition, then_statement, no, location)
 
     def on_switch_enter(self, expression):
@@ -489,8 +536,14 @@ class CSemantics:
         if not self.switch_stack:
             self.error("Case statement outside of a switch!", location)
 
-        value = self.coerce(value, self.switch_stack[-1])
-        return statements.Case(value, statement, location)
+        if isinstance(value, tuple):
+            value1, value2 = value
+            value1 = self.coerce(value1, self.switch_stack[-1])
+            value2 = self.coerce(value2, self.switch_stack[-1])
+            return statements.RangeCase(value1, value2, statement, location)
+        else:
+            value = self.coerce(value, self.switch_stack[-1])
+            return statements.Case(value, statement, location)
 
     def on_default(self, statement, location):
         """ Handle a default label """
@@ -501,18 +554,18 @@ class CSemantics:
 
     def on_while(self, condition, body, location):
         """ Handle the while statement """
-        condition = self.coerce(condition, self.get_type(["int"]))
+        condition = self.check_condition(condition)
         return statements.While(condition, body, location)
 
     def on_do(self, body, condition, location):
         """ The almost extinct dodo! """
-        condition = self.coerce(condition, self.get_type(["int"]))
+        condition = self.check_condition(condition)
         return statements.DoWhile(body, condition, location)
 
     def on_for(self, initial, condition, post, body, location):
         """ Check for loop construction """
         if condition:
-            condition = self.coerce(condition, self.get_type(["int"]))
+            condition = self.check_condition(condition)
         return statements.For(initial, condition, post, body, location)
 
     def on_return(self, value, location):
@@ -523,16 +576,63 @@ class CSemantics:
                 self.error(
                     "Cannot return a value from this function", location
                 )
+            value = self.pointer(value)
             value = self.coerce(value, return_type)
         else:
             if not return_type.is_void:
                 self.error("Must return a value from this function", location)
         return statements.Return(value, location)
 
+    def on_asm(
+        self, template, output_operands, input_operands, clobbers, location
+    ):
+        output_operands2 = []
+        for constraint, asm_output_expr in output_operands:
+            assert constraint == "=r"
+
+            # Output must be l-value:
+            if not asm_output_expr.lvalue:
+                self.error("Expected lvalue", asm_output_expr.location)
+
+            output_operands2.append((constraint, asm_output_expr))
+
+        input_operands2 = []
+        for constraint, asm_input_expr in input_operands:
+            if constraint == "r":
+                # TODO: how to determine what type to cast to?
+                asm_input_expr = self.coerce(
+                    asm_input_expr, self.get_type(["long"])
+                )
+            else:
+                raise NotImplementedError(
+                    "Inline asm constraint not implemented: {}".format(
+                        constraint
+                    )
+                )
+            input_operands2.append((constraint, asm_input_expr))
+
+        clobbers2 = []
+        for clobber_register_name in clobbers:
+            if self.context.arch_info.has_register(clobber_register_name):
+                clobber_register = self.context.arch_info.get_register(
+                    clobber_register_name
+                )
+                clobbers2.append(clobber_register)
+            else:
+                self.error(
+                    "target machine does not have register {}".format(
+                        clobber_register_name
+                    ),
+                    location,
+                )
+
+        return statements.InlineAssemblyCode(
+            template, output_operands2, input_operands2, clobbers2, location
+        )
+
     # Expressions!
     def on_string(self, value, location):
         """ React on string literal """
-        value = value[1:-1]  # Strip of " chars.
         cstr_type = types.ArrayType(self.char_type, len(value) + 1)
         return expressions.StringLiteral(value, cstr_type, location)
 
@@ -552,9 +652,12 @@ class CSemantics:
 
     def on_ternop(self, lhs, op, mid, rhs, location):
         """ Handle ternary operator 'a ? b : c' """
+        lhs = self.pointer(lhs)
         lhs = self.coerce(lhs, self.int_type)
         # TODO: For now, we use the common type of b and c as the result
         # But is this correct?
+        mid = self.pointer(mid)
+        rhs = self.pointer(rhs)
         common_type = self.get_common_type(mid.typ, rhs.typ, location)
         mid = self.coerce(mid, common_type)
         rhs = self.coerce(rhs, common_type)
@@ -564,10 +667,13 @@ class CSemantics:
 
     def on_binop(self, lhs, op, rhs, location):
         """ Check binary operator """
+        lhs = self.pointer(lhs)
+        rhs = self.pointer(rhs)
+
         if op in ["||", "&&"]:
-            result_typ = self.get_type(["int"])
-            lhs = self.coerce(lhs, result_typ)
-            rhs = self.coerce(rhs, result_typ)
+            lhs = self.check_condition(lhs)
+            rhs = self.check_condition(rhs)
+            result_typ = self.int_type
         elif op in [
             "=",
             "+=",
@@ -625,36 +731,42 @@ class CSemantics:
                 self.error("Expected lvalue", a.location)
             expr = expressions.UnaryOperator(op, a, a.typ, False, location)
         elif op in ["-", "~"]:
+            a = self.pointer(a)
             expr = expressions.UnaryOperator(op, a, a.typ, False, location)
         elif op == "+":
-            expr = a
+            expr = self.pointer(a)
         elif op == "*":
+            a = self.pointer(a)
             if not isinstance(a.typ, types.IndexableType):
                 self.error(
-                    "Cannot pointer derefence type {}".format(a.typ),
+                    "Cannot dereference type {}".format(type_to_str(a.typ)),
                     a.location,
                 )
             typ = a.typ.element_type
             expr = expressions.UnaryOperator(op, a, typ, True, location)
         elif op == "&":
-            if isinstance(a, expressions.VariableAccess) and isinstance(
-                a.variable.declaration, declarations.FunctionDeclaration
-            ):
-                # Function pointer:
-                expr = a
-            else:
-                # L-value access:
-                if not a.lvalue:
-                    self.error("Expected lvalue", a.location)
-                typ = types.PointerType(a.typ)
-                expr = expressions.UnaryOperator(op, a, typ, False, location)
+            expr = self.on_take_address(a, location)
         elif op == "!":
-            a = self.coerce(a, self.int_type)
+            a = self.check_condition(a)
             expr = expressions.UnaryOperator(
                 op, a, self.int_type, False, location
             )
         else:  # pragma: no cover
             raise NotImplementedError(str(op))
+        return expr
+
+    def on_take_address(self, a, location):
+        if isinstance(a, expressions.VariableAccess) and isinstance(
+            a.variable.declaration, declarations.FunctionDeclaration
+        ):
+            # Function pointer:
+            expr = a
+        else:
+            # L-value access:
+            if not a.lvalue:
+                self.error("Expected lvalue", a.location)
+            typ = a.typ.pointer_to()
+            expr = expressions.UnaryOperator("&", a, typ, False, location)
         return expr
 
     def on_sizeof(self, typ, location):
@@ -666,6 +778,12 @@ class CSemantics:
         """ Check explicit casting """
         return expressions.Cast(casted_expr, to_typ, False, location)
 
+    def on_compound_literal(self, typ, init, location):
+        """ Check the consistency of compound literals. """
+        self.patch_size_from_initializer(typ, init)
+        expr = expressions.CompoundLiteral(typ, init, location)
+        return expr
+
     def on_array_index(self, base, index, location):
         """ Check array indexing """
         index = self.coerce(index, self.int_type)
@@ -676,7 +794,8 @@ class CSemantics:
 
         if not isinstance(base.typ, types.IndexableType):
             self.error(
-                "Cannot index non array type {}".format(base.typ), location
+                "Cannot index non array type {}".format(type_to_str(base.typ)),
+                location,
             )
 
         typ = base.typ.element_type
@@ -684,12 +803,13 @@ class CSemantics:
 
     def on_field_select(self, base, field_name, location):
         """ Check field select expression """
-        if not isinstance(base.typ, types.StructOrUnionType):
+        if not base.typ.is_struct_or_union:
             # Maybe we have a pointer to a struct?
             # If so, give a hint about this.
             hints = []
-            if isinstance(base.typ, types.PointerType) and isinstance(
-                base.typ.element_type, types.StructOrUnionType
+            if (
+                base.typ.is_pointer
+                and base.typ.element_type.is_struct_or_union
             ):
                 lhs = expr_to_str(base)
                 hints.append(
@@ -698,7 +818,11 @@ class CSemantics:
                     )
                 )
             self.error(
-                "Selecting a field of non-struct type", location, hints=hints
+                "Selecting a field of non-struct type ({})".format(
+                    type_to_str(base.typ)
+                ),
+                location,
+                hints=hints,
             )
 
         if not base.lvalue:
@@ -771,9 +895,8 @@ class CSemantics:
 
     def on_call(self, callee, arguments, location):
         """ Check function call for validity """
-        if isinstance(callee.typ, types.FunctionType):
-            function_type = callee.typ
-        elif isinstance(callee.typ, types.PointerType) and isinstance(
+        callee = self.pointer(callee)
+        if callee.typ.is_pointer and isinstance(
             callee.typ.element_type, types.FunctionType
         ):
             # Function pointer
@@ -806,12 +929,15 @@ class CSemantics:
         for argument, argument_type in zip(
             arguments, function_type.argument_types
         ):
-            value = self.coerce(argument, argument_type)
-            coerced_arguments.append(value)
+            argument = self.pointer(argument)
+            argument = self.coerce(argument, argument_type)
+            coerced_arguments.append(argument)
 
         # Append evetual variadic arguments:
         if num_given > num_expected:
             for argument in arguments[num_expected:]:
+                argument = self.pointer(argument)
+                argument = self.promote(argument)
                 coerced_arguments.append(argument)
 
         # Determine lvalue. If we return a struct, we return an lvalue.
@@ -839,8 +965,12 @@ class CSemantics:
                         name, suggestion
                     )
                 )
-            self.error('Who is this "{}"?'.format(name), location, hints=hints)
-        symbol = self.scope.get(name)
+            self.error(
+                'Undeclared identifier: "{}"'.format(name),
+                location,
+                hints=hints,
+            )
+        symbol = self.scope.get_identifier(name)
         declaration = symbol.declaration
         typ = declaration.typ
 
@@ -852,20 +982,19 @@ class CSemantics:
         elif isinstance(declaration, declarations.ParameterDeclaration):
             lvalue = True
         elif isinstance(declaration, declarations.FunctionDeclaration):
-            # Function pointer:
-            # expr.typ = types.PointerType(variable.typ)
             lvalue = False
         else:  # pragma: no cover
-            self.not_impl("Access to {}".format(variable), location)
+            self.not_impl("Access to {}".format(declaration), location)
 
         expr = expressions.VariableAccess(symbol, typ, lvalue, location)
         return expr
 
     # Helpers!
-    def coerce(self, expr: expressions.Expression, typ: types.CType):
-        """ Try to fit the given expression into the given type """
+    def coerce(self, expr: expressions.CExpression, typ: types.CType):
+        """ Try to fit the given expression into the given type.
+        """
         assert isinstance(typ, types.CType)
-        assert isinstance(expr, expressions.Expression)
+        assert isinstance(expr, expressions.CExpression)
         do_cast = False
         from_type = expr.typ
         to_type = typ
@@ -876,28 +1005,11 @@ class CSemantics:
             from_type, (types.PointerType, types.EnumType)
         ) and isinstance(to_type, types.BasicType):
             do_cast = True
-        elif isinstance(
-            from_type, (types.PointerType, types.ArrayType)
-        ) and isinstance(to_type, types.PointerType):
+        elif from_type.is_pointer and to_type.is_pointer:
             do_cast = True
-        elif (
-            isinstance(from_type, types.FunctionType)
-            and isinstance(to_type, types.PointerType)
-            and isinstance(to_type.element_type, types.FunctionType)
-            and self._root_scope.equal_types(from_type, to_type.element_type)
-        ):
-            # Function used as value for pointer to function is fine!
-            do_cast = False
         elif isinstance(from_type, types.BasicType) and isinstance(
             to_type, types.IndexableType
         ):
-            do_cast = True
-        elif isinstance(from_type, types.IndexableType) and isinstance(
-            to_type, types.IndexableType
-        ):
-            # and \
-            # self._root_scope.equal_types(
-            #    from_type.element_type, to_type.element_type):
             do_cast = True
         elif isinstance(
             from_type, (types.BasicType, types.EnumType)
@@ -914,6 +1026,38 @@ class CSemantics:
             expr = expressions.ImplicitCast(expr, typ, False, expr.location)
         return expr
 
+    def pointer(self, expr):
+        """ Handle several conversions.
+
+        Things handled:
+        - Array to pointer decay.
+        - Function to function pointer
+        """
+        if isinstance(expr.typ, types.ArrayType):
+            typ = expr.typ.decay()
+            conversion = expressions.ImplicitCast(
+                expr, typ, False, expr.location
+            )
+        elif isinstance(expr.typ, types.FunctionType):
+            typ = expr.typ.pointer_to()
+            conversion = expressions.ImplicitCast(
+                expr, typ, False, expr.location
+            )
+        else:
+            conversion = expr
+        return conversion
+
+    def promote(self, expr):
+        """ Perform integer promotion on expression.
+
+        Integer promotion happens when using char and short
+        types in expressions. Those values are promoted
+        to int type before performing the operation.
+        """
+        if expr.typ.is_promotable:
+            expr = self.coerce(expr, self.int_type)
+        return expr
+
     def get_type(self, type_specifiers):
         """ Retrieve a type by type specifiers """
         return self._root_scope.get_type(type_specifiers)
@@ -923,6 +1067,7 @@ class CSemantics:
 
         The common type is a type they can both be cast to.
         """
+
         return max([typ1, typ2], key=lambda t: self._get_rank(t, location))
 
     basic_ranks = {
@@ -939,6 +1084,8 @@ class CSemantics:
         types.BasicType.SHORT: 40,
         types.BasicType.UCHAR: 31,
         types.BasicType.CHAR: 30,
+        # TODO: is void rank-able? for now give it a low rank.
+        types.BasicType.VOID: 0,
     }
 
     def _get_rank(self, typ, location):
@@ -947,17 +1094,21 @@ class CSemantics:
                 return self.basic_ranks[typ.type_id]
             else:
                 self.error(
-                    "Cannot determine type rank for {}".format(typ), location
+                    "Cannot determine type rank for '{}'".format(
+                        type_to_str(typ)
+                    ),
+                    location,
                 )
         elif isinstance(typ, types.EnumType):
             return 80
-        elif isinstance(typ, types.PointerType):
+        elif typ.is_pointer:
             return 83
         elif isinstance(typ, types.ArrayType):
             return 83
         else:
             self.error(
-                "Cannot determine type rank for {}".format(typ), location
+                "Cannot determine type rank for '{}'".format(type_to_str(typ)),
+                location,
             )
 
     def error(self, message, location, hints=None):

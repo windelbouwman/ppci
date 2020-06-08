@@ -70,7 +70,7 @@ from .registers import r8, r9, r10, r11, r12, r13, r14, r15
 from .registers import r16, r17, r18, r19, r20, r21, r22, r23
 from .registers import r24, r25, W, Y, Z
 from .registers import caller_save, callee_save
-from .registers import get16reg, register_classes, gdb_registers
+from .registers import register_classes, gdb_registers
 
 
 class AvrArch(Architecture):
@@ -94,6 +94,8 @@ class AvrArch(Architecture):
                 ir.f32: TypeInfo(4, 4),
                 ir.f64: TypeInfo(8, 8),
                 "int": ir.i16,
+                # TODO: long on avr means 32 bits?
+                "long": ir.i32,
                 "ptr": ir.u16,
                 ir.ptr: ir.u16,
             },
@@ -152,7 +154,7 @@ class AvrArch(Architecture):
             elif s == 2:
                 regs.pop(0)
                 lo_reg = regs.pop(0)
-                r = get16reg(lo_reg.num)
+                r = AvrWordRegister.from_num(lo_reg.num)
                 locations.append(r)
             else:  # pragma: no cover
                 raise NotImplementedError(str(s))
@@ -342,6 +344,22 @@ __shr16_2:
   pop r16
   ret
 
+; shift r24 right by r22 bits
+global __shr8
+__shr8:
+  push r16
+  mov r16, r22
+  cpi r16, 0
+  breq __shr8_2
+__shr8_1:
+  lsr r24
+  dec r16
+  cpi r16, 0
+  brne __shr8_1
+__shr8_2:
+  pop r16
+  ret
+
 ; shift r25:r24 left by r22 bits
 global __shl16
 __shl16:
@@ -356,6 +374,22 @@ __shl16_1:
   cpi r16, 0
   brne __shl16_1
 __shl16_2:
+  pop r16
+  ret
+
+; shift r24 left by r22 bits
+global __shl8
+__shl8:
+  push r16
+  mov r16, r22
+  cpi r16, 0
+  breq __shl8_2
+__shl8_1:
+  add r24, r24
+  dec r16
+  cpi r16, 0
+  brne __shl8_1
+__shl8_2:
   pop r16
   ret
 

@@ -86,9 +86,10 @@ class Debugger:
     def get_possible_breakpoints(self, filename):
         """ Return the rows in the file for which breakpoints can be set """
         options = set()
-        for loc in self.debug_info.locations:
-            if loc.loc.filename == filename:
-                options.add(loc.loc.row)
+        if self.debug_info:
+            for loc in self.debug_info.locations:
+                if loc.loc.filename == filename:
+                    options.add(loc.loc.row)
         return options
 
     def set_breakpoint(self, filename, row):
@@ -200,11 +201,12 @@ class Debugger:
     def current_function(self):
         """ Determine the PC and then determine which function we are in """
         pc = self.get_pc()
-        for function in self.debug_info.functions:
-            begin = self.calc_address(function.begin)
-            end = self.calc_address(function.end)
-            if pc in range(begin, end):
-                return function
+        if self.debug_info:
+            for function in self.debug_info.functions:
+                begin = self.calc_address(function.begin)
+                end = self.calc_address(function.end)
+                if pc in range(begin, end):
+                    return function
 
     def local_vars(self):
         """ Return map of local variable names """
@@ -215,10 +217,11 @@ class Debugger:
 
     def find_address(self, filename, row):
         """ Given a filename and a row, determine the address """
-        for debug in self.debug_info.locations:
-            loc = debug.loc
-            if loc.filename == filename and loc.row == row:
-                return self.calc_address(debug.address)
+        if self.debug_info:
+            for debug in self.debug_info.locations:
+                loc = debug.loc
+                if loc.filename == filename and loc.row == row:
+                    return self.calc_address(debug.address)
         self.logger.warning("Could not find address for %s:%i", filename, row)
 
     # Registers:

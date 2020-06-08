@@ -7,7 +7,7 @@ from ...utils.bitfun import wrap_negative
 from .registers import AvrRegister, Y, Z, AvrYRegister, AvrZRegister
 from .registers import HighAvrRegister, AvrWordRegister
 from .registers import HighAvrWordRegister, SuperHighAvrWordRegister
-from .registers import r0, r1, r1r0, r23r22, W
+from .registers import r0, r1, r1r0, r23r22, W, r22, r24
 
 
 class AvrToken(Token):
@@ -813,6 +813,7 @@ def pattern_cjmp8(context, tree, c0, c1):
 @avr_isa.pattern("reg", "REGI8", size=0, cycles=0, energy=0)
 @avr_isa.pattern("reg", "REGU8", size=0, cycles=0, energy=0)
 def pattern_reg8(context, tree):
+    assert isinstance(tree.value, AvrRegister)
     return tree.value
 
 
@@ -833,14 +834,6 @@ def pattern_mov8(context, tree, c0):
 @avr_isa.pattern("stm", "MOVU16(reg16)", size=2)
 def pattern_mov16(context, tree, c0):
     context.move(tree.value, c0)
-
-
-@avr_isa.pattern("reg16", "I16TOI16(reg16)", size=0)
-@avr_isa.pattern("reg16", "U16TOI16(reg16)", size=0)
-@avr_isa.pattern("reg16", "I16TOU16(reg16)", size=0)
-@avr_isa.pattern("reg16", "U16TOU16(reg16)", size=0)
-def pattern_i16toi16(context, tree, c0):
-    return c0
 
 
 @avr_isa.pattern("reg16", "U8TOI16(reg)", size=0)
@@ -907,6 +900,15 @@ def pattern_add16(context, tree, c0, c1):
     return d
 
 
+@avr_isa.pattern("reg", "SUBI8(reg, reg)", size=4)
+@avr_isa.pattern("reg", "SUBU8(reg, reg)", size=4)
+def pattern_sub8(context, tree, c0, c1):
+    d = context.new_reg(AvrRegister)
+    context.move(d, c0)
+    context.emit(Sub(d, c1))
+    return d
+
+
 @avr_isa.pattern("reg16", "SUBI16(reg16, reg16)", size=6)
 @avr_isa.pattern("reg16", "SUBU16(reg16, reg16)", size=6)
 def pattern_sub16(context, tree, c0, c1):
@@ -932,12 +934,30 @@ def pattern_neg_i16(context, tree, c0):
     return d
 
 
+@avr_isa.pattern("reg", "ANDI8(reg, reg)", size=4)
+@avr_isa.pattern("reg", "ANDU8(reg, reg)", size=4)
+def pattern_and8(context, tree, c0, c1):
+    d = context.new_reg(AvrRegister)
+    context.move(d, c0)
+    context.emit(And(d, c1))
+    return d
+
+
 @avr_isa.pattern("reg16", "ANDI16(reg16, reg16)", size=6)
 @avr_isa.pattern("reg16", "ANDU16(reg16, reg16)", size=6)
 def pattern_and16(context, tree, c0, c1):
     d = context.new_reg(AvrWordRegister)
     context.move(d, c0)
     context.emit(Andw(d, c1))
+    return d
+
+
+@avr_isa.pattern("reg", "ORI8(reg, reg)", size=4)
+@avr_isa.pattern("reg", "ORU8(reg, reg)", size=4)
+def pattern_or8(context, tree, c0, c1):
+    d = context.new_reg(AvrRegister)
+    context.move(d, c0)
+    context.emit(Or(d, c1))
     return d
 
 
@@ -1006,13 +1026,43 @@ def call_function(context, label, args, clobbers=()):
     return d
 
 
-@avr_isa.pattern("reg16", "SHRI16(reg16, reg16)", size=8)
+def call_function8(context, label, args, clobbers=()):
+    """ Helper to emit calling sequence with signature 'u8 func(u8, u8)' """
+    c0, c1 = args
+    context.move(r24, c0)
+    context.move(r22, c1)
+    context.emit(RegisterUseDef(uses=(r24, r22)))
+    context.emit(Global(label))
+    context.emit(Call(label, clobbers=clobbers))
+    context.emit(RegisterUseDef(defs=(r24,)))
+    d = context.new_reg(AvrRegister)
+    context.move(d, r24)
+    return d
+
+
+@avr_isa.pattern("reg", "SHRU8(reg, reg)", size=50)
+@avr_isa.pattern("reg", "SHRI8(reg, reg)", size=50)
+def pattern_shr8(context, tree, c0, c1):
+    """ invoke runtime """
+    return call_function8(context, "__shr8", (c0, c1))
+
+
+@avr_isa.pattern("reg16", "SHRU16(reg16, reg16)", size=50)
+@avr_isa.pattern("reg16", "SHRI16(reg16, reg16)", size=50)
 def pattern_shr16(context, tree, c0, c1):
     """ invoke runtime """
     return call_function(context, "__shr16", (c0, c1))
 
 
-@avr_isa.pattern("reg16", "SHLI16(reg16, reg16)", size=8)
+@avr_isa.pattern("reg", "SHLU8(reg, reg)", size=50)
+@avr_isa.pattern("reg", "SHLI8(reg, reg)", size=50)
+def pattern_shl8(context, tree, c0, c1):
+    """ invoke runtime """
+    return call_function8(context, "__shl8", (c0, c1))
+
+
+@avr_isa.pattern("reg16", "SHLU16(reg16, reg16)", size=50)
+@avr_isa.pattern("reg16", "SHLI16(reg16, reg16)", size=50)
 def pattern_shl16(context, tree, c0, c1):
     """ invoke runtime """
     return call_function(context, "__shl16", (c0, c1))

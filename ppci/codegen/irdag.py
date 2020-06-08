@@ -358,6 +358,40 @@ class SelectionGraphBuilder:
         self.chain(sgnode)
         self.debug_db.map(node, sgnode)
 
+    def do_inline_asm(self, node):
+        """ Create selection graph node for inline asm code.
+
+        This is a little weird, as we really do not need to select
+        any instructions, but this special node will be filtered later
+        on.
+        """
+
+        input_registers = []
+        for input_value in node.input_values:
+            arg_val = self.get_value(input_value)
+            reg_loc = self.new_vreg(input_value.ty)
+            mov_sgnode = self.new_node(
+                "MOV", input_value.ty, arg_val, value=reg_loc
+            )
+            self.chain(mov_sgnode)
+            input_registers.append(reg_loc)
+
+        # TODO: fill output registers
+        output_registers = []
+
+        sgnode = self.new_node(
+            "ASM",
+            None,
+            value=(
+                node.template,
+                output_registers,
+                input_registers,
+                node.clobbers,
+            ),
+        )
+        self.chain(sgnode)
+        self.debug_db.map(node, sgnode)
+
     def do_const(self, node):
         """ Process constant instruction """
         if isinstance(node.value, (int, float)):
@@ -412,9 +446,38 @@ class SelectionGraphBuilder:
         from_ty = node.src.ty
         if from_ty is ir.ptr:
             from_ty = self.ptr_ty
-        op = "{}TO".format(str(from_ty).upper())
-        a = self.get_value(node.src)
-        sgnode = self.new_node(op, node.ty, a)
+
+        to_ty = node.ty
+        if to_ty is ir.ptr:
+            to_ty = self.ptr_ty
+
+        if (
+            from_ty.is_integer
+            and to_ty.is_integer
+            and from_ty.bits == to_ty.bits
+            and (
+                self.arch.get_reg_class(ty=from_ty)
+                is self.arch.get_reg_class(ty=to_ty)
+            )
+        ):
+            # No cast required if:
+            # - both types are integer
+            # - the integer is the same size
+            # - both types use the same register class.
+            src_value = self.get_value(node.src)
+            self.add_map(node, src_value)
+        else:
+            # Determine if cast is required.
+            op = "{}TO".format(str(from_ty).upper())
+            a = self.get_value(node.src)
+            sgnode = self.new_node(op, node.ty, a)
+            self.add_map(node, sgnode.new_output(node.name))
+
+    def do_undefined(self, node):
+        """ Create node for undefined value. """
+        op = "UND"
+        sgnode = self.new_node(op, node.ty)
+        self.debug_db.map(node, sgnode)
         self.add_map(node, sgnode.new_output(node.name))
 
     def _prep_call_arguments(self, node):

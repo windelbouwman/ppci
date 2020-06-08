@@ -4,7 +4,7 @@ Code instrumentation
 
 This is a howto on code instrumentation. Code instrumentation is the action
 of adding extra code to your program. A good example is function call
-tracing. With function call tracing, you can call an extra function whenever
+tracing. With function call tracing, you can execute a custom action whenever
 a function is entered. It is also fun and easy to enter infinite recursions
 by doing so.
 
@@ -12,7 +12,7 @@ by doing so.
 Lets demonstrate how this works with an example!
 
 Say, we have a simple function, and would like to instrument this code.
-So, first define a function in C, called my_add, and turn it into IR-code:
+So, first define a function in C, called ``my_add``, and turn it into IR-code:
 
 .. doctest:: instrumentation
 
@@ -29,8 +29,8 @@ So, first define a function in C, called my_add, and turn it into IR-code:
     <BLANKLINE>
     global function i32 my_add(i32 a, i32 b) {
       my_add_block0: {
-        i32 op = a + b;
-        return op;
+        i32 tmp = a + b;
+        return tmp;
       }
     <BLANKLINE>
     }
@@ -41,7 +41,7 @@ is target independent!
 
 .. doctest:: instrumentation
 
-    >>> from ppci.instrument import add_tracer
+    >>> from ppci.irutils.instrument import add_tracer
     >>> add_tracer(module)
     >>> module.display()
     module main;
@@ -50,11 +50,11 @@ is target independent!
     <BLANKLINE>
     global function i32 my_add(i32 a, i32 b) {
       my_add_block0: {
-        blob<7:1> func_name = Literal b'6d795f61646400';
+        blob<7:1> func_name = literal '6d795f61646400';
         ptr name_ptr = &func_name;
         call trace(name_ptr);
-        i32 op = a + b;
-        return op;
+        i32 tmp = a + b;
+        return tmp;
       }
     <BLANKLINE>
     }
@@ -67,9 +67,11 @@ like this:
     >>> print(api.ir_to_assembly([module], arch))
            section data
            global trace
+           type trace func
            section data
            section code
            global my_add
+           type my_add func
      my_add:
            push LR, R11
            mov R11, SP
@@ -99,5 +101,4 @@ like this:
            ALIGN(4)
     <BLANKLINE>
 
-Notice here as well the extra call to the trace function!
-
+Notice here as well the extra call to the ``trace`` function.

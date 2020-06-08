@@ -1,5 +1,5 @@
 
-This is a demo for amiga with a motorola 68000 chip.
+This is a demo for Amiga with a Motorola 68000 chip.
 
 Generate code with:
 

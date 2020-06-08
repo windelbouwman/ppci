@@ -13,21 +13,17 @@ class M68kRegister(Register):
 class DataRegister(M68kRegister):
     """ Data register """
 
-    def __repr__(self):
-        if self.is_colored:
-            return "D{}".format(self.color)
-        else:
-            return self.name
+    @classmethod
+    def from_num(cls, num):
+        return num_data_reg_map[num]
 
 
 class AddressRegister(M68kRegister):
     """ Address register """
 
-    def __repr__(self):
-        if self.is_colored:
-            return "A{}".format(self.color)
-        else:
-            return self.name
+    @classmethod
+    def from_num(cls, num):
+        return num_address_reg_map[num]
 
 
 D0 = DataRegister("D0", num=0)
@@ -40,6 +36,7 @@ D6 = DataRegister("D6", num=6)
 D7 = DataRegister("D7", num=7)
 
 data_registers = [D0, D1, D2, D3, D4, D5, D6, D7]
+num_data_reg_map = {r.num: r for r in data_registers}
 DataRegister.registers = data_registers
 
 A0 = AddressRegister("A0", num=0)
@@ -51,6 +48,7 @@ A5 = AddressRegister("A5", num=5)
 A6 = AddressRegister("A6", num=6)
 
 address_registers = [A0, A1, A2, A3, A4, A5, A6]
+num_address_reg_map = {r.num: r for r in address_registers}
 AddressRegister.registers = address_registers
 
 register_classes = [

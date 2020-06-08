@@ -5,7 +5,7 @@ from ..encoding import Instruction, Syntax, Operand, Relocation
 from ..isa import Isa
 from ..token import Token, bit_range, Endianness
 from ..generic_instructions import ArtificialInstruction
-from ..generic_instructions import RegisterUseDef
+from ..generic_instructions import RegisterUseDef, Global
 from .registers import MicroBlazeRegister, R0
 from . import registers
 
@@ -512,14 +512,6 @@ def pattern_fprel(context, tree):
 
 
 # Data conversion patterns:
-@isa.pattern("reg", "U32TOI32(reg)", size=0, cycles=0, energy=0)
-@isa.pattern("reg", "I32TOI32(reg)", size=0, cycles=0, energy=0)
-@isa.pattern("reg", "U32TOU32(reg)", size=0, cycles=0, energy=0)
-@isa.pattern("reg", "I32TOU32(reg)", size=0, cycles=0, energy=0)
-def pattern_i32toi32(context, tree, reg):
-    return reg
-
-
 @isa.pattern("reg", "U32TOI16(reg)", size=0, cycles=0, energy=0)
 @isa.pattern("reg", "I32TOI16(reg)", size=0, cycles=0, energy=0)
 @isa.pattern("reg", "U32TOU16(reg)", size=0, cycles=0, energy=0)
@@ -607,6 +599,7 @@ def call_intrinsic(context, label, args, result):
     context.move(registers.R5, c0)
     context.move(registers.R6, c1)
     context.emit(RegisterUseDef(uses=(registers.R5, registers.R6)))
+    context.emit(Global(label))
     context.emit(
         Brlid_label(registers.R15, label, clobbers=registers.caller_saved)
     )

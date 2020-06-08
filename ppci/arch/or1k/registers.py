@@ -9,11 +9,9 @@ class Or1kRegister(Register):
 
     bitsize = 32
 
-    def __repr__(self):
-        if self.is_colored:
-            return "R{}".format(self.color)
-        else:
-            return self.name
+    @classmethod
+    def from_num(cls, num):
+        return num_reg_map[num]
 
 
 class Or1kPcRegister(Register):
@@ -96,7 +94,7 @@ usable_regs = (
 )
 
 all_regs = (r0, r1, r2, r9) + usable_regs
-
+num_reg_map = {r.num: r for r in all_regs}
 gdb_registers = (
     r0,
     r1,

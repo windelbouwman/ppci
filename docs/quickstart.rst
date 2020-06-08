@@ -65,7 +65,7 @@ Example projects
 ----------------
 
 The `examples folder in the ppci sourcecode <https://bitbucket.org/windel/ppci/src/default/examples/>`_ contains some demo projects
-that can be build using ppci.
+that can be built using PPCI.
 
 
 **stm32f4 example**
@@ -83,7 +83,7 @@ and enjoy the magic.
 
 **arduino example**
 
-To build and the arduino blink led example, follow the following commands:
+To build and flash the arduino blink led example, use the following commands:
 
 .. code:: bash
 

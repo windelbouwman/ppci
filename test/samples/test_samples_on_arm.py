@@ -6,8 +6,8 @@ from helper_util import has_qemu, qemu, relpath, source_files
 from helper_util import do_long_tests, do_iverilog, make_filename
 
 
-@unittest.skipUnless(do_long_tests('arm'), 'skipping slow tests')
-@add_samples('simple', 'medium', '8bit', '32bit')
+@unittest.skipUnless(do_long_tests("arm"), "skipping slow tests")
+@add_samples("simple", "medium", "8bit", "32bit")
 class TestSamplesOnVexpress(unittest.TestCase):
     maxDiff = None
     opt_level = 0
@@ -16,6 +16,9 @@ class TestSamplesOnVexpress(unittest.TestCase):
     section reset
     mov sp, 0xF0000   ; setup stack pointer
     ; copy initial data
+    global __data_load_start
+    global __data_start
+    global __data_end
     ldr r1, =__data_load_start
     ldr r2, =__data_start
     ldr r3, =__data_end
@@ -27,7 +30,8 @@ class TestSamplesOnVexpress(unittest.TestCase):
     cmp r2, r3
     blt __copy_loop
 
-
+    global main_main
+    global bsp_exit
     BL main_main      ; Branch to sample start
     BL bsp_exit       ; do exit stuff
     local_loop:
@@ -49,22 +53,36 @@ class TestSamplesOnVexpress(unittest.TestCase):
 
     def do(self, src, expected_output, lang="c3"):
         # Construct binary file from snippet:
-        bsp_c3 = relpath('..', 'examples', 'realview-pb-a8', 'arch.c3')
+        bsp_c3 = relpath("..", "examples", "realview-pb-a8", "arch.c3")
         startercode = io.StringIO(self.startercode)
         base_filename = make_filename(self.id())
         obj = build(
-            base_filename, src, bsp_c3, startercode, self.march,
-            self.opt_level, io.StringIO(self.arch_mmap),
-            lang=lang, bin_format='bin')
-        sample_filename = base_filename + '.bin'
+            base_filename,
+            src,
+            bsp_c3,
+            startercode,
+            self.march,
+            self.opt_level,
+            io.StringIO(self.arch_mmap),
+            lang=lang,
+            bin_format="bin",
+        )
+        sample_filename = base_filename + ".bin"
 
         # Run bin file in emulator:
         if has_qemu():
-            res = qemu([
-                'qemu-system-arm', '--machine', 'realview-pb-a8',
-                '-m', '16M', '-nographic',
-                '-kernel', sample_filename
-            ])
+            res = qemu(
+                [
+                    "qemu-system-arm",
+                    "--machine",
+                    "realview-pb-a8",
+                    "-m",
+                    "16M",
+                    "-nographic",
+                    "-kernel",
+                    sample_filename,
+                ]
+            )
             self.assertEqual(expected_output, res)
 
 
@@ -72,8 +90,8 @@ class TestSamplesOnVexpressO2(TestSamplesOnVexpress):
     opt_level = 2
 
 
-@unittest.skipUnless(do_long_tests('arm'), 'skipping slow tests')
-@add_samples('simple', 'medium', '8bit', '32bit')
+@unittest.skipUnless(do_long_tests("arm"), "skipping slow tests")
+@add_samples("simple", "medium", "8bit", "32bit")
 class TestSamplesOnCortexM3O2(unittest.TestCase):
     """ The lm3s811 has 64 k memory """
 
@@ -96,10 +114,17 @@ class TestSamplesOnCortexM3O2(unittest.TestCase):
     cmp r2, r3
     blt __copy_loop
 
+    global main_main
+    global bsp_exit
+
     BL main_main     ; Branch to sample start
     BL bsp_exit      ; do exit stuff
     local_loop:
     B local_loop
+
+    global __data_load_start
+    global __data_start
+    global __data_end
 
     __data_load_start_value:
     dcd =__data_load_start
@@ -125,20 +150,35 @@ class TestSamplesOnCortexM3O2(unittest.TestCase):
 
     def do(self, src, expected_output, lang="c3"):
         # Construct binary file from snippet:
-        bsp_c3 = relpath('..', 'examples', 'lm3s6965evb', 'bare', 'arch.c3')
+        bsp_c3 = relpath("..", "examples", "lm3s6965evb", "bare", "arch.c3")
         startercode = io.StringIO(self.startercode)
         base_filename = make_filename(self.id())
         obj = build(
-            base_filename, src, bsp_c3, startercode, self.march,
-            self.opt_level, io.StringIO(self.arch_mmap),
-            lang=lang, bin_format='bin')
-        sample_filename = base_filename + '.bin'
+            base_filename,
+            src,
+            bsp_c3,
+            startercode,
+            self.march,
+            self.opt_level,
+            io.StringIO(self.arch_mmap),
+            lang=lang,
+            bin_format="bin",
+        )
+        sample_filename = base_filename + ".bin"
 
         # Run bin file in emulator:
         if has_qemu():
-            res = qemu([
-                'qemu-system-arm', '-M', 'lm3s6965evb', '-m', '16M',
-                '-nographic', '-kernel', sample_filename
-            ])
+            res = qemu(
+                [
+                    "qemu-system-arm",
+                    "-M",
+                    "lm3s6965evb",
+                    "-m",
+                    "16M",
+                    "-nographic",
+                    "-kernel",
+                    sample_filename,
+                ]
+            )
             # lm3s811evb
             self.assertEqual(expected_output, res)

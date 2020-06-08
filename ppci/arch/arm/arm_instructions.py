@@ -958,14 +958,6 @@ def pattern_reg8(context, tree):
     return tree.value
 
 
-@arm_isa.pattern("reg", "U32TOU32(reg)", size=0)
-@arm_isa.pattern("reg", "U32TOI32(reg)", size=0)
-@arm_isa.pattern("reg", "I32TOI32(reg)", size=0)
-@arm_isa.pattern("reg", "I32TOU32(reg)", size=0)
-def pattern_i32toi32(self, tree, c0):
-    return c0
-
-
 @arm_isa.pattern("reg", "I8TOI32(reg)", size=0)
 @arm_isa.pattern("reg", "U8TOI32(reg)", size=0)
 @arm_isa.pattern("reg", "I8TOU32(reg)", size=0)

@@ -26,7 +26,7 @@ The wasm output of this is:
 .. code::
 
     (module
-      (table 0 anyfunc)
+      (table 0 funcref)
       (memory $0 1)
       (export "memory" (memory $0))
       (export "main" (func $main))

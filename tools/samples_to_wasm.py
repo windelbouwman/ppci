@@ -20,7 +20,7 @@ import time
 from ppci.lang.c import COptions
 from ppci.api import c_to_ir, get_arch, optimize, c3_to_ir
 from ppci.wasm import ir_to_wasm
-from ppci.ir_link import ir_link
+from ppci.irutils import ir_link
 
 logging.basicConfig(level=logging.DEBUG)
 this_dir = os.path.dirname(os.path.abspath(__file__))

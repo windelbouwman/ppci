@@ -1,65 +1,43 @@
 import unittest
-from functools import reduce
-import operator
 import io
 from ppci.common import CompilerError
-from ppci.lang.c import CBuilder, render_ast, CContext
-from ppci.lang.c import parse_type, print_ast
-from ppci.lang.c.options import COptions
-from ppci.lang.c.utils import replace_escape_codes
+from ppci.lang.c import CBuilder, render_ast, print_ast, COptions
 from ppci.arch.example import ExampleArch
-from ppci.arch import get_arch
 from ppci import ir
-from ppci.irutils import Verifier
-
-
-class CUtilitiesTestCase(unittest.TestCase):
-    def test_escape_strings(self):
-        """ Test string escape codes """
-        src = r'\' \" \? \\ \a \b \f \n \r \t \v \0 \001'
-        expected = '\' " ? \\ \a \b \f \n \r \t \v \0 \1'
-        result = replace_escape_codes(src)
-        self.assertEqual(expected, result)
-
-    def test_escape_unicode(self):
-        """ Test string escape unicodes """
-        src = r'H \xfe \u1234 \U00010123'
-        expected = 'H \xfe \u1234 \U00010123'
-        result = replace_escape_codes(src)
-        self.assertEqual(expected, result)
+from ppci.irutils import verify_module
 
 
 class CFrontendTestCase(unittest.TestCase):
     """ Test if various C-snippets build correctly """
+
     def setUp(self):
         arch = ExampleArch()
         self.builder = CBuilder(arch.info, COptions())
 
     def do(self, src):
-        # self._print_ast(src)
         self._do_compile(src)
+        self._print_ast(src)
 
     def _do_compile(self, src):
         f = io.StringIO(src)
         try:
             ir_module = self.builder.build(f, None)
         except CompilerError as compiler_error:
-            lines = src.split('\n')
+            lines = src.split("\n")
             compiler_error.render(lines)
             raise
         assert isinstance(ir_module, ir.Module)
-        Verifier().verify(ir_module)
+        verify_module(ir_module)
 
     def _print_ast(self, src):
         # Try to parse ast as well:
-        f = io.StringIO(src)
         tree = self.builder._create_ast(src, None)
         print(tree)
-        print('C-AST:')
+        print("C-AST:")
         print_ast(tree)
 
         # Print rendered c:
-        print('re-rendered C:')
+        print("re-rendered C:")
         render_ast(tree)
 
     def expect_errors(self, src, errors):
@@ -154,6 +132,17 @@ class CFrontendTestCase(unittest.TestCase):
         """
         self.do(src)
 
+    def test_for_statement_scope(self):
+        """ Test the scope of declarations inside a for loop. """
+        src = """
+        void print(int);
+        int main() {
+            for (int i=0;i<10;i++) print(i);
+            for (int i=0;i<10;i++) print(i);
+        }
+        """
+        self.do(src)
+
     def test_conditionals(self):
         src = """
         int main() {
@@ -173,6 +162,22 @@ class CFrontendTestCase(unittest.TestCase):
           d = a + b - c / a * b;
           d = !a;
           d = a ? b : c + 2;
+        }
+        """
+        self.do(src)
+
+    def test_ternary_operator(self):
+        """ Test ternary operator with functions. """
+        src = """
+        int foo(int x) { return x + 1; }
+        int bar(int x) { return x - 1; }
+        void p1(int x);
+        void p2(int x);
+
+        void main(int b) {
+          int a;
+          a = (b ? foo : bar)(22); // ternary usage with function pointers
+          (b ? p1 : p2)(33);  // ternary usage with void type
         }
         """
         self.do(src)
@@ -260,6 +265,27 @@ class CFrontendTestCase(unittest.TestCase):
         """
         self.do(src)
 
+    def test_tag_scoping(self):
+        src = """
+        void f(int n) {
+          struct S { int a; } s;
+          union U { int a; } u;
+          enum E { E1, E2 } e;
+          if (n == 10) {
+              struct S { int b; } s;
+              s.b = 1;
+              union U { int b; } u;
+              u.b = 1;
+              enum E { E3, E4 } e;
+              e = E3;
+          }
+          s.a = 2;
+          u.a = 2;
+          e = E1;
+        }
+        """
+        self.do(src)
+
     def test_struct_copy(self):
         """ Test struct behavior when copied around. """
         src = """
@@ -285,7 +311,7 @@ class CFrontendTestCase(unittest.TestCase):
         src = """
         struct z { float foo : 3; };
         """
-        self.expect_errors(src, [(2, 'Invalid type for bit-field')])
+        self.expect_errors(src, [(2, r"Invalid type \(float\) for bit-field")])
 
     def test_offsetof(self):
         """ Test offsetof """
@@ -333,7 +359,6 @@ class CFrontendTestCase(unittest.TestCase):
         """
         self.do(src)
 
-    @unittest.skip('TODO')
     def test_anonymous_union_member(self):
         """ Test anonymous union member access. """
         src = """
@@ -384,7 +409,7 @@ class CFrontendTestCase(unittest.TestCase):
         union S { int x;};
         int B = sizeof(struct S);
         """
-        self.expect_errors(src, [(3, 'Wrong tag kind')])
+        self.expect_errors(src, [(3, "Wrong tag kind")])
 
     def test_enum(self):
         """ Test enum usage """
@@ -427,9 +452,25 @@ class CFrontendTestCase(unittest.TestCase):
         """ Test compund literal """
         src = """
         typedef struct { int x; } X_t;
+
         X_t main() {
          return (X_t){2};
         }
+        """
+        self.do(src)
+
+    def test_global_compound_literal(self):
+        """ Test pointer to global compund literals.
+
+        Points of interest:
+        - compound literals can empty initializer lists.
+        """
+        src = """
+        int *pa1 = (int[]){1,2,3,4};
+        int *pa2 = (int[4]){1,2,3,4};
+        struct S2 { int a; };
+        struct S2* ps1 = &((struct S2){.a=2});
+        struct S2* ps2 = &((struct S2){});
         """
         self.do(src)
 
@@ -521,6 +562,23 @@ class CFrontendTestCase(unittest.TestCase):
         """
         self.do(src)
 
+    def test_switch_gnu(self):
+        """ Test switch statement with gnu extension. """
+        src = """
+        void main() {
+          int b = 23;
+          switch (b) {
+            case 34 ... 40:
+              b = 1;
+              break;
+            case 342:
+              b = 2;
+              break;
+          }
+        }
+        """
+        self.do(src)
+
     def test_loose_case(self):
         """ Test loose case statement """
         src = """
@@ -528,7 +586,7 @@ class CFrontendTestCase(unittest.TestCase):
           case 34: break;
         }
         """
-        self.expect_errors(src, [(3, 'Case statement outside')])
+        self.expect_errors(src, [(3, "Case statement outside")])
 
     def test_loose_default(self):
         """ Test loose default statement """
@@ -537,7 +595,7 @@ class CFrontendTestCase(unittest.TestCase):
           default: break;
         }
         """
-        self.expect_errors(src, [(3, 'Default statement outside')])
+        self.expect_errors(src, [(3, "Default statement outside")])
 
     def test_void_function(self):
         """ Test calling of a void function """
@@ -598,7 +656,7 @@ class CFrontendTestCase(unittest.TestCase):
         char a = 2;
         char a = 3; // Not cool!
         """
-        self.expect_errors(src, [(3, 'Invalid redefinition')])
+        self.expect_errors(src, [(3, "Invalid redefinition")])
 
     def test_function_double_definition(self):
         """ Test double definition raises an error. """
@@ -610,7 +668,7 @@ class CFrontendTestCase(unittest.TestCase):
           return a + b;
         }
         """
-        self.expect_errors(src, [(5, 'invalid redefinition')])
+        self.expect_errors(src, [(5, "invalid redefinition")])
 
     def test_softfloat_bug(self):
         """ Bug encountered in softfloat library """
@@ -685,6 +743,8 @@ class CFrontendTestCase(unittest.TestCase):
         };
         char x = '\2';
         int* ptr = (int*)0x1000;
+        int data;
+        int* ptr2 = &data;
         struct rec d = {.b = 2, .c = {[2] = 3}, .d.x=100};
         int e[] = {1, [2]=3, [0] = 2, [6]=2.2};
         int f[] = {1,2,[5]=6};
@@ -695,6 +755,21 @@ class CFrontendTestCase(unittest.TestCase):
             struct rec d = {.b = 2, .c = {[2] = 3}, .d.x=100};
             int e[] = {1, [2]=3, [0] = 2, [6]=2.2};
             int f[] = {1,2,[5]=6};
+        }
+        """
+        self.do(src)
+
+    def test_anonymous_struct_field_initialization(self):
+        """ Test designated initialization into an anonymous struct. """
+        src = """
+        struct rec {
+          struct {
+            int x;
+          };
+        };
+        struct rec d = {.x = 2};
+        void main() {
+            struct rec d = {.x = 2};
         }
         """
         self.do(src)
@@ -742,42 +817,21 @@ class CFrontendTestCase(unittest.TestCase):
         """
         self.do(src)
 
-
-@unittest.skip('fixme')
-class CTypeInitializerTestCase(unittest.TestCase):
-    """ Test if C-types are correctly initialized """
-    def setUp(self):
-        arch = get_arch('x86_64')
-        coptions = COptions()
-        self.context = CContext(coptions, arch.info)
-
-    def pack_value(self, ty, value):
-        mem = self.context.gen_global_ival(ty, value)
-        return reduce(operator.add, mem)
-
-    def test_int_array(self):
-        """ Test array initialization """
-        src = "short[4]"
-        ty = parse_type(src, self.context)
-        self.assertEqual(8, self.context.sizeof(ty))
-        mem = self.pack_value(ty, [1, 2, 3, 4])
-        self.assertEqual(bytes([1, 0, 2, 0, 3, 0, 4, 0]), mem)
-
-    def test_struct(self):
-        src = "struct { char x; short y; }"
-        ty = parse_type(src, self.context)
-        self.assertEqual(4, self.context.sizeof(ty))
-        mem = self.pack_value(ty, [3, 4])
-        self.assertEqual(bytes([3, 0, 4, 0]), mem)
-
-    def test_packed_struct(self):
-        """ Check how a packed struct is initialized """
-        src = "struct { unsigned x: 5; short y : 10; }"
-        ty = parse_type(src, self.context)
-        self.assertEqual(2, self.context.sizeof(ty))
-        mem = self.pack_value(ty, [5, 2])
-        self.assertEqual(bytes([69, 0]), mem)
+    def test_inline_asm(self):
+        """ Test inline assembly code. """
+        src = """
+        void main(int a) {
+          // This is example arch asm code:
+          int res;
+          asm (
+            "add r0, r1, r2"
+            : // TODO: "=r" (res)
+            : "r" (a)
+          );
+        }
+        """
+        self.do(src)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

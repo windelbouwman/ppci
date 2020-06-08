@@ -7,8 +7,17 @@ Release 1.0 (Planned)
 
 * platform.python_compiler() returns 'ppci 1.0'
 
-Release 0.5.7 (Upcoming)
+Release 0.5.8 (Upcoming)
 ------------------------
+
+* Add inline asm support to C frontend.
+* Work on pascal frontend
+* Add initial support for relocatable ELF file
+* Add initial command to run wasm files directly
+* CoreMark benchmark can be compiled and run
+
+Release 0.5.7 (Dec 31, 2019)
+----------------------------
 
 * Added support for the m68k processor.
 * Added support for the microblaze processor.

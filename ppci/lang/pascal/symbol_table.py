@@ -1,5 +1,5 @@
 import itertools
-from . import nodes
+from .nodes import symbols, types
 
 
 class Scope:
@@ -27,22 +27,22 @@ class Scope:
     @property
     def types(self):
         """ Returns all the types in this scope """
-        return [s for s in self.syms if isinstance(s, nodes.DefinedType)]
+        return [s for s in self.syms if isinstance(s, symbols.DefinedType)]
 
     @property
     def constants(self):
         """ All defined constants in this scope """
-        return [s for s in self.syms if isinstance(s, nodes.Constant)]
+        return [s for s in self.syms if isinstance(s, symbols.Constant)]
 
     @property
     def variables(self):
         """ All variables defined in the current scope """
-        return [s for s in self.syms if isinstance(s, nodes.Variable)]
+        return [s for s in self.syms if isinstance(s, symbols.Variable)]
 
     @property
     def functions(self):
         """ Gets all the functions in the current scope """
-        return [s for s in self.syms if isinstance(s, nodes.Function)]
+        return [s for s in self.syms if isinstance(s, symbols.SubRoutine)]
 
     def __getitem__(self, key):
         return self.get_symbol(key)
@@ -69,7 +69,7 @@ class Scope:
     def add_symbol(self, sym):
         """ Add a symbol to this scope """
         assert sym.name not in self.symbols
-        assert isinstance(sym, nodes.Symbol)
+        assert isinstance(sym, symbols.Symbol)
         self.symbols[sym.name] = sym
 
     def __repr__(self):

@@ -1,6 +1,6 @@
 import unittest
 import sys
-from ppci.utils.bitfun import rotate_left, rotate_right, BitView
+from ppci.utils.bitfun import rotate_left, rotate_right, BitView, sign_extend
 
 
 class BitRotationTestCase(unittest.TestCase):
@@ -11,6 +11,16 @@ class BitRotationTestCase(unittest.TestCase):
     def test_left_rotation(self):
         self.assertEqual(0x0000FF00, rotate_left(0xFF, 8))
         self.assertEqual(0x001FE000, rotate_left(0xFF, 13))
+
+
+class SignExtendTestCase(unittest.TestCase):
+    def test_sign_extend(self):
+        self.assertEqual(1, sign_extend(1, 8))
+        self.assertEqual(0, sign_extend(0, 8))
+        self.assertEqual(-1, sign_extend(-1, 8))
+
+        self.assertEqual(0x7f, sign_extend(0xffffff7f, 8))
+        self.assertEqual(0x7fff, sign_extend(0xffff7fff, 16))
 
 
 class BitViewTestCase(unittest.TestCase):

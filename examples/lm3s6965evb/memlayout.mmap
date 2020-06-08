@@ -1,3 +1,4 @@
+ENTRY(start)
 
 MEMORY flash LOCATION=0x0 SIZE=0x10000 {
     SECTION(reset)

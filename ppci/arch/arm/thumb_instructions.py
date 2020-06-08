@@ -790,14 +790,6 @@ def pattern_reg32(context, tree):
     return tree.value
 
 
-@thumb_isa.pattern("reg", "I32TOU32(reg)", size=0)
-@thumb_isa.pattern("reg", "U32TOI32(reg)", size=0)
-@thumb_isa.pattern("reg", "I32TOI32(reg)", size=0)
-@thumb_isa.pattern("reg", "U32TOU32(reg)", size=0)
-def pattern_i32toi32(context, tree, c0):
-    return c0
-
-
 @thumb_isa.pattern("reg", "I16TOI32(reg)", size=0)
 @thumb_isa.pattern("reg", "U16TOI32(reg)", size=0)
 @thumb_isa.pattern("reg", "I16TOU32(reg)", size=0)

@@ -1,9 +1,8 @@
 
-section reset
-
 global main_main
 global bsp_exit
 
+global start
 start:
     call main_main
     call bsp_exit

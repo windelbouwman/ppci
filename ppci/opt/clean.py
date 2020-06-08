@@ -91,7 +91,7 @@ class CleanPass(FunctionPass):
             change = False
             block = self.find_single_predecessor_block(function)
             if block is not None:
-                pred, = block.predecessors  # Unpack 1 block
+                (pred,) = block.predecessors  # Unpack 1 block
                 self.glue_blocks(pred, block)
                 change = True
 

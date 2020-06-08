@@ -9,14 +9,15 @@ from ppci.lang.c import CTokenPrinter
 
 class CPreProcessorTestCase(unittest.TestCase):
     """ Test the preprocessor functioning """
+
     def setUp(self):
         coptions = COptions()
-        coptions.enable('verbose')
+        coptions.enable("verbose")
         self.preprocessor = CPreProcessor(coptions)
 
-    def preprocess(self, src, expected=None):
+    def preprocess(self, src: str, expected=None):
         f = io.StringIO(src)
-        tokens = self.preprocessor.process_file(f, 'dummy.t')
+        tokens = self.preprocessor.process_file(f, "dummy.t")
         tokens = list(tokens)
         print(tokens)
 
@@ -28,7 +29,7 @@ class CPreProcessorTestCase(unittest.TestCase):
 
     def test_empty(self):
         """ Test the obvious empty case! """
-        self.preprocess('', '')
+        self.preprocess("", "")
 
     def test_simple_define(self):
         src = r"""
@@ -71,6 +72,52 @@ class CPreProcessorTestCase(unittest.TestCase):
         expected = r"""# 1 "dummy.t"
 
 
+
+        end"""
+        self.preprocess(src, expected)
+
+    def test_expression_binding(self):
+        """ Test if operator associativity is correct. """
+        src = r"""
+        #if 2 * 3 / 2 == 3
+        ok
+        #endif
+        end"""
+        expected = r"""# 1 "dummy.t"
+
+
+        ok
+
+        end"""
+        self.preprocess(src, expected)
+
+    def test_boolean_expression_value(self):
+        """ Test the value of logical operators. """
+        src = r"""
+        #if (7 && 3) == 1
+        ok1
+        #endif
+
+        #if (7 || 3) == 1
+        ok2
+        #endif
+
+        #if (0 || 3) == 1
+        ok3
+        #endif
+        end"""
+        expected = r"""# 1 "dummy.t"
+
+
+        ok1
+
+
+
+        ok2
+
+
+
+        ok3
 
         end"""
         self.preprocess(src, expected)
@@ -137,7 +184,8 @@ class CPreProcessorTestCase(unittest.TestCase):
             self.preprocess(src)
         self.assertEqual(2, cm.exception.loc.row)
         self.assertEqual(
-            'this is not yet implemented 1234 #&!*^', cm.exception.msg)
+            "this is not yet implemented 1234 #&!*^", cm.exception.msg
+        )
 
     def test_intermediate_example(self):
         """ Check a medium hard example """
@@ -391,23 +439,23 @@ class CPreProcessorTestCase(unittest.TestCase):
         __COUNTER__
         __COUNTER__
         __COUNTER__"""
-        expected = '''# 1 "dummy.t"
+        expected = """# 1 "dummy.t"
 
         "dummy.t";2
         3;"dummy.t"
         0
         1
-        2'''
+        2"""
         self.preprocess(src, expected)
 
-    @mock.patch('time.strftime', lambda fmt: '"mastah"')
+    @mock.patch("time.strftime", lambda fmt: '"mastah"')
     def test_builtin_time_macros(self):
         """ Test builtin macros __DATE__ and __TIME__ """
         src = r"""
         __DATE__;__TIME__;"""
-        expected = '''# 1 "dummy.t"
+        expected = """# 1 "dummy.t"
 
-        "mastah";"mastah";'''
+        "mastah";"mastah";"""
         self.preprocess(src, expected)
 
     def test_empty_arguments(self):
@@ -421,6 +469,29 @@ class CPreProcessorTestCase(unittest.TestCase):
 
         ;;
         ;;"""
+        self.preprocess(src, expected)
+
+    def test_stringify(self):
+        """ Test token stringification. """
+        src = r"""#define S(a) #a
+        S(word)
+        S("string")
+        S('a')
+        S('"')
+        S("aa\tbb")
+        S( 1)
+        S(  1    2    3  )
+        E"""
+        expected = r"""# 1 "dummy.t"
+
+        "word"
+        "\"string\""
+        "'a'"
+        "'\"'"
+        "\"aa\\tbb\""
+        "1"
+        "1 2 3"
+        E"""
         self.preprocess(src, expected)
 
     def test_token_glue(self):
@@ -460,11 +531,21 @@ class CPreProcessorTestCase(unittest.TestCase):
         """ Check the behavior of variadic macros """
         src = r"""#define A(...) a __VA_ARGS__ b
         A(B)
-        A(2, 4,5)"""
+        A(2, 4,5)
+        A(  2  ,   4   ,  5  )
+        A(  2    9  ,   4   8 ,  5   8   )
+        A(2    9,4   8,5   8)
+        A(2,4,5)
+        E"""
         expected = """# 1 "dummy.t"
 
         a B b
-        a 2, 4,5 b"""
+        a 2, 4,5 b
+        a 2 , 4 , 5 b
+        a 2 9 , 4 8 , 5 8 b
+        a 2 9,4 8,5 8 b
+        a 2,4,5 b
+        E"""
         self.preprocess(src, expected)
 
     def test_argument_prescan(self):
@@ -484,7 +565,37 @@ class CPreProcessorTestCase(unittest.TestCase):
         X_w1024"""
         self.preprocess(src, expected)
 
-    @unittest.skip('TODO!')
+    def test_macro_arguments(self):
+        """ Test the amount of comma's in macro arguments.
+
+        Test both variadic and fixed count argument macros.
+        """
+        src = r"""
+        #define M(arg) w00t arg w44t
+        M(;)
+        M()
+
+        #define CALL(f, ...) (f)(__VA_ARGS__)
+        CALL(g0)
+        CALL(g0, 1)
+        CALL(g0, 1, 2)
+        CALL(g0, 1, 2, 3)
+        E"""
+        expected = r"""# 1 "dummy.t"
+
+
+        w00t ; w44t
+        w00t w44t
+
+
+        (g0)()
+        (g0)(1)
+        (g0)(1, 2)
+        (g0)(1, 2, 3)
+        E"""
+        self.preprocess(src, expected)
+
+    @unittest.skip("TODO!")
     def test_argument_prescan2(self):
         """ Example from gnu argument prescan website.
 
@@ -512,5 +623,5 @@ class CPreProcessorTestCase(unittest.TestCase):
         self.preprocess(src, expected)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

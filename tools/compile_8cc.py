@@ -40,6 +40,7 @@ include_paths = [
     linux_include_dir,
     ]
 coptions.add_include_paths(include_paths)
+coptions.add_define('BUILD_DIR', '"{}"'.format(_8cc_folder))
 
 
 def do_compile(filename, reporter):
@@ -69,12 +70,13 @@ def main():
         'set.c',
         'encoding.c',
     ]
+    objs = []
     with open(report_filename, 'w') as f, HtmlReportGenerator(f) as reporter:
         for filename in sources:
             filename = os.path.join(_8cc_folder, filename)
             print('==> Compiling', filename)
             try:
-                do_compile(filename, reporter)
+                obj = do_compile(filename, reporter)
             except CompilerError as ex:
                 print('Error:', ex.msg, ex.loc)
                 ex.print()
@@ -85,6 +87,7 @@ def main():
                 print_exc()
                 failed += 1
             else:
+                objs.append(obj)
                 print('Great success!')
                 passed += 1
 

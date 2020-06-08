@@ -7,7 +7,11 @@ EPS = "EPS"
 
 
 def on(pattern, flags=0, order=0):
-    """ Register method to the given pattern """
+    """ Register method to the given pattern.
+
+    Args:
+        order: a sorting priority. Lower number comes first.
+    """
     prog = re.compile(pattern, flags=flags)
 
     def wrapper(f):

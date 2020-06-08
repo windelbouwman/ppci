@@ -36,10 +36,11 @@ from .instructions import Call, Ret, bits16, RmReg16, bits32, RmReg32
 from .x87_instructions import x87_isa
 from .sse2_instructions import sse1_isa, sse2_isa, Movss, Movsd
 from .sse2_instructions import RmXmmRegSingle, RmXmmRegDouble
-from .sse2_instructions import PushXmm, PopXmm
+from .sse2_instructions import PushXmmRegisterDouble, PopXmmRegisterDouble
+from .sse2_instructions import PushXmmRegisterSingle, PopXmmRegisterSingle
 from .registers import rax, rcx, rdi, rsi
 from .registers import register_classes, caller_save, callee_save
-from .registers import Register64, XmmRegister
+from .registers import Register64
 from .registers import rbp, rsp, al
 from . import instructions, registers
 
@@ -118,23 +119,41 @@ class X86_64Arch(Architecture):
 
     def __init__(self, options=None):
         super().__init__(options=options)
+        type_infos = {
+            ir.i8: TypeInfo(1, 1),
+            ir.u8: TypeInfo(1, 1),
+            ir.i16: TypeInfo(2, 2),
+            ir.u16: TypeInfo(2, 2),
+            ir.i32: TypeInfo(4, 4),
+            ir.u32: TypeInfo(4, 4),
+            ir.i64: TypeInfo(8, 8),
+            ir.u64: TypeInfo(8, 8),
+            ir.f32: TypeInfo(4, 4),
+            ir.f64: TypeInfo(8, 8),
+            ir.ptr: ir.u64,
+            "ptr": ir.u64,
+        }
+        # See:
+        # https://en.wikipedia.org/wiki/64-bit_computing#64-bit_data_models
+        data_model = "LP64"
+        # TODO: make this more flexibel!
+        if data_model == "ILP64":
+            # ILP64 mode: ppci mode :)
+            type_infos["int"] = ir.i64
+            type_infos["long"] = ir.i64
+        elif data_model == "LP64":
+            # LP64 mode: linux mode
+            type_infos["int"] = ir.i32
+            type_infos["long"] = ir.i64
+        elif data_model == "LLP64":
+            # LLP64 mode: windows mode
+            type_infos["int"] = ir.i32
+            type_infos["long"] = ir.i32
+        else:
+            raise ValueError("Unknown data model: {}".format(data_model))
+
         self.info = ArchInfo(
-            type_infos={
-                ir.i8: TypeInfo(1, 1),
-                ir.u8: TypeInfo(1, 1),
-                ir.i16: TypeInfo(2, 2),
-                ir.u16: TypeInfo(2, 2),
-                ir.i32: TypeInfo(4, 4),
-                ir.u32: TypeInfo(4, 4),
-                ir.i64: TypeInfo(8, 8),
-                ir.u64: TypeInfo(8, 8),
-                ir.f32: TypeInfo(4, 4),
-                ir.f64: TypeInfo(8, 8),
-                "int": ir.i64,
-                "ptr": ir.u64,
-                ir.ptr: ir.u64,
-            },
-            register_classes=register_classes,
+            type_infos=type_infos, register_classes=register_classes,
         )
 
         self.isa = isa + data_isa + sse1_isa + sse2_isa
@@ -181,7 +200,9 @@ class X86_64Arch(Architecture):
             src, registers.Register64
         ):
             return bits64.MovRegRm(dst, RmReg64(src), ismove=True)
-        elif isinstance(dst, XmmRegister) and isinstance(src, XmmRegister):
+        elif isinstance(dst, registers.XmmRegisterDouble) and isinstance(
+            src, registers.XmmRegisterDouble
+        ):
             return Movsd(dst, RmXmmRegDouble(src), ismove=True)
         elif isinstance(dst, registers.XmmRegisterSingle) and isinstance(
             src, registers.XmmRegisterSingle
@@ -215,15 +236,19 @@ class X86_64Arch(Architecture):
 
     @staticmethod
     def push(register):
-        if isinstance(register, registers.XmmRegister):
-            return PushXmm(register)
+        if isinstance(register, registers.XmmRegisterDouble):
+            return PushXmmRegisterDouble(register)
+        elif isinstance(register, registers.XmmRegisterSingle):
+            return PushXmmRegisterSingle(register)
         else:
             return Push(register)
 
     @staticmethod
     def pop(register):
-        if isinstance(register, registers.XmmRegister):
-            return PopXmm(register)
+        if isinstance(register, registers.XmmRegisterDouble):
+            return PopXmmRegisterDouble(register)
+        elif isinstance(register, registers.XmmRegisterSingle):
+            return PopXmmRegisterSingle(register)
         else:
             return Pop(register)
 
@@ -397,7 +422,7 @@ class X86_64Arch(Architecture):
                     yield self.move(arg, arg_loc)
                 else:  # pragma: no cover
                     raise NotImplementedError(str(type(arg)))
-            elif isinstance(arg_loc, registers.XmmRegister):
+            elif isinstance(arg_loc, registers.XmmRegisterDouble):
                 yield self.move(arg, arg_loc)
             elif isinstance(arg_loc, registers.XmmRegisterSingle):
                 yield self.move(arg, arg_loc)
@@ -419,8 +444,14 @@ class X86_64Arch(Architecture):
                     # Do not copy any incoming variable, it was copied during
                     # call. Use memory as is!
                     stack_offset += arg.size
+                elif isinstance(arg, registers.XmmRegisterDouble):
+                    yield Movsd(arg, RmMemDisp(rbp, stack_offset + 16))
+                    stack_offset += arg_loc.size
+                elif isinstance(arg, registers.XmmRegisterSingle):
+                    yield Movss(arg, RmMemDisp(rbp, stack_offset + 16))
+                    stack_offset += arg_loc.size
                 else:  # pragma: no cover
-                    raise NotImplementedError()
+                    raise NotImplementedError(str(type(arg)))
             else:  # pragma: no cover
                 raise NotImplementedError("Parameters in memory not impl")
 
@@ -556,11 +587,14 @@ class X86_64Arch(Architecture):
         # Save rbp:
         yield self.push(rbp)
 
+        # We are 16 byte aligned here, since return address + rbp are both
+        # pushed onto the stack.
+
         # Setup frame pointer:
         yield bits64.MovRegRm(rbp, RmReg64(rsp))
 
         # Callee save registers:
-        saved_registers = [reg for reg in callee_save if frame.is_used(reg)]
+        saved_registers = self.get_callee_saved(frame)
 
         # Determine how much space already was taken:
         saved_size = sum(r.bitsize // 8 for r in saved_registers)
@@ -581,7 +615,7 @@ class X86_64Arch(Architecture):
         """ Return epilogue sequence for a frame. Adjust frame pointer
             and add constant pool
         """
-        saved_registers = [reg for reg in callee_save if frame.is_used(reg)]
+        saved_registers = self.get_callee_saved(frame)
         saved_size = sum(r.bitsize // 8 for r in saved_registers)
 
         # Pop save registers back:
@@ -607,6 +641,13 @@ class X86_64Arch(Architecture):
                     yield Db(byte)
             else:  # pragma: no cover
                 raise NotImplementedError("Constant of type {}".format(value))
+
+    def get_callee_saved(self, frame):
+        saved_registers = []
+        for reg in callee_save:
+            if frame.is_used(reg, self.info.alias):
+                saved_registers.append(reg)
+        return saved_registers
 
 
 def round_up16(s, already_taken):

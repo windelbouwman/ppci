@@ -172,9 +172,12 @@ class SmallConstSrc(Src):
     }
 
 
+small_const_src_values = (-1, 0, 1, 2, 4, 8)
+
+
 def small_const_src(x):
     """ Helper to generate small integer constants """
-    assert x in (-1, 0, 1, 2, 4, 8)
+    assert x in small_const_src_values
     if x == -1:
         return SmallConstSrc(-1, reg=r3, As=3)
     elif x == 0:
@@ -399,10 +402,14 @@ def two_op_ins(mne, opc, b=0, dst_read=True, dst_write=True):
 
 Mov = two_op_ins("mov", 4, dst_read=False)
 Movb = two_op_ins("mov", 4, b=1, dst_read=False)
-Add = two_op_ins("add", 5)
-Addc = two_op_ins("addc", 6)
-Subc = two_op_ins("subc", 7)
-Sub = two_op_ins("sub", 8)
+Addw = two_op_ins("add", 5)
+Addb = two_op_ins("add", 5, b=1)
+Addcw = two_op_ins("addc", 6)
+Addcb = two_op_ins("addc", 6, b=1)
+Subcw = two_op_ins("subc", 7)
+Subcb = two_op_ins("subc", 7, b=1)
+Subw = two_op_ins("sub", 8)
+Subb = two_op_ins("sub", 8, b=1)
 Cmp = two_op_ins("cmp", 9, dst_write=False)
 Cmpb = two_op_ins("cmp", 9, b=1, dst_write=False)
 Dadd = two_op_ins("dadd", 10)
@@ -412,9 +419,9 @@ Bicw = two_op_ins("bic", 12)
 Bicb = two_op_ins("bic", 12, b=1)
 Bisw = two_op_ins("bis", 13)
 Bisb = two_op_ins("bis", 13, b=1)
-Xor = two_op_ins("xor", 14)
+Xorw = two_op_ins("xor", 14)
 Xorb = two_op_ins("xor", 14, b=1)
-And = two_op_ins("and", 15)
+Andw = two_op_ins("and", 15)
 Andb = two_op_ins("and", 15, b=1)
 
 
@@ -512,18 +519,34 @@ def pattern_jmp(context, tree):
 
 
 @isa.pattern("stm", "CJMPI16(reg, reg)", size=10)
-@isa.pattern("stm", "CJMPI8(reg, reg)", size=10)
-def pattern_cjmp(context, tree, lhs, rhs):
+def pattern_cjmp_i16(context, tree, lhs, rhs):
     op, true_tgt, false_tgt = tree.value
-    opnames = {"<": Jl, ">": Jl, "==": Jz, "!=": Jne, ">=": Jge, "<=": Jge}
-    op_ins = opnames[op]
-    if op in [">", "<="]:
+    emit_cmp(context, Cmp, lhs, rhs, op, true_tgt, false_tgt)
+
+
+@isa.pattern("stm", "CJMPI8(reg, reg)", size=10)
+def pattern_cjmp_i8(context, tree, lhs, rhs):
+    op, true_tgt, false_tgt = tree.value
+    emit_cmp(context, Cmpb, lhs, rhs, op, true_tgt, false_tgt)
+
+
+def emit_cmp(context, cmp_ins, lhs, rhs, op, true_tgt, false_tgt):
+    opnames = {
+        "<": (Jl, False),
+        ">": (Jl, True),
+        "==": (Jz, False),
+        "!=": (Jne, False),
+        ">=": (Jge, False),
+        "<=": (Jge, True),
+    }
+    op_ins, swap_ops = opnames[op]
+    if swap_ops:
         # Swap operands here!
         # This is really hairy code, but it should work!
         lhs, rhs = rhs, lhs
     jmp_ins = Jmp(false_tgt.name, jumps=[false_tgt])
     # cmp does a dummy dst - src
-    context.emit(Cmp(RegSrc(rhs), RegDst(lhs)))
+    context.emit(cmp_ins(RegSrc(rhs), RegDst(lhs)))
     context.emit(op_ins(true_tgt.name, jumps=[true_tgt, jmp_ins]))
     context.emit(jmp_ins)
 
@@ -550,23 +573,38 @@ def pattern_cnst(context, tree):
     return tree.value
 
 
-@isa.pattern("cnst", "I16TOI16(cnst)", size=0, cycles=0, energy=0)
-@isa.pattern("cnst", "I16TOU16(cnst)", size=0, cycles=0, energy=0)
-@isa.pattern("cnst", "U16TOU16(cnst)", size=0, cycles=0, energy=0)
-@isa.pattern("cnst", "U16TOI16(cnst)", size=0, cycles=0, energy=0)
-def pattern_i16toi16_const(context, tree, c0):
-    return c0
-
-
-@isa.pattern("cnstsrc", "cnst", size=2, cycles=0, energy=0)
+@isa.pattern("src8", "cnst", size=2, cycles=0, energy=0)
+@isa.pattern("src16", "cnst", size=2, cycles=0, energy=0)
 def pattern_cnst_src(context, tree, c0):
     return ConstSrc(c0)
 
 
-@isa.pattern("reg", "cnstsrc", size=4, cycles=1, energy=1)
-def pattern_const16(context, tree, c0):
+# TODO: this would be good for small constant values:
+# @isa.pattern(
+#     "src", "cnst", size=0, cycles=0, energy=0,
+#     condition=lambda t: t in small_const_src_values
+# )
+# def pattern_small_cnst_src(context, tree, c0):
+#     return small_const_src(c0)
+
+
+@isa.pattern("src8", "reg", size=0, cycles=0, energy=0)
+@isa.pattern("src16", "reg", size=0, cycles=0, energy=0)
+def pattern_reg_src(context, tree, c0):
+    return RegSrc(c0)
+
+
+@isa.pattern("reg", "src16", size=4, cycles=1, energy=1)
+def pattern_fill_reg16(context, tree, c0):
     dst = context.new_reg(Msp430Register)
     context.emit(Mov(c0, RegDst(dst)))
+    return dst
+
+
+@isa.pattern("reg", "src8", size=4, cycles=1, energy=1)
+def pattern_fill_reg8(context, tree, c0):
+    dst = context.new_reg(Msp430Register)
+    context.emit(Movb(c0, RegDst(dst)))
     return dst
 
 
@@ -578,21 +616,13 @@ def pattern_reg16(context, tree):
     return tree.value
 
 
-@isa.pattern("reg", "I16TOI16(reg)", size=0, cycles=0, energy=0)
-@isa.pattern("reg", "I16TOU16(reg)", size=0, cycles=0, energy=0)
-@isa.pattern("reg", "U16TOU16(reg)", size=0, cycles=0, energy=0)
-@isa.pattern("reg", "U16TOI16(reg)", size=0, cycles=0, energy=0)
-def pattern_i16toi16(context, tree, c0):
-    return c0
-
-
 @isa.pattern("reg", "I16TOI8(reg)", size=0, cycles=0, energy=0)
 @isa.pattern("reg", "I16TOU8(reg)", size=0, cycles=0, energy=0)
 def pattern_i16toi8(context, tree, c0):
     # Create a new register and mask it with 0xff:
     d = context.new_reg(Msp430Register)
     context.emit(mov(c0, d))
-    context.emit(And(ConstSrc(0xFF), RegDst(d)))
+    context.emit(Andw(ConstSrc(0xFF), RegDst(d)))
     return d
 
 
@@ -610,7 +640,7 @@ def pattern_u8toi16(context, tree, c0):
     """ byte to signed short """
     d = context.new_reg(Msp430Register)
     context.emit(mov(c0, d))
-    context.emit(And(ConstSrc(0xFF), RegDst(d)))
+    context.emit(Andw(ConstSrc(0xFF), RegDst(d)))
     return d
 
 
@@ -670,40 +700,81 @@ def pattern_rem_u16(context, tree, c0, c1):
     )
 
 
-@isa.pattern("reg", "ANDI16(reg, reg)", size=4)
-@isa.pattern("reg", "ANDU16(reg, reg)", size=4)
+@isa.pattern("reg", "ANDI16(reg, src16)", size=4)
+@isa.pattern("reg", "ANDU16(reg, src16)", size=4)
 def pattern_and16(context, tree, c0, c1):
     dst = context.new_reg(Msp430Register)
     context.emit(mov(c0, dst))
-    context.emit(And(RegSrc(c1), RegDst(dst)))
+    context.emit(Andw(c1, RegDst(dst)))
     return dst
 
 
-@isa.pattern("reg", "ORI16(reg, reg)", size=4)
-@isa.pattern("reg", "ORU16(reg, reg)", size=4)
+@isa.pattern("reg", "ANDI8(reg, src8)", size=4)
+@isa.pattern("reg", "ANDU8(reg, src8)", size=4)
+def pattern_and8(context, tree, c0, c1):
+    dst = context.new_reg(Msp430Register)
+    context.emit(mov(c0, dst))
+    context.emit(Andb(c1, RegDst(dst)))
+    return dst
+
+
+@isa.pattern("reg", "ORI16(reg, src16)", size=4)
+@isa.pattern("reg", "ORU16(reg, src16)", size=4)
 def pattern_or16(context, tree, c0, c1):
     dst = context.new_reg(Msp430Register)
     context.emit(mov(c0, dst))
-    context.emit(Bisw(RegSrc(c1), RegDst(dst)))
+    context.emit(Bisw(c1, RegDst(dst)))
+    return dst
+
+
+@isa.pattern("reg", "ORI8(reg, src8)", size=4)
+@isa.pattern("reg", "ORU8(reg, src8)", size=4)
+def pattern_or8(context, tree, c0, c1):
+    dst = context.new_reg(Msp430Register)
+    context.emit(mov(c0, dst))
+    context.emit(Bisb(c1, RegDst(dst)))
     return dst
 
 
 @isa.pattern("reg", "SHRI16(reg, reg)", size=4)
+@isa.pattern("reg", "SHRU16(reg, reg)", size=4)
+@isa.pattern("reg", "SHRI8(reg, reg)", size=4)
+@isa.pattern("reg", "SHRU8(reg, reg)", size=4)
 def pattern_shr16(context, tree, c0, c1):
+    # TODO: deal with arithmatic / logical shift right.
+    # TODO: 8 / 16 bit difference?
     return call_intrinsic(context, "__shr", (c0, c1), clobbers=[r13])
 
 
 @isa.pattern("reg", "SHLI16(reg, reg)", size=4)
+@isa.pattern("reg", "SHLU16(reg, reg)", size=4)
 def pattern_shl16(context, tree, c0, c1):
     return call_intrinsic(context, "__shl", (c0, c1), clobbers=[r13])
 
 
-@isa.pattern("reg", "ADDI16(reg, reg)", size=4, cycles=1, energy=1)
-@isa.pattern("reg", "ADDU16(reg, reg)", size=4, cycles=1, energy=1)
+@isa.pattern("reg", "SHLI8(reg, reg)", size=4)
+@isa.pattern("reg", "SHLU8(reg, reg)", size=4)
+def pattern_shl8(context, tree, c0, c1):
+    d = call_intrinsic(context, "__shl", (c0, c1), clobbers=[r13])
+    context.emit(Andw(ConstSrc(0xFF), RegDst(d)))
+    return d
+
+
+@isa.pattern("reg", "ADDI8(reg, src8)", size=4, cycles=1, energy=1)
+@isa.pattern("reg", "ADDU8(reg, src8)", size=4, cycles=1, energy=1)
+def pattern_add8(context, tree, c0, c1):
+    d = context.new_reg(Msp430Register)
+    context.emit(mov(c0, d))
+    context.emit(Addb(c1, RegDst(d)))
+    return d
+
+
+@isa.pattern("reg", "ADDI16(reg, src16)", size=4, cycles=1, energy=1)
+@isa.pattern("reg", "ADDU16(reg, src16)", size=4, cycles=1, energy=1)
 def pattern_add16(context, tree, c0, c1):
     d = context.new_reg(Msp430Register)
     context.emit(mov(c0, d))
-    context.emit(Add(RegSrc(c1), RegDst(d)))
+    context.emit(Addw(c1, RegDst(d)))
     return d
 
 
@@ -717,17 +788,26 @@ def pattern_add32(context, tree, c0, c1):
     c1h, c1l = c1
     context.emit(mov(c0h, dh))
     context.emit(mov(c0l, dl))
-    context.emit(Add(RegSrc(c1l), RegDst(dl)))
-    context.emit(Addc(RegSrc(c1h), RegDst(dh)))
+    context.emit(Addw(RegSrc(c1l), RegDst(dl)))
+    context.emit(Addcw(RegSrc(c1h), RegDst(dh)))
     return (dh, dl)
 
 
-@isa.pattern("reg", "SUBI16(reg, reg)", size=4)
-@isa.pattern("reg", "SUBU16(reg, reg)", size=4)
+@isa.pattern("reg", "SUBI8(reg, src8)", size=4)
+@isa.pattern("reg", "SUBU8(reg, src8)", size=4)
+def pattern_sub8(context, tree, c0, c1):
+    d = context.new_reg(Msp430Register)
+    context.emit(mov(c0, d))
+    context.emit(Subb(c1, RegDst(d)))
+    return d
+
+
+@isa.pattern("reg", "SUBI16(reg, src16)", size=4)
+@isa.pattern("reg", "SUBU16(reg, src16)", size=4)
 def pattern_sub16(context, tree, c0, c1):
     d = context.new_reg(Msp430Register)
     context.emit(mov(c0, d))
-    context.emit(Sub(RegSrc(c1), RegDst(d)))
+    context.emit(Subw(c1, RegDst(d)))
     return d
 
 
@@ -740,17 +820,34 @@ def pattern_sub32(context, tree, c0, c1):
     c1h, c1l = c1
     context.emit(mov(c0h, dh))
     context.emit(mov(c0l, dl))
-    context.emit(Sub(RegSrc(c1l), RegDst(dl)))
-    context.emit(Subc(RegSrc(c1h), RegDst(dh)))
+    context.emit(Subw(RegSrc(c1l), RegDst(dl)))
+    context.emit(Subcw(RegSrc(c1h), RegDst(dh)))
     return (dh, dl)
 
 
-@isa.pattern("reg", "NEGI16(reg)", size=4)
-@isa.pattern("reg", "NEGU16(reg)", size=4)
+@isa.pattern("reg", "NEGI8(src8)", size=4)
+@isa.pattern("reg", "NEGU8(src8)", size=4)
+def pattern_neg8(context, tree, c0):
+    d = context.new_reg(Msp430Register)
+    context.emit(Mov(SmallConstSrc(0), RegDst(d)))
+    context.emit(Subb(c0, RegDst(d)))
+    return d
+
+
+@isa.pattern("reg", "NEGI16(src16)", size=4)
+@isa.pattern("reg", "NEGU16(src16)", size=4)
 def pattern_neg16(context, tree, c0):
     d = context.new_reg(Msp430Register)
     context.emit(Mov(SmallConstSrc(0), RegDst(d)))
-    context.emit(Sub(RegSrc(c0), RegDst(d)))
+    context.emit(Subw(c0, RegDst(d)))
+    return d
+
+
+@isa.pattern("reg", "INVU8(reg)", size=4)
+def pattern_inv8(context, tree, c0):
+    d = context.new_reg(Msp430Register)
+    context.emit(mov(c0, d))
+    context.emit(Xorb(SmallConstSrc(-1), RegDst(d)))
     return d
 
 
@@ -758,7 +855,7 @@ def pattern_neg16(context, tree, c0):
 def pattern_inv16(context, tree, c0):
     d = context.new_reg(Msp430Register)
     context.emit(mov(c0, d))
-    context.emit(Xor(SmallConstSrc(-1), RegDst(d)))
+    context.emit(Xorw(SmallConstSrc(-1), RegDst(d)))
     return d
 
 
@@ -779,16 +876,16 @@ def pattern_memdst_fprel(context, tree):
     return MemDst(offset, SP)
 
 
-@isa.pattern("stm", "STRI16(memdst, reg)", size=2)
-@isa.pattern("stm", "STRU16(memdst, reg)", size=2)
+@isa.pattern("stm", "STRI16(memdst, src16)", size=2)
+@isa.pattern("stm", "STRU16(memdst, src16)", size=2)
 def pattern_str16(context, tree, c0, c1):
-    context.emit(Mov(RegSrc(c1), c0))
+    context.emit(Mov(c1, c0))
 
 
-@isa.pattern("stm", "STRI8(memdst, reg)", size=2)
-@isa.pattern("stm", "STRU8(memdst, reg)", size=2)
+@isa.pattern("stm", "STRI8(memdst, src8)", size=2)
+@isa.pattern("stm", "STRU8(memdst, src8)", size=2)
 def pattern_str8(context, tree, c0, c1):
-    context.emit(Movb(RegSrc(c1), c0))
+    context.emit(Movb(c1, c0))
 
 
 @isa.pattern("memsrc", "reg", size=0, cycles=0, energy=0)
@@ -807,20 +904,16 @@ def pattern_mem_src_fprel(context, tree):
     return MemSrcOffset(offset, SP)
 
 
-@isa.pattern("reg", "LDRI16(memsrc)", size=2, cycles=3, energy=2)
-@isa.pattern("reg", "LDRU16(memsrc)", size=2, cycles=3, energy=2)
+@isa.pattern("src16", "LDRI16(memsrc)", size=2, cycles=3, energy=2)
+@isa.pattern("src16", "LDRU16(memsrc)", size=2, cycles=3, energy=2)
 def pattern_ldr16(context, tree, c0):
-    d = context.new_reg(Msp430Register)
-    context.emit(Mov(c0, RegDst(d)))
-    return d
+    return c0
 
 
-@isa.pattern("reg", "LDRI8(memsrc)", size=2)
-@isa.pattern("reg", "LDRU8(memsrc)", size=2)
+@isa.pattern("src8", "LDRI8(memsrc)", size=2)
+@isa.pattern("src8", "LDRU8(memsrc)", size=2)
 def pattern_ldr8(context, tree, c0):
-    d = context.new_reg(Msp430Register)
-    context.emit(Movb(c0, RegDst(d)))
-    return d
+    return c0
 
 
 @isa.pattern("reg", "FPRELU16", size=8, cycles=2, energy=2)
@@ -829,7 +922,7 @@ def pattern_fprel(context, tree):
     offset = tree.value.offset
     # frame pointer is r4:
     context.emit(mov(SP, d))
-    context.emit(Add(ConstSrc(offset), RegDst(d)))
+    context.emit(Addw(ConstSrc(offset), RegDst(d)))
     return d
 
 

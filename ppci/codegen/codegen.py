@@ -9,6 +9,7 @@ from ..irutils import Verifier, split_block
 from ..arch.arch import Architecture
 from ..arch.generic_instructions import Label, Comment, Global, DebugData
 from ..arch.generic_instructions import RegisterUseDef, VirtualInstruction
+from ..arch.generic_instructions import InlineAssembly, SetSymbolType
 from ..arch.generic_instructions import ArtificialInstruction, Alignment
 from ..arch.encoding import Instruction
 from ..arch.data_instructions import DZero, DByte
@@ -66,6 +67,8 @@ class CodeGenerator:
         output_stream.select_section("data")
         for external in ircode.externals:
             self._mark_global(output_stream, external)
+            if isinstance(external, ir.ExternalSubRoutine):
+                output_stream.emit(SetSymbolType(external.name, "func"))
 
         # Generate code for global variables:
         output_stream.select_section("data")
@@ -160,6 +163,7 @@ class CodeGenerator:
                 )
 
         self._mark_global(output_stream, ir_function)
+        output_stream.emit(SetSymbolType(ir_function.name, "func"))
 
         # Create a frame for this function:
         frame_name = ir_function.name
@@ -257,6 +261,13 @@ class CodeGenerator:
                     pass
                 elif isinstance(instruction, ArtificialInstruction):
                     output_stream.emit(instruction)
+                elif isinstance(instruction, InlineAssembly):
+                    self._generate_inline_assembly(
+                        instruction.template,
+                        instruction.output_registers,
+                        instruction.input_registers,
+                        output_stream,
+                    )
                 else:  # pragma: no cover
                     raise NotImplementedError(str(instruction))
             else:
@@ -278,6 +289,34 @@ class CodeGenerator:
                 # print(tmp, di)
                 # frame.live_ranges(tmp)
                 # print('live ranges:', lr)
+
+    def _generate_inline_assembly(
+        self, assembly_source, output_registers, input_registers, ostream
+    ):
+        """ Emit inline assembly template to outstream.
+        """
+        from ..common import DiagnosticsManager
+
+        # poor mans assembly api copied from api.py
+
+        # Replace template variables with actual registers:
+        mapping = {
+            "%{}".format(index): str(register.get_real())
+            for index, register in enumerate(
+                output_registers + input_registers
+            )
+        }
+
+        for k, v in mapping.items():
+            assembly_source = assembly_source.replace(k, v)
+
+        diag = DiagnosticsManager()
+        assembler = self.arch.assembler
+        assembler.prepare()
+        assembler.assemble(assembly_source, ostream, diag)
+        # TODO: this flush action might be troublesome, since it might emit
+        # a literal pool on ARM.
+        assembler.flush()
 
     def _mark_global(self, output_stream, value):
         # Indicate static or global variable.

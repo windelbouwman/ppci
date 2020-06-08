@@ -9,11 +9,9 @@ class AvrRegister(Register):
 
     bitsize = 8
 
-    def __repr__(self):
-        if self.is_colored:
-            return get_register(self.color).name
-        else:
-            return self.name
+    @classmethod
+    def from_num(cls, num):
+        return num_reg_map[num]
 
 
 class HighAvrRegister(AvrRegister):
@@ -25,19 +23,22 @@ class AvrWordRegister(Register):
 
     bitsize = 16
 
-    def __repr__(self):
-        if self.is_colored:
-            return get16reg(self.color).name
-        else:
-            return self.name
+    @classmethod
+    def from_num(cls, num):
+        return num_w_reg_map[num]
 
     @property
     def lo(self):
-        return get8reg(self.num)
+        return AvrRegister.from_num(self.num)
 
     @property
     def hi(self):
-        return get8reg(self.num + 1)
+        return AvrRegister.from_num(self.num + 1)
+
+
+class SuperLowAvrWordRegister(AvrWordRegister):
+    # The lowest word registers
+    pass
 
 
 class HighAvrWordRegister(AvrWordRegister):
@@ -124,7 +125,7 @@ r29 = HighAvrRegister("r29", num=29)
 r30 = HighAvrRegister("r30", num=30)
 r31 = HighAvrRegister("r31", num=31)
 
-r1r0 = AvrWordRegister("r1:r0", num=0, aliases=(r1, r0))
+r1r0 = SuperLowAvrWordRegister("r1:r0", num=0, aliases=(r1, r0))
 r3r2 = AvrWordRegister("r3:r2", num=2, aliases=(r3, r2))
 r5r4 = AvrWordRegister("r5:r4", num=4, aliases=(r5, r4))
 r7r6 = AvrWordRegister("r7:r6", num=6, aliases=(r7, r6))
@@ -217,23 +218,12 @@ alloc_lo_w_regs = (r3r2, r5r4, r7r6, r9r8, r11r10, r13r12, r15r14)
 alloc_w_regs = alloc_lo_w_regs + hi_w_regs
 
 num_reg_map = {r.num: r for r in all_regs}
+num_w_reg_map = {r.num: r for r in all_w_regs}
 
 AvrRegister.registers = all_regs
 HighAvrRegister.registers = hi_regs
 AvrWordRegister.registers = all_w_regs
 HighAvrWordRegister.registers = hi_w_regs
-
-
-def get_register(n):
-    return num_reg_map[n]
-
-
-get8reg = get_register
-
-
-def get16reg(n):
-    mp = {r.num: r for r in all_w_regs}
-    return mp[n]
 
 
 register_classes = [
@@ -248,4 +238,5 @@ register_classes = [
         "reg16", [ir.i16, ir.u16, ir.ptr], AvrWordRegister, alloc_w_regs
     ),
     RegisterClass("hireg16", [], HighAvrWordRegister, hi_w_regs),
+    RegisterClass("firstreg16", [], SuperLowAvrWordRegister, [r1r0]),
 ]

@@ -9,7 +9,7 @@ from ..binutils.objectfile import ObjectFile
 
 parser = argparse.ArgumentParser(description=__doc__, parents=[base_parser])
 parser.add_argument("input", help="input file", type=argparse.FileType("r"))
-parser.add_argument("--segment", "-S", help="segment to copy", required=True)
+parser.add_argument("--segment", "-S", help="segment to copy")
 parser.add_argument("output", help="output file")
 parser.add_argument("--output-format", "-O", help="output file format")
 

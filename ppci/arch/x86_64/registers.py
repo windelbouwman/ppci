@@ -4,21 +4,15 @@ from ..registers import Register, RegisterClass
 from ... import ir
 
 
-def get_register(n):
-    """ Based on a number, get the corresponding register """
-    return num2regmap[n]
-
-
 class Register64(Register):
     """ 64-bit register like 'rax' """
 
     bitsize = 64
 
-    def __repr__(self):
-        if self.is_colored:
-            return get_register(self.color).name
-        else:
-            return self.name
+    @classmethod
+    def from_num(cls, num):
+        """ Based on a number, get the corresponding register """
+        return num2regmap[num]
 
     @property
     def rexbit(self):
@@ -34,11 +28,9 @@ class Register32(Register):
 
     bitsize = 32
 
-    def __repr__(self):
-        if self.is_colored:
-            return get32reg(self.color).name
-        else:
-            return self.name
+    @classmethod
+    def from_num(cls, num):
+        return reg32_mp[num]
 
     @property
     def rexbit(self):
@@ -54,11 +46,9 @@ class Register16(Register):
 
     bitsize = 16
 
-    def __repr__(self):
-        if self.is_colored:
-            return get16reg(self.color).name
-        else:
-            return self.name
+    @classmethod
+    def from_num(cls, num):
+        return reg16_mp[num]
 
 
 class Register8(Register):
@@ -66,11 +56,9 @@ class Register8(Register):
 
     bitsize = 8
 
-    def __repr__(self):
-        if self.is_colored:
-            return get8reg(self.color).name
-        else:
-            return self.name
+    @classmethod
+    def from_num(cls, num):
+        return reg8_mp[num]
 
     @property
     def rexbit(self):
@@ -85,26 +73,31 @@ class X87StackRegister(Register):
     bitsize = 64
 
 
-class XmmRegister(Register):
-    bitsize = 128
+# TODO: make a new register class XmmRegisterPackedDoubles with 128 bits width?
+
+
+class XmmRegisterDouble(Register):
+    """ Xmm register used to hold a f64 value. """
+
+    bitsize = 64
     # TODO: actually the register is 128 bit wide, but float is now 32 bit
     # bitsize = 32
+    ty = "F"
 
-    def __repr__(self):
-        if self.is_colored:
-            return get_xmm_reg(self.color).name
-        else:
-            return self.name
+    @classmethod
+    def from_num(cls, num):
+        return xmm_mp[num]
 
 
 class XmmRegisterSingle(Register):
+    """ Xmm register used to hold a f32 value. """
+
+    ty = "F"
     bitsize = 32
 
-    def __repr__(self):
-        if self.is_colored:
-            return get_xmm_reg(self.color).name
-        else:
-            return self.name
+    @classmethod
+    def from_num(cls, num):
+        return xmm_single_mp[num]
 
 
 # Calculation of the rexb bit:
@@ -225,25 +218,25 @@ st6 = X87StackRegister("st6", 6)
 st7 = X87StackRegister("st7", 7)
 
 
-xmm0 = XmmRegister("xmm0", 0)
-xmm1 = XmmRegister("xmm1", 1)
-xmm2 = XmmRegister("xmm2", 2)
-xmm3 = XmmRegister("xmm3", 3)
-xmm4 = XmmRegister("xmm4", 4)
-xmm5 = XmmRegister("xmm5", 5)
-xmm6 = XmmRegister("xmm6", 6)
-xmm7 = XmmRegister("xmm7", 7)
+xmm0 = XmmRegisterDouble("xmm0", 0)
+xmm1 = XmmRegisterDouble("xmm1", 1)
+xmm2 = XmmRegisterDouble("xmm2", 2)
+xmm3 = XmmRegisterDouble("xmm3", 3)
+xmm4 = XmmRegisterDouble("xmm4", 4)
+xmm5 = XmmRegisterDouble("xmm5", 5)
+xmm6 = XmmRegisterDouble("xmm6", 6)
+xmm7 = XmmRegisterDouble("xmm7", 7)
 
-xmm8 = XmmRegister("xmm8", 8)
-xmm9 = XmmRegister("xmm9", 9)
-xmm10 = XmmRegister("xmm10", 10)
-xmm11 = XmmRegister("xmm11", 11)
-xmm12 = XmmRegister("xmm12", 12)
-xmm13 = XmmRegister("xmm13", 13)
-xmm14 = XmmRegister("xmm14", 14)
-xmm15 = XmmRegister("xmm15", 15)
+xmm8 = XmmRegisterDouble("xmm8", 8)
+xmm9 = XmmRegisterDouble("xmm9", 9)
+xmm10 = XmmRegisterDouble("xmm10", 10)
+xmm11 = XmmRegisterDouble("xmm11", 11)
+xmm12 = XmmRegisterDouble("xmm12", 12)
+xmm13 = XmmRegisterDouble("xmm13", 13)
+xmm14 = XmmRegisterDouble("xmm14", 14)
+xmm15 = XmmRegisterDouble("xmm15", 15)
 
-XmmRegister.registers = [
+XmmRegisterDouble.registers = [
     xmm0,
     xmm1,
     xmm2,
@@ -261,8 +254,6 @@ XmmRegister.registers = [
     xmm14,
     xmm15,
 ]
-
-XmmRegisterDouble = XmmRegister
 
 # Single precision scalar registers:
 xmm0_single = XmmRegisterSingle("xmm0", 0, aliases=(xmm0,))
@@ -303,38 +294,18 @@ XmmRegisterSingle.registers = [
 ]
 
 
-xmm_mp = {r.num: r for r in XmmRegister.registers}
-
-
-def get_xmm_reg(num):
-    return xmm_mp[num]
-
-
-reg8_mp = {r.num: r for r in [al, bl, cl, dl]}
-
-
-def get8reg(num):
-    return reg8_mp[num]
-
-
+xmm_mp = {r.num: r for r in XmmRegisterDouble.registers}
+xmm_single_mp = {r.num: r for r in XmmRegisterSingle.registers}
+reg8_mp = {r.num: r for r in Register8.registers}
 reg16_mp = {r.num: r for r in Register16.registers}
-
-
-def get16reg(num):
-    return reg16_mp[num]
-
-
 reg32_mp = {r.num: r for r in Register32.registers}
-
-
-def get32reg(num):
-    return reg32_mp[num]
 
 
 callee_save = (
     rbx,
-    r12,
-    r13,
+    # TODO: we do not use r12 and r13?
+    # r12,
+    # r13,
     r14,
     r15,
     xmm6,
@@ -368,7 +339,6 @@ caller_save = (
 
 
 # Register classes:
-# TODO: should 16 and 32 bit values have its own class?
 register_classes = [
     RegisterClass(
         "reg64",

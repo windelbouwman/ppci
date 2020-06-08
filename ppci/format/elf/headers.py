@@ -331,3 +331,24 @@ class HeaderTypes:
                 ],
             )
             assert self.SymbolTableEntry.size == 16
+
+        if bits == 64:
+            self.RelocationTableEntry = header.mk_header(
+                "RelocationTableEntry",
+                [
+                    header.Uint64("r_offset"),
+                    header.Uint64("r_info"),
+                    header.Int64("r_addend"),
+                ],
+            )
+            assert self.RelocationTableEntry.size == 24
+        else:
+            self.RelocationTableEntry = header.mk_header(
+                "RelocationTableEntry",
+                [
+                    header.Uint32("r_offset"),
+                    header.Uint32("r_info"),
+                    header.Int32("r_addend"),
+                ],
+            )
+            assert self.RelocationTableEntry.size == 12

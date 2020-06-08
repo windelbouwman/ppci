@@ -71,6 +71,8 @@ arch = get_current_arch()
 
 # Convert Python to wasm
 wasm_module = python_to_wasm(py3)
+print(wasm_module.to_string())
+wasm_module.show_interface()
 
 # Convert wasm to ppci
 ppci_module = wasm_to_ir(wasm_module, arch.info.get_type_info('ptr'))

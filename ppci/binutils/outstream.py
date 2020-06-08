@@ -10,7 +10,7 @@ from ..arch.encoding import Instruction
 from ..arch.asm_printer import AsmPrinter
 from ..arch.generic_instructions import Alignment, DebugData, Label
 from ..arch.generic_instructions import SectionInstruction
-from ..arch.generic_instructions import Global
+from ..arch.generic_instructions import Global, SetSymbolType
 from ..arch.generic_instructions import ArtificialInstruction
 from ..arch.generic_instructions import RelocationHolder
 from .objectfile import RelocationEntry
@@ -85,6 +85,7 @@ class BinaryOutputStream(OutputStream):
         self.obj_file = obj_file
         self.literal_pool = []
         self._globals = set()
+        self._symbol_types = {}  # for declaring symbol types
         self._symbols = {}
         self.current_section = None
 
@@ -100,6 +101,8 @@ class BinaryOutputStream(OutputStream):
 
         if isinstance(item, Global):
             self._mark_global(item.name)
+        elif isinstance(item, SetSymbolType):
+            self._symbol_types[item.name] = item.typ
 
         assert self.current_section
         # Current section and location into this section:
@@ -178,9 +181,11 @@ class BinaryOutputStream(OutputStream):
     def _new_symbol(self, name, section, value):
         assert name not in self._symbols
         binding = "global" if name in self._globals else "local"
+        typ = self._symbol_types.get(name, 'object')
+        size = 0
         symbol_id = len(self._symbols)
         symbol = self.obj_file.add_symbol(
-            symbol_id, name, binding, value, section
+            symbol_id, name, binding, value, section, typ, size
         )
         self._symbols[name] = symbol
         return symbol

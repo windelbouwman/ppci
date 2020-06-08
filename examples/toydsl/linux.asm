@@ -1,6 +1,6 @@
 
 section reset
-
+global start
 global toy_toy
 global bsp_exit
 start:

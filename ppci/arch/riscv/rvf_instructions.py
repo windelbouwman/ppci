@@ -108,7 +108,7 @@ class Fcvtsw(RiscvInstruction):
     patterns = {
         "opcode": 0b1010011,
         "rd": rd,
-        "funct3": 0,
+        "funct3": 0b111,
         "rs1": rm,
         "rs2": 0,
         "funct7": 0b1101000,
@@ -122,7 +122,7 @@ class Fcvtswu(RiscvInstruction):
     patterns = {
         "opcode": 0b1010011,
         "rd": rd,
-        "funct3": 0,
+        "funct3": 0b111,
         "rs1": rm,
         "rs2": 0b00001,
         "funct7": 0b1101000,
@@ -136,7 +136,7 @@ class Fcvtws(RiscvInstruction):
     patterns = {
         "opcode": 0b1010011,
         "rd": rd,
-        "funct3": 0,
+        "funct3": 0b111,
         "rs1": rm,
         "rs2": 0,
         "funct7": 0b1100000,
@@ -150,7 +150,7 @@ class Fcvtwus(RiscvInstruction):
     patterns = {
         "opcode": 0b1010011,
         "rd": rd,
-        "funct3": 0,
+        "funct3": 0b111,
         "rs1": rm,
         "rs2": 0b00001,
         "funct7": 0b1100000,
@@ -240,7 +240,7 @@ Fge = make_fcmp("fge", 0b001, True)
 @rvfisa.pattern("freg", "CONSTF64", size=2)
 def pattern_const_f32(context, tree):
     float_const = struct.pack("f", tree.value)
-    c0, = struct.unpack("i", float_const)
+    (c0,) = struct.unpack("i", float_const)
     d = context.new_reg(RiscvRegister)
     context.emit(Li(d, c0))
     e = context.new_reg(RiscvFRegister)

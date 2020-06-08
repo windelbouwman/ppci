@@ -120,6 +120,14 @@ class RrrnToken(Token):
     op0 = bit_range(0, 4)
 
 
+class Add7Transform(Transform):
+    def forwards(self, value):
+        return value - 7
+
+    def backwards(self, value):
+        return value + 7
+
+
 class Shift1(Transform):
     def forwards(self, value):
         return value >> 1
@@ -742,6 +750,24 @@ class S32i(XtensaCoreInstruction):
     syntax = Syntax(["s32i", " ", t, ",", " ", s, ",", " ", imm])
 
 
+class Sext(XtensaCoreInstruction):
+    """ Sign extend. """
+
+    tokens = [RrrToken]
+    r = Operand("r", AddressRegister, write=True)
+    s = Operand("s", AddressRegister, read=True)
+    imm = Operand("imm", int)
+    patterns = {
+        "op2": 2,
+        "op1": 3,
+        "r": r,
+        "s": s,
+        "t": Add7Transform(imm),
+        "op0": 0,
+    }
+    syntax = Syntax(["sext", " ", r, ",", " ", s, ",", " ", imm])
+
+
 class Sll(XtensaCoreInstruction):
     """ Shift left logical """
 
@@ -881,6 +907,8 @@ class Pop(XtensaMacroInstruction):
 
 @core_isa.pattern("stm", "MOVU8(reg)")
 @core_isa.pattern("stm", "MOVI8(reg)")
+@core_isa.pattern("stm", "MOVU16(reg)")
+@core_isa.pattern("stm", "MOVI16(reg)")
 def pattern_mov_u8(context, tree, c0):
     d = tree.value
     context.emit(Mov(d, c0, ismove=True))
@@ -895,6 +923,8 @@ def pattern_mov_i32(context, tree, c0):
 
 @core_isa.pattern("reg", "REGI8")
 @core_isa.pattern("reg", "REGU8")
+@core_isa.pattern("reg", "REGI16")
+@core_isa.pattern("reg", "REGU16")
 @core_isa.pattern("reg", "REGI32")
 @core_isa.pattern("reg", "REGU32")
 def pattern_reg(context, tree):
@@ -911,25 +941,11 @@ def pattern_label(context, tree):
     return d
 
 
-@core_isa.pattern(
-    "reg",
-    "CONSTU32",
-    size=3,
-    cycles=1,
-    energy=1,
-    condition=lambda t: t.value in range(-2048, 2047),
-)
-@core_isa.pattern(
-    "reg",
-    "CONSTI32",
-    size=3,
-    cycles=1,
-    energy=1,
-    condition=lambda t: t.value in range(-2048, 2047),
-)
-def pattern_const_small_i32(context, tree, size=3, cycles=1, energy=1):
+@core_isa.pattern("reg", "imm12", size=3, cycles=1, energy=1)
+def pattern_12bit_const(context, tree, c0, size=3, cycles=1, energy=1):
+    """ Load a 12 bit constant into a register. """
     d = context.new_reg(AddressRegister)
-    context.emit(Movi(d, tree.value))
+    context.emit(Movi(d, c0))
     return d
 
 
@@ -944,8 +960,57 @@ def pattern_const_i32(context, tree):
     return d
 
 
-@core_isa.pattern("reg", "CONSTI8")
-@core_isa.pattern("reg", "CONSTU8")
+@core_isa.pattern(
+    "imm8", "CONSTI32", condition=lambda t: t.value in range(-128, 128)
+)
+@core_isa.pattern(
+    "imm8", "CONSTU32", condition=lambda t: t.value in range(-128, 128)
+)
+@core_isa.pattern(
+    "imm8", "CONSTI16", condition=lambda t: t.value in range(-128, 128)
+)
+@core_isa.pattern(
+    "imm8", "CONSTU16", condition=lambda t: t.value in range(-128, 128)
+)
+@core_isa.pattern(
+    "imm8", "CONSTI8", condition=lambda t: t.value in range(-128, 128)
+)
+@core_isa.pattern(
+    "imm8", "CONSTU8", condition=lambda t: t.value in range(-128, 128)
+)
+def pattern_imm8(context, tree):
+    """ A small constant between in range [-128, 127]. """
+    return tree.value
+
+
+@core_isa.pattern(
+    "imm12", "CONSTI32", condition=lambda t: t.value in range(-2048, 2048)
+)
+@core_isa.pattern(
+    "imm12", "CONSTU32", condition=lambda t: t.value in range(-2048, 2048)
+)
+@core_isa.pattern(
+    "imm12", "CONSTI16", condition=lambda t: t.value in range(-2048, 2048)
+)
+@core_isa.pattern(
+    "imm12", "CONSTU16", condition=lambda t: t.value in range(-2048, 2048)
+)
+@core_isa.pattern(
+    "imm12", "CONSTI8", condition=lambda t: t.value in range(-2048, 2048)
+)
+@core_isa.pattern(
+    "imm12", "CONSTU8", condition=lambda t: t.value in range(-2048, 2048)
+)
+def pattern_imm12(context, tree):
+    """ A small constant between in range [-2048, 2047]. """
+    # blaat
+    return tree.value
+
+
+@core_isa.pattern("reg", "CONSTI16", size=8, cycles=5, energy=5)
+@core_isa.pattern("reg", "CONSTU16", size=8, cycles=5, energy=5)
+@core_isa.pattern("reg", "CONSTI8", size=8, cycles=5, energy=5)
+@core_isa.pattern("reg", "CONSTU8", size=8, cycles=5, energy=5)
 def pattern_const_8(context, tree):
     # Load the address of a label
     # store the address label in the constant pool, and load this value
@@ -956,26 +1021,48 @@ def pattern_const_8(context, tree):
     return d
 
 
-@core_isa.pattern("reg", "I32TOI32(reg)")
-@core_isa.pattern("reg", "U32TOI32(reg)")
-@core_isa.pattern("reg", "I32TOU32(reg)")
-@core_isa.pattern("reg", "U32TOU32(reg)")
-def pattern_i32_to_i32(context, tree, c0):
-    return c0
-
-
 @core_isa.pattern("reg", "I32TOU8(reg)")
 @core_isa.pattern("reg", "I32TOI8(reg)")
+@core_isa.pattern("reg", "U32TOU8(reg)")
+@core_isa.pattern("reg", "U32TOI8(reg)")
 def pattern_i32_to_u8(context, tree, c0):
     return c0
 
 
-@core_isa.pattern("reg", "I8TOI32(reg)")
 @core_isa.pattern("reg", "U8TOI32(reg)")
 @core_isa.pattern("reg", "I8TOU32(reg)")
 @core_isa.pattern("reg", "U8TOU32(reg)")
 def pattern_u8_to_i32(context, tree, c0):
     return c0
+
+
+@core_isa.pattern("reg", "I8TOI32(reg)", size=3, cycles=1, energy=1)
+def pattern_i8_to_i32(context, tree, c0):
+    d = context.new_reg(AddressRegister)
+    context.emit(Sext(d, c0, 7))
+    return d
+
+
+@core_isa.pattern("reg", "I32TOU16(reg)")
+@core_isa.pattern("reg", "I32TOI16(reg)")
+@core_isa.pattern("reg", "U32TOU16(reg)")
+@core_isa.pattern("reg", "U32TOI16(reg)")
+def pattern_i32_to_u16(context, tree, c0):
+    return c0
+
+
+@core_isa.pattern("reg", "U16TOI32(reg)")
+@core_isa.pattern("reg", "I16TOU32(reg)")
+@core_isa.pattern("reg", "U16TOU32(reg)")
+def pattern_16_to_i32(context, tree, c0):
+    return c0
+
+
+@core_isa.pattern("reg", "I16TOI32(reg)", size=3, cycles=1, energy=1)
+def pattern_i16_to_i32(context, tree, c0):
+    d = context.new_reg(AddressRegister)
+    context.emit(Sext(d, c0, 7))
+    return d
 
 
 @core_isa.pattern("reg", "ADDI32(reg,reg)", size=3, cycles=1, energy=1)
@@ -986,17 +1073,11 @@ def pattern_add_i32(context, tree, c0, c1):
     return d
 
 
-@core_isa.pattern(
-    "reg",
-    "ADDI32(reg,CONSTI32)",
-    size=3,
-    cycles=1,
-    energy=1,
-    condition=lambda t: t[1].value in range(-128, 127),
-)
-def pattern_add_i32_imm(context, tree, c0):
+@core_isa.pattern("reg", "ADDI32(reg,imm8)", size=3, cycles=1, energy=1)
+@core_isa.pattern("reg", "ADDU32(reg,imm8)", size=3, cycles=1, energy=1)
+def pattern_add_i32_imm(context, tree, c0, c1):
     d = context.new_reg(AddressRegister)
-    context.emit(Addi(d, c0, tree[1].value))
+    context.emit(Addi(d, c0, c1))
     return d
 
 
@@ -1093,6 +1174,8 @@ def pattern_rem_u32_hw(context, tree, c0, c1):
 
 @core_isa.pattern("reg", "ANDI32(reg,reg)")
 @core_isa.pattern("reg", "ANDU32(reg,reg)")
+@core_isa.pattern("reg", "ANDI16(reg,reg)")
+@core_isa.pattern("reg", "ANDU16(reg,reg)")
 @core_isa.pattern("reg", "ANDI8(reg,reg)")
 @core_isa.pattern("reg", "ANDU8(reg,reg)")
 def pattern_and_i32(context, tree, c0, c1):
@@ -1103,6 +1186,8 @@ def pattern_and_i32(context, tree, c0, c1):
 
 @core_isa.pattern("reg", "ORI32(reg,reg)")
 @core_isa.pattern("reg", "ORU32(reg,reg)")
+@core_isa.pattern("reg", "ORI16(reg,reg)")
+@core_isa.pattern("reg", "ORU16(reg,reg)")
 @core_isa.pattern("reg", "ORI8(reg,reg)")
 @core_isa.pattern("reg", "ORU8(reg,reg)")
 def pattern_or_i32(context, tree, c0, c1):
@@ -1111,8 +1196,8 @@ def pattern_or_i32(context, tree, c0, c1):
     return d
 
 
-@core_isa.pattern("reg", "SHLI32(reg,reg)")
-@core_isa.pattern("reg", "SHLU32(reg,reg)")
+@core_isa.pattern("reg", "SHLI32(reg,reg)", size=6, cycles=2, energy=2)
+@core_isa.pattern("reg", "SHLU32(reg,reg)", size=6, cycles=2, energy=2)
 def pattern_shl_i32(context, tree, c0, c1):
     d = context.new_reg(AddressRegister)
     context.emit(Ssl(c1))
@@ -1120,9 +1205,54 @@ def pattern_shl_i32(context, tree, c0, c1):
     return d
 
 
-@core_isa.pattern("reg", "SHRI32(reg,reg)")
-@core_isa.pattern("reg", "SHRU32(reg,reg)")
+@core_isa.pattern("reg", "SHLI16(reg,reg)", size=9, cycles=3, energy=3)
+def pattern_shl_i16(context, tree, c0, c1):
+    d = context.new_reg(AddressRegister)
+    context.emit(Ssl(c1))
+    context.emit(Sll(d, c0))
+    context.emit(Sext(d, d, 15))
+    return d
+
+
+@core_isa.pattern("reg", "SHLU16(reg,reg)", size=6, cycles=2, energy=2)
+def pattern_shl_u16(context, tree, c0, c1):
+    d = context.new_reg(AddressRegister)
+    context.emit(Ssl(c1))
+    context.emit(Sll(d, c0))
+    return d
+
+
+@core_isa.pattern("reg", "SHLI8(reg,reg)", size=9, cycles=3, energy=3)
+def pattern_shl_i8(context, tree, c0, c1):
+    d = context.new_reg(AddressRegister)
+    context.emit(Ssl(c1))
+    context.emit(Sll(d, c0))
+    context.emit(Sext(d, d, 7))
+    return d
+
+
+@core_isa.pattern("reg", "SHLU8(reg,reg)", size=6, cycles=2, energy=2)
+def pattern_shl_u8(context, tree, c0, c1):
+    d = context.new_reg(AddressRegister)
+    context.emit(Ssl(c1))
+    context.emit(Sll(d, c0))
+    return d
+
+
+@core_isa.pattern("reg", "SHRI32(reg,reg)", size=6, cycles=2, energy=2)
+@core_isa.pattern("reg", "SHRI16(reg,reg)", size=6, cycles=2, energy=2)
+@core_isa.pattern("reg", "SHRI8(reg,reg)", size=6, cycles=2, energy=2)
 def pattern_shr_i32(context, tree, c0, c1):
+    d = context.new_reg(AddressRegister)
+    context.emit(Ssr(c1))
+    context.emit(Sra(d, c0))
+    return d
+
+
+@core_isa.pattern("reg", "SHRU32(reg,reg)", size=6, cycles=2, energy=2)
+@core_isa.pattern("reg", "SHRU16(reg,reg)", size=6, cycles=2, energy=2)
+@core_isa.pattern("reg", "SHRU8(reg,reg)", size=6, cycles=2, energy=2)
+def pattern_shr_u32(context, tree, c0, c1):
     d = context.new_reg(AddressRegister)
     context.emit(Ssr(c1))
     context.emit(Srl(d, c0))
@@ -1161,7 +1291,7 @@ def pattern_ldr_i8(context, tree, c0):
     d = context.new_reg(AddressRegister)
     reg, offset = c0
     context.emit(L8ui(d, reg, offset))
-    # TODO: emit sign extension here?
+    context.emit(Sext(d, d, 7))
     return d
 
 
@@ -1172,12 +1302,36 @@ def pattern_str_u8(context, tree, c0, c1):
     context.emit(S8i(c1, reg, offset))
 
 
+@core_isa.pattern("reg", "LDRU16(mem)")
+def pattern_ldr_u16(context, tree, c0):
+    d = context.new_reg(AddressRegister)
+    reg, offset = c0
+    context.emit(L16ui(d, reg, offset))
+    return d
+
+
+@core_isa.pattern("reg", "LDRI16(mem)")
+def pattern_ldr_i16(context, tree, c0):
+    d = context.new_reg(AddressRegister)
+    reg, offset = c0
+    context.emit(L16si(d, reg, offset))
+    return d
+
+
+@core_isa.pattern("stm", "STRU16(mem, reg)", size=3, cycles=2, energy=2)
+@core_isa.pattern("stm", "STRI16(mem, reg)", size=3, cycles=2, energy=2)
+def pattern_str_i16(context, tree, c0, c1):
+    reg, offset = c0
+    assert offset in range(0, 511, 2)
+    context.emit(S16i(c1, reg, offset))
+
+
 @core_isa.pattern("reg", "LDRU32(mem)", size=3, cycles=2, energy=2)
 @core_isa.pattern("reg", "LDRI32(mem)", size=3, cycles=2, energy=2)
 def pattern_ldr_i32(context, tree, c0):
     d = context.new_reg(AddressRegister)
     reg, offset = c0
-    assert offset in range(0, 1021)
+    assert offset in range(0, 1021, 4)
     context.emit(L32i(d, reg, offset))
     return d
 
@@ -1198,7 +1352,7 @@ def pattern_mem_add_const(context, tree, c0):
 @core_isa.pattern("stm", "STRI32(mem, reg)", size=3, cycles=2, energy=2)
 def pattern_str_i32(context, tree, c0, c1):
     reg, offset = c0
-    assert offset in range(0, 1021)
+    assert offset in range(0, 1021, 4)
     context.emit(S32i(c1, reg, offset))
 
 
@@ -1210,8 +1364,7 @@ def pattern_jmp(context, tree):
 
 @core_isa.pattern("stm", "CJMPI32(reg, reg)")
 @core_isa.pattern("stm", "CJMPI8(reg, reg)")
-@core_isa.pattern("stm", "CJMPU8(reg, reg)")
-def pattern_cjmp(context, tree, c0, c1):
+def pattern_cjmp_signed(context, tree, c0, c1):
     op, yes_label, no_label = tree.value
     opnames = {
         "<": (Blt, False),
@@ -1221,13 +1374,33 @@ def pattern_cjmp(context, tree, c0, c1):
         ">=": (Bge, False),
         "<=": (Bge, True),
     }
-    jmp_ins = J(no_label.name, jumps=[no_label])
-    tmp_label = context.new_label()
     Bop, swap = opnames[op]
+    impl_cjmp(context, Bop, swap, c0, c1, yes_label, no_label)
+
+
+@core_isa.pattern("stm", "CJMPU32(reg, reg)")
+@core_isa.pattern("stm", "CJMPU8(reg, reg)")
+def pattern_cjmp_unsigned(context, tree, c0, c1):
+    op, yes_label, no_label = tree.value
+    opnames = {
+        "<": (Bltu, False),
+        ">": (Bltu, True),
+        "==": (Beq, False),
+        "!=": (Bne, False),
+        ">=": (Bgeu, False),
+        "<=": (Bgeu, True),
+    }
+    Bop, swap = opnames[op]
+    impl_cjmp(context, Bop, swap, c0, c1, yes_label, no_label)
+
+
+def impl_cjmp(context, Bop, swap, c0, c1, yes_label, no_label):
     if swap:
-        context.emit(Bop(c1, c0, tmp_label.name, jumps=[tmp_label, jmp_ins]))
-    else:
-        context.emit(Bop(c0, c1, tmp_label.name, jumps=[tmp_label, jmp_ins]))
-    context.emit(jmp_ins)  # The false label
+        c0, c1 = c1, c0
+
+    false_jmp_ins = J(no_label.name, jumps=[no_label])
+    tmp_label = context.new_label()
+    context.emit(Bop(c0, c1, tmp_label.name, jumps=[tmp_label, false_jmp_ins]))
+    context.emit(false_jmp_ins)  # The false label
     context.emit(tmp_label)
     context.emit(J(yes_label.name, jumps=[yes_label]))

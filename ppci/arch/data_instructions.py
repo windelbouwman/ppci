@@ -95,7 +95,8 @@ class U16DataRelocation(Relocation):
     field = "value"
 
     def calc(self, sym_value, reloc_value):
-        assert sym_value % 2 == 0
+        # The value of the symbol is not nessecarily aligned at two bytes.
+        # assert sym_value % 2 == 0
         assert reloc_value % 2 == 0
         return sym_value
 
@@ -146,7 +147,10 @@ class U64DataRelocation(Relocation):
     field = "value"
 
     def calc(self, sym_value, reloc_value):
-        assert sym_value % 4 == 0
+        # Not always true for example when referencing
+        # a string literal aligned at 1 byte:
+        # assert sym_value % 4 == 0
+
         assert reloc_value % 4 == 0
         return sym_value
 

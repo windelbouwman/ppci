@@ -4,7 +4,7 @@ Dominators in graphs are handy informations.
 Lengauer and Tarjan developed a fast algorithm to calculate dominators
 from a graph.
 
-Algorithm as can be found on page 448 of Appel.
+Algorithm 19.9 and 19.10 as can be found on page 448 of Appel.
 """
 
 import logging
@@ -16,8 +16,7 @@ logger = logging.getLogger("lt")
 
 def calculate_idom(graph, entry, reverse=False):
     x = LengauerTarjan(reverse)
-    x.compute(graph, entry)
-    return x.idom
+    return x.compute(graph, entry)
 
 
 class LengauerTarjan:
@@ -27,86 +26,91 @@ class LengauerTarjan:
         self._reverse = reverse
 
         # Filled during dfs:
-        self.N = 0
-        self.dfnum = {}
-        self.vertex = []
+        self.dfnum = {}  # depth-first number
+        self.vertex = []  # Linear list of nodes
         self.parent = {}
 
         # Filled later:
         self.ancestor = {}
         self.best = {}
         self.semi = {}
-        self.idom = {}
-        self.samedom = {}
 
     def compute(self, graph, entry):
         logger.debug("Computing dominator tree from %s nodes", len(graph))
         bucket = {}
+
         # Fill maps:
         for n in graph:
-            self.semi[n] = None
-            self.ancestor[n] = None
-            self.idom[n] = None
-            self.samedom[n] = None
             bucket[n] = set()
 
         # Step 1: calculate semi dominators
         self.dfs(entry)
+
+        idom = {}
+        samedom = {}
 
         # Loop over nodes in reversed dfs order:
         for n in reversed(self.vertex[1:]):
             p = self.parent[n]
 
             # Determine semi dominator for n:
-            candidates = []
+            s = p
             for v in n.predecessors:
                 if self.dfnum[v] <= self.dfnum[n]:
                     s2 = v
                 else:
                     s2 = self.semi[self.ancestor_with_lowest_semi(v)]
-                candidates.append(s2)
+                assert s2 is not None
 
-            # Select semi-dominator from candidates:
-            assert candidates
-            s = min(candidates, key=lambda x: self.dfnum[x])
+                # Select candidate with lowest dfnum:
+                if self.dfnum[s2] < self.dfnum[s]:
+                    s = s2
+
+            assert n not in self.semi
             self.semi[n] = s
             bucket[s].add(n)
 
-            # Link:
             self.link(p, n)
 
             for v in bucket[p]:
                 y = self.ancestor_with_lowest_semi(v)
                 if self.semi[y] is self.semi[v]:
-                    self.idom[v] = p
+                    idom[v] = p
                 else:
-                    self.samedom[v] = y
+                    samedom[v] = y
             bucket[p].clear()
 
-        for n in self.vertex:
-            if self.samedom[n]:
-                self.idom[n] = self.idom[self.samedom[n]]
-        return self.idom
+        for n in self.vertex[1:]:
+            if n in samedom:
+                idom[n] = idom[samedom[n]]
+            else:
+                assert n in idom
+        return idom
 
     def dfs(self, start_node):
         """ Depth first search nodes """
-        for parent, node in dfs(start_node):
+        for dfnum, pair in enumerate(dfs(start_node)):
+            parent, node = pair
             assert node not in self.dfnum
-            self.dfnum[node] = self.N
-            self.vertex.append(node)
+            self.dfnum[node] = dfnum
+            assert node not in self.parent
             self.parent[node] = parent
-            self.N += 1
+            self.vertex.append(node)
 
     def link(self, p, n):
         """ Mark p as parent from n """
+        assert n not in self.ancestor
         self.ancestor[n] = p
         self.best[n] = n
 
-    def ancestor_with_lowest_semi(self, v):
-        # TODO: this is a slow algorithm, path compression can help
-        # to increase the speed.
+    def ancestor_with_lowest_semi_naive(self, v):
+        """ O(N^2) implementation.
+
+        This is a slow algorithm, path compression can be used
+        to increase speed.
+        """
         u = v
-        while self.ancestor[v]:
+        while v in self.ancestor:
             if self.dfnum[self.semi[v]] < self.dfnum[self.semi[u]]:
                 u = v
 
@@ -114,24 +118,38 @@ class LengauerTarjan:
             v = self.ancestor[v]
         return u
 
-    def ancestor_with_lowest_semi_new(self, v):
-        """ Modified algorithm. Sort of with path compression. """
-        raise NotImplementedError("appears to have a bug?")
-        x = v
-        while self.ancestor[x]:
-            if self.dfnum[self.semi[x]] < self.dfnum[self.semi[self.best[v]]]:
-                self.best[v] = x
-            self.ancestor[v] = self.ancestor[x]
+    def ancestor_with_lowest_semi(self, v):
+        """ O(log N) implementation with path compression.
 
-            # Iterate:
-            x = self.ancestor[x]
-        return self.best[v]
+        Rewritten from recursive function to prevent hitting the
+        recursion limit for large graphs.
+        """
+        original_v = v
+
+        # Traverse to highest parent
+        path = []
+        a = self.ancestor[v]
+        while a in self.ancestor:
+            path.append((v, a))
+            v = a
+            a = self.ancestor[v]
+
+        # traverse back to v:
+        for v, a in reversed(path):
+            b = self.best[a]
+            self.ancestor[v] = self.ancestor[a]
+            if self.dfnum[self.semi[b]] < self.dfnum[self.semi[self.best[v]]]:
+                self.best[v] = b
+
+        return self.best[original_v]
 
     def ancestor_with_lowest_semi_fast(self, v):
-        """ The O(log N) implementation """
-        # TODO: this version suffers from a recursion limit
+        """ The O(log N) implementation with path compression.
+
+        This version suffers from a recursion limit for large graphs.
+        """
         a = self.ancestor[v]
-        if self.ancestor[a]:
+        if a in self.ancestor:
             b = self.ancestor_with_lowest_semi(a)
             self.ancestor[v] = self.ancestor[a]
             if self.dfnum[self.semi[b]] < self.dfnum[self.semi[self.best[v]]]:

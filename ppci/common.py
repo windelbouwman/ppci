@@ -15,6 +15,8 @@ logformat = '%(asctime)s | %(levelname)8s | %(name)10.10s | %(message)s'
 def make_num(txt):
     if txt.startswith('0x'):
         return int(txt[2:], 16)
+    elif txt.startswith('-0x'):
+        return -int(txt[3:], 16)
     elif txt.startswith('$'):
         return int(txt[1:], 16)
     elif txt.startswith('0b'):
@@ -63,7 +65,7 @@ class CompilerError(Exception):
 
     def print(self, file=None):
         """ Print the error inside some nice context """
-        if self.loc:
+        if self.loc and self.loc.filename:
             self.loc.print_message(self.msg, file=file)
         else:
             print(self.msg, file=file)

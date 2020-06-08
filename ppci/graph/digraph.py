@@ -10,6 +10,8 @@ from .graph import BaseGraph, Node
 class DiGraph(BaseGraph):
     """ Directed graph. """
 
+    __slots__ = ('suc_map', 'pre_map')
+
     def __init__(self):
         super().__init__()
         self.suc_map = defaultdict(set)
