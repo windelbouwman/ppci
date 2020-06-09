@@ -6,10 +6,11 @@ from ppci.utils.leb128 import signed_leb128_decode, unsigned_leb128_decode
 
 class Leb128TestCase(unittest.TestCase):
     """ Test examples from https://en.wikipedia.org/wiki/LEB128 """
+
     def test_unsigned_wiki_example(self):
         """ Test the wikipedia example """
         data = unsigned_leb128_encode(624485)
-        self.assertEqual(bytes([0xe5, 0x8e, 0x26]), data)
+        self.assertEqual(bytes([0xE5, 0x8E, 0x26]), data)
         self.assertEqual(624485, unsigned_leb128_decode(iter(data)))
 
     def test_invalid_unsigned_number(self):
@@ -20,17 +21,17 @@ class Leb128TestCase(unittest.TestCase):
     def test_signed_wiki_example(self):
         """ Test wikipedia example """
         data = signed_leb128_encode(-624485)
-        self.assertEqual(bytes([0x9b, 0xf1, 0x59]), data)
+        self.assertEqual(bytes([0x9B, 0xF1, 0x59]), data)
         self.assertEqual(-624485, signed_leb128_decode(iter(data)))
 
     def test_unsigned_cases(self):
         test_cases = (
             (0, [0x0]),
             (42, [42]),
-            (127, [0x7f]),
+            (127, [0x7F]),
             (128, [0x80, 1]),
-            (255, [0xff, 1]),
-            (0xffff, [0xff, 0xff, 0b11]),
+            (255, [0xFF, 1]),
+            (0xFFFF, [0xFF, 0xFF, 0b11]),
         )
         for value, data in test_cases:
             expected_data = bytes(data)
@@ -43,13 +44,13 @@ class Leb128TestCase(unittest.TestCase):
         test_cases = (
             (-64, [0x40]),
             (2, [0x02]),
-            (-2, [0x7e]),
-            (127, [0xff, 0x00]),
-            (-127, [0x81, 0x7f]),
+            (-2, [0x7E]),
+            (127, [0xFF, 0x00]),
+            (-127, [0x81, 0x7F]),
             (128, [0x80, 0x01]),
-            (-128, [0x80, 0x7f]),
+            (-128, [0x80, 0x7F]),
             (129, [0x81, 0x01]),
-            (-129, [0xff, 0x7e]),
+            (-129, [0xFF, 0x7E]),
         )
         for value, data in test_cases:
             expected_data = bytes(data)
@@ -71,5 +72,5 @@ class Leb128TestCase(unittest.TestCase):
             self.assertEqual(x, y)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

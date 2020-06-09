@@ -113,10 +113,11 @@ class NativeModuleInstance(ModuleInstance):
 
         # Read old data:
         self._memory_data_page.seek(0)
-        old_data = self._memory_data_page.read()
+        old_data = self._memory_data_page.read(old_size * PAGE_SIZE)
 
         # Create new page and fill with old data:
         self._memory_data_page = MemoryPage(new_size * PAGE_SIZE)
+        self._memory_data_page.seek(0)
         self._memory_data_page.write(old_data)
 
         # Update pointer:

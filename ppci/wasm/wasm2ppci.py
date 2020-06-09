@@ -538,8 +538,8 @@ class WasmToIrCompiler:
             dbg_type_map = {
                 "f32": debuginfo.DebugBaseType("float", 4, 1),
                 "f64": debuginfo.DebugBaseType("double", 8, 1),
-                "i32": debuginfo.DebugBaseType("int", 4, 1),
-                "i64": debuginfo.DebugBaseType("long", 8, 1),
+                "i32": debuginfo.DebugBaseType("int32_t", 4, 1),
+                "i64": debuginfo.DebugBaseType("int64_t", 8, 1),
                 "void": debuginfo.DebugBaseType("void", 0, 1),
             }
             dbg_typ = dbg_type_map[name]

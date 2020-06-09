@@ -7,30 +7,41 @@ Credits for idea: Luke Campagnola
 
 import inspect
 import sys
-import mmap
-import struct
 import logging
 import ctypes
 from ..arch import get_current_arch
 from .. import ir
 from ..binutils import debuginfo, layout
 from ..binutils.linker import link
+from .memory_page import MemoryPage
+
+
+logger = logging.getLogger("codepage")
+
+
+debug_type_name_mapping = {
+    "int": ctypes.c_int,
+    "char": ctypes.c_int,  # TODO: how to handle this?
+    "long": ctypes.c_long,
+    "int8_t": ctypes.c_int8,
+    "int16_t": ctypes.c_int16,
+    "int32_t": ctypes.c_int32,
+    "int64_t": ctypes.c_int64,
+    "uint8_t": ctypes.c_uint8,
+    "uint16_t": ctypes.c_uint16,
+    "uint32_t": ctypes.c_uint32,
+    "uint64_t": ctypes.c_uint64,
+    "void": ctypes.c_int,  # TODO: what to do?
+    "double": ctypes.c_double,
+    "float": ctypes.c_float,
+    "bool": ctypes.c_int,
+    "byte": ctypes.c_int,
+}
 
 
 def get_ctypes_type(debug_type):
-    mapping = {
-        "int": ctypes.c_int,
-        "char": ctypes.c_int,  # TODO: how to handle this?
-        "long": ctypes.c_long,
-        "void": ctypes.c_int,  # TODO: what to do?
-        "double": ctypes.c_double,
-        "float": ctypes.c_float,
-        "bool": ctypes.c_int,
-        "byte": ctypes.c_int,
-    }
-
     if isinstance(debug_type, debuginfo.DebugBaseType):
-        return mapping[debug_type.name]
+        return debug_type_name_mapping[debug_type.name]
     elif isinstance(debug_type, debuginfo.DebugPointerType):
         if isinstance(debug_type.pointed_type, debuginfo.DebugStructType):
             # TODO: treat struct pointers as void pointers for now.
@@ -56,84 +67,6 @@ def get_ctypes_type(debug_type):
         return mapping[debug_type]
     else:  # pragma: no cover
         raise NotImplementedError(str(debug_type) + str(type(debug_type)))
-
-
-uintt = ctypes.c_uint64 if struct.calcsize("P") == 8 else ctypes.c_uint32
-
-
-class WinPage:
-    """ Nice windows hack to emulate mmap.
-
-    Copied from:
-    https://github.com/campagnola/pycca/blob/master/pycca/asm/codepage.py
-    """
-
-    def __init__(self, size):
-        kern = ctypes.windll.kernel32
-        valloc = kern.VirtualAlloc
-        valloc.argtypes = (uintt,) * 4
-        valloc.restype = uintt
-        self.addr = valloc(0, size, 0x1000 | 0x2000, 0x40)
-        self.ptr = 0
-        self.size = size
-        self.mem = (ctypes.c_char * size).from_address(self.addr)
-
-    def write(self, data):
-        self.mem[self.ptr : self.ptr + len(data)] = data
-        self.ptr += len(data)
-
-    def seek(self, pos):
-        self.ptr = pos
-
-    def read(self):
-        return bytes(self.mem[self.ptr : self.size])
-
-    def __len__(self):
-        return self.size
-
-    def __del__(self):
-        kern = ctypes.windll.kernel32
-        vfree = kern.VirtualFree
-        vfree.argtypes = (uintt,) * 3
-        vfree(self.addr, self.size, 0x8000)
-
-
-logger = logging.getLogger("codepage")
-
-
-class MemoryPage:
-    """ Allocate a memory slab in the current process. """
-
-    def __init__(self, size):
-        self.size = size
-        if size > 0:
-            if sys.platform == "win32":
-                self._page = WinPage(size)
-                self.addr = self._page.addr
-            else:
-                self._page = mmap.mmap(-1, size, prot=1 | 2 | 4)
-                buf = (ctypes.c_char * size).from_buffer(self._page)
-                self.addr = ctypes.addressof(buf)
-            logger.debug("Allocated %s bytes at 0x%x", size, self.addr)
-        else:
-            self._page = None
-            self.addr = 0
-
-    def write(self, data):
-        """ Fill page with the given data """
-        if data:
-            assert self._page
-            self._page.write(data)
-
-    def seek(self, pos):
-        if self._page:
-            self._page.seek(pos)
-
-    def read(self, size=None):
-        if self._page:
-            return self._page.read(size)
-        else:
-            return bytes()
 
 
 class Mod:
@@ -177,12 +110,16 @@ class Mod:
                 callback = ftype(imp_obj)
                 logger.debug("Import name %s", name)
                 self._import_symbols.append((name, callback, ftype))
-                extra_symbols[name] = ctypes.cast(callback, ctypes.c_void_p).value
+                extra_symbols[name] = ctypes.cast(
+                    callback, ctypes.c_void_p
+                ).value
             elif isinstance(imp_obj, MemoryPage):
                 self._import_symbols.append((name, imp_obj))
                 extra_symbols[name] = imp_obj.addr
             else:
-                raise ValueError('Cannot import {} of type {}'.format(name, type(imp_obj)))
+                raise ValueError(
+                    "Cannot import {} of type {}".format(name, type(imp_obj))
+                )
 
         # Link to e.g. apply offset to global literals
         memory_layout = layout.Layout()
@@ -199,7 +136,10 @@ class Mod:
 
         # Link the object into memory:
         obj = link(
-            [obj], layout=memory_layout, debug=True, extra_symbols=extra_symbols
+            [obj],
+            layout=memory_layout,
+            debug=True,
+            extra_symbols=extra_symbols,
         )
 
         # Load the code into the page:
