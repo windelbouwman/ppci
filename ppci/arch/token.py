@@ -24,7 +24,10 @@ def u64(x):
 
 
 def u8(x):
-    return struct.pack("<B", x)
+    if x < 0:
+        return struct.pack("<b", x)
+    else:
+        return struct.pack("<B", x)
 
 
 class _p2(property):
