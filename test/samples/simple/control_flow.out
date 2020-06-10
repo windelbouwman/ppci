@@ -27,3 +27,21 @@ i=2 j=2 k=1
 i=2 j=2 k=2
 True 1
 True 2
+small: 0
+i: 0
+small: 1
+i: 1
+small: 2
+i: 2
+small: 3
+i: 3
+big: 4
+big: 5
+at the end: 6
+count down: 6
+count down: 5
+count down: 4
+count down: 3
+count down: 2
+count down: 1
+minus one!

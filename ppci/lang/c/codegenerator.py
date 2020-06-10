@@ -571,7 +571,7 @@ class CCodeGenerator:
         self.builder.set_block(body_block)
         self.gen_stmt(stmt.statement)
         self.builder.emit_jump(final_block)
-        self.break_block_stack.pop(-1)
+        self.break_block_stack.pop()
 
         # Implement switching logic, now that we have the branches:
         # TODO: implement jump tables and other performance related stuff.
@@ -613,8 +613,8 @@ class CCodeGenerator:
         self.gen_stmt(stmt.body)
         self.builder.emit_jump(condition_block)
         self.builder.set_block(final_block)
-        self.break_block_stack.pop(-1)
-        self.continue_block_stack.pop(-1)
+        self.break_block_stack.pop()
+        self.continue_block_stack.pop()
 
     def gen_do_while(self, stmt: statements.DoWhile) -> None:
         """ Generate do-while-statement code """
@@ -627,35 +627,48 @@ class CCodeGenerator:
         self.gen_stmt(stmt.body)
         self.gen_condition(stmt.condition, body_block, final_block)
         self.builder.set_block(final_block)
-        self.break_block_stack.pop(-1)
-        self.continue_block_stack.pop(-1)
+        self.break_block_stack.pop()
+        self.continue_block_stack.pop()
 
     def gen_for(self, stmt: statements.For) -> None:
         """ Generate code for for-statement """
         condition_block = self.builder.new_block()
         body_block = self.builder.new_block()
         final_block = self.builder.new_block()
+        iterator_block = self.builder.new_block()
         self.break_block_stack.append(final_block)
-        self.continue_block_stack.append(condition_block)
+        self.continue_block_stack.append(iterator_block)
+
+        # Initialization:
         if stmt.init:
             if isinstance(stmt.init, declarations.VariableDeclaration):
                 self.gen_local_variable(stmt.init)
             else:
                 self.gen_expr(stmt.init, rvalue=True)
         self.builder.emit_jump(condition_block)
+
+        # Condition:
         self.builder.set_block(condition_block)
         if stmt.condition:
             self.gen_condition(stmt.condition, body_block, final_block)
         else:
             self.builder.emit_jump(body_block)
+
+        # Body:
         self.builder.set_block(body_block)
         self.gen_stmt(stmt.body)
+        self.builder.emit_jump(iterator_block)
+
+        # Iterator part:
+        self.builder.set_block(iterator_block)
         if stmt.post:
             self.gen_expr(stmt.post, rvalue=True)
         self.builder.emit_jump(condition_block)
+
+        # Continue here:
         self.builder.set_block(final_block)
-        self.break_block_stack.pop(-1)
-        self.continue_block_stack.pop(-1)
+        self.break_block_stack.pop()
+        self.continue_block_stack.pop()
 
     def gen_label(self, stmt: statements.Label) -> None:
         """ Generate code for a label """
