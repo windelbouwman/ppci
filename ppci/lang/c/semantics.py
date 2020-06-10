@@ -196,7 +196,7 @@ class CSemantics:
 
         # Determine if we need implicit init levels:
         target_typ = init_cursor.at_typ()
-        while not self._root_scope.equal_types(value.typ, target_typ):
+        while not self.equal_types(value.typ, target_typ):
             # If we are at a complex type, implicit descend otherwise cast:
             if target_typ.is_compound:
                 init_cursor.enter_compound(target_typ, value.location, True)
@@ -309,7 +309,7 @@ class CSemantics:
 
     def check_redeclaration_type(self, sym, declaration):
         # The type should match in any case:
-        if not self._root_scope.equal_types(sym.typ, declaration.typ):
+        if not self.equal_types(sym.typ, declaration.typ):
             self.invalid_redeclaration(sym, declaration)
 
         if not isinstance(declaration, type(sym.declaration)):
@@ -640,7 +640,43 @@ class CSemantics:
         """ React on numeric literal """
         # Get value from string:
         value, type_specifiers = utils.cnum(value)
-        typ = self.get_type(type_specifiers)
+
+        if isinstance(value, int):
+            if type_specifiers:
+                typ = self.get_type(type_specifiers)
+            else:
+                # Use larger type to fit the value if required:
+                # Try unsigned long,
+                ulonglong_type = self.get_type(["unsigned", "long", "long"])
+                longlong_type = self.get_type(["long", "long"])
+                ulong_type = self.get_type(["unsigned", "long"])
+                long_type = self.get_type(["long"])
+                uint_type = self.get_type(["unsigned", "int"])
+
+                if value < self.context.limit_max(self.int_type):
+                    typ = self.int_type
+                elif value < self.context.limit_max(uint_type):
+                    typ = uint_type
+                elif value < self.context.limit_max(long_type):
+                    typ = long_type
+                elif value < self.context.limit_max(ulong_type):
+                    typ = ulong_type
+                elif value < self.context.limit_max(longlong_type):
+                    typ = longlong_type
+                else:
+                    typ = ulonglong_type
+        else:
+            typ = self.get_type(type_specifiers)
+
+        if typ.is_integer:
+            # Check limits of integer
+            # Note, an integer is always positive
+            max_value = self.context.limit_max(typ)
+            if value > max_value:
+                self.error(
+                    "Integer value too big for type ({})".format(max_value),
+                    location,
+                )
         return expressions.NumericLiteral(value, typ, location)
 
     def on_char(self, value, location):
@@ -673,6 +709,8 @@ class CSemantics:
         if op in ["||", "&&"]:
             lhs = self.check_condition(lhs)
             rhs = self.check_condition(rhs)
+
+            # Booleans are integer type:
             result_typ = self.int_type
         elif op in [
             "=",
@@ -707,17 +745,46 @@ class CSemantics:
                 result_typ = self.get_common_type(lhs.typ, rhs.typ, location)
                 lhs = self.coerce(lhs, result_typ)
                 rhs = self.coerce(rhs, result_typ)
-        elif op in ["<", ">", "==", "!=", "<=", ">="]:
-            # Booleans are integer type:
-            # TODO: assert types are of base arithmatic type
-            common_typ = self.get_common_type(lhs.typ, rhs.typ, location)
-            lhs = self.coerce(lhs, common_typ)
-            rhs = self.coerce(rhs, common_typ)
-            result_typ = self.int_type
-        else:
+        elif op == "-":
+            # TODO: Handle pointer arithmatic
             result_typ = self.get_common_type(lhs.typ, rhs.typ, location)
             lhs = self.coerce(lhs, result_typ)
             rhs = self.coerce(rhs, result_typ)
+        elif op in ["<", ">", "==", "!=", "<=", ">="]:
+            if not (lhs.typ.is_scalar or lhs.typ.is_pointer):
+                self.error("Expected scalar or pointer", lhs.location)
+
+            if not (rhs.typ.is_scalar or rhs.typ.is_pointer):
+                self.error("Expected scalar or pointer", rhs.location)
+
+            common_typ = self.get_common_type(lhs.typ, rhs.typ, location)
+            lhs = self.coerce(lhs, common_typ)
+            rhs = self.coerce(rhs, common_typ)
+
+            # Booleans are integer type:
+            result_typ = self.int_type
+        elif op in ["<<", ">>", "|", "&", "^"]:  # Bit shifting operators
+            if not lhs.typ.is_integer:
+                self.error("Expected integer", lhs.location)
+
+            if not rhs.typ.is_integer:
+                self.error("Expected integer", rhs.location)
+
+            result_typ = self.get_common_type(lhs.typ, rhs.typ, location)
+            lhs = self.coerce(lhs, result_typ)
+            rhs = self.coerce(rhs, result_typ)
+        elif op in ["*", "/", "%"]:  # Multiplication operators
+            if not lhs.typ.is_scalar:
+                self.error("Expected scalar", lhs.location)
+
+            if not rhs.typ.is_scalar:
+                self.error("Expected scalar", rhs.location)
+
+            result_typ = self.get_common_type(lhs.typ, rhs.typ, location)
+            lhs = self.coerce(lhs, result_typ)
+            rhs = self.coerce(rhs, result_typ)
+        else:  # pragma: no cover
+            raise NotImplementedError(op)
 
         return expressions.BinaryOperator(
             lhs, op, rhs, result_typ, False, location
@@ -729,9 +796,20 @@ class CSemantics:
             # Increment and decrement in pre and post form
             if not a.lvalue:
                 self.error("Expected lvalue", a.location)
+
+            if not (a.typ.is_integer or a.typ.is_pointer):
+                self.error("Expected integer or pointer", a.location)
+
             expr = expressions.UnaryOperator(op, a, a.typ, False, location)
-        elif op in ["-", "~"]:
+        elif op == "-":
             a = self.pointer(a)
+            expr = expressions.UnaryOperator(op, a, a.typ, False, location)
+        elif op == "~":
+            a = self.pointer(a)
+
+            if not a.typ.is_integer:
+                self.error("Expected integer", a.location)
+
             expr = expressions.UnaryOperator(op, a, a.typ, False, location)
         elif op == "+":
             expr = self.pointer(a)
@@ -844,7 +922,7 @@ class CSemantics:
 
     def on_builtin_va_start(self, arg_pointer, location):
         """ Check va_start builtin function """
-        if not self._root_scope.equal_types(arg_pointer.typ, self.intptr_type):
+        if not self.equal_types(arg_pointer.typ, self.intptr_type):
             self.error("Invalid type for va_start", arg_pointer.location)
         if not arg_pointer.lvalue:
             self.error("Expected lvalue", arg_pointer.location)
@@ -852,7 +930,7 @@ class CSemantics:
 
     def on_builtin_va_arg(self, arg_pointer, typ, location):
         """ Check va_arg builtin function """
-        if not self._root_scope.equal_types(arg_pointer.typ, self.intptr_type):
+        if not self.equal_types(arg_pointer.typ, self.intptr_type):
             self.error("Invalid type for va_arg", arg_pointer.location)
         if not arg_pointer.lvalue:
             self.error("Expected lvalue", arg_pointer.location)
@@ -860,11 +938,11 @@ class CSemantics:
 
     def on_builtin_va_copy(self, dest, src, location):
         """ Check va_copy builtin function """
-        if not self._root_scope.equal_types(dest.typ, self.intptr_type):
+        if not self.equal_types(dest.typ, self.intptr_type):
             self.error("Invalid type for va_copy", dest.location)
         if not dest.lvalue:
             self.error("Expected lvalue", dest.location)
-        if not self._root_scope.equal_types(src.typ, self.intptr_type):
+        if not self.equal_types(src.typ, self.intptr_type):
             self.error("Invalid type for va_copy", src.location)
         return expressions.BuiltInVaCopy(dest, src, location)
 
@@ -999,7 +1077,7 @@ class CSemantics:
         from_type = expr.typ
         to_type = typ
 
-        if self._root_scope.equal_types(from_type, to_type):
+        if self.equal_types(from_type, to_type):
             pass
         elif isinstance(
             from_type, (types.PointerType, types.EnumType)
@@ -1057,6 +1135,10 @@ class CSemantics:
         if expr.typ.is_promotable:
             expr = self.coerce(expr, self.int_type)
         return expr
+
+    def equal_types(self, typ1, typ2):
+        """ Compare two types for equality. """
+        return self._root_scope.equal_types(typ1, typ2)
 
     def get_type(self, type_specifiers):
         """ Retrieve a type by type specifiers """

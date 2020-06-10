@@ -88,6 +88,18 @@ class CContext:
 
         self.ctypes_names = {t: byte_order + v for t, v in ctypes.items()}
 
+    def limit_max(self, typ: types.CType) -> int:
+        """ Retrieve the maximum value for the given integer type. """
+        if not typ.is_integer:
+            raise ValueError("Can only get max value of integer types")
+
+        bit_size = 8 * self.type_size_map[typ.type_id][0]
+        if typ.is_signed:
+            max_value = (2 ** (bit_size - 1)) - 1
+        else:
+            max_value = (2 ** (bit_size)) - 1
+        return max_value
+
     def sizeof(self, typ: types.CType):
         """ Given a type, determine its size in whole bytes """
         if not isinstance(typ, types.CType):

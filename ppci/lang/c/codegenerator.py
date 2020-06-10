@@ -510,6 +510,10 @@ class CCodeGenerator:
                 self.gen_local_static_variable(declaration)
             else:
                 self.gen_local_variable(declaration)
+        elif isinstance(declaration, declarations.FunctionDeclaration):
+            # Ehm, okay, we have declared a function, no worries.
+            # Just ensure that it does not have a body.
+            assert not declaration.body
         else:
             raise NotImplementedError(str(declaration))
 

@@ -5,7 +5,7 @@
 
 def is_scalar(typ):
     """ Determine whether the given type is of scalar kind """
-    return isinstance(typ, (BasicType, PointerType)) and not is_void(typ)
+    return isinstance(typ, BasicType) and not is_void(typ)
 
 
 def is_char_array(typ):
@@ -109,7 +109,7 @@ class CType:
     @property
     def is_compound(self):
         """ Test if this type is of compound type. """
-        return not self.is_scalar
+        return self.is_struct_or_union or self.is_array
 
     @property
     def is_char_array(self):

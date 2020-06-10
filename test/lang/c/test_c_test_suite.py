@@ -5,6 +5,15 @@ The c-testsuite is a collection of C test cases.
 This is an adapter script to enable running of those snippets
 as unittests.
 
+Usage with pytest:
+
+    $ export C_TEST_SUITE_DIR=/path/to/GIT/c-testsuite
+    $ python -m pytest test_c_test_suite.py -v
+
+Usage as a script:
+
+    $ python test_c_test_suite.py /path/to/GIT/c-testsuite
+
 See also:
 
 https://github.com/c-testsuite/c-testsuite
@@ -82,6 +91,7 @@ def perform_test(filename):
     coptions = COptions()
     libc_include = os.path.join(this_dir, "..", "..", "..", "librt", "libc")
     coptions.add_include_path(libc_include)
+    coptions.enable('freestanding')
     with open(filename, "r") as f:
         try:
             obj = api.cc(f, march, coptions=coptions)
