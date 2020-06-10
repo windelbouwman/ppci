@@ -1192,7 +1192,7 @@ class CCodeGenerator:
 
     def gen_binop(self, expr: expressions.BinaryOperator):
         """ Generate code for binary operation expression """
-        if expr.op in ["-", "*", "/", "%", "^", "|", "&", ">>", "<<"]:
+        if expr.op in ["*", "/", "%", "^", "|", "&", ">>", "<<"]:
             lhs = self.gen_expr(expr.a, rvalue=True)
             rhs = self.gen_expr(expr.b, rvalue=True)
             op = expr.op
@@ -1204,29 +1204,53 @@ class CCodeGenerator:
             self.gen_expr(expr.a, rvalue=True)
             rhs = self.gen_expr(expr.b, rvalue=True)
             value = rhs
-        elif expr.op in ["+"]:
+
+        elif expr.op == "+":
             lhs = self.gen_expr(expr.a, rvalue=True)
             rhs = self.gen_expr(expr.b, rvalue=True)
-            # Handle pointer arithmatic!
-            # Pointer arithmatic is an old artifact from the days
-            # when an integer refered always to a array cell!
+
             if isinstance(expr.a.typ, types.IndexableType):
-                # TODO: assert is_integer(expr.b.typ)
+                # indexable + integer
                 esize = self.sizeof(expr.a.typ.element_type)
-                rhs = self.builder.emit_mul(rhs, esize, rhs.ty)
+                if esize != 1:
+                    esize = self.emit(ir.Const(esize, "esize", rhs.ty))
+                    rhs = self.builder.emit_mul(rhs, esize, rhs.ty)
                 rhs = self.builder.emit_cast(rhs, ir.ptr)
-            elif isinstance(expr.b.typ, types.IndexableType):
-                # TODO: assert is_integer(expr.a.typ)
-                esize = self.sizeof(expr.b.typ.element_type)
-                lhs = self.builder.emit_mul(lhs, esize, lhs.ty)
-                lhs = self.builder.emit_cast(lhs, ir.ptr)
             else:
+                # numeric + numeric
                 pass
 
-            op = expr.op
-
             ir_typ = self.get_ir_type(expr.typ)
-            value = self.builder.emit_binop(lhs, op, rhs, ir_typ)
+            value = self.builder.emit_binop(lhs, "+", rhs, ir_typ)
+
+        elif expr.op == "-":
+            lhs = self.gen_expr(expr.a, rvalue=True)
+            rhs = self.gen_expr(expr.b, rvalue=True)
+            ir_typ = self.get_ir_type(expr.typ)
+
+            if isinstance(expr.a.typ, types.IndexableType):
+                esize = self.sizeof(expr.a.typ.element_type)
+                if isinstance(expr.b.typ, types.IndexableType):
+
+                    # indexable - indexable
+                    value = self.emit(ir.Binop(lhs, "-", rhs, "op", ir.ptr))
+                    value = self.emit(ir.Cast(value, "typecast", ir_typ))
+                    if esize != 1:
+                        esize = self.emit(ir.Const(esize, "esize", ir_typ))
+                        value = self.emit(ir.Binop(value, "/", esize, "rhs", ir_typ))
+                else:
+
+                    # indexable - integer
+                    if esize != 1:
+                        esize = self.emit(ir.Const(esize, "esize", rhs.ty))
+                        rhs = self.builder.emit_mul(rhs, esize, rhs.ty)
+                    rhs = self.builder.emit_cast(rhs, ir.ptr)
+                    value = self.builder.emit_binop(lhs, "-", rhs, ir_typ)
+
+            else:
+                # numeric - numeric
+                value = self.builder.emit_binop(lhs, "-", rhs, ir_typ)
+
         elif expr.op in ["<", ">", "==", "!=", "<=", ">=", "||", "&&"]:
             value = self.gen_condition_to_integer(expr)
         elif expr.op in [
@@ -1261,8 +1285,20 @@ class CCodeGenerator:
                     op = expr.op[:-1]
                     ir_typ = self.get_ir_type(expr.typ)
                     loaded = self._load_value(lhs, expr.typ)
+
+                    if (isinstance(expr.a.typ, types.IndexableType)
+                       and op in ["+", "-"]):
+
+                        esize = self.context.sizeof(expr.a.typ.element_type)
+                        if esize != 1:
+
+                            # compute rhs value in bytes
+                            esize = self.emit(ir.Const(esize, "esize", rhs.ty))
+                            rhs = self.emit(ir.mul(rhs, esize, "rhs", rhs.ty))
+
                     value = self.builder.emit_binop(loaded, op, rhs, ir_typ)
                 self._store_value(value, lhs)
+
         else:  # pragma: no cover
             raise NotImplementedError(str(expr.op))
         return value

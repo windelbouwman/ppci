@@ -38,6 +38,7 @@ class CSemantics:
         # Define the type for a string:
         self.int_type = self.get_type(["int"])
         self.char_type = self.get_type(["char"])
+        self.long_type = self.get_type(["long"])
         self.intptr_type = self.int_type.pointer_to()
 
         # Working variables:
@@ -692,21 +693,69 @@ class CSemantics:
             result_typ = lhs.typ
             if not lhs.lvalue:
                 self.error("Expected lvalue", lhs.location)
+
+            if op[0] in ["+", "-"] and isinstance(lhs.typ, types.IndexableType):
+                self.ensure_integer(rhs.typ, location)
+                lhs.typ = self.ensure_no_void_ptr(lhs.typ, location)
             rhs = self.coerce(rhs, result_typ)
         elif op == ",":
             result_typ = rhs.typ
         elif op == "+":
-            # Handle pointer arithmatic
             if isinstance(lhs.typ, types.IndexableType):
-                rhs = self.coerce(rhs, self.int_type)
+                # indexable + integer
+                self.ensure_integer(rhs.typ, rhs.location)
+                lhs.typ = self.ensure_no_void_ptr(lhs.typ, lhs.location)
                 result_typ = lhs.typ
             elif isinstance(rhs.typ, types.IndexableType):
-                lhs = self.coerce(lhs, self.int_type)
+                # integer + indexable
+                self.ensure_integer(lhs.typ, lhs.location)
+                rhs.typ = self.ensure_no_void_ptr(rhs.typ, rhs.location)
                 result_typ = rhs.typ
+                # put indexable expression on the left to ease further processing
+                rhs, lhs = lhs, rhs 
             else:
+                # numeric + numeric
                 result_typ = self.get_common_type(lhs.typ, rhs.typ, location)
                 lhs = self.coerce(lhs, result_typ)
                 rhs = self.coerce(rhs, result_typ)
+
+        elif op == "-":
+            if isinstance(lhs.typ, types.IndexableType):
+
+                if isinstance(rhs.typ, types.IndexableType):
+
+                    # indexable - indexable
+                    # operands must be of compatible types and should not be
+                    # 'void *'
+                    # type of result is a signed integer large enough to contain
+                    # pointer difference
+                    lhs.typ = self.ensure_no_void_ptr(lhs.typ, lhs.location)
+                    rhs.typ = self.ensure_no_void_ptr(rhs.typ, rhs.location)
+                    if not self._root_scope.equal_types(lhs.typ.element_type,
+                                                        rhs.typ.element_type):
+                        self.error(
+                            "operands must point to compatible types,"
+                            " got {} and {}".format(type_to_str(lhs.typ),
+                                                    type_to_str(rhs.typ)),
+                            location)
+                    # choose a signed integer able to hold a pointer difference
+                    if (self.context.sizeof(self.int_type) ==
+                        self.context.sizeof(lhs.typ)):
+                        result_typ = self.int_type
+                    else:
+                        result_typ = self.long_type
+                    
+                else:
+                    # indexable - integer
+                    self.ensure_integer(rhs.typ, rhs.location)
+                    lhs.typ = self.ensure_no_void_ptr(lhs.typ, lhs.location)
+                    result_typ = lhs.typ
+            else:
+                # numeric - numeric
+                result_typ = self.get_common_type(lhs.typ, rhs.typ, location)
+                lhs = self.coerce(lhs, result_typ)
+                rhs = self.coerce(rhs, result_typ)
+
         elif op in ["<", ">", "==", "!=", "<=", ">="]:
             # Booleans are integer type:
             # TODO: assert types are of base arithmatic type
@@ -742,6 +791,7 @@ class CSemantics:
                     "Cannot dereference type {}".format(type_to_str(a.typ)),
                     a.location,
                 )
+            a.typ = self.ensure_no_void_ptr(a.typ, a.location)
             typ = a.typ.element_type
             expr = expressions.UnaryOperator(op, a, typ, True, location)
         elif op == "&":
@@ -1123,3 +1173,21 @@ class CSemantics:
         """ Call this function to mark unimplemented code """
         self.error(message, location)
         raise NotImplementedError(message)
+
+    def ensure_integer(self, typ, location):
+        """Ensure typ is of any integer type """
+        if not typ.is_integer:
+            self.error(
+                "integer type expected but got {}".format(type_to_str(typ)),
+                location,
+            )
+ 
+    def ensure_no_void_ptr(self, typ, location):
+        """Test if typ is 'void *' (we already know it is indexable),
+           If yes, warn the user and return "char *'
+           Otherwise return the type unchanged 
+        """
+        if typ.element_type.is_void:
+            self.warning("'void *' cannot be used, assuming 'char *'", location)
+            return types.PointerType(self.char_type)
+        return typ
