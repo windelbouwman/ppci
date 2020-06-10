@@ -744,6 +744,28 @@ class SubSp(addspsp_base):
     opcode = 0b101100001
 
 
+class Bkpt(ThumbInstruction):
+    """
+    bkpt #imm8
+
+    Operation:
+    http://www.keil.com/support/man/docs/armasm/armasm_dom1361289865326.htm
+
+    Encoding (page B2-10, table B2.5):
+    http://engold.ui.ac.ir/~nikmehr/Appendix_B2.pdf
+    """
+
+    opcode = 0b10111110
+    imm = Operand("imm", int)
+    syntax = Syntax(["bkpt", imm])
+
+    def encode(self):
+        tokens = self.get_tokens()
+        tokens[0][0:8] = self.imm
+        tokens[0][8:16] = self.opcode
+        return tokens[0].encode()
+
+
 # instruction selector:
 
 
