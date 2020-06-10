@@ -203,6 +203,10 @@ class ThumbAssemblerTestCase(AsmTestCaseBase):
         self.feed('b henkie')
         self.check('32b41519 94420198 049332bc a340ab42 f6d0f5d1 f4e7')
 
+    def test_bkpt(self):
+        self.feed('bkpt 0')
+        self.check('00be')
+
 
 if __name__ == '__main__':
     unittest.main()
