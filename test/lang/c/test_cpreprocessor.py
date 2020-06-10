@@ -161,20 +161,28 @@ class CPreProcessorTestCase(unittest.TestCase):
     def test_line_directive(self):
         """ Test #line directive and __LINE__ and __FILE__ macros. """
         src = r"""
+        #define assert(e) _assert(e, __FILE__, __LINE__)
+        assert(1);
+        assert(2);
         #line 1234 "cpp"
         fubar
         __LINE__; __FILE__;
         #line 567
         fubar
-        __LINE__; __FILE__;"""
+        __LINE__; __FILE__;
+        end"""
         expected = r"""# 1 "dummy.t"
 
+
+        _assert(1, "dummy.t", 3);
+        _assert(2, "dummy.t", 4);
 
         fubar
         1235; "cpp";
 
         fubar
-        568; "cpp";"""
+        568; "cpp";
+        end"""
         self.preprocess(src, expected)
 
     def test_error_directive(self):

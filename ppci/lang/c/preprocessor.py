@@ -90,12 +90,14 @@ class CPreProcessor:
 
     def special_macro_line(self, macro_token):
         """ Invoked when the __LINE__ macro is expanded """
-        value = str(macro_token.loc.row)
+        row = self.files[-1].source_file.row
+        value = str(row)
         return [self.make_token(macro_token, "NUMBER", value)]
 
     def special_macro_file(self, macro_token):
         """ Invoked when the __FILE__ macro is expanded """
-        value = '"{}"'.format(macro_token.loc.filename)
+        filename = self.files[-1].source_file.filename
+        value = '"{}"'.format(filename)
         return [self.make_token(macro_token, "STRING", value)]
 
     def special_macro_date(self, macro_token):
