@@ -63,6 +63,7 @@ def link(args=None):
             debug=args.g,
             partial_link=relocatable,
             entry=args.entry,
+            libraries=args.library,
         )
         if relocatable:
             with open(args.output, "w") as output:

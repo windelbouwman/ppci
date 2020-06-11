@@ -396,6 +396,22 @@ class CFrontendTestCase(unittest.TestCase):
         """
         self.do(src)
 
+    def test_pointer_arithmatics(self):
+        """ Test dark pointer voodoo """
+        src = """
+        void main() {
+         int *a, b, *c;
+         a = &b;
+         c = a + 10;  // pointer + numeric
+         c = 20 + a;  // numeric + pointer
+         a = a - 10;  // pointer - numeric
+         b = c - a;   // pointer - pointer
+         a += 2;
+         a -= 4;
+        }
+        """
+        self.do(src)
+
     def test_size_outside_struct(self):
         """ Assert error when using bitsize indicator outside struct """
         src = """

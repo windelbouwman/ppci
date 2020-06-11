@@ -1182,7 +1182,7 @@ class CCodeGenerator:
         ir_typ = self.get_ir_type(expr.typ)
         loaded = self._load_value(ir_a, expr.typ)
         # for pointers, this is not one, but sizeof
-        if isinstance(expr.typ, types.PointerType):
+        if expr.typ.is_pointer:
             one = self.sizeof(expr.typ.element_type)
         else:
             one = 1
@@ -1196,7 +1196,7 @@ class CCodeGenerator:
 
     def gen_binop(self, expr: expressions.BinaryOperator):
         """ Generate code for binary operation expression """
-        if expr.op in ["-", "*", "/", "%", "^", "|", "&", ">>", "<<"]:
+        if expr.op in ["*", "/", "%", "^", "|", "&", ">>", "<<"]:
             lhs = self.gen_expr(expr.a, rvalue=True)
             rhs = self.gen_expr(expr.b, rvalue=True)
             op = expr.op
@@ -1208,29 +1208,51 @@ class CCodeGenerator:
             self.gen_expr(expr.a, rvalue=True)
             rhs = self.gen_expr(expr.b, rvalue=True)
             value = rhs
-        elif expr.op in ["+"]:
+        elif expr.op == "+":
+            # Pay attention to pointer arithmetics!
             lhs = self.gen_expr(expr.a, rvalue=True)
             rhs = self.gen_expr(expr.b, rvalue=True)
-            # Handle pointer arithmatic!
-            # Pointer arithmatic is an old artifact from the days
-            # when an integer refered always to a array cell!
-            if isinstance(expr.a.typ, types.IndexableType):
-                # TODO: assert is_integer(expr.b.typ)
-                esize = self.sizeof(expr.a.typ.element_type)
-                rhs = self.builder.emit_mul(rhs, esize, rhs.ty)
-                rhs = self.builder.emit_cast(rhs, ir.ptr)
-            elif isinstance(expr.b.typ, types.IndexableType):
-                # TODO: assert is_integer(expr.a.typ)
-                esize = self.sizeof(expr.b.typ.element_type)
-                lhs = self.builder.emit_mul(lhs, esize, lhs.ty)
-                lhs = self.builder.emit_cast(lhs, ir.ptr)
-            else:
-                pass
 
-            op = expr.op
+            # left and right are swapped in semantics if right is pointer.
+            if expr.a.typ.is_pointer:
+                assert expr.b.typ.is_integer
+                esize = self.sizeof(expr.a.typ.element_type)
+                assert esize > 0
+                if esize != 1:
+                    esize = self.emit(ir.Const(esize, "esize", rhs.ty))
+                    rhs = self.builder.emit_mul(rhs, esize, rhs.ty)
+                rhs = self.builder.emit_cast(rhs, ir.ptr)
 
             ir_typ = self.get_ir_type(expr.typ)
-            value = self.builder.emit_binop(lhs, op, rhs, ir_typ)
+            value = self.builder.emit_binop(lhs, "+", rhs, ir_typ)
+        elif expr.op == "-":
+            # Pay attention to pointer arithmetics!
+            lhs = self.gen_expr(expr.a, rvalue=True)
+            rhs = self.gen_expr(expr.b, rvalue=True)
+            ir_typ = self.get_ir_type(expr.typ)
+            if expr.a.typ.is_pointer:
+                esize = self.sizeof(expr.a.typ.element_type)
+                assert esize > 0
+                if expr.b.typ.is_pointer:
+                    # pointer - pointer
+                    value = self.builder.emit_binop(lhs, "-", rhs, ir.ptr)
+                    value = self.emit(ir.Cast(value, "typecast", ir_typ))
+                    if esize != 1:
+                        esize = self.emit(ir.Const(esize, "esize", ir_typ))
+                        value = self.emit(
+                            ir.Binop(value, "/", esize, "rhs", ir_typ)
+                        )
+                else:
+                    # pointer - numeric
+                    if esize != 1:
+                        esize = self.emit(ir.Const(esize, "esize", rhs.ty))
+                        rhs = self.builder.emit_mul(rhs, esize, rhs.ty)
+                    rhs = self.builder.emit_cast(rhs, ir.ptr)
+                    value = self.builder.emit_binop(lhs, "-", rhs, ir_typ)
+            else:
+                # numeric - numeric
+                value = self.builder.emit_binop(lhs, "-", rhs, ir_typ)
+
         elif expr.op in ["<", ">", "==", "!=", "<=", ">=", "||", "&&"]:
             value = self.gen_condition_to_integer(expr)
         elif expr.op in [
@@ -1265,6 +1287,15 @@ class CCodeGenerator:
                     op = expr.op[:-1]
                     ir_typ = self.get_ir_type(expr.typ)
                     loaded = self._load_value(lhs, expr.typ)
+
+                    # pointer arithmatic:
+                    if op in ["+", "-"] and expr.a.typ.is_pointer:
+                        esize = self.sizeof(expr.a.typ.element_type)
+                        assert esize > 0
+                        if esize != 1:
+                            esize = self.emit(ir.Const(esize, "esize", rhs.ty))
+                            rhs = self.builder.emit_mul(rhs, esize, rhs.ty)
+
                     value = self.builder.emit_binop(loaded, op, rhs, ir_typ)
                 self._store_value(value, lhs)
         else:  # pragma: no cover
