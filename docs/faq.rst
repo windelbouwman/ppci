@@ -18,7 +18,7 @@ Faq
 *Cool project, I want to contribute to this project, what can I do?*
 
     Great! Please :doc:`see this page<contributing/support>`.
-    If you are not sure where to begin, please contact me fist.
+    If you are not sure where to begin, please contact me first.
     For a list of tasks, refer to :doc:`the todo page<contributing/todo>`. For hints on 
     development see :doc:`the development page<contributing/development>`.
 
