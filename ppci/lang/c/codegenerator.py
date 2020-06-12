@@ -113,8 +113,11 @@ class CCodeGenerator:
         """ Helper function to reserve some room on the stack. """
         size, alignment = self.data_layout(typ)
         name = "alloca"
-        ir_var = self.emit(ir.Alloc(name, size, alignment))
-        ir_var = self.emit(ir.AddressOf(ir_var, name + "_addr"))
+        # Store here, to place them all at the beginning of the function:
+        ir_var = ir.Alloc(name, size, alignment)
+        self._allocs.append(ir_var)
+        ir_var = ir.AddressOf(ir_var, name + "_addr")
+        self._allocs.append(ir_var)
         return ir_var
 
     def emit_global_variable(self, name, binding, typ, ivalue):
@@ -258,7 +261,7 @@ class CCodeGenerator:
         field = ival.field
         mem = mem + self.gen_global_ival(field.typ, ival.value)
         size = self.sizeof(typ)
-        filling = size - len(mem)
+        filling = size - self.mem_len(mem)
         assert filling >= 0
         mem = mem + (bytes([0] * filling),)
         return mem
@@ -390,11 +393,16 @@ class CCodeGenerator:
 
         ir_function = self.ir_var_map[function]
 
-        # Create entry code:
+        # Create entry block (for allocation instructions)
         self.builder.set_function(ir_function)
+        entry_block = self.builder.new_block()
+        ir_function.entry = entry_block
+
+        # Create first real code block:
         first_block = self.builder.new_block()
         self.builder.set_block(first_block)
-        ir_function.entry = first_block
+
+        self._allocs = []
 
         # Add arguments (create memory space for them!):
         for argument in function.typ.arguments:
@@ -456,6 +464,12 @@ class CCodeGenerator:
                         ),
                         function,
                     )
+
+        # Emit alloc instructions as first block:
+        self.builder.set_block(entry_block)
+        for alloc_inst in self._allocs:
+            self.builder.emit(alloc_inst)
+        self.builder.emit_jump(first_block)
 
         # TODO: maybe generate only code which is reachable?
         ir_function.delete_unreachable()

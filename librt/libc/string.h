@@ -26,6 +26,7 @@ int strncmp(const char* str1, const char* str2, size_t num);
 
 // Search:
 const char* strchr(const char* str, int character);
+const char* strrchr(const char* str, int character);
 const char* strpbrk(const char* str1, const char* str2);
 char* strtok(char* str, const char* delimiters);
 const char* strstr(const char* str1, const char* str2);

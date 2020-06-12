@@ -24,12 +24,17 @@ https://github.com/c-testsuite/c-testsuite
 import unittest
 import glob
 import argparse
+import io
 import os
 import logging
+import subprocess
 
 from ppci.common import CompilerError, logformat
 from ppci import api
 from ppci.lang.c import COptions
+from ppci.utils.reporting import HtmlReportGenerator
+from ppci.format.elf import write_elf
+
 
 this_dir = os.path.dirname(os.path.abspath(__file__))
 logger = logging.getLogger("c-test-suite")
@@ -88,21 +93,94 @@ def perform_test(filename):
     """ Try to compile the given snippet. """
     logger.info("Step 1: Compile %s!", filename)
     march = "x86_64"
+
+    html_report = os.path.splitext(filename)[0] + '_report.html'
+
     coptions = COptions()
     libc_include = os.path.join(this_dir, "..", "..", "..", "librt", "libc")
     coptions.add_include_path(libc_include)
-    coptions.enable('freestanding')
-    with open(filename, "r") as f:
-        try:
-            obj = api.cc(f, march, coptions=coptions)
-        except CompilerError as ex:
-            ex.print()
-            raise
-    logger.info("Compilation complete, %s", obj)
+    # coptions.enable('freestanding')
+
+    with open(html_report, 'w') as rf, HtmlReportGenerator(rf) as reporter:
+        with open(filename, "r") as f:
+            try:
+                obj1 = api.cc(f, march, coptions=coptions, reporter=reporter)
+            except CompilerError as ex:
+                ex.print()
+                raise
+    logger.info("Compilation complete, %s", obj1)
+
+    obj0 = api.asm(io.StringIO(STARTERCODE), march)
+    obj2 = api.c3c([io.StringIO(BSP_C3_SRC)], [], march)
+    with open(os.path.join(libc_include, 'lib.c'), 'r') as f:
+        obj3 = api.cc(f, march, coptions=coptions)
+
+    obj = api.link([obj0, obj1, obj2, obj3], layout=io.StringIO(ARCH_MMAP))
 
     logger.info("Step 2: Run it!")
-    logger.error("Running not yet implemented")
-    # TODO
+
+    exe_filename = os.path.splitext(filename)[0] + '_executable.elf'
+    with open(exe_filename, 'wb') as f:
+        write_elf(obj, f, type='executable')
+    api.chmod_x(exe_filename)
+
+    logger.info("Running %s", exe_filename)
+    test_prog = subprocess.Popen(exe_filename)
+    exit_code = test_prog.wait()
+    assert exit_code == 0
+
+    with open(filename + '.expected', 'r') as f:
+        expected_stdout = f.read()
+
+    # TODO: compare stdout?
+
+
+STARTERCODE = """
+global bsp_exit
+global bsp_syscall
+global main
+global start
+
+start:
+    call main
+    mov rdi, rax
+    call bsp_exit
+
+bsp_syscall:
+    mov rax, rdi ; abi param 1
+    mov rdi, rsi ; abi param 2
+    mov rsi, rdx ; abi param 3
+    mov rdx, rcx ; abi param 4
+    syscall
+    ret
+"""
+
+ARCH_MMAP = """
+ENTRY(start)
+MEMORY code LOCATION=0x40000 SIZE=0x10000 {
+    SECTION(code)
+}
+MEMORY ram LOCATION=0x20000000 SIZE=0xA000 {
+    SECTION(data)
+}
+"""
+
+BSP_C3_SRC = """
+module bsp;
+
+public function void putc(byte c)
+{
+    syscall(1, 1, cast<int64_t>(&c), 1);
+}
+
+public function void exit(int64_t code)
+{
+    syscall(60, code, 0, 0);
+}
+
+function void syscall(int64_t nr, int64_t a, int64_t b, int64_t c);
+
+"""
 
 
 @c_test_suite_populate

@@ -127,5 +127,7 @@ class CSynthesizer:
         elif isinstance(instruction, ir.Return):
             value = expressions.VariableAccess()
             self.emit_statement(statements.Return(value, None))
+        elif isinstance(instruction, ir.Jump):
+            self.emit_statement(statements.Goto(instruction.target.name, None))
         else:  # pragma: no cover
             raise NotImplementedError(str(instruction))

@@ -244,6 +244,7 @@ class CFrontendTestCase(unittest.TestCase):
         """ Test structure usage """
         src = """
         typedef struct {int quot, rem; } div_t;
+        struct {} empty_unit;
         struct z { int foo; };
         struct s;
         struct s* p;

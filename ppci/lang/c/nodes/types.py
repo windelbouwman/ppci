@@ -4,8 +4,18 @@
 
 
 def is_scalar(typ):
-    """ Determine whether the given type is of scalar kind """
-    return isinstance(typ, BasicType) and not is_void(typ)
+    """ Determine whether the given type is of scalar kind.
+
+    This includes:
+    - integers
+    - floats
+    - enumerations
+    """
+    return (isinstance(typ, BasicType) and not is_void(typ)) or is_enum(typ)
+
+
+def is_enum(typ) -> bool:
+    return isinstance(typ, EnumType)
 
 
 def is_char_array(typ):

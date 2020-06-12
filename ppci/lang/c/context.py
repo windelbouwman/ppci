@@ -122,7 +122,10 @@ class CContext:
         elif isinstance(typ, types.UnionType):
             if not typ.complete:
                 self.error("Type is incomplete, size unknown", typ)
-            size = max(self.sizeof(part.typ) for part in typ.fields)
+            if typ.fields:
+                size = max(self.sizeof(part.typ) for part in typ.fields)
+            else:
+                size = 0
         elif isinstance(typ, types.EnumType):
             if not typ.complete:
                 self.error("Storage size unknown", typ)
@@ -147,11 +150,21 @@ class CContext:
         elif isinstance(typ, types.StructType):
             if not typ.complete:
                 self.error("Storage size unknown", typ.location)
-            alignment = max(self.alignment(part.typ) for part in typ.fields)
+            if typ.fields:
+                alignment = max(
+                    self.alignment(part.typ) for part in typ.fields
+                )
+            else:
+                alignment = 1
         elif isinstance(typ, types.UnionType):
             if not typ.complete:
                 self.error("Type is incomplete, size unknown", typ)
-            alignment = max(self.alignment(part.typ) for part in typ.fields)
+            if typ.fields:
+                alignment = max(
+                    self.alignment(part.typ) for part in typ.fields
+                )
+            else:
+                alignment = 1
         elif isinstance(typ, types.EnumType):
             if not typ.complete:
                 self.error("Storage size unknown", typ)

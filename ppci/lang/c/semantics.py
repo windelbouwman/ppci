@@ -371,7 +371,7 @@ class CSemantics:
         struct { int f; };
         """
         # Layout the struct here!
-        assert tag or fields
+        assert tag or fields is not None
 
         mp = {"struct": types.StructType, "union": types.UnionType}
         klass = mp[kind]
@@ -383,7 +383,7 @@ class CSemantics:
             else:
                 ctyp = klass()
 
-            if fields:
+            if fields is not None:
                 ctyp.fields = fields
         else:
             assert tag
@@ -1132,8 +1132,7 @@ class CSemantics:
 
         if from_type.is_void:
             self.error(
-                "Value expected but got 'void'",
-                expr.location,
+                "Value expected but got 'void'", expr.location,
             )
 
         if self.equal_types(from_type, to_type):
