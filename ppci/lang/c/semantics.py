@@ -1125,9 +1125,16 @@ class CSemantics:
         """
         assert isinstance(typ, types.CType)
         assert isinstance(expr, expressions.CExpression)
+
         do_cast = False
         from_type = expr.typ
         to_type = typ
+
+        if from_type.is_void:
+            self.error(
+                "Value expected but got 'void'",
+                expr.location,
+            )
 
         if self.equal_types(from_type, to_type):
             pass
