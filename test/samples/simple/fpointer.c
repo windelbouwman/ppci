@@ -27,8 +27,12 @@ void main_main()
   void (*f)(int x);
   f = do1;
   f(30);
+  (*f)(30);
+  (***f)(30);
   f = &do2;
   f(33);
+  (*f)(33);
+  (***f)(33);
 
   int (*fp[4])(int x) = {
     do3, do4, &do4, do3

@@ -41,6 +41,15 @@ class CSemantics:
         self.char_type = self.get_type(["char"])
         self.intptr_type = self.int_type.pointer_to()
 
+        # Choose proper integer type for difference:
+        if self.context.sizeof(self.int_type) == self.context.sizeof(
+            self.intptr_type
+        ):
+            self.size_t_type = self.int_type
+        else:
+            # TODO: this might be 4 bytes on LP64 mode:
+            self.size_t_type = self.long_type
+
         # Working variables:
         self.compounds = []
         self.switch_stack = []  # switch case levels
@@ -782,14 +791,7 @@ class CSemantics:
                             location,
                         )
 
-                    # Choose proper integer type for difference:
-                    if self.context.sizeof(
-                        self.int_type
-                    ) == self.context.sizeof(lhs.typ):
-                        result_typ = self.int_type
-                    else:
-                        # TODO: this might be 4 bytes on LP64 mode:
-                        result_typ = self.long_type
+                    result_typ = self.size_t_type
 
                 else:
                     # pointer - integer
@@ -901,7 +903,7 @@ class CSemantics:
 
     def on_sizeof(self, typ, location):
         """ Handle sizeof contraption """
-        expr = expressions.Sizeof(typ, self.int_type, False, location)
+        expr = expressions.Sizeof(typ, self.size_t_type, False, location)
         return expr
 
     def on_cast(self, to_typ, casted_expr, location):

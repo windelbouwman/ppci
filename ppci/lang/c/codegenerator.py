@@ -1023,7 +1023,8 @@ class CCodeGenerator:
 
         # If we need an rvalue, load it!
         if rvalue and expr.lvalue:
-            value = self._load_value(value, expr.typ)
+            if not expr.typ.is_function:
+                value = self._load_value(value, expr.typ)
 
         elif not rvalue:
             assert expr.lvalue

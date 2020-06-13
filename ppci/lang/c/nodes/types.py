@@ -102,6 +102,10 @@ class CType:
         return isinstance(self, PointerType)
 
     @property
+    def is_function(self) -> bool:
+        return isinstance(self, FunctionType)
+
+    @property
     def is_float(self):
         """ See if this type is float """
         return is_float(self)
