@@ -160,8 +160,16 @@ class AssemblerTestCase(AsmTestCaseBase):
 
     def test_movsx(self):
         """ Test sign extend """
+        # sign extend 8 bit:
         self.feed('movsx rdx, bl')
-        self.check('480fbed3')
+        self.feed('movsx edx, bl')
+        self.feed('movsx dx, bl')
+
+        # sign extend 16 bit:
+        self.feed('movsx rdx, bx')
+        self.feed('movsx edx, bx')
+
+        self.check('480fbed3 400fbed3 66400fbed3 480fbfd3 400fbfd3')
 
     def test_lea(self):
         self.feed('lea r11, [RIP, 0xf]')

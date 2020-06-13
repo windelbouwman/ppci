@@ -1,6 +1,6 @@
 import logging
 from collections import defaultdict
-from ..graph.digraph import DiGraph, DiNode
+from ..graph.digraph import DiGraph, DiNode, dfs
 
 
 class FlowGraphNode(DiNode):
@@ -114,8 +114,10 @@ class FlowGraph(DiGraph):
             node.live_in = set()
             node.live_out = set()
 
-        # Sort flowgraph nodes backwards:
+        # Sort flowgraph nodes by backward depth first search:
+        # TODO: cfg_nodes = [x[1] for x in dfs(self.nodes[0], reverse=True)]
         cfg_nodes = list(self.nodes)
+
 
         # Dataflow fixed point iteration over the nodes in the CFG:
         n_iterations = 0

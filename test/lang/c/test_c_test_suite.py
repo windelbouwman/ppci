@@ -23,6 +23,7 @@ https://github.com/c-testsuite/c-testsuite
 
 import unittest
 import glob
+import fnmatch
 import argparse
 import io
 import os
@@ -60,7 +61,7 @@ def c_test_suite_populate(cls):
     return cls
 
 
-def get_test_snippets(c_test_suite_directory):
+def get_test_snippets(c_test_suite_directory, name_filter="*"):
     snippet_folder = os.path.join(
         c_test_suite_directory, "tests", "single-exec"
     )
@@ -70,8 +71,10 @@ def get_test_snippets(c_test_suite_directory):
         raise ValueError("{} is not a directory".format(snippet_folder))
 
     for filename in sorted(glob.iglob(os.path.join(snippet_folder, "*.c"))):
+        base_name = os.path.splitext(os.path.split(filename)[1])[0]
 
-        yield filename
+        if fnmatch.fnmatch(base_name, name_filter):
+            yield filename
 
 
 def create_test_function(cls, filename):
@@ -94,14 +97,14 @@ def perform_test(filename):
     logger.info("Step 1: Compile %s!", filename)
     march = "x86_64"
 
-    html_report = os.path.splitext(filename)[0] + '_report.html'
+    html_report = os.path.splitext(filename)[0] + "_report.html"
 
     coptions = COptions()
     libc_include = os.path.join(this_dir, "..", "..", "..", "librt", "libc")
     coptions.add_include_path(libc_include)
     # coptions.enable('freestanding')
 
-    with open(html_report, 'w') as rf, HtmlReportGenerator(rf) as reporter:
+    with open(html_report, "w") as rf, HtmlReportGenerator(rf) as reporter:
         with open(filename, "r") as f:
             try:
                 obj1 = api.cc(f, march, coptions=coptions, reporter=reporter)
@@ -112,27 +115,29 @@ def perform_test(filename):
 
     obj0 = api.asm(io.StringIO(STARTERCODE), march)
     obj2 = api.c3c([io.StringIO(BSP_C3_SRC)], [], march)
-    with open(os.path.join(libc_include, 'lib.c'), 'r') as f:
+    with open(os.path.join(libc_include, "lib.c"), "r") as f:
         obj3 = api.cc(f, march, coptions=coptions)
 
     obj = api.link([obj0, obj1, obj2, obj3], layout=io.StringIO(ARCH_MMAP))
 
     logger.info("Step 2: Run it!")
 
-    exe_filename = os.path.splitext(filename)[0] + '_executable.elf'
-    with open(exe_filename, 'wb') as f:
-        write_elf(obj, f, type='executable')
+    exe_filename = os.path.splitext(filename)[0] + "_executable.elf"
+    with open(exe_filename, "wb") as f:
+        write_elf(obj, f, type="executable")
     api.chmod_x(exe_filename)
 
     logger.info("Running %s", exe_filename)
-    test_prog = subprocess.Popen(exe_filename)
+    test_prog = subprocess.Popen(exe_filename, stdout=subprocess.PIPE)
     exit_code = test_prog.wait()
     assert exit_code == 0
+    captured_stdout = test_prog.stdout.read().decode("ascii")
 
-    with open(filename + '.expected', 'r') as f:
+    with open(filename + ".expected", "r") as f:
         expected_stdout = f.read()
 
-    # TODO: compare stdout?
+    # Compare stdout:
+    assert captured_stdout == expected_stdout
 
 
 STARTERCODE = """
@@ -188,11 +193,14 @@ class CTestSuiteTestCase(unittest.TestCase):
     pass
 
 
-if __name__ == "__main__":
+def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--verbose", "-v", action="count", default=0)
     parser.add_argument(
-        "folder", help="the folder with the c test suite.",
+        "--folder", help="the folder with the c test suite.",
+    )
+    parser.add_argument(
+        "--filter", help="Apply filtering on the test cases", default="*"
     )
     args = parser.parse_args()
 
@@ -203,7 +211,20 @@ if __name__ == "__main__":
 
     logging.basicConfig(level=loglevel, format=logformat)
 
-    for filename in get_test_snippets(args.folder):
+    if args.folder is not None:
+        suite_folder = args.folder
+    elif "C_TEST_SUITE_DIR" in os.environ:
+        suite_folder = os.environ["C_TEST_SUITE_DIR"]
+    else:
+        parser.print_help()
+        print("ERROR: Specify where the c test suite is located!")
+        return 1
+
+    for filename in get_test_snippets(suite_folder, name_filter=args.filter):
         perform_test(filename)
 
     print("OK.")
+
+
+if __name__ == "__main__":
+    main()

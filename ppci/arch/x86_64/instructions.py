@@ -678,6 +678,8 @@ class rmregbase16(X86Instruction):
 
         # opcode:
         r += tokens[2].encode()
+        if self.opcode == 0x0F:
+            r += bytes([self.opcode2])
 
         # rm byte:
         rm = tokens[3]
@@ -818,7 +820,7 @@ class MovsxReg64Rm8(rmregbase64):
     opcode2 = 0xBE
 
 
-class MovsxRegRm16(rmregbase64):
+class MovsxReg64Rm16(rmregbase64):
     """ Move sign extend, which means take a byte and sign extend it! """
 
     reg = Operand("reg", Register64, write=True)
@@ -848,6 +850,17 @@ class MovsxReg32Rm16(rmregbase64):
     patterns = {"w": 0}
     opcode = 0x0F
     opcode2 = 0xBF
+
+
+class MovsxReg16Rm8(rmregbase16):
+    """ Move sign extend, which means take a byte and sign extend it! """
+
+    reg = Operand("reg", Register16, write=True)
+    rm = Operand("rm", rm8_modes, read=True)
+    syntax = Syntax(["movsx", " ", reg, ",", " ", rm])
+    patterns = {"w": 0, "prefix": 0x66}
+    opcode = 0x0F
+    opcode2 = 0xBE
 
 
 class MovzxRegRm(rmregbase64):
@@ -2210,7 +2223,7 @@ def pattern_i64toi16(context, tree, c0):
 def pattern_i16_to_i64(context, tree, c0):
     dst = context.new_reg(Register64)
     # sign extend:
-    context.emit(MovsxRegRm16(dst, RmReg16(c0)))
+    context.emit(MovsxReg64Rm16(dst, RmReg16(c0)))
     return dst
 
 
@@ -2456,8 +2469,7 @@ def pattern_i16toi8(context, tree, c0):
 
 @isa.pattern("reg16", "U8TOI16(reg8)", size=4)
 @isa.pattern("reg16", "U8TOU16(reg8)", size=4)
-@isa.pattern("reg16", "I8TOU16(reg8)", size=4)
-def pattern_u8toi16(context, tree, c0):
+def pattern_u8to16(context, tree, c0):
     defu1 = RegisterUseDef()
     defu1.add_def(ax)
     context.emit(defu1)
@@ -2475,6 +2487,15 @@ def pattern_u8toi16(context, tree, c0):
     d = context.new_reg(Register16)
     context.move(d, ax)
     return d
+
+
+@isa.pattern("reg16", "I8TOI16(reg8)", size=4)
+@isa.pattern("reg16", "I8TOU16(reg8)", size=4)
+def pattern_i8to16(context, tree, c0):
+    """ Sign extend 8 to 16 bits. """
+    dst = context.new_reg(Register16)
+    context.emit(MovsxReg16Rm8(dst, RmReg8(c0)))
+    return dst
 
 
 @isa.pattern("stm", "MOVI64(LABEL)", size=2)

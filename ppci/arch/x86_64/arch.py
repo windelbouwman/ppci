@@ -182,7 +182,7 @@ class X86_64Arch(Architecture):
         elif isinstance(dst, registers.Register64) and isinstance(
             src, registers.Register16
         ):
-            return instructions.MovsxRegRm16(dst, RmReg16(src), ismove=True)
+            return instructions.MovsxReg64Rm16(dst, RmReg16(src), ismove=True)
         elif isinstance(dst, registers.Register16) and isinstance(
             src, registers.Register64
         ):
@@ -536,7 +536,9 @@ class X86_64Arch(Architecture):
                 elif isinstance(arg, registers.Register16):
                     # Upcast char!
                     yield self.move(registers.ax, arg)
-                    yield instructions.MovsxRegRm16(rax, RmReg16(registers.ax))
+                    yield instructions.MovsxReg64Rm16(
+                        rax, RmReg16(registers.ax)
+                    )
                     yield self.move(arg_loc, rax)
                 else:  # pragma: no cover
                     raise NotImplementedError()
