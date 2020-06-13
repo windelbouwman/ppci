@@ -213,7 +213,7 @@ class CParser(RecursiveDescentParser):
         while True:
             if self.at_type_id():
                 # We got a typedef type!
-                if typ:
+                if typ or type_specifiers:
                     break  # We already have a type.
                 else:
                     type_name = self.consume()
@@ -228,12 +228,12 @@ class CParser(RecursiveDescentParser):
                 else:
                     type_specifiers.append(type_specifier.val)
             elif self.peek == "enum":
-                if typ:
+                if typ or type_specifiers:
                     self.error("Unexpected enum")
                 else:
                     typ = self.parse_enum()
             elif self.peek in ["struct", "union"]:
-                if typ:
+                if typ or type_specifiers:
                     self.error("Type already determined")
                 else:
                     typ = self.parse_struct_or_union()
@@ -798,8 +798,12 @@ class CParser(RecursiveDescentParser):
             return True
         elif self.peek in ("struct", "union", "enum"):
             return True
-        elif self.at_type_id():
-            return True
+        elif self.peek == "ID":
+            if self.look_ahead(1).val == ":":
+                # We face a label here.
+                return False
+            else:
+                return self.at_type_id()
         else:
             return False
 

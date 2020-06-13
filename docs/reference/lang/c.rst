@@ -31,6 +31,18 @@ generation passes, such that there is a clean seperation, or do it all at
 once. Maybe the best choice is to do it all in one pass, and transform a
 sequence of tokens into IR-code in a single go.
 
+Limitations
+-----------
+
+The C compiler has some limitations. This is the list of current
+known limitations:
+
+- type qualifiers (const, volatile, etc) are parsed but ignored
+- K&R function declarations are not supported
+- wide characters are not supported
+- VLA is not implemented
+- function declarations in function definitions are not allowed
+
 Pre-processor
 -------------
 

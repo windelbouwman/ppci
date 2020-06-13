@@ -102,6 +102,9 @@ def perform_test(filename):
     coptions = COptions()
     libc_include = os.path.join(this_dir, "..", "..", "..", "librt", "libc")
     coptions.add_include_path(libc_include)
+    
+    # TODO: this should be injected elsewhere?
+    coptions.add_define('__LP64__', '1')
     # coptions.enable('freestanding')
 
     with open(html_report, "w") as rf, HtmlReportGenerator(rf) as reporter:

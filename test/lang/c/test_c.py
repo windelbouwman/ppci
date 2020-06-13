@@ -636,8 +636,12 @@ class CFrontendTestCase(unittest.TestCase):
     def test_function_argument_name(self):
         """ Test an argument name with the same name as a typedef """
         src = """
-        typedef int a;
+        typedef double a;
         void add(a a) {
+          a: return;
+        }
+        void mul(int a) {
+          unsigned int a;
         }
         """
         self.do(src)

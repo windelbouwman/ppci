@@ -764,6 +764,9 @@ class CSemantics:
                 rhs, lhs = lhs, rhs
             else:
                 # numeric + numeric
+                lhs = self.promote(lhs)
+                rhs = self.promote(rhs)
+
                 result_typ = self.get_common_type(lhs.typ, rhs.typ, location)
                 lhs = self.coerce(lhs, result_typ)
                 rhs = self.coerce(rhs, result_typ)
@@ -800,6 +803,9 @@ class CSemantics:
                     result_typ = lhs.typ
             else:
                 # numeric - numeric
+                lhs = self.promote(lhs)
+                rhs = self.promote(rhs)
+
                 result_typ = self.get_common_type(lhs.typ, rhs.typ, location)
                 lhs = self.coerce(lhs, result_typ)
                 rhs = self.coerce(rhs, result_typ)
@@ -823,6 +829,9 @@ class CSemantics:
             if not rhs.typ.is_integer:
                 self.error("Expected integer", rhs.location)
 
+            lhs = self.promote(lhs)
+            rhs = self.promote(rhs)
+
             result_typ = self.get_common_type(lhs.typ, rhs.typ, location)
             lhs = self.coerce(lhs, result_typ)
             rhs = self.coerce(rhs, result_typ)
@@ -832,6 +841,9 @@ class CSemantics:
 
             if not rhs.typ.is_scalar:
                 self.error("Expected scalar", rhs.location)
+
+            lhs = self.promote(lhs)
+            rhs = self.promote(rhs)
 
             result_typ = self.get_common_type(lhs.typ, rhs.typ, location)
             lhs = self.coerce(lhs, result_typ)

@@ -686,7 +686,7 @@ class CPreProcessor:
             elif directive == "warning":
                 yield from self.handle_warning_directive(directive_token)
             elif directive == "pragma":
-                yield from self.handle_warning_directive(directive_token)
+                yield from self.handle_pragma_directive(directive_token)
             else:  # pragma: no cover
                 self.error(
                     "not implemented: {}".format(directive),
