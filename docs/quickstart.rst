@@ -54,7 +54,7 @@ Now lets compile some code via the :ref:`high level api functions<api>`:
     >>> f = io.StringIO(source)
     >>> obj = cc(f, get_arch('arm'))
     >>> obj
-    CodeObject of 44 bytes
+    CodeObject of 48 bytes
 
 Let review what we have just done:
 

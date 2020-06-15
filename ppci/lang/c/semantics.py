@@ -327,20 +327,26 @@ class CSemantics:
 
     def check_redeclaration_storage_class(self, sym, declaration):
         """ Test if we specified an invalid combo of storage class. """
-        old_storage_class = sym.declaration.storage_class
+        prev_storage_class = sym.declaration.storage_class
         new_storage_class = declaration.storage_class
         # None == automatic storage class.
-        invalid_combos = [(None, "static"), ("extern", "static")]
-        combo = (old_storage_class, new_storage_class)
-        if combo in invalid_combos:
+        was_static = prev_storage_class == "static"
+        is_static = new_storage_class == "static"
+
+        # Prevent change of static-ness after first declaration
+        if is_static and not was_static:
             message = "Invalid redefine of storage class. Was {}, but now {}".format(
-                old_storage_class, new_storage_class
+                prev_storage_class, new_storage_class
             )
             self.invalid_redeclaration(sym, declaration, message)
 
-        if not declaration.storage_class:
-            if sym.declaration.storage_class:
-                declaration.storage_class = sym.declaration.storage_class
+        # update current declarations storage class
+        if (
+            not declaration.storage_class
+            and prev_storage_class
+            and prev_storage_class != "extern"
+        ):
+            declaration.storage_class = sym.declaration.storage_class
 
     def invalid_redeclaration(
         self, sym, declaration, message="Invalid redefinition"
@@ -823,11 +829,8 @@ class CSemantics:
             # Booleans are integer type:
             result_typ = self.int_type
         elif op in ["<<", ">>", "|", "&", "^"]:  # Bit shifting operators
-            if not lhs.typ.is_integer:
-                self.error("Expected integer", lhs.location)
-
-            if not rhs.typ.is_integer:
-                self.error("Expected integer", rhs.location)
+            self.ensure_integer(lhs)
+            self.ensure_integer(rhs)
 
             lhs = self.promote(lhs)
             rhs = self.promote(rhs)
@@ -871,10 +874,7 @@ class CSemantics:
             expr = expressions.UnaryOperator(op, a, a.typ, False, location)
         elif op == "~":
             a = self.pointer(a)
-
-            if not a.typ.is_integer:
-                self.error("Expected integer", a.location)
-
+            self.ensure_integer(a)
             expr = expressions.UnaryOperator(op, a, a.typ, False, location)
         elif op == "+":
             expr = self.pointer(a)
@@ -1218,9 +1218,9 @@ class CSemantics:
 
     def ensure_integer(self, expr: expressions.CExpression):
         """ Ensure typ is of any integer type. """
-        if not expr.typ.is_integer:
+        if not expr.typ.is_integer_or_enum:
             self.error(
-                "integer type expected but got {}".format(
+                "integer or enum type expected but got {}".format(
                     type_to_str(expr.typ)
                 ),
                 expr.location,

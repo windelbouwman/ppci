@@ -84,6 +84,13 @@ class Verifier:
                     # Check that phi 'use' info is good:
                     assert used_value in phi.uses
 
+        # Determine rank of instructions within blocks:
+        ranks = {}
+        for block in function:
+            for rank, instruction in enumerate(block):
+                ranks[instruction] = rank
+        self._ranks = ranks
+
         # Now we can build a dominator tree
         self.cfg_info = CfgInfo(function)
 
@@ -262,7 +269,7 @@ class Verifier:
         else:
             # For all other instructions follow these rules:
             if one.block is another.block:
-                return one.position < another.position
+                return self._ranks[one] < self._ranks[another]
             else:
                 return self.block_dominates(one.block, another.block)
 

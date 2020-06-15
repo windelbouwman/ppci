@@ -136,6 +136,10 @@ class CType:
         return is_integer(self)
 
     @property
+    def is_integer_or_enum(self):
+        return is_integer(self) or is_enum(self)
+
+    @property
     def is_promotable(self):
         return is_promotable(self)
 

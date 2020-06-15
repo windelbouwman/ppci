@@ -18,11 +18,11 @@ This can be useful in these scenario's:
     >>> c_src = "int add(int a, int b) { return a + b; }"   # Define some C-code
     >>> mod = c_to_ir(io.StringIO(c_src), "x86_64")         # turn C-code into IR-code
     >>> mod.stats()
-    'functions: 1, blocks: 1, instructions: 10'
+    'functions: 1, blocks: 2, instructions: 11'
     >>> json_txt = to_json(mod)                             # Turn module into JSON
     >>> mod2 = from_json(json_txt)                          # Load module from JSON.
     >>> mod2.stats()
-    'functions: 1, blocks: 1, instructions: 10'
+    'functions: 1, blocks: 2, instructions: 11'
 
 
 """

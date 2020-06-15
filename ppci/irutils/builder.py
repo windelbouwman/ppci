@@ -21,15 +21,17 @@ def split_block(block, pos=None, newname="splitblock"):
 
     if pos is None:
         pos = int(len(block) / 2)
+    first = block.instructions[:pos]
     rest = block.instructions[pos:]
     assert all(not i.is_phi for i in rest)
 
     # Create new block, and move instructions into it:
     block2 = ir.Block(newname)
     block.function.add_block(block2)
+    block.instructions = first
+    block2.instructions = rest
     for instruction in rest:
-        block.remove_instruction(instruction)
-        block2.add_instruction(instruction)
+        instruction.block = block2
 
     # Update successor phi nodes:
     for phi in downstream_phis:

@@ -29,8 +29,8 @@ So, first define a function in C, called ``my_add``, and turn it into IR-code:
     <BLANKLINE>
     global function i32 my_add(i32 a, i32 b) {
       my_add_block0: {
-        i32 tmp = a + b;
-        return tmp;
+        i32 tmp_3 = a + b;
+        return tmp_3;
       }
     <BLANKLINE>
     }
@@ -53,8 +53,8 @@ is target independent!
         blob<7:1> func_name = literal '6d795f61646400';
         ptr name_ptr = &func_name;
         call trace(name_ptr);
-        i32 tmp = a + b;
-        return tmp;
+        i32 tmp_3 = a + b;
+        return tmp_3;
       }
     <BLANKLINE>
     }
