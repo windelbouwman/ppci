@@ -23,9 +23,10 @@ class ElfFileTestCase(unittest.TestCase):
             ("exit", 0x0006cf04),
             ("syscall", 0x0b09985c),
             ("flapenguin.me", 0x03987915),
-            # ("freelocal", 0x0c335095),
-            # ('"hcreate_"', 0x08b8c5c2),
-            # ("foobar", 0xfde460be)
+            ("isnan", 0x0070a47e),
+            ("freelocal", 0x0bc334fc),
+            ("hcreate_", 0x0a8b8c4f),
+            ("getopt_long_onl", 0x0f256dbc),
         ]
         for name, hash_value in examples:
             self.assertEqual(elf_hash(name), hash_value)
