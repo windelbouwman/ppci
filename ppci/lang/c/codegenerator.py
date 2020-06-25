@@ -55,6 +55,13 @@ class CCodeGenerator:
             BasicType.LONGDOUBLE: (ir.f64, 8),  # TODO: is this correct?
         }
         self._constant_evaluator = LinkTimeExpressionEvaluator(self)
+        # Get strongest alignment constraint to align args in vararg block
+        # TODO should also take "double" alignment if defined for the target
+        # architecture for now, no easy way to get it
+        self.va_alignment = max(
+            self.context.arch_info.get_alignment("long"),
+            self.context.arch_info.get_alignment("ptr"),
+        )
 
     def get_label_block(self, name):
         """ Get the ir block for a given label, and create it if necessary """
@@ -1451,39 +1458,31 @@ class CCodeGenerator:
         """
         if var_args:
             # Allocate a memory slab:
-            size = 0
-            alignment = 1
-            for va in var_args:
-                va_size, va_alignment = self.data_layout(va.typ)
-                # If not aligned, make it happen:
-                size += required_padding(size, va_alignment)
-                size += va_size
-                alignment = max(alignment, va_alignment)
+            # each argument is stored in a slot, aligned on the strongest alignment
+            size = self.va_alignment * len(var_args)
+            alignment = self.va_alignment
+
             vararg_alloc = self.emit(ir.Alloc("varargs", size, alignment))
             vararg_ptr = self.emit(ir.AddressOf(vararg_alloc, "vaptr"))
             vararg_ptr2 = vararg_ptr
 
             offset = 0
+            arg_count = len(var_args)
             for argument in var_args:
                 value = self.gen_expr(argument, rvalue=True)
-                va_size, va_alignment = self.data_layout(argument.typ)
-
-                # handle alignment:
-                padding = required_padding(offset, va_alignment)
-                if padding > 0:
-                    offset += padding
-                    vararg_ptr2 = self.builder.emit_add(
-                        vararg_ptr2, padding, ir.ptr
-                    )
 
                 # Store value:
                 self.emit(ir.Store(value, vararg_ptr2))
 
-                # Increase pointer:
-                offset += va_size
-                vararg_ptr2 = self.builder.emit_add(
-                    vararg_ptr2, va_size, ir.ptr
-                )
+                # Update remaining number of arguments
+                arg_count -= 1
+
+                # Increase pointer to next slot if necessary:
+                if arg_count:
+                    offset += alignment
+                    vararg_ptr2 = self.builder.emit_add(
+                        vararg_ptr2, alignment, ir.ptr
+                    )
         else:
             # Emit a null pointer when no arguments given:
             vararg_ptr = self.emit(ir.Const(0, "varargs", ir.ptr))
@@ -1554,13 +1553,14 @@ class CCodeGenerator:
 
     def gen_va_arg(self, expr: expressions.BuiltInVaArg):
         """ Generate code for a va_arg operation """
-        # TODO: how to deal with proper alignment?
+        # all arguments are all in similar slots 
         valist_ptrptr = self.gen_expr(expr.arg_pointer, rvalue=False)
         va_ptr = self.emit(ir.Load(valist_ptrptr, "va_ptr", ir.ptr))
-        ir_typ = self.get_ir_type(expr.typ)
         # Load the variable argument:
+        ir_typ = self.get_ir_type(expr.typ)
         value = self.emit(ir.Load(va_ptr, "va_arg", ir_typ))
-        size = self.emit(ir.Const(self.sizeof(expr.typ), "size", ir.ptr))
+        # Increment pointer to next slot
+        size = self.emit(ir.Const(self.va_alignment, "size", ir.ptr))
         va_ptr = self.emit(ir.add(va_ptr, size, "incptr", ir.ptr))
         self.emit(ir.Store(va_ptr, valist_ptrptr))
         return value
