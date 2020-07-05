@@ -654,7 +654,7 @@ def pattern_addf32(context, tree, c0, c1):
 )
 def pattern_addf64(context, tree, c0, c1):
     dst = context.new_reg(XmmRegisterDouble)
-    context.emit(Movsd(dst, RmXmmRegDouble(c0)))
+    context.move(dst, c0)
     context.emit(Addsd(dst, c1))
     return dst
 
@@ -674,7 +674,7 @@ def pattern_sub_f32(context, tree, c0, c1):
 )
 def pattern_sub_f64(context, tree, c0, c1):
     dst = context.new_reg(XmmRegisterDouble)
-    context.emit(Movsd(dst, RmXmmRegDouble(c0)))
+    context.move(dst, c0)
     context.emit(Subsd(dst, c1))
     return dst
 
@@ -694,7 +694,7 @@ def pattern_mul_f32(context, tree, c0, c1):
 )
 def pattern_mul_f64(context, tree, c0, c1):
     dst = context.new_reg(XmmRegisterDouble)
-    context.emit(Movsd(dst, RmXmmRegDouble(c0)))
+    context.move(dst, c0)
     context.emit(Mulsd(dst, c1))
     return dst
 
@@ -714,7 +714,7 @@ def pattern_div_f32(context, tree, c0, c1):
 )
 def pattern_div_f64(context, tree, c0, c1):
     dst = context.new_reg(XmmRegisterDouble)
-    context.emit(Movsd(dst, RmXmmRegDouble(c0)))
+    context.move(dst, c0)
     context.emit(Divsd(dst, c1))
     return dst
 

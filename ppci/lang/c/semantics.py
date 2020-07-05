@@ -1144,10 +1144,11 @@ class CSemantics:
         from_type = expr.typ
         to_type = typ
 
-        if from_type.is_void:
-            self.error(
-                "Value expected but got 'void'", expr.location,
-            )
+        # TBD: in a ternary operator, void might be the result type.
+        # if from_type.is_void:
+        #     self.error(
+        #         "Value expected but got 'void'", expr.location,
+        #     )
 
         if self.equal_types(from_type, to_type):
             pass

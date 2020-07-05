@@ -42,6 +42,7 @@ from .registers import rax, rcx, rdi, rsi
 from .registers import register_classes, caller_save, callee_save
 from .registers import Register64
 from .registers import rbp, rsp, al
+from . import elf as elf_support
 from . import instructions, registers
 
 
@@ -650,6 +651,19 @@ class X86_64Arch(Architecture):
             if frame.is_used(reg, self.info.alias):
                 saved_registers.append(reg)
         return saved_registers
+
+    def get_reloc_type(self, reloc_type, symbol):
+        """ Get the reloc type for ELF format. """
+        if (
+            symbol.is_function
+            and symbol.undefined
+            and reloc_type == "rel32"
+        ):
+            # TODO: can we always use PLT32 here?
+            r_type = elf_support.R_X86_64_PLT32
+        else:
+            r_type = elf_support.elf_reloc_mapping[reloc_type]
+        return r_type
 
 
 def round_up16(s, already_taken):

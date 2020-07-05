@@ -157,3 +157,9 @@ class Architecture(MachineArchitecture):
         return self.get_runtime()
 
     runtime = property(get_compiler_rt_lib)
+
+    def get_reloc_type(self, reloc_type, symbol):
+        """ Re-implement this function to support ELF format
+        relocations.
+        """
+        raise NotImplementedError('ELF format relocations')

@@ -9,6 +9,7 @@ from ... import ir
 from .headers import ElfMachine
 from .headers import SectionHeaderType, SectionHeaderFlag
 from .headers import SymbolTableBinding, SymbolTableType
+from .headers import ProgramHeaderType
 from .file import ElfFile, StringTable
 
 
@@ -35,7 +36,7 @@ def write_elf(obj, f, type="executable"):
     etype_mapping = {
         "executable": ET_EXEC,
         "relocatable": ET_REL,
-        # 'shared': ET_DYN,
+        'shared': ET_DYN,
     }
     e_type = etype_mapping[type]
     writer = ElfWriter(f, elf_file)
@@ -53,6 +54,34 @@ ET_LOOS = 0xFE00
 ET_HIOS = 0xFEFF
 ET_LOPROC = 0xFF00
 ET_HIPROC = 0xFFFF
+
+# Dynamic tags:
+DT_NULL = 0
+DT_NEEDED = 1
+DT_PLTRELSZ = 2
+DT_PLTGOT = 3
+DT_HASH = 4
+DT_STRTAB = 5
+DT_SYMTAB = 6
+DT_RELA = 7
+DT_RELASZ = 8
+DT_RELAENT = 9
+DT_STRSZ = 10
+DT_SYMENT = 11
+DT_INIT = 12
+DT_FINI = 13
+DT_SONAME = 14
+DT_RPATH = 15
+DT_SYMBOLIC = 16
+DT_REL = 17
+DT_RELSZ = 18
+DT_RELENT = 19
+DT_PLTREL = 20
+DT_DEBUG = 21
+DT_TEXTREL = 22
+DT_JMPREL = 23
+DT_LOPROC = 0x70000000
+DT_HIPROC = 0x7fffffff
 
 
 machine_map = {
@@ -94,7 +123,7 @@ class ElfWriter:
         self.f.seek(self.header_types.ElfHeader.size, io.SEEK_CUR)
         self.page_size = 0x1000
 
-        if self.obj.images and self.e_type == ET_EXEC:
+        if self.obj.images and self.e_type in [ET_EXEC, ET_DYN]:
             self.write_images()
 
         self.write_sections()
@@ -102,6 +131,8 @@ class ElfWriter:
 
         if self.e_type == ET_REL:
             self.write_rela_table()
+        elif self.e_type == ET_DYN:
+            self.write_dynamic_section()
 
         self.write_string_table()
         self.write_section_headers()
@@ -174,6 +205,10 @@ class ElfWriter:
         # number of program headers:
         self.elf_header.e_phnum = len(self.obj.images)
 
+        if self.e_type == ET_DYN:
+            # Add dynamic section:
+            self.elf_header.e_phnum += 1
+
         # Skip over program headers, will come back to this:
         self.f.seek(
             self.elf_header.e_phnum * self.elf_header.e_phentsize, io.SEEK_CUR
@@ -199,7 +234,7 @@ class ElfWriter:
 
             # Create program header:
             program_header = self.header_types.ProgramHeader()
-            program_header.p_type = 1  # 1=load
+            program_header.p_type = ProgramHeaderType.LOAD
             program_header.p_flags = p_flags
             program_header.p_offset = file_offset
             program_header.p_vaddr = vaddr
@@ -225,7 +260,7 @@ class ElfWriter:
         at the end of the file.
         """
         section_header = self.header_types.SectionHeader()
-        section_header.sh_name = self.string_table.get_name(section.name)
+        section_header.sh_name = self.get_string(section.name)
         section_header.sh_type = SectionHeaderType.PROGBITS.value
         sh_flags = SectionHeaderFlag.ALLOC
         if section.name == "data":
@@ -279,7 +314,7 @@ class ElfWriter:
             )
 
             entry = self.header_types.SymbolTableEntry()
-            entry.st_name = self.string_table.get_name(symbol.name)
+            entry.st_name = self.get_string(symbol.name)
             entry.st_info = (int(st_bind) << 4) | int(st_type)
             if symbol.defined:
                 entry.st_shndx = self.section_numbers[symbol.section]
@@ -295,7 +330,7 @@ class ElfWriter:
         symbol_table_index_first_global = len(local_symbols) + 1
 
         section_header = self.header_types.SectionHeader()
-        section_header.sh_name = self.string_table.get_name(".symtab")
+        section_header.sh_name = self.get_string(".symtab")
         section_header.sh_type = SectionHeaderType.SYMTAB.value
         section_header.sh_flags = SectionHeaderFlag.ALLOC
         section_header.sh_offset = symtab_offset
@@ -346,7 +381,7 @@ class ElfWriter:
 
             rela_name = ".rela" + section_name
             section_header = self.header_types.SectionHeader()
-            section_header.sh_name = self.string_table.get_name(rela_name)
+            section_header.sh_name = self.get_string(rela_name)
             section_header.sh_type = SectionHeaderType.RELA.value
             section_header.sh_flags = SectionHeaderFlag.INFO_LINK
             section_header.sh_offset = rela_offset
@@ -358,60 +393,8 @@ class ElfWriter:
             self.section_headers.append(section_header)
 
     def get_reloc_type(self, rel):
-
-        # TODO: this must be placed in arch specific file.
-        R_X86_64_NONE = 0
-        R_X86_64_64 = 1  # S + A
-        R_X86_64_PC32 = 2  # S + A - P
-        R_X86_64_GOT32 = 3
-        R_X86_64_PLT32 = 4
-        R_X86_64_COPY = 5
-        R_X86_64_GLOB_DAT = 6
-        R_X86_64_JUMP_SLOT = 7
-        R_X86_64_RELATIVE = 8
-        R_X86_64_GOTPCREL = 9
-        R_X86_64_32 = 10
-        R_X86_64_32S = 11
-        R_X86_64_16 = 12
-        R_X86_64_PC16 = 13
-        R_X86_64_8 = 14
-        R_X86_64_PC8 = 15
-        R_X86_64_DTPMOD64 = 16
-        R_X86_64_DTPOFF64 = 17
-        R_X86_64_TPOFF64 = 18
-        R_X86_64_TLSGD = 19
-        R_X86_64_TLSLD = 20
-        R_X86_64_DTPOFF32 = 21
-        R_X86_64_GOTTPOFF = 22
-        R_X86_64_TPOFF32 = 23
-        R_X86_64_PC64 = 24
-        R_X86_64_GOTOFF64 = 25
-        R_X86_64_GOTPC32 = 26
-        R_X86_64_SIZE32 = 32
-        R_X86_64_SIZE64 = 33
-        R_X86_64_GOTPC32_TLSDESC = 34
-        R_X86_64_TLSDESC_CALL = 35
-        R_X86_64_TLSDESC = 36
-        R_X86_64_IRELATIVE = 37
-
-        elf_reloc_mapping = {
-            "rel32": R_X86_64_PC32,
-            "abs64": R_X86_64_64,
-            "abs32": R_X86_64_32,
-            "absaddr64": R_X86_64_64,
-        }
-
         symbol = self.obj.symbols_by_id[rel.symbol_id]
-
-        if (
-            symbol.is_function
-            and symbol.undefined
-            and rel.reloc_type == "rel32"
-        ):
-            # TODO: can we always use PLT32 here?
-            r_type = R_X86_64_PLT32
-        else:
-            r_type = elf_reloc_mapping[rel.reloc_type]
+        r_type = self.obj.arch.get_reloc_type(rel.reloc_type, symbol)
         return r_type
 
     def write_string_table(self):
@@ -420,7 +403,7 @@ class ElfWriter:
         self.align_to(alignment)
 
         strtab_offset = self.f.tell()
-        sh_name = self.string_table.get_name(".strtab")
+        sh_name = self.get_string(".strtab")
         strtab_size = len(self.string_table.strtab)
         self.f.write(self.string_table.strtab)
 
@@ -455,9 +438,78 @@ class ElfWriter:
             # Patch in some forward links:
             if section_header.sh_type == SectionHeaderType.SYMTAB.value:
                 section_header.sh_link = self.section_numbers[".strtab"]
+            elif section_header.sh_type == SectionHeaderType.DYNAMIC.value:
+                section_header.sh_link = self.section_numbers[".strtab"]
             elif section_header.sh_type == SectionHeaderType.RELA.value:
                 section_header.sh_link = self.section_numbers[".symtab"]
             section_header.write(self.f)
+
+    def write_dynamic_section(self):
+        """ Create dynamic instruction table.
+
+        The dynamic table includes instruction for
+        the runtime to execute.
+
+        """
+
+        # Create dynamic contraption:
+        Entry = self.header_types.DynamicEntry
+        instructions = []
+        def emit(tag, val):
+            entry = Entry()
+            entry.d_tag = tag
+            entry.d_val = val
+            instructions.append(entry)
+
+        # DT_NEEDED libc.so.6
+        emit(DT_NEEDED, self.get_string("libc.so.6"))
+        emit(DT_NULL, 0)
+
+        # TODO: figure out how to generate this info properly
+
+        # DT_HASH
+        # DT_STRTAB
+        # DT_SYMTAB
+        # DT_STRSZ
+        # DT_SYMENT
+
+        # Write dynamic table to file:
+        alignment = 8 if self.elf_file.bits == 64 else 4
+        self.align_to(alignment)
+        dynamic_file_offset = self.f.tell()
+        for ins in instructions:
+            ins.write(self.f)
+        dynamic_size = len(instructions) * Entry.size
+
+        # Create program header:
+        p_flags = 6
+        # TODO: where to place the dynamic section in memory?
+        vaddr = 0x60000000
+        program_header = self.header_types.ProgramHeader()
+        program_header.p_type = ProgramHeaderType.DYNAMIC
+        program_header.p_flags = p_flags
+        program_header.p_offset = dynamic_file_offset
+        program_header.p_vaddr = vaddr
+        program_header.p_paddr = vaddr
+        program_header.p_filesz = dynamic_size
+        program_header.p_memsz = dynamic_size
+        program_header.p_align = alignment
+        self.program_headers.append(program_header)
+
+        # Create section header:
+        section_header = self.header_types.SectionHeader()
+        section_header.sh_name = self.get_string(".dynamic")
+        section_header.sh_type = SectionHeaderType.DYNAMIC
+        section_header.sh_addr = vaddr
+        section_header.sh_flags = SectionHeaderFlag.ALLOC
+        section_header.sh_offset = dynamic_file_offset
+        section_header.sh_size = dynamic_size
+        section_header.sh_link = 0  # filled later
+        section_header.sh_info = 0
+        section_header.sh_addralign = alignment
+        section_header.sh_entsize = Entry.size
+        self.section_headers.append(section_header)
+        self.section_numbers[".dynamic"] = len(self.section_headers)
 
     def create_hash_table(self):
         """ Create hash table for fast symbol lookup.
@@ -488,6 +540,10 @@ class ElfWriter:
         padding = (alignment - (self.f.tell() % alignment)) % alignment
         self.f.write(bytes(padding))
         assert self.f.tell() % alignment == 0
+
+    def get_string(self, txt: str) -> int:
+        """ Enter text in the string table and return the offset. """
+        return self.string_table.get_name(txt)
 
 
 def elf_hash(name):

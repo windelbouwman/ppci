@@ -21,8 +21,9 @@ try:
 except ImportError:
     from traceback import print_exc
 
-from ppci.api import cc
+from ppci import api
 from ppci.utils.reporting import HtmlReportGenerator
+from ppci.format.elf import write_elf
 from ppci.lang.c import COptions
 from ppci.common import CompilerError, logformat
 
@@ -45,7 +46,7 @@ coptions.add_define('BUILD_DIR', '"{}"'.format(_8cc_folder))
 
 def do_compile(filename, reporter):
     with open(filename, 'r') as f:
-        obj = cc(f, arch, coptions=coptions, reporter=reporter)
+        obj = api.cc(f, arch, coptions=coptions, reporter=reporter)
     print(filename, 'compiled into', obj)
     return obj
 
@@ -94,6 +95,10 @@ def main():
     t2 = time.time()
     elapsed = t2 - t1
     print(passed, 'passed,', failed, 'failed in', elapsed, 'seconds')
+
+    obj = api.link(objs)
+    with open('8cc.exe', 'wb') as f:
+        write_elf(obj, f, type='executable')
 
 
 if __name__ == '__main__':

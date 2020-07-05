@@ -352,3 +352,22 @@ class HeaderTypes:
                 ],
             )
             assert self.RelocationTableEntry.size == 12
+
+        if bits == 64:
+            self.DynamicEntry = header.mk_header(
+                "DynamicEntry",
+                [
+                    header.Int64("d_tag"),
+                    header.Uint64("d_val"),
+                ],
+            )
+            assert self.DynamicEntry.size == 16
+        else:
+            self.DynamicEntry = header.mk_header(
+                "DynamicEntry",
+                [
+                    header.Int32("d_tag"),
+                    header.Uint32("d_val"),
+                ],
+            )
+            assert self.DynamicEntry.size == 8
