@@ -82,9 +82,13 @@ class ConstantExpressionEvaluator:
 
     def eval_unop(self, expr):
         """ Evaluate unary operation. """
-        if expr.op in ["-"]:
+        # types must have been checked while parsing
+        if expr.op in ["-", "~"]:
             a = self.eval_expr(expr.a)
-            op_map = {"-": lambda x: -x}
+            op_map = {
+                "-": lambda x: -x,
+                "~": lambda x: ~x,
+            }
             value = op_map[expr.op](a)
         elif expr.op == "&":
             value = self.eval_take_address(expr.a)
@@ -108,10 +112,13 @@ class ConstantExpressionEvaluator:
         }
 
         # Ensure division is integer division:
-        if expr.typ.is_integer:
+        if expr.typ.is_integer_or_enum:
             op_map["/"] = lambda x, y: x // y
             op_map[">>"] = lambda x, y: x >> y
             op_map["<<"] = lambda x, y: x << y
+            op_map["|"] = lambda x, y: x | y
+            op_map["&"] = lambda x, y: x & y
+            op_map["^"] = lambda x, y: x ^ y
         else:
             op_map["/"] = lambda x, y: x / y
 

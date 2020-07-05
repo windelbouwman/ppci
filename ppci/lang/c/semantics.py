@@ -151,6 +151,8 @@ class CSemantics:
         self, storage_class, typ, name, modifiers, location
     ):
         """ Given a declaration, and a declarator, create the proper object """
+        # TSF trace
+        print("Found %s" % name)
         typ = self.apply_type_modifiers(modifiers, typ)
         if isinstance(typ, types.FunctionType):
             declaration = self.on_function_declaration(
@@ -660,6 +662,8 @@ class CSemantics:
         if isinstance(value, int):
             if type_specifiers:
                 typ = self.get_type(type_specifiers)
+                # TSF trace
+                print("number type = %s" % typ)
             else:
                 # Use larger type to fit the value if required:
                 # Try unsigned long,
@@ -688,6 +692,8 @@ class CSemantics:
             # Check limits of integer
             # Note, an integer is always positive
             max_value = self.context.limit_max(typ)
+            # TSF trace
+            print("max=%s cur=%s" % (max_value, value))
             if value > max_value:
                 self.error(
                     "Integer value too big for type ({})".format(max_value),
@@ -865,8 +871,8 @@ class CSemantics:
             if not a.lvalue:
                 self.error("Expected lvalue", a.location)
 
-            if not (a.typ.is_integer or a.typ.is_pointer):
-                self.error("Expected integer or pointer", a.location)
+            if not (a.typ.is_arithmetic or a.typ.is_pointer):
+                self.error("Expected arithmetic or pointer type", a.location)
 
             expr = expressions.UnaryOperator(op, a, a.typ, False, location)
         elif op == "-":

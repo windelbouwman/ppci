@@ -59,6 +59,11 @@ class Symbol:
         return self.binding == "global"
 
     @property
+    def is_defined_global(self):
+        """ Test if the symbol in defined and global. """
+        return self.value is not None and self.binding == "global"
+
+    @property
     def is_function(self):
         """ Test if this symbol is a function. """
         return self.typ == "func"
@@ -249,6 +254,11 @@ class ObjectFile:
     def has_symbol(self, name):
         """ Check if this object file has a symbol with name 'name' """
         return name in self.symbol_map
+
+    def is_defined_global(self, name):
+        """ Test if the symbol "name" is defined and global in "self" """
+        sym = self.symbol_map.get(name)
+        return sym and sym.is_defined_global
 
     def get_symbol(self, name):
         """ Get a symbol """

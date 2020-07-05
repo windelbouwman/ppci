@@ -390,7 +390,7 @@ class Linker:
             for library in libraries:
                 self.logger.debug("scanning library for symbols %s", library)
                 for obj in library:
-                    has_sym = any(map(obj.has_symbol, undefined_symbols))
+                    has_sym = any(map(obj.is_defined_global, undefined_symbols))
                     if has_sym:
                         self.logger.debug(
                             "Using object file %s from library", obj

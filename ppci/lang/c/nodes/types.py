@@ -27,6 +27,7 @@ def is_integer(typ):
     """ Test if the given type is of integer type """
     return (
         isinstance(typ, BasicType) and typ.type_id in BasicType.INTEGER_TYPES
+        or isinstance(typ, EnumType)
     )
 
 
@@ -138,6 +139,10 @@ class CType:
     @property
     def is_integer_or_enum(self):
         return is_integer(self) or is_enum(self)
+
+    @property
+    def is_arithmetic(self):
+        return is_integer(self) or is_enum(self) or is_double(self) or is_float(self)
 
     @property
     def is_promotable(self):
