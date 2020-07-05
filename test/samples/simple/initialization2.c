@@ -13,6 +13,7 @@ char c0[] = "abc";
 char c1[9] = "abc";
 char c2[3] = "abc";
 char c3[4] = "abc";
+int g_i = (7 & 5) ^ 15;
 
 void main_main()
 {
@@ -33,5 +34,7 @@ void main_main()
 
   printf("%c %c\n", c3[0], c3[2]);
   printf("%d\n", sizeof(c3));
+
+  printf("g_i = %d\n", g_i);
 }
 

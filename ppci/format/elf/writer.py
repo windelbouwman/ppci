@@ -36,7 +36,7 @@ def write_elf(obj, f, type="executable"):
     etype_mapping = {
         "executable": ET_EXEC,
         "relocatable": ET_REL,
-        'shared': ET_DYN,
+        "shared": ET_DYN,
     }
     e_type = etype_mapping[type]
     writer = ElfWriter(f, elf_file)
@@ -81,7 +81,7 @@ DT_DEBUG = 21
 DT_TEXTREL = 22
 DT_JMPREL = 23
 DT_LOPROC = 0x70000000
-DT_HIPROC = 0x7fffffff
+DT_HIPROC = 0x7FFFFFFF
 
 
 machine_map = {
@@ -455,6 +455,7 @@ class ElfWriter:
         # Create dynamic contraption:
         Entry = self.header_types.DynamicEntry
         instructions = []
+
         def emit(tag, val):
             entry = Entry()
             entry.d_tag = tag
@@ -555,7 +556,7 @@ def elf_hash(name):
     h = 0
     for c in name:
         h = (h << 4) + ord(c)
-        g = h & 0xf0000000
+        g = h & 0xF0000000
         if g:
             h ^= g >> 24
         h &= ~g

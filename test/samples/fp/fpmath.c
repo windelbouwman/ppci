@@ -21,4 +21,10 @@ void main_main()
   printf("f_area(3) = %d\n", res);
   res = (int)d_area(3);
   printf("d_area(3) = %d\n", res);
+
+  float a = 2.1;
+  printf("a = %d\n", (int)((a++)*10));
+  printf("a = %d\n", (int)((++a)*10));
+  printf("a = %d\n", (int)((a--)*10));
+  printf("a = %d\n", (int)((--a)*10));
 }

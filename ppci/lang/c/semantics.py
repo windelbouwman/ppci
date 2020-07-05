@@ -865,8 +865,8 @@ class CSemantics:
             if not a.lvalue:
                 self.error("Expected lvalue", a.location)
 
-            if not (a.typ.is_integer or a.typ.is_pointer):
-                self.error("Expected integer or pointer", a.location)
+            if not (a.typ.is_scalar or a.typ.is_pointer):
+                self.error("Expected scalar or pointer", a.location)
 
             expr = expressions.UnaryOperator(op, a, a.typ, False, location)
         elif op == "-":
