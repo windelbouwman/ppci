@@ -669,15 +669,15 @@ class CSemantics:
                 long_type = self.get_type(["long"])
                 uint_type = self.get_type(["unsigned", "int"])
 
-                if value < self.context.limit_max(self.int_type):
+                if value <= self.context.limit_max(self.int_type):
                     typ = self.int_type
-                elif value < self.context.limit_max(uint_type):
+                elif value <= self.context.limit_max(uint_type):
                     typ = uint_type
-                elif value < self.context.limit_max(long_type):
+                elif value <= self.context.limit_max(long_type):
                     typ = long_type
-                elif value < self.context.limit_max(ulong_type):
+                elif value <= self.context.limit_max(ulong_type):
                     typ = ulong_type
-                elif value < self.context.limit_max(longlong_type):
+                elif value <= self.context.limit_max(longlong_type):
                     typ = longlong_type
                 else:
                     typ = ulonglong_type
