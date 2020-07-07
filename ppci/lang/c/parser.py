@@ -484,7 +484,6 @@ class CParser(RecursiveDescentParser):
             declarator.type_modifiers,
             declarator.location,
         )
-
         self.semantics.register_declaration(variable)
 
         # Handle the initial value:

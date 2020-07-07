@@ -196,6 +196,8 @@ class CSemantics:
                 raise NotImplementedError(
                     "What else could be used to init an array?"
                 )
+        else:
+            return typ
 
     def new_init_cursor(self):
         return init.InitCursor(self.context)
