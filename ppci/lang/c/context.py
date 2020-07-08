@@ -274,6 +274,8 @@ class CContext:
         """ Pack a type into proper memory format """
         if isinstance(typ, types.PointerType):
             tid = "ptr"
+        elif isinstance(typ, types.EnumType):
+            tid = BasicType.INT
         else:
             assert isinstance(typ, types.BasicType)
             tid = typ.type_id

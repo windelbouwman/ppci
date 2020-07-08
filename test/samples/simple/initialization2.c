@@ -15,6 +15,12 @@ char c2[3] = "abc";
 char c3[4] = "abc";
 int g_i = (7 & 5) ^ 15;
 
+enum E { ONE, TWO, THREE };
+
+enum E g_e0;
+enum E g_e1 = THREE;
+enum E g_e2 = 1;
+
 void main_main()
 {
   int y = x * 3;
@@ -36,5 +42,16 @@ void main_main()
   printf("%d\n", sizeof(c3));
 
   printf("g_i = %d\n", g_i);
+
+  enum E e0;
+  enum E e1 = THREE;
+  enum E e2 = 1;
+
+  printf("g_e1 = %d\n", g_e1);
+  printf("g_e2 = %d\n", g_e2);
+
+  printf("e1 = %d\n", e1);
+  printf("e2 = %d\n", e2);
+
 }
 

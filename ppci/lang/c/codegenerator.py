@@ -176,7 +176,9 @@ class CCodeGenerator:
             mem = self.gen_global_initialize_struct(typ, ival)
         elif isinstance(typ, types.UnionType):
             mem = self.gen_global_initialize_union(typ, ival)
-        elif isinstance(typ, (types.BasicType, types.PointerType)):
+        elif isinstance(
+            typ, (types.BasicType, types.PointerType, types.EnumType)
+        ):
             mem = self.gen_global_initialize_expression(typ, ival)
         else:  # pragma: no cover
             raise NotImplementedError(str(typ))
