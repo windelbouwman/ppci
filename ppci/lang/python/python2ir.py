@@ -463,16 +463,17 @@ class PythonToIrCompiler:
                 value = self.gen_call(expr)
             elif hasattr(ast, 'Constant') and isinstance(expr, ast.Constant):
                 # Exists in Python 3.6+, generated in Python 3.8+
-                if isinstance(expr.value, str):
-                    value = self.gen_string_constant(expr)
-                elif isinstance(expr.value, (int, float)):
-                    value = self.gen_num(expr)
+                value = expr.value
+                if isinstance(value, str):
+                    value = self.gen_string_constant(expr, value)
+                elif isinstance(value, (int, float)):
+                    value = self.gen_num(expr, value)
                 else:  # pragma: no cover
                     self.not_impl(condition)
             elif isinstance(expr, ast.Num):  # Python < 3.8
-                value = self.gen_num(expr)
+                value = self.gen_num(expr, expr.n)
             elif isinstance(expr, ast.Str):  # Python < 3.8
-                value = self.gen_string_constant(expr)
+                value = self.gen_string_constant(expr, expr.s)
             else:  # pragma: no cover
                 self.not_impl(expr)
         return value
@@ -533,9 +534,7 @@ class PythonToIrCompiler:
             value = None
         return value
 
-    def gen_num(self, expr):
-        # ast.Constant.value / ast.Num.n
-        num = expr.value if hasattr(expr, 'value') else expr.n
+    def gen_num(self, expr, num):
         if isinstance(num, int):
             value = self.builder.emit_const(num, ir.i64)
         elif isinstance(num, float):
@@ -544,9 +543,7 @@ class PythonToIrCompiler:
             self.not_impl(expr)
         return value
 
-    def gen_string_constant(self, expr):
-        # ast.Constant.value / ast.Str.s
-        value = expr.value if hasattr(expr, 'value') else expr.s
+    def gen_string_constant(self, expr, value):
         data = value.encode("utf8") + bytes([0])
         string_constant = self.emit(ir.LiteralData(data, "string_constant"))
         value = self.emit(ir.AddressOf(string_constant, "string_constant_ptr"))
