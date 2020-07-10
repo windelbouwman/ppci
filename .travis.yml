@@ -1,12 +1,16 @@
-dist: xenial
 language: python
+os: linux
+dist: bionic
 
-python:
-  - "3.4"
-  - "3.5"
-  - "3.6"
-  - "3.7"
-  # - "pypy3"
+jobs:
+  include:
+    - dist: xenial
+      python: 3.4
+    - python: 3.5
+    - python: 3.6
+    - python: 3.7
+    - python: 3.8
+    # - python: pypy3
 
 install: pip -q install tox codacy-coverage codecov
 

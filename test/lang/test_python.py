@@ -52,7 +52,14 @@ src6 = """
 def p1(a: int):
     if a > 2:
         return
-    
+
+"""
+
+src7 = """
+def p1(a: str):
+    if a == '3':
+        return
+
 """
 
 
@@ -128,6 +135,9 @@ class PythonToIrCompilerTestCase(unittest.TestCase):
 
     def test_snippet6(self):
         self.do(src6)
+
+    def test_snippet7(self):
+        self.do(src7)
 
 
 if __name__ == '__main__':
