@@ -459,12 +459,19 @@ class PythonToIrCompiler:
                 value = self.gen_binop(expr)
             elif isinstance(expr, ast.Name):
                 value = self.gen_name(expr)
-            elif isinstance(expr, ast.Num):
-                value = self.gen_num(expr)
             elif isinstance(expr, ast.Call):
                 value = self.gen_call(expr)
-            elif isinstance(expr, ast.Constant):
-                value = self.gen_constant(expr)
+            elif isinstance(expr, ast.Constant):  # Python 3.8+
+                if isinstance(expr.value, str):
+                    value = self.gen_string_constant(expr)
+                elif isinstance(expr.value, (int, float)):
+                    value = self.gen_num(expr)
+                else:  # pragma: no cover
+                    self.not_impl(condition)
+            elif isinstance(expr, ast.Num):  # Python < 3.8
+                value = self.gen_num(expr)
+            elif isinstance(expr, ast.Str):  # Python < 3.8
+                value = self.gen_string_constant(expr)
             else:  # pragma: no cover
                 self.not_impl(expr)
         return value
@@ -526,7 +533,8 @@ class PythonToIrCompiler:
         return value
 
     def gen_num(self, expr):
-        num = expr.n
+        # ast.Constant.value / ast.Num.n
+        num = expr.value if hasattr(expr, 'value') else expr.n
         if isinstance(num, int):
             value = self.builder.emit_const(num, ir.i64)
         elif isinstance(num, float):
@@ -535,10 +543,10 @@ class PythonToIrCompiler:
             self.not_impl(expr)
         return value
 
-    def gen_constant(self, expr):
-        # TODO: are there different types of constants?
-        assert isinstance(expr.value, str)
-        data = expr.value.encode("utf8") + bytes([0])
+    def gen_string_constant(self, expr):
+        # ast.Constant.value / ast.Str.s
+        value = expr.value if hasattr(expr, 'value') else expr.s
+        data = value.encode("utf8") + bytes([0])
         string_constant = self.emit(ir.LiteralData(data, "string_constant"))
         value = self.emit(ir.AddressOf(string_constant, "string_constant_ptr"))
         return value
