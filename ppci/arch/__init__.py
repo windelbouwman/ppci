@@ -36,7 +36,7 @@ def get_current_arch():
         machine = platform.machine()
         if machine == "AMD64":
             return get_arch("x86_64:wincc")
-    elif sys.platform == "linux":
+    elif sys.platform in ("linux", "darwin"):
         if platform.architecture()[0] == "64bit":
             return get_arch("x86_64")
 
