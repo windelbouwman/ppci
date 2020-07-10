@@ -461,7 +461,8 @@ class PythonToIrCompiler:
                 value = self.gen_name(expr)
             elif isinstance(expr, ast.Call):
                 value = self.gen_call(expr)
-            elif isinstance(expr, ast.Constant):  # Python 3.8+
+            elif hasattr(ast, 'Constant') and isinstance(expr, ast.Constant):
+                # Exists in Python 3.6+, generated in Python 3.8+
                 if isinstance(expr.value, str):
                     value = self.gen_string_constant(expr)
                 elif isinstance(expr.value, (int, float)):
