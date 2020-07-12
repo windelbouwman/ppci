@@ -1111,6 +1111,9 @@ class CParser(RecursiveDescentParser):
         elif self.peek == "NUMBER":
             number = self.consume()
             expr = self.semantics.on_number(number.val, number.loc)
+        elif self.peek == "FLOAT":
+            number = self.consume()
+            expr = self.semantics.on_float(number.val, number.loc)
         elif self.peek == "CHAR":
             char = self.consume()
             expr = self.semantics.on_char(char.val, char.loc)

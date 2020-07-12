@@ -313,39 +313,53 @@ class CLexer(HandLexerBase):
         return self.lex_c
 
     def lex_number(self):
+        """ Lex a single numeric literal. """
         if self.accept("0"):
             # Octal, binary or hex!
             if self.accept("xX"):
                 number_chars = self.hex_numbers
+                base = 16
             elif self.accept("bB"):
                 number_chars = self.binary_numbers
+                base = 2
             else:
                 number_chars = self.octal_numbers
+                base = 8
         else:
             number_chars = self.numbers
+            base = 10
 
         # Accept a series of number characters:
         self.accept_run(number_chars)
-        if self.accept("."):
+        if base == 10 and self.accept("."):
+            # For example 12.3
+            return self.lex_float()
+        elif base == 10 and self.accept("eEpP"):
+            # For example 12e7
             return self.lex_float()
         else:
-            # Accept some suffixes:
-            self.accept("LlUu")
-            self.accept("LlUu")
-            # TODO: handle suffixes better
-            self.accept("LlUu")
+            # Accept some integer suffixes, such as 'L', or 'ull'
+            long_suffixes = 0
+            unsigned_suffixes = 0
+            while long_suffixes < 2 or unsigned_suffixes < 1:
+                if long_suffixes < 2 and self.accept("lL"):
+                    long_suffixes += 1
+                elif unsigned_suffixes < 1 and self.accept("uU"):
+                    unsigned_suffixes += 1
+                else:
+                    break
 
-            # self.accept('
             self.emit("NUMBER")
             return self.lex_c
 
     def lex_float(self):
+        """ Lex floating point number from decimal dot onwards. """
         self.accept_run(self.numbers)
         if self.accept("eEpP"):
             self.accept("+-")
             self.accept_run(self.numbers)
 
-        self.emit("NUMBER")
+        self.emit("FLOAT")
         return self.lex_c
 
     def lex_whitespace(self):

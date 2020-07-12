@@ -33,18 +33,6 @@ class ElfSection:
 SHN_UNDEF = 0
 
 
-class StringTable:
-    def __init__(self):
-        self.strtab = bytes([0])
-        self.names = {}
-
-    def get_name(self, name):
-        if name not in self.names:
-            self.names[name] = len(self.strtab)
-            self.strtab += name.encode("ascii") + bytes([0])
-        return self.names[name]
-
-
 class ElfFile:
     """ This class can load and save a elf file.
     """

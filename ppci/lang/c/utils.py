@@ -70,39 +70,43 @@ def cnum(txt: str):
     # Lower tha casing:
     num = txt.lower()
 
-    if "." in txt:
-        # Floating point
-        type_specifiers = ["double"]
-        return float(num), type_specifiers
+    # Determine base:
+    if num.startswith("0x"):
+        num = num[2:]
+        base = 16
+    elif num.startswith("0b"):
+        num = num[2:]
+        base = 2
+    elif num.startswith("0"):
+        base = 8
     else:
-        # Integer:
+        base = 10
 
-        # Determine base:
-        if num.startswith("0x"):
-            num = num[2:]
-            base = 16
-        elif num.startswith("0b"):
-            num = num[2:]
-            base = 2
-        elif num.startswith("0"):
-            base = 8
+    # Determine suffix:
+    type_specifiers = []
+    while num.endswith(("l", "u")):
+        if num.endswith("u"):
+            num = num[:-1]
+            type_specifiers.append("unsigned")
+        elif num.endswith("l"):
+            num = num[:-1]
+            type_specifiers.append("long")
         else:
-            base = 10
+            raise NotImplementedError()
 
-        # Determine suffix:
-        type_specifiers = []
-        while num.endswith(("l", "u")):
-            if num.endswith("u"):
-                num = num[:-1]
-                type_specifiers.append("unsigned")
-            elif num.endswith("l"):
-                num = num[:-1]
-                type_specifiers.append("long")
-            else:
-                raise NotImplementedError()
+    # Take the integer:
+    return int(num, base), type_specifiers
 
-        # Take the integer:
-        return int(num, base), type_specifiers
+
+def float_num(txt: str):
+    assert isinstance(txt, str)
+
+    # Lower tha casing:
+    num = txt.lower()
+
+    # Floating point
+    type_specifiers = ["double"]
+    return float(num), type_specifiers
 
 
 def replace_escape_codes(txt: str):

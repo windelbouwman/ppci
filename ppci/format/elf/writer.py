@@ -10,7 +10,8 @@ from .headers import ElfMachine
 from .headers import SectionHeaderType, SectionHeaderFlag
 from .headers import SymbolTableBinding, SymbolTableType
 from .headers import ProgramHeaderType
-from .file import ElfFile, StringTable
+from .file import ElfFile
+from .string import StringTable, elf_hash
 
 
 logger = logging.getLogger("elf")
@@ -545,21 +546,3 @@ class ElfWriter:
     def get_string(self, txt: str) -> int:
         """ Enter text in the string table and return the offset. """
         return self.string_table.get_name(txt)
-
-
-def elf_hash(name):
-    """ ELF hashing function.
-
-    See figure 2-15 in the ELF format PDF document.
-    """
-
-    h = 0
-    for c in name:
-        h = (h << 4) + ord(c)
-        g = h & 0xF0000000
-        if g:
-            h ^= g >> 24
-        h &= ~g
-        assert h >= 0
-
-    return h

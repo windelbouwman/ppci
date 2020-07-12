@@ -653,46 +653,50 @@ class CSemantics:
         return expressions.StringLiteral(value, cstr_type, location)
 
     def on_number(self, value, location):
-        """ React on numeric literal """
+        """ React on integer numeric literal """
         # Get value from string:
         value, type_specifiers = utils.cnum(value)
 
-        if isinstance(value, int):
-            if type_specifiers:
-                typ = self.get_type(type_specifiers)
-            else:
-                # Use larger type to fit the value if required:
-                # Try unsigned long,
-                ulonglong_type = self.get_type(["unsigned", "long", "long"])
-                longlong_type = self.get_type(["long", "long"])
-                ulong_type = self.get_type(["unsigned", "long"])
-                long_type = self.get_type(["long"])
-                uint_type = self.get_type(["unsigned", "int"])
-
-                if value <= self.context.limit_max(self.int_type):
-                    typ = self.int_type
-                elif value <= self.context.limit_max(uint_type):
-                    typ = uint_type
-                elif value <= self.context.limit_max(long_type):
-                    typ = long_type
-                elif value <= self.context.limit_max(ulong_type):
-                    typ = ulong_type
-                elif value <= self.context.limit_max(longlong_type):
-                    typ = longlong_type
-                else:
-                    typ = ulonglong_type
-        else:
+        assert isinstance(value, int)
+        if type_specifiers:
             typ = self.get_type(type_specifiers)
+        else:
+            # Use larger type to fit the value if required:
+            # Try unsigned long,
+            ulonglong_type = self.get_type(["unsigned", "long", "long"])
+            longlong_type = self.get_type(["long", "long"])
+            ulong_type = self.get_type(["unsigned", "long"])
+            long_type = self.get_type(["long"])
+            uint_type = self.get_type(["unsigned", "int"])
 
-        if typ.is_integer:
-            # Check limits of integer
-            # Note, an integer is always positive
-            max_value = self.context.limit_max(typ)
-            if value > max_value:
-                self.error(
-                    "Integer value too big for type ({})".format(max_value),
-                    location,
-                )
+            if value <= self.context.limit_max(self.int_type):
+                typ = self.int_type
+            elif value <= self.context.limit_max(uint_type):
+                typ = uint_type
+            elif value <= self.context.limit_max(long_type):
+                typ = long_type
+            elif value <= self.context.limit_max(ulong_type):
+                typ = ulong_type
+            elif value <= self.context.limit_max(longlong_type):
+                typ = longlong_type
+            else:
+                typ = ulonglong_type
+
+        assert typ.is_integer
+        # Check limits of integer
+        # Note, an integer is always positive
+        max_value = self.context.limit_max(typ)
+        if value > max_value:
+            self.error(
+                "Integer value too big for type ({})".format(max_value),
+                location,
+            )
+        return expressions.NumericLiteral(value, typ, location)
+
+    def on_float(self, value, location):
+        """ Process floating point literal. """
+        value, type_specifiers = utils.float_num(value)
+        typ = self.get_type(type_specifiers)
         return expressions.NumericLiteral(value, typ, location)
 
     def on_char(self, value, location):

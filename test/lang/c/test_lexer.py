@@ -1,11 +1,12 @@
 import io
+import math
 import unittest
 
 from ppci.common import CompilerError
 from ppci.lang.c import CLexer, lexer
 from ppci.lang.c.lexer import SourceFile
 from ppci.lang.c.options import COptions
-from ppci.lang.c.utils import cnum
+from ppci.lang.c.utils import cnum, float_num
 
 
 class CLexerTestCase(unittest.TestCase):
@@ -176,7 +177,9 @@ class CLexerTestCase(unittest.TestCase):
         """
         test_cases = [
             (".12e+2", 12.0),
-            # TODO ('1.2e3', 1200.0),
+            (".12e-2", 0.0012),
+            ('1.2e3', 1200.0),
+            ('12e3', 12000.0),
             ("3.14", 3.14),
             ("1.", 1.0),
             (".1", 0.1),
@@ -185,8 +188,12 @@ class CLexerTestCase(unittest.TestCase):
             # print(src)
             tokens = self.tokenize(src)
             self.assertEqual(1, len(tokens))
-            self.assertEqual("NUMBER", tokens[0].typ)
+            self.assertEqual("FLOAT", tokens[0].typ)
             self.assertEqual(src, tokens[0].val)
+            lexed_val, type_spec = float_num(tokens[0].val)
+            assert type_spec == ['double']
+            assert isinstance(lexed_val, float)
+            assert math.isclose(lexed_val, value)
 
 
 if __name__ == "__main__":
