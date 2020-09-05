@@ -15,6 +15,12 @@ from .io import LANG_TYPES
 logger = logging.getLogger("wasm")
 
 
+def write_module(m, f):
+    """ Write a wasm module as binary format. """
+    writer = BinaryFileWriter(f)
+    writer.write_module(m)
+
+
 class BinaryFileWriter(BaseIoWriter):
     """ Write a wasm module as binary format. """
 
@@ -88,12 +94,12 @@ class BinaryFileWriter(BaseIoWriter):
             self.write(payload)
 
     def write_header(self):
+        """ Write WebAssembly header. """
         self.write(b"\x00asm")
         self.write_u32(1)  # version, must be 1 for now
 
     def write_definition(self, definition):
-        """ Write a single definition.
-        """
+        """Write a single definition."""
         mp = {
             components.Type: self.write_type_definition,
             components.Import: self.write_import_definition,
@@ -113,12 +119,15 @@ class BinaryFileWriter(BaseIoWriter):
         return self.f.write(bb)
 
     def write_f64(self, x):
+        """ Write 64-bit floating point value. """
         self.write_fmt("<d", x)
 
     def write_f32(self, x):
+        """ Write 32-bit floating point value. """
         self.write_fmt("<f", x)
 
     def write_u32(self, x):
+        """ Write unsigned 32-bit integer value. """
         self.write_fmt("<I", x)
 
     def write_str(self, x):
@@ -127,28 +136,33 @@ class BinaryFileWriter(BaseIoWriter):
         self.f.write(bb)
 
     def write_vs64(self, x):
+        """ Write signed integer value in LEB128 encoding. """
         bb = signed_leb128_encode(x)
         if not len(bb) <= 10:
             raise ValueError("Cannot pack {} into 10 bytes".format(x))
         self.f.write(bb)
 
     def write_vs32(self, x):
+        """ Write signed integer value in LEB128 encoding. """
         bb = signed_leb128_encode(x)
         if not len(bb) <= 5:  # 5 = ceil(32/7)
             raise ValueError("Cannot pack {} into 5 bytes".format(x))
         self.f.write(bb)
 
     def write_vu32(self, x):
+        """ Write unsigned integer value in LEB128 encoding. """
         bb = unsigned_leb128_encode(x)
         assert len(bb) <= 5
         self.f.write(bb)
 
     def write_vu7(self, x):
+        """ Write unsigned integer value in LEB128 encoding. """
         bb = unsigned_leb128_encode(x)
         assert len(bb) == 1
         self.f.write(bb)
 
     def write_vu1(self, x):
+        """ Write unsigned integer value in LEB128 encoding. """
         bb = unsigned_leb128_encode(x)
         assert len(bb) == 1
         self.f.write(bb)
@@ -182,7 +196,14 @@ class BinaryFileWriter(BaseIoWriter):
     def write_instruction(self, instruction):
         """ Write a single instruction as binary. """
         # Our instruction
-        self.write(bytes([OPCODES[instruction.opcode]]))
+        opcode = OPCODES[instruction.opcode]
+        if isinstance(opcode, tuple):
+            # extended 0xFC format:
+            opcode, arg = opcode
+            self.write(bytes([opcode]))
+            self.write_vu32(arg)
+        else:
+            self.write(bytes([opcode]))
 
         # Prep args for accessing named identifiers
         args = list(instruction.args)

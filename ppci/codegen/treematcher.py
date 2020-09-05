@@ -17,7 +17,7 @@ class State:
 
     def set_cost(self, goal, cost, rule):
         """
-            Mark that this tree can be matched with a rule for a certain cost
+        Mark that this tree can be matched with a rule for a certain cost
         """
         if self.has_goal(goal):
             if self.get_cost(goal) > cost:

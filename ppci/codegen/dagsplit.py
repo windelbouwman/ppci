@@ -10,7 +10,7 @@ from ..utils.tree import Tree
 
 
 class DagSplitter:
-    """ Class that splits a DAG into a forest of trees.
+    """Class that splits a DAG into a forest of trees.
 
     This series is sorted
     such that data dependencies are met. The trees can henceforth be
@@ -23,8 +23,8 @@ class DagSplitter:
         self.arch = arch
 
     def split_into_trees(self, sgraph, ir_function, function_info, debug_db):
-        """ Split a forest of trees into a sorted series of trees for each
-            block.
+        """Split a forest of trees into a sorted series of trees for each
+        block.
         """
         self.debug_db = debug_db
         forest = []

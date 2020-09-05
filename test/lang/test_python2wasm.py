@@ -37,7 +37,7 @@ def test_python_to_wasm():
 
     imports = {'env': {'f64_print': f64_print}}
     # TODO: for some reason, target='native' ends up in an infinite loop?
-    ob = wasm.instantiate(m, imports, target='python')
+    ob = wasm.instantiate(m, imports=imports, target='python')
 
     result = ob.exports.find_prime(10)
     assert result == 29

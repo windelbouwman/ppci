@@ -229,7 +229,7 @@ class WatTupleLoader(TupleParser):
         return ref
 
     def _parse_function_signature(self):
-        """ Parse a function signature.
+        """Parse a function signature.
 
         For example: (param f64 i32) (result i64 f32 f32)
         """
@@ -491,7 +491,7 @@ class WatTupleLoader(TupleParser):
         return instructions
 
     def _load_instruction(self):
-        """ Load a single (maybe nested) instruction.
+        """Load a single (maybe nested) instruction.
 
         For nesting syntax, please refer here:
         https://webassembly.github.io/spec/core/text/instructions.html#folded-instructions
@@ -663,8 +663,8 @@ class WatTupleLoader(TupleParser):
         return args
 
     def _parse_load_store_arguments(self, opcode):
-        """ Parse arguments to a load and store instruction.
-        
+        """Parse arguments to a load and store instruction.
+
         Memory instructions have keyword args in text format :/
         """
 

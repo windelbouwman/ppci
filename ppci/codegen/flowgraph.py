@@ -4,8 +4,8 @@ from ..graph.digraph import DiGraph, DiNode, dfs
 
 
 class FlowGraphNode(DiNode):
-    """ A node in the flow graph. A node can contain more than one
-        instruction. """
+    """A node in the flow graph. A node can contain more than one
+    instruction."""
 
     def __init__(self, g, ins):
         super().__init__(g)
@@ -117,7 +117,6 @@ class FlowGraph(DiGraph):
         # Sort flowgraph nodes by backward depth first search:
         # TODO: cfg_nodes = [x[1] for x in dfs(self.nodes[0], reverse=True)]
         cfg_nodes = list(self.nodes)
-
 
         # Dataflow fixed point iteration over the nodes in the CFG:
         n_iterations = 0

@@ -107,6 +107,7 @@ class Mod:
                 restype = get_ctypes_type(return_type)
                 argtypes = [get_ctypes_type(a) for a in argument_types]
                 ftype = ctypes.CFUNCTYPE(restype, *argtypes)
+                # print('f type', name, ftype, restype, argtypes)
                 callback = ftype(imp_obj)
                 logger.debug("Import name %s", name)
                 self._import_symbols.append((name, callback, ftype))

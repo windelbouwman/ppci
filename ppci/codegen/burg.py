@@ -107,8 +107,8 @@ class BurgLexer(baselex.BaseLexer):
 
 
 class Rule:
-    """ A rewrite rule. Specifies a tree that can be rewritten into a result
-    at a specific cost """
+    """A rewrite rule. Specifies a tree that can be rewritten into a result
+    at a specific cost"""
 
     def __init__(self, non_term, tree, cost, acceptance, template):
         self.non_term = non_term
@@ -383,8 +383,8 @@ class BurgGenerator:
             self.emit_record(rule, "state")
 
     def compute_kids(self, t, root_name):
-        """ Compute of a pattern the blanks that must be provided
-        from below in the tree """
+        """Compute of a pattern the blanks that must be provided
+        from below in the tree"""
         if t.name in self.system.non_terminals:
             return [root_name], [t.name]
         else:

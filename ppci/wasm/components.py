@@ -80,7 +80,7 @@ def check_id(id):
 
 
 class WASMComponent:
-    """ Base class for representing components of a WASM module, from the
+    """Base class for representing components of a WASM module, from the
     Module to Imports, Funct and Instruction. These components can be
     shown as text or written as bytes.
 
@@ -117,8 +117,7 @@ class WASMComponent:
         return "<WASM-%s>" % (self.__class__.__name__)
 
     def show(self):
-        """ Print the S-expression of the component.
-        """
+        """Print the S-expression of the component."""
         print(self.to_string())
 
     # From ...
@@ -144,12 +143,11 @@ class WASMComponent:
     # To ...
 
     def to_string(self):
-        """ Get the textual representation (S-expression) of this component.
-        """
+        """Get the textual representation (S-expression) of this component."""
         raise NotImplementedError()
 
     def to_tuple(self):
-        """ Get the component's tuple representation (by exporting to string
+        """Get the component's tuple representation (by exporting to string
         and parsing the s-expression).
         """
         # TODO: should we reverse this logic,
@@ -159,7 +157,7 @@ class WASMComponent:
 
 
 class Ref:
-    """ This is a reference to an object in one of the 5 spaces.
+    """This is a reference to an object in one of the 5 spaces.
 
     space must be one of 'type', 'func', 'memory', 'table', 'global', 'local'
     index can be none
@@ -224,7 +222,7 @@ class Ref:
 
 
 class Module(WASMComponent):
-    """ Class to represent a WASM module; the toplevel unit of code.
+    """Class to represent a WASM module; the toplevel unit of code.
 
     The Module is a collection of definitions, which can be provided as
     text, tuples, or Definition objects.
@@ -236,8 +234,7 @@ class Module(WASMComponent):
         self._from_tuple(definitions)
 
     def _from_tuple(self, t):
-        """ Initialize from tuple.
-        """
+        """Initialize from tuple."""
 
         from .text import load_tuple
 
@@ -256,15 +253,13 @@ class Module(WASMComponent):
         return writer.write_module(self)
 
     def to_bytes(self):
-        """ Get the bytes that represent the binary WASM for this module.
-        """
+        """Get the bytes that represent the binary WASM for this module."""
         f = BytesIO()
         self.to_file(f)
         return f.getvalue()
 
     def show_bytes(self):
-        """ Show the binary representation of this WASM module.
-        """
+        """Show the binary representation of this WASM module."""
         # if not this_is_js():  (Artifact from trying PyScript)
         from ..utils.hexdump import hexdump
 
@@ -272,10 +267,9 @@ class Module(WASMComponent):
 
     def to_file(self, f):
         """ Write this wasm module to file """
-        from .binary.writer import BinaryFileWriter
+        from .binary.writer import write_module
 
-        writer = BinaryFileWriter(f)
-        writer.write_module(self)
+        write_module(self, f)
 
     # Module-specific stuff
 
@@ -292,13 +286,12 @@ class Module(WASMComponent):
             raise IndexError("Module can only be indexed with int and str")
 
     def add_definition(self, d):
-        """ Add a definition to the module.
-        """
+        """Add a definition to the module."""
         assert isinstance(d, Definition)
         self.definitions.append(d)
 
     def get_definitions_per_section(self):
-        """ Get a dictionary that maps section names to definitions.
+        """Get a dictionary that maps section names to definitions.
         Note that the 'code' section is named 'func'.
         Note that one can also use e.g. ``module['type']`` to get all typedefs.
         """
@@ -310,7 +303,7 @@ class Module(WASMComponent):
         return definitions
 
     def show_interface(self):
-        """ Show the (signature of) imports and exports in a human
+        """Show the (signature of) imports and exports in a human
         friendly manner.
         """
         types = self["type"]
@@ -373,7 +366,7 @@ class Instruction(WASMComponent):
 
 
 class BlockInstruction(Instruction):
-    """ An instruction that represents a block of instructions.
+    """An instruction that represents a block of instructions.
     (block, loop or if). The args consists of a single element indicating the
     result type. It can optionally have an id.
     """
@@ -399,7 +392,7 @@ class BlockInstruction(Instruction):
 
 
 class Definition(WASMComponent):
-    """ Base class for definition components.
+    """Base class for definition components.
 
     A "definition" is a toplevel element in a WASM module that defines a
     type, function, import, etc.
@@ -417,7 +410,7 @@ class Definition(WASMComponent):
 
 
 class Type(Definition):
-    """ Defines the signature of a WASM function that is imported or defined in
+    """Defines the signature of a WASM function that is imported or defined in
     this module.
 
     Flat form and abbreviations:
@@ -458,7 +451,7 @@ class Type(Definition):
 
 
 class Import(Definition):
-    """ Import objects (from other wasm modules or from the host environment).
+    """Import objects (from other wasm modules or from the host environment).
     Imports are handled at runtime by the host environment.
 
     Flat form and abbreviations:
@@ -501,7 +494,7 @@ class Import(Definition):
 
 
 class Table(Definition):
-    """ A resizable typed array of references (e.g. to functions) that could
+    """A resizable typed array of references (e.g. to functions) that could
     not otherwise be stored as raw bytes in Memory (for safety and portability
     reasons). Only one default table can exist in v1.
 
@@ -542,7 +535,7 @@ class Table(Definition):
 
 
 class Memory(Definition):
-    """ Declares initial (and max) sizes of linear memory, expressed in
+    """Declares initial (and max) sizes of linear memory, expressed in
     WASM pages (64KiB). Only one default memory can exist in v1.
 
     Flat form and abbreviations:
@@ -575,7 +568,7 @@ class Memory(Definition):
 
 
 class Global(Definition):
-    """ A global variable.
+    """A global variable.
 
     Attributes:
 
@@ -604,7 +597,7 @@ class Global(Definition):
 
 
 class Export(Definition):
-    """ Export an object defined in this module.
+    """Export an object defined in this module.
 
     Flat form and abbreviations:
 
@@ -635,7 +628,7 @@ class Export(Definition):
 
 
 class Start(Definition):
-    """ Define the index of the function to call at init-time. The func must
+    """Define the index of the function to call at init-time. The func must
     have zero params and return values. There must be at most 1 start
     definition.
 
@@ -655,7 +648,7 @@ class Start(Definition):
 
 
 class Func(Definition):
-    """ The definition (i.e. instructions) of a function.
+    """The definition (i.e. instructions) of a function.
 
     Flat form and abbreviations:
 
@@ -713,7 +706,7 @@ class Func(Definition):
 
 
 class Elem(Definition):
-    """ Define elements to populate a table.
+    """Define elements to populate a table.
 
     Flat form and abbreviations:
 
@@ -749,7 +742,7 @@ class Elem(Definition):
 
 
 class Data(Definition):
-    """ Data to include in the module.
+    """Data to include in the module.
 
     Flat form and abbreviations:
 
@@ -785,8 +778,7 @@ class Data(Definition):
 
 
 class Custom(Definition):
-    """ Custom binary data.
-    """
+    """Custom binary data."""
 
     __slots__ = ("name", "data")
 

@@ -154,7 +154,9 @@ class MiniGen:
         fmt = self.make_fmt(vreg)
 
         t = Tree(
-            "MOV{}".format(fmt), Tree("LDR{}".format(fmt), at), value=vreg,
+            "MOV{}".format(fmt),
+            Tree("LDR{}".format(fmt), at),
+            value=vreg,
         )
         return self.gen(frame, t)
 
@@ -163,7 +165,9 @@ class MiniGen:
         at = self.make_at(slot)
         fmt = self.make_fmt(vreg)
         t = Tree(
-            "STR{}".format(fmt), at, Tree("REG{}".format(fmt), value=vreg),
+            "STR{}".format(fmt),
+            at,
+            Tree("REG{}".format(fmt), value=vreg),
         )
         return self.gen(frame, t)
 
@@ -174,8 +178,7 @@ class MiniGen:
         return ctx.l
 
     def make_fmt(self, vreg):
-        """ Determine the type suffix, such as I32 or F64.
-        """
+        """Determine the type suffix, such as I32 or F64."""
         # TODO: hack to retrieve register type (U, I or F):
         ty = getattr(vreg, "ty", "I")
         fmt = "{}{}".format(ty, vreg.bitsize)
@@ -191,7 +194,7 @@ class MiniGen:
 
 
 class GraphColoringRegisterAllocator:
-    """ Target independent register allocator.
+    """Target independent register allocator.
 
     Algorithm is iterated register coalescing by Appel and George.
     Also the pq-test algorithm for more register classes is added.
@@ -200,10 +203,11 @@ class GraphColoringRegisterAllocator:
     logger = logging.getLogger("regalloc")
     verbose = False  # Set verbose to True to get more logging info
 
-    def __init__(self, arch: Architecture, instruction_selector):
+    def __init__(self, arch: Architecture, instruction_selector, reporter):
         assert isinstance(arch, Architecture), arch
         self.arch = arch
         self.spill_gen = MiniGen(arch, instruction_selector)
+        self.reporter = reporter
 
         # A map with register alias info:
         self.alias = arch.info.alias
@@ -221,7 +225,7 @@ class GraphColoringRegisterAllocator:
             self.cls_regs[kls] = OrderedSet(regs)
 
     def alloc_frame(self, frame: Frame):
-        """ Do iterated register allocation for a single frame.
+        """Do iterated register allocation for a single frame.
 
         This is the entry function for the register allocator and drives
         through all stages of the algorithm.
@@ -268,6 +272,11 @@ class GraphColoringRegisterAllocator:
                 # Rewrite program now.
                 for node in spilled_nodes:
                     self.rewrite_program(node)
+
+                if self.verbose:
+                    self.reporter.message("Rewrote program with spilling")
+                    self.reporter.dump_frame(self.frame)
+
             else:
                 # Done!
                 break
@@ -418,7 +427,7 @@ class GraphColoringRegisterAllocator:
         return num_blocked < self.K[node.reg_class]
 
     def calc_num_blocked(self, node):
-        """ Calculate for the given node how many registers are blocked
+        """Calculate for the given node how many registers are blocked
         by it's adjecent nodes.
 
         This is an advanced form of a nodes degree, but then for
@@ -429,8 +438,7 @@ class GraphColoringRegisterAllocator:
         return num_blocked
 
     def release_pressure(self, node, reg_class):
-        """ Remove some register pressure from the given node.
-        """
+        """Remove some register pressure from the given node."""
         if node in self._num_blocked:
             self._num_blocked[node] -= self.q(node.reg_class, reg_class)
 
@@ -456,9 +464,9 @@ class GraphColoringRegisterAllocator:
             self.decrement_degree(m)
 
     def decrement_degree(self, m):
-        """ If a node was lowered in degree, check if there are nodes that
-            can be moved from the spill list to the freeze of simplify
-            list
+        """If a node was lowered in degree, check if there are nodes that
+        can be moved from the spill list to the freeze of simplify
+        list
         """
         # This check was m.degree == self.K - 1
         if m in self.spill_worklist and self.is_colorable(m):
@@ -477,7 +485,7 @@ class GraphColoringRegisterAllocator:
                     self.worklistMoves.add(move)
 
     def coalesc(self):
-        """ Coalesc moves conservative.
+        """Coalesc moves conservative.
 
         This means, merge the variables of a move into
         one variable, and delete the move. But do this
@@ -537,7 +545,7 @@ class GraphColoringRegisterAllocator:
         return t.is_colored or self.is_colorable(t) or self.has_edge(t, r)
 
     def conservative(self, u, v):
-        """ Briggs conservative criteria for coalescing.
+        """Briggs conservative criteria for coalescing.
 
         If the result of the merge has fewer than K nodes that are
         not trivially colorable, then coalescing is safe, because
@@ -626,8 +634,8 @@ class GraphColoringRegisterAllocator:
         return cc
 
     def freeze(self):
-        """ Give up coalescing on some node, move it to the simplify list
-            and freeze all moves associated with it.
+        """Give up coalescing on some node, move it to the simplify list
+        and freeze all moves associated with it.
         """
         u = self.freeze_worklist.pop()
         if self.verbose:
@@ -659,7 +667,7 @@ class GraphColoringRegisterAllocator:
                 self.simplify_worklist.add(v)
 
     def select_spill(self):
-        """ Select potential spill node.
+        """Select potential spill node.
 
         Select a node to be spilled. This is optimistic,
         since this might be turned into a real spill.
@@ -690,7 +698,9 @@ class GraphColoringRegisterAllocator:
     def rewrite_program(self, node):
         """ Rewrite program by creating a load and a store for each use """
         # Generate spill code:
-        self.logger.debug("Placing %s on stack", node)
+        self.logger.debug("Placing {} on stack".format(node))
+        if self.verbose:
+            self.reporter.message("Placing {} on stack".format(node))
 
         size = node.reg_class.bitsize // 8
         alignment = size
@@ -703,23 +713,44 @@ class GraphColoringRegisterAllocator:
                 self.frame.ig.uses(tmp) + self.frame.ig.defs(tmp)
             )
             for instruction in instructions:
-                # print('Updating {}'.format(instruction))
+                if self.verbose:
+                    self.reporter.message(
+                        "Updating instruction: {}".format(instruction)
+                    )
+
                 vreg2 = self.frame.new_reg(type(tmp))
                 self.logger.debug("tmp: %s, new: %s", tmp, vreg2)
+                if self.verbose:
+                    self.reporter.message(
+                        "Replace {} by {}".format(tmp, vreg2)
+                    )
                 instruction.replace_register(tmp, vreg2)
 
                 if instruction.reads_register(vreg2):
                     code = self.spill_gen.gen_load(self.frame, vreg2, slot)
-                    # print('code before', list(map(str, code)))
+                    if self.verbose:
+                        self.reporter.message(
+                            "Load code before instruction: {}".format(
+                                list(map(str, code))
+                            )
+                        )
                     self.frame.insert_code_before(instruction, code)
 
                 if instruction.writes_register(vreg2):
                     code = self.spill_gen.gen_store(self.frame, vreg2, slot)
-                    # print('code after', list(map(str, code)))
+                    if self.verbose:
+                        self.reporter.message(
+                            "Store code after instruction: {}".format(
+                                list(map(str, code))
+                            )
+                        )
                     self.frame.insert_code_after(instruction, code)
 
+                if self.verbose:
+                    self.reporter.dump_frame(self.frame)
+
     def assign_colors(self):
-        """ Add nodes back to the graph to color it.
+        """Add nodes back to the graph to color it.
 
         Any potential spills might turn into real spills
         at this stage.

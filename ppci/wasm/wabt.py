@@ -63,7 +63,7 @@ process.stdin.on('end', function () {
 
 
 def wat2wasm(wat):
-    """ Convert textual WebAssembly (.wat), given as str, to bytes (.wasm),
+    """Convert textual WebAssembly (.wat), given as str, to bytes (.wasm),
     using the WebAssembly Binary Toolkit (WABT).
     """
     if not isinstance(wat, str):
@@ -94,7 +94,7 @@ def wat2wasm(wat):
 
 
 def wasm2wat(wasm, resolve_names=False):
-    """ Convert binary WebAssembly (.wasm), given as bytes, to text (.wat),
+    """Convert binary WebAssembly (.wasm), given as bytes, to text (.wat),
     using the WebAssembly Binary Toolkit (WABT).
     """
     if not isinstance(wasm, bytes):
@@ -132,8 +132,7 @@ def wasm2wat(wasm, resolve_names=False):
 
 
 def _get_wabt_lib():
-    """ Get the filename of the wabt js lib.
-    """
+    """Get the filename of the wabt js lib."""
     # Update the commit tag to make use of a newer version. We tag to a
     # specific commit
     # to avoid unexpected regressions as the wabt API changes.

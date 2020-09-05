@@ -160,7 +160,7 @@ class Movss(Sse1Instruction):
 
 
 class Movsd(Sse2Instruction):
-    """ Move scalar double-fp value """
+    """ Move scalar f64 r/m into double-fp register """
 
     r = Operand("r", XmmRegisterDouble, write=True)
     rm = Operand("rm", xmm_double_rm_modes)
@@ -189,7 +189,7 @@ class Movsd2(Sse2Instruction):
 class Addss(Sse1Instruction):
     """ Add scalar single-fp value """
 
-    r = Operand("r", XmmRegisterSingle, write=True)
+    r = Operand("r", XmmRegisterSingle, write=True, read=True)
     rm = Operand("rm", xmm_single_rm_modes, read=True)
     patterns = {"prefix": 0xF3, "opcode": 0x58}
     syntax = Syntax(["addss", " ", r, ",", " ", rm])
@@ -198,7 +198,7 @@ class Addss(Sse1Instruction):
 class Addsd(Sse2Instruction):
     """ Add scalar double-fp value """
 
-    r = Operand("r", XmmRegisterDouble, write=True)
+    r = Operand("r", XmmRegisterDouble, write=True, read=True)
     rm = Operand("rm", xmm_double_rm_modes, read=True)
     patterns = {"prefix": 0xF2, "opcode": 0x58}
     syntax = Syntax(["addsd", " ", r, ",", " ", rm])
@@ -207,7 +207,7 @@ class Addsd(Sse2Instruction):
 class Subss(Sse1Instruction):
     """ Sub scalar single-fp value """
 
-    r = Operand("r", XmmRegisterSingle, write=True)
+    r = Operand("r", XmmRegisterSingle, write=True, read=True)
     rm = Operand("rm", xmm_single_rm_modes, read=True)
     patterns = {"prefix": 0xF3, "opcode": 0x5C}
     syntax = Syntax(["subss", " ", r, ",", " ", rm])
@@ -216,7 +216,7 @@ class Subss(Sse1Instruction):
 class Subsd(Sse2Instruction):
     """ Sub scalar double-fp value """
 
-    r = Operand("r", XmmRegisterDouble, write=True)
+    r = Operand("r", XmmRegisterDouble, write=True, read=True)
     rm = Operand("rm", xmm_double_rm_modes, read=True)
     patterns = {"prefix": 0xF2, "opcode": 0x5C}
     syntax = Syntax(["subsd", " ", r, ",", " ", rm])
@@ -225,7 +225,7 @@ class Subsd(Sse2Instruction):
 class Mulss(Sse1Instruction):
     """ Multiply scalar single-fp value """
 
-    r = Operand("r", XmmRegisterSingle, write=True)
+    r = Operand("r", XmmRegisterSingle, write=True, read=True)
     rm = Operand("rm", xmm_single_rm_modes, read=True)
     patterns = {"prefix": 0xF3, "opcode": 0x59}
     syntax = Syntax(["mulss", " ", r, ",", " ", rm])
@@ -234,7 +234,7 @@ class Mulss(Sse1Instruction):
 class Mulsd(Sse2Instruction):
     """ Multiply scalar double-fp value """
 
-    r = Operand("r", XmmRegisterDouble, write=True)
+    r = Operand("r", XmmRegisterDouble, write=True, read=True)
     rm = Operand("rm", xmm_double_rm_modes, read=True)
     patterns = {"prefix": 0xF2, "opcode": 0x59}
     syntax = Syntax(["mulsd", " ", r, ",", " ", rm])
@@ -243,7 +243,7 @@ class Mulsd(Sse2Instruction):
 class Divss(Sse1Instruction):
     """ Divide scalar single-fp value """
 
-    r = Operand("r", XmmRegisterSingle, write=True)
+    r = Operand("r", XmmRegisterSingle, write=True, read=True)
     rm = Operand("rm", xmm_single_rm_modes, read=True)
     patterns = {"prefix": 0xF3, "opcode": 0x5E}
     syntax = Syntax(["divss", " ", r, ",", " ", rm])
@@ -252,7 +252,7 @@ class Divss(Sse1Instruction):
 class Divsd(Sse2Instruction):
     """ Divide scalar double-fp value """
 
-    r = Operand("r", XmmRegisterDouble, write=True)
+    r = Operand("r", XmmRegisterDouble, write=True, read=True)
     rm = Operand("rm", xmm_double_rm_modes, read=True)
     patterns = {"prefix": 0xF2, "opcode": 0x5E}
     syntax = Syntax(["divsd", " ", r, ",", " ", rm])
@@ -721,12 +721,26 @@ def pattern_div_f64(context, tree, c0, c1):
 
 @sse1_isa.pattern("stm", "MOVF32(regfp32)", size=3, cycles=2, energy=2)
 def pattern_mov_f32(context, tree, c0):
+    """ Generate a f32 register - f32 register move. """
     context.move(tree.value, c0)
+
+
+@sse1_isa.pattern("stm", "MOVF32(rmf32)", size=3, cycles=2, energy=2)
+def pattern_mov_rmf32(context, tree, c0):
+    """ Move any r/m source into a f32 register. """
+    context.emit(Movss(tree.value, c0))
 
 
 @sse2_isa.pattern("stm", "MOVF64(regfp64)", size=3, cycles=3, energy=3)
 def pattern_mov_f64(context, tree, c0):
+    """ Generate a f64 register - f64 register move """
     context.move(tree.value, c0)
+
+
+@sse2_isa.pattern("stm", "MOVF64(rmf64)", size=3, cycles=3, energy=3)
+def pattern_mov_rmf64(context, tree, c0):
+    """ Move any r/m f64 source into a f64 register """
+    context.emit(Movsd(tree.value, c0))
 
 
 @sse2_isa.pattern("regfp64", "REGF64", size=0, cycles=0, energy=0)

@@ -301,8 +301,10 @@ reg16_mp = {r.num: r for r in Register16.registers}
 reg32_mp = {r.num: r for r in Register32.registers}
 
 
-callee_save = (
+callee_save_windows = (
     rbx,
+    rdi,
+    rsi,
     # TODO: we do not use r12 and r13?
     # r12,
     # r13,
@@ -319,7 +321,31 @@ callee_save = (
     xmm14,
     xmm15,
 )
-caller_save = (
+caller_save_windows = (
+    rax,
+    rcx,
+    rdx,
+    r8,
+    r9,
+    r10,
+    r11,
+    xmm0,
+    xmm1,
+    xmm2,
+    xmm3,
+    xmm4,
+    xmm5,
+)
+
+callee_save_linux = (
+    rbx,
+    # TODO: we do not use r12 and r13?
+    # r12,
+    # r13,
+    r14,
+    r15,
+)
+caller_save_linux = (
     rax,
     rcx,
     rdx,
@@ -335,6 +361,16 @@ caller_save = (
     xmm3,
     xmm4,
     xmm5,
+    xmm6,
+    xmm7,
+    xmm8,
+    xmm9,
+    xmm10,
+    xmm11,
+    xmm12,
+    xmm13,
+    xmm14,
+    xmm15,
 )
 
 

@@ -92,7 +92,7 @@ class NativeModuleInstance(ModuleInstance):
         return self._memory_data_page.size // PAGE_SIZE
 
     def memory_grow(self, amount: int) -> int:
-        """ Grow memory and return the old size.
+        """Grow memory and return the old size.
 
         Current strategy:
         - claim new memory
@@ -151,6 +151,7 @@ class NativeModuleInstance(ModuleInstance):
 
 class NativeWasmMemory(WasmMemory):
     """ Native wasm memory emulation """
+
     def __init__(self, instance, min_size, max_size):
         super().__init__(min_size, max_size)
         self._instance = instance

@@ -66,7 +66,7 @@ def test_func1():
             'print_ln': print_ln,
         },
     }
-    instantiate(m0, imports, target='python')
+    instantiate(m0, imports=imports, target='python')
     assert [7] == printed_numbers
 
     if has_node():

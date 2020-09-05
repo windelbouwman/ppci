@@ -159,8 +159,8 @@ class TreeSelector:
         self.sys = sys
 
     def gen(self, context, tree):
-        """ Generate code for a given tree. The tree will be tiled with
-            patterns and the corresponding code will be emitted """
+        """Generate code for a given tree. The tree will be tiled with
+        patterns and the corresponding code will be emitted"""
         self.sys.check_tree_defined(tree)
         self.burm_label(tree)
 
@@ -235,16 +235,16 @@ class TreeSelector:
 
 
 class InstructionSelector1:
-    """ Instruction selector which takes in a DAG and puts instructions
-        into a frame.
+    """Instruction selector which takes in a DAG and puts instructions
+    into a frame.
 
-        This one does selection and scheduling combined.
+    This one does selection and scheduling combined.
     """
 
     verbose = False
 
-    def __init__(self, arch, sgraph_builder, weights=(1, 1, 1)):
-        """ Create a new instruction selector.
+    def __init__(self, arch, sgraph_builder, reporter, weights=(1, 1, 1)):
+        """Create a new instruction selector.
 
         Weights can be given to select instructions given more for:
         - size
@@ -255,6 +255,7 @@ class InstructionSelector1:
         self.logger = logging.getLogger("instruction-selector")
         self.dag_builder = sgraph_builder
         self.arch = arch
+        self.reporter = reporter
         self.dag_splitter = DagSplitter(arch)
 
         # Generate burm table of rules:
@@ -289,8 +290,7 @@ class InstructionSelector1:
         self.tree_selector = TreeSelector(self.sys)
 
     def _create_undefined_rules(self):
-        """ Create rules for undefined values based on register classes.
-        """
+        """Create rules for undefined values based on register classes."""
         und_map = {}
         for register_class in self.arch.info.register_classes:
             for ir_typ in register_class.ir_types:
@@ -302,7 +302,7 @@ class InstructionSelector1:
             self._mk_undefined_rule(reg_class_name, reg_class, ir_typ)
 
     def _mk_undefined_rule(self, reg_class_name, reg_class, ir_ty):
-        """ Create rule for undefined value.
+        """Create rule for undefined value.
 
         For example, create UNDU16 which defines
         a 16 bits registers and returns it.
@@ -337,7 +337,7 @@ class InstructionSelector1:
         for instruction in self.arch.gen_memcpy(dst, src, size):
             context.emit(instruction)
 
-    def select(self, ir_function: ir.SubRoutine, frame, reporter):
+    def select(self, ir_function: ir.SubRoutine, frame):
         """ Select instructions of function into a frame """
         assert isinstance(ir_function, ir.SubRoutine)
         self.logger.debug("Creating selection dag for %s", ir_function.name)
@@ -354,13 +354,13 @@ class InstructionSelector1:
         if self.verbose:
             # Graph drawing takes considerable time
             # only do this in verbose mode.
-            reporter.dump_sgraph(sgraph)
+            self.reporter.dump_sgraph(sgraph)
 
         # Split the selection graph into a forest of trees:
         forest = self.dag_splitter.split_into_trees(
             sgraph, ir_function, function_info, frame.debug_db
         )
-        reporter.dump_trees(forest)
+        self.reporter.dump_trees(forest)
 
         # Create a context that can emit instructions:
         context = InstructionContext(frame, self.arch)
@@ -387,16 +387,16 @@ class InstructionSelector1:
         #    frame.emit(instruction)
 
     def munch_trees(self, context, trees):
-        """ Consume a dag and match it using the matcher to the frame.
-            DAG matching is NP-complete.
+        """Consume a dag and match it using the matcher to the frame.
+        DAG matching is NP-complete.
 
-            The simplest strategy is to
-            split the dag into a forest of trees. Then, the DAG is reduced
-            to only trees, which can be matched.
+        The simplest strategy is to
+        split the dag into a forest of trees. Then, the DAG is reduced
+        to only trees, which can be matched.
 
-            A different approach is use 0-1 programming, like the NOLTIS algo.
+        A different approach is use 0-1 programming, like the NOLTIS algo.
 
-            TODO: implement different strategies.
+        TODO: implement different strategies.
         """
 
         # Match all splitted trees:

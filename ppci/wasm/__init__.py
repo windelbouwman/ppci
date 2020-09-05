@@ -15,7 +15,7 @@ from .execution import instantiate, execute_wasm
 
 
 def read_wasm(input) -> Module:
-    """ Read wasm in the form of a string, tuple, bytes or file object.
+    """Read wasm in the form of a string, tuple, bytes or file object.
     Returns a wasm Module object.
     """
     return Module(input)
@@ -28,7 +28,7 @@ def read_wat(f) -> Module:
 
 
 def wasmify(func, target="native"):
-    """ Convert a Python function to a WASM function, compiled
+    """Convert a Python function to a WASM function, compiled
     to native code. Assumes that all variables are floats.
     Can be used as a decorator, like Numba!
     """
@@ -40,7 +40,7 @@ def wasmify(func, target="native"):
 
     wa = python_to_wasm(func)
     imports = {"env": {"f64_print": f64_print}}
-    mod = instantiate(wa, imports, target=target)
+    mod = instantiate(wa, imports=imports, target=target)
     wasmfunc = getattr(mod.exports, func.__name__)
     return wasmfunc
 

@@ -11,7 +11,7 @@ from ..util import make_int
 
 
 class Unreachable(RuntimeError):
-    """ WASM kernel panic. Having an exception for this allows catching it
+    """WASM kernel panic. Having an exception for this allows catching it
     in tests.
     """
 
@@ -336,7 +336,7 @@ def i64_extend32_s(x: ir.i64) -> ir.i64:
 # See also:
 # https://github.com/kanaka/warpy/blob/master/warpy.py
 def create_runtime():
-    """ Create runtime functions.
+    """Create runtime functions.
 
     These are functions required by some wasm instructions which cannot
     be code generated directly or are too complex.

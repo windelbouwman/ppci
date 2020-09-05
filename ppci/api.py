@@ -92,7 +92,7 @@ def is_platform_supported():
 
 
 def construct(buildfile, targets=()):
-    """ Construct the given buildfile.
+    """Construct the given buildfile.
 
     Raise task error if something goes wrong.
     """
@@ -116,7 +116,7 @@ def construct(buildfile, targets=()):
 
 
 def asm(source, march, debug=False):
-    """ Assemble the given source for machine march.
+    """Assemble the given source for machine march.
 
     Args:
         source (str): can be a filename or a file like object.
@@ -159,7 +159,7 @@ def asm(source, march, debug=False):
 
 
 def disasm(data, march):
-    """ Disassemble the given binary data for machine march.
+    """Disassemble the given binary data for machine march.
 
     Args:
         data: a filename or a file like object.
@@ -185,7 +185,7 @@ OPT_LEVELS = ("0", "1", "2", "s")
 
 
 def optimize(ir_module, level=0, reporter=None):
-    """ Run a bag of tricks against the :doc:`ir-code<ir/index>`.
+    """Run a bag of tricks against the :doc:`ir-code<ir/index>`.
 
     This is an in-place operation!
 
@@ -248,25 +248,21 @@ def optimize(ir_module, level=0, reporter=None):
 def ir_to_stream(
     ir_module, march, output_stream, reporter=None, debug=False, opt="speed"
 ):
-    """ Translate IR module to output stream.
-    """
+    """Translate IR module to output stream."""
     march = get_arch(march)
 
     if not reporter:  # pragma: no cover
         reporter = DummyReportGenerator()
 
-    code_generator = CodeGenerator(march, optimize_for=opt)
+    code_generator = CodeGenerator(march, reporter, optimize_for=opt)
     verify_module(ir_module)
 
     # Code generation:
-    code_generator.generate(
-        ir_module, output_stream, reporter=reporter, debug=debug
-    )
+    code_generator.generate(ir_module, output_stream, debug=debug)
 
 
 def ir_to_assembly(ir_modules, march, add_binary=False):
-    """ Translate the given ir-code into assembly code.
-    """
+    """Translate the given ir-code into assembly code."""
     text_file = io.StringIO()
     text_stream = TextOutputStream(f=text_file, add_binary=add_binary)
     for ir_module in ir_modules:
@@ -277,7 +273,7 @@ def ir_to_assembly(ir_modules, march, add_binary=False):
 def ir_to_object(
     ir_modules, march, reporter=None, debug=False, opt="speed", outstream=None
 ):
-    """ Translate IR-modules into code for the given architecture.
+    """Translate IR-modules into code for the given architecture.
 
     Args:
         ir_modules: a collection of ir-modules that will be transformed into
@@ -336,7 +332,7 @@ def cc(
     debug=False,
     reporter=None,
 ):
-    """ C compiler. compiles a single source file into an object file.
+    """C compiler. compiles a single source file into an object file.
 
     Args:
         source: file like object from which text can be read
@@ -405,7 +401,7 @@ def c3c(
     debug=False,
     outstream=None,
 ):
-    """ Compile a set of sources into binary format for the given target.
+    """Compile a set of sources into binary format for the given target.
 
     Args:
         sources: a collection of sources that will be compiled.
@@ -445,7 +441,7 @@ def c3c(
 
 
 def pascal(sources, march, opt_level=0, reporter=None, debug=False):
-    """ Compile a set of pascal-sources for the given target.
+    """Compile a set of pascal-sources for the given target.
 
     Args:
         sources: a collection of sources that will be compiled.
@@ -463,7 +459,7 @@ def pascal(sources, march, opt_level=0, reporter=None, debug=False):
 
 
 def bfcompile(source, target, reporter=None):
-    """ Compile brainfuck source into binary format for the given target
+    """Compile brainfuck source into binary format for the given target
 
     Args:
         source: a filename or a file like object.
@@ -495,7 +491,7 @@ def bfcompile(source, target, reporter=None):
 
 
 def pycompile(source, march, reporter=None):
-    """ Compile a piece of python code to machine code.
+    """Compile a piece of python code to machine code.
 
     Note that the python code must be type annotated for this
     to work.

@@ -183,6 +183,7 @@ class CLexerTestCase(unittest.TestCase):
             ("3.14", 3.14),
             ("1.", 1.0),
             (".1", 0.1),
+            ("0.7", 0.7),
         ]
         for src, value in test_cases:
             # print(src)

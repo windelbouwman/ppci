@@ -74,7 +74,7 @@ def test_table1():
                 'print_ln': print_ln,
             },
         }
-        instantiate(m0, imports, target='python', reporter=reporter)
+        instantiate(m0, imports=imports, target='python', reporter=reporter)
         assert [101, 102] == printed_numbers
 
         if is_platform_supported():
@@ -86,7 +86,7 @@ def test_table1():
                     'print_ln': print_ln,
                 },
             }
-            instantiate(m0, imports, target='native', reporter=reporter)
+            instantiate(m0, imports=imports, target='native', reporter=reporter)
             assert [101, 102] == printed_numbers
 
     if has_node():

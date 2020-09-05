@@ -261,7 +261,7 @@ class WastExecutor:
                 # TODO: use reg_instance.exports
 
             mod_instance = instantiate(
-                m1, imports, target=self.target, reporter=self.reporter)
+                m1, imports=imports, target=self.target, reporter=self.reporter)
             self.logger.debug('Instantiated wasm module %s', mod_instance)
             if m1.id:
                 self.named_module_instances[m1.id] = mod_instance

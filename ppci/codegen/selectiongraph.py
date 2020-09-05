@@ -41,8 +41,8 @@ class SelectionGraph:
 
     @property
     def edges(self):
-        """ Generate all edges by looking at all inputs for all nodes and then
-        finding the nodes that produce these inputs! """
+        """Generate all edges by looking at all inputs for all nodes and then
+        finding the nodes that produce these inputs!"""
         for node in self.nodes:
             for inp in node.inputs:
                 yield SGEdge(inp.node, node, inp.name, inp.kind)
@@ -58,7 +58,7 @@ class SelectionGraph:
 
 
 class SGValue:
-    """ A value is actually an edge in the graph
+    """A value is actually an edge in the graph
 
     it has one single source, and can have multiple usages.
     """
@@ -102,14 +102,14 @@ class SGValue:
 
 
 class SGNode:
-    """ A single node in the selection graph. A node has an operation name
-        this can be an abstract operation in case of an unselected graph
-        but it can also be a selected instruction in case a machine instruction
-        has been selected.
+    """A single node in the selection graph. A node has an operation name
+    this can be an abstract operation in case of an unselected graph
+    but it can also be a selected instruction in case a machine instruction
+    has been selected.
 
-        It also has input values and output values. A node can produce more
-        than one value. For instance the 'div' x86 instruction produces both
-        the quotient and the remainer.
+    It also has input values and output values. A node can produce more
+    than one value. For instance the 'div' x86 instruction produces both
+    the quotient and the remainer.
     """
 
     def __init__(self, op):

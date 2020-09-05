@@ -79,8 +79,7 @@ def make_float(s):
 
 
 class SlugTable:
-    """ A translation table which allows simple ascii characters.
-    """
+    """A translation table which allows simple ascii characters."""
 
     def __getitem__(self, item):
         #
@@ -124,8 +123,7 @@ def sanitize_name(name: str):
 
 
 def inspect_bytes_at(bb, offset):
-    """ Inspect bytes at the specified offset.
-    """
+    """Inspect bytes at the specified offset."""
     start = max(0, offset - 16)
     end = offset + 16
     bytes2show = bb[start:end]
@@ -159,8 +157,7 @@ def datastring2bytes(s):
 
 
 def export_wasm_example(filename, code, wasm, main_js=""):
-    """ Generate an html file for the given code and wasm module.
-    """
+    """Generate an html file for the given code and wasm module."""
     from .components import Module
 
     if filename.startswith("~/"):
@@ -208,8 +205,7 @@ _nb_output = 0
 
 
 def run_wasm_in_notebook(wasm):
-    """ Load a WASM module in the Jupyter notebook.
-    """
+    """Load a WASM module in the Jupyter notebook."""
     from .components import Module
     from IPython.display import display, HTML, Javascript
 
@@ -262,7 +258,7 @@ def has_node() -> bool:
 
 
 def run_wasm_in_node(wasm, silent=False):
-    """ Load a WASM module in node.
+    """Load a WASM module in node.
     Just make sure that your module has a main function.
     """
     from .components import Module
@@ -327,7 +323,7 @@ NODE_EXE = None
 
 
 def get_node_exe():
-    """ Small utility that provides the node exe. The first time this
+    """Small utility that provides the node exe. The first time this
     is called both 'nodejs' and 'node' are tried. To override the
     executable path, set the ``FLEXX_NODE_EXE`` environment variable.
     """

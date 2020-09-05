@@ -2,7 +2,7 @@ import io
 
 
 def default_alignment(opcode):
-    """ Retrieve the default alignment for a memory opcode.
+    """Retrieve the default alignment for a memory opcode.
 
     Note that the alignment is returned as log2
 

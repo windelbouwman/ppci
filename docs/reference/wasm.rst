@@ -91,6 +91,16 @@ Running in the Python process:
     >>> loaded.exports.truth()
     42
 
+Running WASI modules can be done :ref:`from command line<ppci-wabt>`:
+
+.. code:: bash
+
+    $ python -m ppci.cli.wabt run --target native coremark-wasi.wasm
+
+Note that you can pass arguments to the WASI executable by using double dash:
+
+    $ python -m ppci.cli.wabt run --target native coremark-wasi.wasm -- -h
+
 Converting between wasm and ir
 ------------------------------
 

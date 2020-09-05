@@ -54,7 +54,7 @@ show_interface_parser = subparsers.add_parser(
 )
 show_interface_parser.add_argument(
     "wasm",
-    metavar="wasm file",
+    metavar="wasm-file",
     type=argparse.FileType("rb"),
     help="wasm file to read",
 )
@@ -62,15 +62,23 @@ show_interface_parser.add_argument(
 run_parser = subparsers.add_parser("run", help="Execute a wasm file.")
 run_parser.add_argument(
     "wasm",
-    metavar="wasm file",
+    metavar="wasm-file",
     type=argparse.FileType("rb"),
-    help="wasm file to read",
+    help="wasm file to run",
 )
 run_parser.add_argument(
-    "--arg",
+    "args",
+    nargs='*',
+    metavar="arg",
+    type=str,
+    help="Command line argument to wasm accessible via WASI.",
+)
+run_parser.add_argument(
+    "--func-arg",
     dest="wasm_arguments",
     metavar="arg",
     action="append",
+    default=[],
     type=int,
     help="Argument to wasm function",
 )
@@ -87,7 +95,7 @@ run_parser.add_argument(
     "-f",
     dest="wasm_function",
     metavar="function_name",
-    help="Function to run",
+    help="Function to run. Overrides WASI _start function.",
 )
 
 
@@ -110,9 +118,10 @@ def wabt(args=None):
             wasm_module = read_wasm(args.wasm)
             execute_wasm(
                 wasm_module,
-                args.wasm_arguments,
+                args.args,
                 target=args.wasm_target,
                 function=args.wasm_function,
+                function_args=args.wasm_arguments,
                 reporter=log_setup.reporter
             )
         else:  # pragma: no cover

@@ -6,7 +6,7 @@ from .util import default_alignment, bytes2datastring
 
 
 class TextWriter:
-    """ A writer for the wasm text format.
+    """A writer for the wasm text format.
 
     This is the reverse of the text parser.
 
@@ -231,7 +231,7 @@ class TextWriter:
         return opcode + idtext + subtext
 
     def _get_sub_string(self, subs, multiline=False):
-        """ Helper method to get the string of a list of sub components,
+        """Helper method to get the string of a list of sub components,
         inserting newlines as needed.
         """
         # Collect sub texts
@@ -273,7 +273,7 @@ class TextWriter:
         self.emit("(;" + txt + ";)")
 
     def emit(self, *txts):
-        """ Write text.
+        """Write text.
 
         Idea: have different handlers for text creation and tuple creation.
         """

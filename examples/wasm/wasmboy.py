@@ -34,7 +34,7 @@ html_report = os.path.join(this_dir, 'wasmboy_report.html')
 with open(html_report, 'w') as f, reporting.HtmlReportGenerator(f) as reporter:
     wasm_boy = instantiate(
         wasm_module,
-        {'env': {'log': log}},
+        imports={'env': {'log': log}},
         target='native',
         reporter=reporter
     )

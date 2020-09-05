@@ -15,7 +15,7 @@ logger = logging.getLogger("peephole")
 
 
 class PeepHoleStream(OutputStream):
-    """ This is a peephole optimizing output stream.
+    """This is a peephole optimizing output stream.
 
     Having the peep hole optimizer as an output stream allows
     to use the peephole optimizer in several places.

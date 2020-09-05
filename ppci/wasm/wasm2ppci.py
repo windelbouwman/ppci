@@ -15,7 +15,7 @@ from .util import sanitize_name
 def wasm_to_ir(
     wasm_module: components.Module, ptr_info, reporter=None
 ) -> ir.Module:
-    """ Convert a WASM module into a PPCI native module.
+    """Convert a WASM module into a PPCI native module.
 
     Args:
         wasm_module (ppci.wasm.Module): The wasm-module to compile
@@ -33,8 +33,7 @@ def wasm_to_ir(
 
 
 class WasmToIrCompiler:
-    """ Convert WASM instructions into PPCI IR instructions.
-    """
+    """Convert WASM instructions into PPCI IR instructions."""
 
     logger = logging.getLogger("wasm2ir")
     verbose = False
@@ -327,7 +326,8 @@ class WasmToIrCompiler:
             if definition.ref.index is not None:
                 if definition.ref.index in self.export_names:
                     self.logger.debug(
-                        "Exporting function twice, now with name %s", name,
+                        "Exporting function twice, now with name %s",
+                        name,
                     )
                 else:
                     self.export_names[definition.ref.index] = name
@@ -387,7 +387,10 @@ class WasmToIrCompiler:
             size = self.ptr_info.size
 
         self.table_var = ir.Variable(
-            "func_table", ir.Binding.GLOBAL, size, self.ptr_info.alignment,
+            "func_table",
+            ir.Binding.GLOBAL,
+            size,
+            self.ptr_info.alignment,
         )
         self.builder.module.add_variable(self.table_var)
         self.tables.append((self.table_var, []))
@@ -417,7 +420,9 @@ class WasmToIrCompiler:
         # Enter correct debug info:
         dbg_typ = self.get_debug_type(definition.typ)
         db_variable_info = debuginfo.DebugVariable(
-            g2.name, dbg_typ, common.SourceLocation("main.wasm", 1, 1, 1),
+            g2.name,
+            dbg_typ,
+            common.SourceLocation("main.wasm", 1, 1, 1),
         )
         self.debug_db.enter(g2, db_variable_info)
 
@@ -433,7 +438,7 @@ class WasmToIrCompiler:
         self.builder.module.add_variable(self.memory_base_address)
 
     def gen_init_procedure(self):
-        """ Generate an initialization procedure.
+        """Generate an initialization procedure.
 
         - Initializes eventual function tables.
         - Calls an optionalstart procedure.
@@ -476,8 +481,7 @@ class WasmToIrCompiler:
             self.emit(ir.Store(value, g2))
 
     def gen_init_tables(self):
-        """ Initialization function to fill table with elements.
-        """
+        """Initialization function to fill table with elements."""
         # Fill function pointer tables:
         # TODO: we might be able to do this at link time?
         for table_variable, elems in self.tables:
@@ -514,8 +518,7 @@ class WasmToIrCompiler:
                     )
 
     def emit(self, ppci_inst):
-        """ Emits the given instruction to the builder.
-        """
+        """Emits the given instruction to the builder."""
         self.builder.emit(ppci_inst)
         return ppci_inst
 
@@ -771,8 +774,7 @@ class WasmToIrCompiler:
                 self.push_value(value)
 
     def pop_block(self):
-        """ Pop a control block of the block stack.
-        """
+        """Pop a control block of the block stack."""
         block = self.block_stack[-1]
         self.fill_phis(block.result_phis)
 
@@ -813,7 +815,7 @@ class WasmToIrCompiler:
             raise ValueError("Value stack underflow")
 
     def emit_condition_to_value(self, op, a, b):
-        """ Emit some sort of weird ternary operation.
+        """Emit some sort of weird ternary operation.
 
         Turn two values and a condition into 1 or 0.
         """
@@ -916,7 +918,7 @@ class WasmToIrCompiler:
         self.push_value(value)
 
     def gen_trunc_instruction(self, instruction):
-        """ Generate code for iNN.trunc_fMM_X.
+        """Generate code for iNN.trunc_fMM_X.
 
         For example: i64.trunc_f32_u
         """
@@ -938,7 +940,7 @@ class WasmToIrCompiler:
             self.push_value(value)
 
     def gen_saturated_trunc_instruction(self, instruction):
-        """ Generate code for iNN.trunc_sat_fMM_X.
+        """Generate code for iNN.trunc_sat_fMM_X.
 
         For example: i64.trunc_f32_u
         """
@@ -1180,7 +1182,7 @@ class WasmToIrCompiler:
         )
 
     def gen_end_instruction(self):
-        """ Generate code for end instruction.
+        """Generate code for end instruction.
 
         This is a more or less complex task. It has to deal with unreachable
         code as well.
@@ -1400,7 +1402,7 @@ class WasmToIrCompiler:
         self.push_value(phi)
 
     def gen_unreachable_instruction(self):
-        """ Generate appropriate code for an unreachable instruction.
+        """Generate appropriate code for an unreachable instruction.
 
         What we will do, is we call an external function to handle this
         exception. Also we will return from the subroutine.
@@ -1422,7 +1424,7 @@ class WasmToIrCompiler:
         self._runtime_call(opcode)
 
     def gen_return_instruction(self, instruction):
-        """ Generate code for return instruction.
+        """Generate code for return instruction.
 
         Treat return as a break to the top level block.
         """
@@ -1448,7 +1450,7 @@ class WasmToIrCompiler:
         self.builder.set_block(falseblock)
 
     def gen_br_table_instruction(self, instruction):
-        """ Generate code for br_table instruction.
+        """Generate code for br_table instruction.
         This is a sort of switch case.
 
         This is called a jump table. Implement for now by chain of
@@ -1479,8 +1481,7 @@ class WasmToIrCompiler:
         self.builder.set_block(None)
 
     def get_jump_target_block(self, depth):
-        """ Lookup the branch target and fill its optional value.
-        """
+        """Lookup the branch target and fill its optional value."""
         assert isinstance(depth, components.Ref)
         depth = depth.index
         block = self.block_stack[-depth - 1]
@@ -1493,7 +1494,7 @@ class WasmToIrCompiler:
         return targetblock
 
     def _runtime_call(self, opcode):
-        """ Generate runtime function call.
+        """Generate runtime function call.
 
         This is required for functions such 'sqrt' as which do not have
         a reasonable ppci ir-code equivalent.
@@ -1538,7 +1539,7 @@ class WasmToIrCompiler:
 
 
 class BlockLevel:
-    """ Store some info about blocks.
+    """Store some info about blocks.
 
     Each block has optionally params and results.
     Both parameters and results are implemented as

@@ -307,8 +307,8 @@ def test_coremark_crc16(v1, v2):
     )
     """
     m = Module(coremark_wasm_snippet)
-    py_inst = instantiate(m, {}, target='python')
-    native_inst = instantiate(m, {}, target='native')
+    py_inst = instantiate(m, target='python')
+    native_inst = instantiate(m, target='native')
     res1 = py_inst.exports['crc16'](v1, v2)
     res2 = native_inst.exports['crc16'](v1, v2)
     print('results', res1, 'should be equal to', res2)
@@ -323,8 +323,8 @@ def assert_equal_behavior(m):
     print(m.to_string())
 
     # Compile / instantiate:
-    py_inst = instantiate(m, {}, target='python')
-    native_inst = instantiate(m, {}, target='native')
+    py_inst = instantiate(m, target='python')
+    native_inst = instantiate(m, target='native')
 
     # Run both python and x86 variant and compare outputs.
     res1 = py_inst.exports['my_func']()
@@ -341,8 +341,8 @@ def assert_equal_memory(m):
     print(m.to_string())
 
     # Compile / instantiate:
-    py_inst = instantiate(m, {}, target='python')
-    native_inst = instantiate(m, {}, target='native')
+    py_inst = instantiate(m, target='python')
+    native_inst = instantiate(m, target='native')
 
     # Run both python and x86 variant
     py_inst.exports['my_func']()

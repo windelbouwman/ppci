@@ -39,7 +39,7 @@ from .sse2_instructions import RmXmmRegSingle, RmXmmRegDouble
 from .sse2_instructions import PushXmmRegisterDouble, PopXmmRegisterDouble
 from .sse2_instructions import PushXmmRegisterSingle, PopXmmRegisterSingle
 from .registers import rax, rcx, rdi, rsi
-from .registers import register_classes, caller_save, callee_save
+from .registers import register_classes
 from .registers import Register64
 from .registers import rbp, rsp, al
 from . import elf as elf_support
@@ -165,6 +165,13 @@ class X86_64Arch(Architecture):
         self.assembler.gen_asm_parser(self.isa)
         self.stack_grows_down = True
         self.gdb_registers = registers.full_registers
+
+        if self.has_option('wincc'):
+            self._callee_save = registers.callee_save_windows
+            self._caller_save = registers.caller_save_windows
+        else:
+            self._callee_save = registers.callee_save_linux
+            self._caller_save = registers.caller_save_linux
 
     def move(self, dst, src):
         """ Generate a move from src to dst """
@@ -570,9 +577,9 @@ class X86_64Arch(Architecture):
 
         if isinstance(label, Register64):
             # Call to register pointer
-            yield instructions.CallReg(label, clobbers=caller_save)
+            yield instructions.CallReg(label, clobbers=self._caller_save)
         else:
-            yield Call(label, clobbers=caller_save)
+            yield Call(label, clobbers=self._caller_save)
 
         if rv:
             retval_loc = self.determine_rv_location(rv[0])
@@ -647,7 +654,7 @@ class X86_64Arch(Architecture):
 
     def get_callee_saved(self, frame):
         saved_registers = []
-        for reg in callee_save:
+        for reg in self._callee_save:
             if frame.is_used(reg, self.info.alias):
                 saved_registers.append(reg)
         return saved_registers

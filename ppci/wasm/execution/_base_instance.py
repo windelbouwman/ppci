@@ -30,8 +30,7 @@ class ModuleInstance(metaclass=abc.ABCMeta):
         raise NotImplementedError()
 
     def load_memory(self, wasm_module):
-        """ Create memory and load initial data.
-        """
+        """Create memory and load initial data."""
         initializations = []
         for definition in wasm_module:
             if isinstance(definition, components.Memory):

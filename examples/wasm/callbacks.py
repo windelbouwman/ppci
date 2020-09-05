@@ -57,7 +57,7 @@ print(result, '(should be 85)')
 # This way a wasm module can be loaded analog to javascript:
 instance = instantiate(
     wasm_module,
-    {
+    imports={
         'py': {
             'add': my_add,
         }

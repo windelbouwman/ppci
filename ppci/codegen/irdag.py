@@ -67,8 +67,8 @@ def prepare_function_info(arch, function_info, ir_function):
 
 
 class FunctionInfo:
-    """ Keeps track of global function data when generating code for part
-    of a functions. """
+    """Keeps track of global function data when generating code for part
+    of a functions."""
 
     def __init__(self, frame):
         self.frame = frame
@@ -111,9 +111,9 @@ class Operation:
 
 def make_map(cls):
     """
-        Add an attribute to the class that is a map of ir types to handler
-        functions. For example if a function is called do_phi it will be
-        registered into f_map under key ir.Phi.
+    Add an attribute to the class that is a map of ir types to handler
+    functions. For example if a function is called do_phi it will be
+    registered into f_map under key ir.Phi.
     """
     f_map = getattr(cls, "f_map")
     for name, func in list(cls.__dict__.items()):
@@ -137,7 +137,7 @@ class SelectionGraphBuilder:
         self.ptr_ty = arch.info.type_infos["ptr"]
 
     def build(self, ir_function: ir.SubRoutine, function_info, debug_db):
-        """ Create a selection graph for the given function.
+        """Create a selection graph for the given function.
 
         Selection graph is divided into groups for each basic block.
         """
@@ -186,7 +186,7 @@ class SelectionGraphBuilder:
         return self.sgraph
 
     def block_to_sgraph(self, ir_block: ir.Block, function_info):
-        """ Create dag (directed acyclic graph) from a basic block.
+        """Create dag (directed acyclic graph) from a basic block.
 
         The resulting dag can be used for instruction selection.
         """
@@ -359,7 +359,7 @@ class SelectionGraphBuilder:
         self.debug_db.map(node, sgnode)
 
     def do_inline_asm(self, node):
-        """ Create selection graph node for inline asm code.
+        """Create selection graph node for inline asm code.
 
         This is a little weird, as we really do not need to select
         any instructions, but this special node will be filtered later
@@ -554,8 +554,8 @@ class SelectionGraphBuilder:
         self.debug_db.map(node, vreg)
 
     def copy_phis_of_successors(self, ir_block):
-        """ When a terminator instruction is encountered, handle the copy
-        of phi values into the expected virtual register """
+        """When a terminator instruction is encountered, handle the copy
+        of phi values into the expected virtual register"""
         # Copy values to phi nodes in other blocks:
         # step 1: create a new temporary that contains the value of the phi
         # node. Do this because the calculation of the value can involve the

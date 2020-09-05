@@ -15,6 +15,7 @@ Usage:
 import os
 import logging
 import time
+import argparse
 
 try:
     from powertb import print_exc
@@ -102,8 +103,10 @@ def main():
 
 
 if __name__ == '__main__':
-    verbose = False
-    if verbose:
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--verbose', '-v', action='count', default=0)
+    args = parser.parse_args()
+    if args.verbose > 0:
         level = logging.DEBUG
     else:
         level = logging.INFO

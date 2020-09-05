@@ -29,9 +29,10 @@ class CodeGenerator:
 
     logger = logging.getLogger("codegen")
 
-    def __init__(self, arch, optimize_for="size"):
+    def __init__(self, arch, reporter, optimize_for="size"):
         assert isinstance(arch, Architecture), arch
         self.arch = arch
+        self.reporter = reporter
         self.verifier = Verifier()
         self.sgraph_builder = SelectionGraphBuilder(arch)
         weights_map = {
@@ -42,16 +43,14 @@ class CodeGenerator:
         }
         selection_weights = weights_map.get(optimize_for, (1, 1, 1))
         self.instruction_selector = InstructionSelector1(
-            arch, self.sgraph_builder, weights=selection_weights
+            arch, self.sgraph_builder, reporter, weights=selection_weights
         )
         self.instruction_scheduler = InstructionScheduler()
         self.register_allocator = GraphColoringRegisterAllocator(
-            arch, self.instruction_selector
+            arch, self.instruction_selector, reporter
         )
 
-    def generate(
-        self, ircode: ir.Module, output_stream, reporter, debug=False
-    ):
+    def generate(self, ircode: ir.Module, output_stream, debug=False):
         """ Generate machine code from ir-code into output stream """
         assert isinstance(ircode, ir.Module)
         if ircode.debug_db:
@@ -80,9 +79,7 @@ class CodeGenerator:
         # Each frame has a flat list of abstract instructions.
         output_stream.select_section("code")
         for function in ircode.functions:
-            self.generate_function(
-                function, output_stream, reporter, debug=debug
-            )
+            self.generate_function(function, output_stream, debug=debug)
 
         # Output debug type data:
         if debug:
@@ -134,9 +131,7 @@ class CodeGenerator:
             dv.address = label.name
             output_stream.emit(DebugData(dv))
 
-    def generate_function(
-        self, ir_function, output_stream, reporter, debug=False
-    ):
+    def generate_function(self, ir_function, output_stream, debug=False):
         """ Generate code for one function into a frame """
         self.logger.info(
             "Generating %s code for function %s",
@@ -144,8 +139,8 @@ class CodeGenerator:
             ir_function.name,
         )
 
-        reporter.heading(3, "Log for {}".format(ir_function))
-        reporter.dump_ir(ir_function)
+        self.reporter.heading(3, "Log for {}".format(ir_function))
+        self.reporter.dump_ir(ir_function)
 
         # Split too large basic blocks in smaller chunks (for literal pools):
         # TODO: fix arbitrary number of 500. This works for arm and thumb..
@@ -172,9 +167,9 @@ class CodeGenerator:
         self.debug_db.map(ir_function, frame)
 
         # Select instructions and schedule them:
-        self.select_and_schedule(ir_function, frame, reporter)
+        self.select_and_schedule(ir_function, frame)
 
-        reporter.dump_frame(frame)
+        self.reporter.dump_frame(frame)
 
         # Do register allocation:
         self.register_allocator.alloc_frame(frame)
@@ -184,7 +179,7 @@ class CodeGenerator:
         if hasattr(self.arch, "peephole"):
             frame.instructions = self.arch.peephole(frame)
 
-        reporter.dump_frame(frame)
+        self.reporter.dump_frame(frame)
 
         # Add label and return and stack adjustment:
         instruction_list = []
@@ -205,15 +200,15 @@ class CodeGenerator:
             dd = DebugData(d)
             output_stream.emit(dd)
 
-        reporter.dump_instructions(instruction_list, self.arch)
+        self.reporter.dump_instructions(instruction_list, self.arch)
 
-    def select_and_schedule(self, ir_function, frame, reporter):
+    def select_and_schedule(self, ir_function, frame):
         """ Perform instruction selection and scheduling """
         self.logger.debug("Selecting instructions")
 
         tree_method = True
         if tree_method:
-            self.instruction_selector.select(ir_function, frame, reporter)
+            self.instruction_selector.select(ir_function, frame)
         else:  # pragma: no cover
             raise NotImplementedError("TODO")
             # Build a graph:
@@ -226,10 +221,10 @@ class CodeGenerator:
 
     def emit_frame_to_stream(self, frame, output_stream, debug=False):
         """
-            Add code for the prologue and the epilogue. Add a label, the
-            return instruction and the stack pointer adjustment for the frame.
-            At this point we know how much stack space must be reserved for
-            locals and what registers should be saved.
+        Add code for the prologue and the epilogue. Add a label, the
+        return instruction and the stack pointer adjustment for the frame.
+        At this point we know how much stack space must be reserved for
+        locals and what registers should be saved.
         """
         # Materialize the register allocated instructions into a stream of
         # real instructions.
@@ -293,8 +288,7 @@ class CodeGenerator:
     def _generate_inline_assembly(
         self, assembly_source, output_registers, input_registers, ostream
     ):
-        """ Emit inline assembly template to outstream.
-        """
+        """Emit inline assembly template to outstream."""
         from ..common import DiagnosticsManager
 
         # poor mans assembly api copied from api.py

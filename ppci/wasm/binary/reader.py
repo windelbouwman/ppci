@@ -132,8 +132,7 @@ class BinaryFileReader:
 
     @contextmanager
     def push_data(self, data):
-        """ Process the given data first.
-        """
+        """Process the given data first."""
         self._f.append(BytesIO(data))
         yield
         f = self._f.pop()
@@ -247,6 +246,9 @@ class BinaryFileReader:
     def read_instruction(self):
         """ Read a single instruction """
         binopcode = self.read_byte()
+        if binopcode == 0xFC:
+            opcode2 = self.read_uint()
+            binopcode = (binopcode, opcode2)
         opcode = REVERZ[binopcode]
         operands = OPERANDS[opcode]
         # print(opcode, type, operands)

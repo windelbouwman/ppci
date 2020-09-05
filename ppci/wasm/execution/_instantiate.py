@@ -19,9 +19,9 @@ __all__ = ("instantiate",)
 
 
 def instantiate(
-    module, imports, target="native", reporter=None, cache_file=None
+    module, imports=None, target="native", reporter=None, cache_file=None
 ):
-    """ Instantiate a wasm module.
+    """Instantiate a wasm module.
 
     Args:
         module (ppci.wasm.Module): The wasm-module to instantiate
@@ -33,6 +33,9 @@ def instantiate(
         cache_file: a file to use as cache
 
     """
+    if imports is None:
+        imports = {}
+
     if reporter is None:
         reporter = DummyReportGenerator()
 

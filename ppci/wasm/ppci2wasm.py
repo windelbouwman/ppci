@@ -28,7 +28,7 @@ from .arch import I32Register, I64Register, F32Register, F64Register
 
 
 def ir_to_wasm(ir_module: ir.Module, reporter=None) -> components.Module:
-    """ Compiles ir-code to a wasm module.
+    """Compiles ir-code to a wasm module.
 
     Args:
         ir_module (ir.Module): The ir-module to compile
@@ -233,7 +233,7 @@ class IrToWasmCompiler:
         return self.type_refs[key]
 
     def has_function(self, function_name):
-        """ Get whether we already created an imported or defined
+        """Get whether we already created an imported or defined
         function with the given name.
         """
         return function_name in self.function_refs
