@@ -37,7 +37,7 @@ import argparse
 from ppci.wasm import read_wat, Module, instantiate, components
 from ppci.common import CompilerError, logformat
 from ppci.lang.sexpr import parse_sexpr, parse_multiple_sexpr
-from ppci.utils.reporting import HtmlReportGenerator
+from ppci.utils.reporting import html_reporter
 from ppci.wasm.util import datastring2bytes
 from ppci.wasm.util import make_int, make_float
 
@@ -101,7 +101,7 @@ def perform_test(filename, target):
         source_text = f.read()
 
     html_report = os.path.splitext(filename)[0] + '_' + target + '.html'
-    with open(html_report, 'wt', encoding='utf8') as f, HtmlReportGenerator(f) as reporter:
+    with html_reporter(html_report) as reporter:
         reporter.message('Test spec file {}'.format(filename))
         try:
             s_expressions = parse_multiple_sexpr(source_text)

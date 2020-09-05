@@ -2,14 +2,14 @@
 import logging
 from ppci.api import asm, c3c, link, get_arch, wasmcompile
 from ppci.binutils.objectfile import merge_memories
-from ppci.utils.reporting import HtmlReportGenerator
+from ppci.utils.reporting import html_reporter
 
 
 logging.basicConfig(level=logging.INFO)
 arch = get_arch('riscv')
 obj1 = asm("start.s", arch)
 
-with open('report.html', 'w') as f, HtmlReportGenerator(f) as reporter:
+with html_reporter('report.html') as reporter:
     srcs = ['../src/wasm_fac/main.c3', '../../librt/io.c3', 'c3src/bsp.c3']
     obj2 = c3c(srcs, [], arch, reporter=reporter)
     with open('../src/wasm_fac/fact.wasm', 'rb') as f2:

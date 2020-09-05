@@ -6,7 +6,7 @@ from helper_util import do_long_tests, make_filename
 
 from ppci.api import get_current_arch
 from ppci.utils.codepage import load_obj
-from ppci.utils.reporting import HtmlReportGenerator
+from ppci.utils.reporting import html_reporter
 
 
 @unittest.skipUnless(do_long_tests("jit"), "skipping slow tests")
@@ -24,9 +24,7 @@ class TestJittedSamples(unittest.TestCase):
         march = get_current_arch()
         base_filename = make_filename(self.id())
         report_filename = base_filename + ".html"
-        with open(report_filename, "w") as f, HtmlReportGenerator(
-            f
-        ) as reporter:
+        with html_reporter(report_filename) as reporter:
             obj = partial_build(src, lang, bsp_c3, 0, march, reporter)
 
         actual_output = []

@@ -2,7 +2,7 @@ import io
 import os
 from helper_util import relpath, source_files
 from ppci import api
-from ppci.utils.reporting import HtmlReportGenerator
+from ppci.utils.reporting import html_reporter
 from ppci.lang.c import COptions
 
 
@@ -150,7 +150,7 @@ def build(
     """ Construct object file from source snippet """
     list_filename = base_filename + ".html"
 
-    with HtmlReportGenerator(open(list_filename, "w")) as reporter:
+    with html_reporter(list_filename) as reporter:
         objs = build_sample_to_code(
             src, lang, bsp_c3, opt_level, march, True, reporter
         )

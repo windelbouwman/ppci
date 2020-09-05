@@ -33,7 +33,7 @@ import subprocess
 from ppci.common import CompilerError, logformat
 from ppci import api
 from ppci.lang.c import COptions
-from ppci.utils.reporting import HtmlReportGenerator
+from ppci.utils.reporting import html_reporter
 from ppci.format.elf import write_elf
 
 
@@ -107,7 +107,7 @@ def perform_test(filename):
     coptions.add_define('__LP64__', '1')
     # coptions.enable('freestanding')
 
-    with open(html_report, "w") as rf, HtmlReportGenerator(rf) as reporter:
+    with html_reporter(html_report) as reporter:
         with open(filename, "r") as f:
             try:
                 obj1 = api.cc(f, march, coptions=coptions, reporter=reporter)

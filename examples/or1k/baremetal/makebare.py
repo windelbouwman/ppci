@@ -9,7 +9,7 @@ $ qemu-system-or1k -kernel baremetal.bin -M or1k-sim -serial stdio
 import logging
 import io
 from ppci import api
-from ppci.utils.reporting import HtmlReportGenerator
+from ppci.utils.reporting import html_reporter
 from ppci.utils.uboot_image import write_uboot_image
 
 logging.basicConfig(level=logging.INFO)
@@ -94,10 +94,10 @@ MEMORY ram LOCATION=0x001000 SIZE=0x800 {
 """
 
 obj1 = api.asm(io.StringIO(boot_src), 'or1k')
-with open('report.html', 'w') as f:
+with html_reporter('report.html') as reporter:
     obj2 = api.c3c(
         [io.StringIO(src)], [], march='or1k', opt_level=2,
-        reporter=HtmlReportGenerator(f))
+        reporter=reporter)
 
 print('Bootcode:', obj1)
 print('Program code:', obj2)

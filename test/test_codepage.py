@@ -6,7 +6,7 @@ from helper_util import make_filename
 from ppci.api import cc, get_current_arch, is_platform_supported
 from ppci.utils.codepage import load_code_as_module
 from ppci.utils.codepage import load_obj
-from ppci.utils.reporting import HtmlReportGenerator
+from ppci.utils.reporting import html_reporter
 
 
 def has_numpy():
@@ -90,7 +90,7 @@ class CodePageTestCase(unittest.TestCase):
         """)
         arch = get_current_arch()
         html_filename = make_filename(self.id()) + '.html'
-        with open(html_filename, 'w') as f, HtmlReportGenerator(f) as reporter:
+        with html_reporter(html_filename) as reporter:
             obj = cc(source, arch, debug=True, reporter=reporter)
         m = load_obj(obj)
         # print(m.x.argtypes)
@@ -123,9 +123,8 @@ class NumpyCodePageTestCase(unittest.TestCase):
             }
             """)
         html_filename = make_filename(self.id()) + '.html'
-        with open(html_filename, 'w') as f:
-            with HtmlReportGenerator(f) as reporter:
-                m = load_code_as_module(source_file, reporter=reporter)
+        with html_reporter(html_filename) as reporter:
+            m = load_code_as_module(source_file, reporter=reporter)
 
         import numpy as np
         a = np.array([12, 7, 3, 5, 42, 8, 3, 5, 8, 1, 4, 6, 2], dtype=int)
@@ -152,7 +151,7 @@ class NumpyCodePageTestCase(unittest.TestCase):
             }
             """)
         html_filename = make_filename(self.id()) + '.html'
-        with open(html_filename, 'w') as f, HtmlReportGenerator(f) as r:
+        with html_reporter(html_filename) as r:
             m = load_code_as_module(source_file, reporter=r)
 
         import numpy as np

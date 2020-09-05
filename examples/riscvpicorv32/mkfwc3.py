@@ -3,7 +3,7 @@ import argparse
 import logging
 from ppci.api import asm, c3c, link, objcopy, get_arch
 from ppci.binutils.objectfile import merge_memories
-from ppci.utils.reporting import HtmlReportGenerator
+from ppci.utils.reporting import html_reporter
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-v", help="Increase verbosity", action="count", default=0)
@@ -19,7 +19,7 @@ args = parser.parse_args()
 loglevel = logging.DEBUG if args.v else logging.INFO
 logging.basicConfig(level=loglevel, filename="debug.log")
 
-with open("report.html", "w") as f, HtmlReportGenerator(f) as reporter:
+with html_reporter("report.html") as reporter:
     arch = get_arch("riscv")
     if args.debug:
         obj1 = asm("startdbg.s", arch)

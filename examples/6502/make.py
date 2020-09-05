@@ -2,7 +2,7 @@
 import sys
 import os
 from ppci import api
-from ppci.utils.reporting import HtmlReportGenerator
+from ppci.utils.reporting import html_reporter
 from ppci.lang.basic.c64 import BasicLine, write_basic_program
 
 arch = api.get_arch('mcs6500')
@@ -16,7 +16,7 @@ else:
     text_message = 'you can provide a text file to customize this message'
 
 
-with open('report.html', 'w') as f2, HtmlReportGenerator(f2) as reporter:
+with html_reporter('report.html') reporter:
     with open('add.c') as f:
         oj = api.cc(f, arch, reporter=reporter)
     print(oj)

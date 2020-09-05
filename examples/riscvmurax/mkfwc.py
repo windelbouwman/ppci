@@ -4,7 +4,7 @@ from glob import glob
 from ppci.api import asm, cc, link, objcopy, get_arch
 from ppci.binutils.objectfile import merge_memories
 from ppci.lang.c import COptions
-from ppci.utils.reporting import HtmlReportGenerator
+from ppci.utils.reporting import html_reporter
 
 def get_sources(folder, extension):
     resfiles = []
@@ -16,11 +16,10 @@ def get_sources(folder, extension):
     return((resdirs, resfiles))
 
 
-with open('report.html', 'w') as f:
+with html_reporter('report.html') as reporter:
     arch = get_arch('riscv')
     o1 = asm("start.s", arch)
     o2 = asm("nOSPortasm.s", arch)
-    reporter = HtmlReportGenerator(f)
     path = os.path.join('.','csrc',argv[1])
     dirs, srcs = get_sources(path, '*.c')
     #srcs += [os.path.join('.','csrc','bsp.c')] + [os.path.join('.','csrc','lib.c')]

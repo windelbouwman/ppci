@@ -28,13 +28,15 @@ Manually
 
 Alternatively you can download a zip package from
 `PyPI <https://pypi.python.org/pypi/ppci>`_
-or from `BitBucket <https://bitbucket.org/windel/ppci>`_.
+or from `GitHub <https://github.com/windelbouwman/ppci>`_.
 Unpack the source archive and open a console in this directory.
 
 .. code:: bash
 
     $ virtualenv sandbox
     $ source sandbox/bin/activate
+    (sandbox) $ git clone https://github.com/windelbouwman/ppci.git
+    (sandbox) $ cd ppci
     (sandbox) $ python setup.py install
     (sandbox) $ ppci-build -h
 
@@ -64,8 +66,8 @@ Let review what we have just done:
 Example projects
 ----------------
 
-The `examples folder in the ppci sourcecode <https://bitbucket.org/windel/ppci/src/default/examples/>`_ contains some demo projects
-that can be built using PPCI.
+The `examples folder in the ppci sourcecode <https://github.com/windelbouwman/ppci/tree/master/examples>`_
+contains some demo projects that can be built using PPCI.
 
 
 **stm32f4 example**

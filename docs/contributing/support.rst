@@ -34,5 +34,5 @@ Report an issue
 
 If you find a bug, you can file it here:
 
-https://bitbucket.org/windel/ppci/issues
+https://github.com/windelbouwman/ppci/issues
 

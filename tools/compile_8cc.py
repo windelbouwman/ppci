@@ -23,7 +23,7 @@ except ImportError:
     from traceback import print_exc
 
 from ppci import api
-from ppci.utils.reporting import HtmlReportGenerator
+from ppci.utils.reporting import html_reporter
 from ppci.format.elf import write_elf
 from ppci.lang.c import COptions
 from ppci.common import CompilerError, logformat
@@ -73,7 +73,7 @@ def main():
         'encoding.c',
     ]
     objs = []
-    with open(report_filename, 'w') as f, HtmlReportGenerator(f) as reporter:
+    with html_reporter(report_filename) as reporter:
         for filename in sources:
             filename = os.path.join(_8cc_folder, filename)
             print('==> Compiling', filename)

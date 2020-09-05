@@ -83,7 +83,7 @@ ppci_module = wasm_to_ir(wasm_module, arch.info.get_type_info('ptr'))
 this_dir = os.path.dirname(os.path.abspath(__file__))
 # Generate a report:
 html_report = os.path.join(this_dir, 'compilation_report.html')
-with open(html_report, 'w') as f, reporting.HtmlReportGenerator(f) as reporter:
+with reporting.html_reporter(html_report) as reporter:
     # Write IR code
     f = StringIO()
     irutils.print_module(ppci_module, file=f, verify=False)

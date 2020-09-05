@@ -5,7 +5,7 @@ https://en.wikipedia.org/wiki/LEB128#Unsigned_LEB128
 
 
 def signed_leb128_encode(value: int) -> bytes:
-    """ Encode the given number as signed leb128
+    """Encode the given number as signed leb128
 
     .. doctest::
 
@@ -34,7 +34,7 @@ def signed_leb128_encode(value: int) -> bytes:
 
 
 def unsigned_leb128_encode(value: int) -> bytes:
-    """ Encode number as into unsigned leb128 encoding
+    """Encode number as into unsigned leb128 encoding
 
     .. doctest::
 
@@ -62,7 +62,7 @@ def unsigned_leb128_encode(value: int) -> bytes:
 
 
 def signed_leb128_decode(data) -> int:
-    """ Read variable length encoded 128 bits signed integer.
+    """Read variable length encoded 128 bits signed integer.
 
     .. doctest::
 
@@ -90,7 +90,7 @@ def signed_leb128_decode(data) -> int:
 
 
 def unsigned_leb128_decode(data) -> int:
-    """ Read variable length encoded 128 bits unsigned integer
+    """Read variable length encoded 128 bits unsigned integer
 
     .. doctest::
 

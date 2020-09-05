@@ -443,7 +443,4 @@ Final words
 
 In this tutorial we have seen how to create a simple language.
 The entire example for this code can be found in the
-examples/toydsl directory in the ppci repository at:
-https://bitbucket.org/windel/ppci
-
-
+examples/toydsl directory in the ppci repository.

@@ -5,8 +5,8 @@ from .chunk import chunks
 
 
 def bin2asc(data: bytes):
-    """ Encode binary data as ascii. If it is a large data set, then use a
-        list of hex characters.
+    """Encode binary data as ascii. If it is a large data set, then use a
+    list of hex characters.
     """
     if len(data) > 30:
         res = []

@@ -21,6 +21,15 @@ from ..binutils.outstream import TextOutputStream
 from ..binutils.debuginfo import DebugLocation
 
 
+@contextmanager
+def html_reporter(filename):
+    """Create a reporter that generates a HTML report."""
+    with open(filename, "w", encoding="utf8") as f, HtmlReportGenerator(
+        f
+    ) as reporter:
+        yield reporter
+
+
 class ReportGenerator(metaclass=abc.ABCMeta):
     """ Implement all these function to create a custom reporting generator """
 

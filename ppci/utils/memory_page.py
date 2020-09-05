@@ -47,7 +47,7 @@ uintt = ctypes.c_uint64 if struct.calcsize("P") == 8 else ctypes.c_uint32
 
 
 class WinPage:
-    """ Nice windows hack to emulate mmap.
+    """Nice windows hack to emulate mmap.
 
     Copied from:
     https://github.com/campagnola/pycca/blob/master/pycca/asm/codepage.py

@@ -3,7 +3,7 @@ from .chunk import chunks
 
 
 def hexdump(data, address=0, width=16):
-    """ Hexdump of the given bytes.
+    """Hexdump of the given bytes.
 
     For example:
 

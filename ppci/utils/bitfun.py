@@ -22,7 +22,7 @@ def rotl(v, count, bits):
 
 
 def reverse_bits(v, bits):
-    """ Do bit reversal operation.
+    """Do bit reversal operation.
 
     Example input (8 bits case):
         11100001
@@ -90,8 +90,7 @@ def popcnt(v: int, bits: int) -> int:
 
 
 def sign_extend(value: int, bits: int) -> int:
-    """ Perform sign extension operation.
-    """
+    """Perform sign extension operation."""
     sign_bit = 1 << (bits - 1)
     mask = sign_bit - 1
     return (value & mask) - (value & sign_bit)
@@ -169,9 +168,9 @@ def inrange(value, bits):
 
 
 class BitView:
-    """ A convenience window on a set of bits, to fiddle them easily
-        construct the bitview on a bytearray at a given start index
-        and a given length.
+    """A convenience window on a set of bits, to fiddle them easily
+    construct the bitview on a bytearray at a given start index
+    and a given length.
     """
 
     def __init__(self, data, begin, length):

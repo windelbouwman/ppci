@@ -3,7 +3,7 @@ from unittest.mock import Mock
 import io
 from ppci import api, irutils
 from ppci.lang.python import load_py, python_to_ir
-from ppci.utils.reporting import HtmlReportGenerator
+from ppci.utils.reporting import html_reporter
 
 
 src1 = """
@@ -70,8 +70,7 @@ class PythonJitLoadingTestCase(unittest.TestCase):
         d = {}
         exec(src1, d)
         a = d['a']
-        with open('p2p_report.html', 'w') as f, \
-                HtmlReportGenerator(f) as reporter:
+        with html_reporter('p2p_report.html') as reporter:
             m2 = load_py(io.StringIO(src1), reporter=reporter)
 
         for x in range(20):
@@ -88,8 +87,7 @@ class PythonJitLoadingTestCase(unittest.TestCase):
         imports = {
             'myprint': myprint,
         }
-        with open('p2p_callback_report.html', 'w') as f, \
-                HtmlReportGenerator(f) as reporter:
+        with html_reporter('p2p_callback_report.html') as reporter:
             m2 = load_py(
                 io.StringIO(src2), imports=imports, reporter=reporter)
         # Segfaults:

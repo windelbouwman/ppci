@@ -11,7 +11,6 @@ from helper_util import do_long_tests, do_iverilog, make_filename
 
 from ppci.api import asm, c3c, link, objcopy, bfcompile, cc, get_current_arch
 from ppci.api import c3_to_ir, bf_to_ir, ir_to_python, optimize, c_to_ir
-from ppci.utils.reporting import HtmlReportGenerator
 from ppci.binutils.objectfile import merge_memories
 from ppci.lang.c import COptions
 

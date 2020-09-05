@@ -31,7 +31,7 @@ def log(a: int, b: int, c: int, d: int, e: int, f: int, g: int) -> None:
 
 this_dir = os.path.dirname(os.path.abspath(__file__))
 html_report = os.path.join(this_dir, 'wasmboy_report.html')
-with open(html_report, 'w') as f, reporting.HtmlReportGenerator(f) as reporter:
+with reporting.html_reporter(html_report) as reporter:
     wasm_boy = instantiate(
         wasm_module,
         imports={'env': {'log': log}},

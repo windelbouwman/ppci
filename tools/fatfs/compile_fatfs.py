@@ -10,7 +10,7 @@ import os
 import sys
 from ppci import api
 from ppci.common import CompilerError
-from ppci.utils.reporting import HtmlReportGenerator
+from ppci.utils.reporting import html_reporter
 from ppci.lang.c.options import COptions, coptions_parser
 from ppci.binutils.objectfile import merge_memories 
 
@@ -31,7 +31,7 @@ else:
 
 arch = api.get_arch('riscv')
 
-with open(report_html, 'w') as rf, HtmlReportGenerator(rf) as reporter:
+with html_reporter(report_html) as reporter:
     def cc(filename):
         logging.info('Compiling %s', filename)
         with open(os.path.join(this_dir, filename)) as f:

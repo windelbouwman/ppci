@@ -191,7 +191,7 @@ class Path:
 
 
 class LayeredLayout:
-    """ Layout the nodes according to Sugiyama / Layered graph drawing.
+    """Layout the nodes according to Sugiyama / Layered graph drawing.
 
     There are the following phases:
     1. Cycle removal: reverse certain directed edges to make the graph
@@ -204,7 +204,7 @@ class LayeredLayout:
         pass
 
     def _assign_layers(self, graph):
-        """ Put nodes into layers.
+        """Put nodes into layers.
 
         Strategy:
         - Mark all nodes unprocessed

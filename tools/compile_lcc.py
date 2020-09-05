@@ -24,7 +24,7 @@ except ImportError:
 from ppci.api import cc, link
 from ppci.lang.c import COptions
 from ppci.common import CompilerError, logformat
-from ppci.utils.reporting import HtmlReportGenerator
+from ppci.utils.reporting import html_reporter
 
 
 def do_compile(filename, include_paths, arch, reporter):
@@ -58,7 +58,7 @@ def main():
     passed = 0
     sources = glob.glob(os.path.join(lcc_folder, "src", "*.c"))
     objs = []
-    with open(report_filename, "w") as f, HtmlReportGenerator(f) as reporter:
+    with html_reporter(report_filename) as reporter:
         for filename in sources:
             print("      ======================")
             print("    ========================")

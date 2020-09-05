@@ -10,9 +10,9 @@ Source code
 
 The sourcecode repository of the project is located at these locations:
 
-- https://bitbucket.org/windel/ppci
-- https://pikacode.com/windel/ppci/
 - https://mercurial.tuxfamily.org/ppci/ppci
+- https://github.com/windelbouwman/ppci
+- https://pikacode.com/windel/ppci/
 
 To check out the latest code and work use the development version use these
 commands to checkout the source code and setup ppci such that you can use it
@@ -22,14 +22,9 @@ without having to setup your python path.
 
     $ mkdir HG
     $ cd HG
-    $ hg clone https://bitbucket.org/windel/ppci
+    $ hg clone https://mercurial.tuxfamily.org/ppci/ppci
     $ cd ppci
     $ sudo python setup.py develop
-
-Alternatively a git is also used:
-
-- https://github.com/windelbouwman/ppci
-
 
 Coding style
 ------------

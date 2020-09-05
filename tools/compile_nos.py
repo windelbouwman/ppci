@@ -22,7 +22,7 @@ except ImportError:
     from traceback import print_exc
 
 from ppci.api import cc
-from ppci.utils.reporting import HtmlReportGenerator
+from ppci.utils.reporting import html_reporter
 from ppci.lang.c import COptions
 from ppci.common import CompilerError, logformat
 
@@ -55,7 +55,7 @@ def main():
     t1 = time.time()
     failed = 0
     passed = 0
-    with open(report_filename, 'w') as f, HtmlReportGenerator(f) as reporter:
+    with html_reporter(report_filename) as reporter:
         for filename in glob.iglob(os.path.join(nos_src_folder, '*.c')):
             print('==> Compiling', filename)
             try:

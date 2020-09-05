@@ -6,7 +6,7 @@ from helper_util import run_nodejs, relpath
 from helper_util import do_long_tests, make_filename
 
 from ppci import api
-from ppci.utils.reporting import HtmlReportGenerator
+from ppci.utils.reporting import html_reporter
 from ppci.wasm import ir_to_wasm
 from ppci.irutils import ir_link
 
@@ -27,7 +27,7 @@ class TestSamplesOnWasm(unittest.TestCase):
            """
         )
         march = "arm"  # TODO: this must be wasm!
-        with HtmlReportGenerator(open(list_filename, "w")) as reporter:
+        with html_reporter(list_filename) as reporter:
             ir_modules = build_sample_to_ir(src, lang, bsp_c3, march, reporter)
 
             for ir_module in ir_modules:

@@ -5,7 +5,7 @@ Test WASM Table and Element definition classes.
 from ppci.api import is_platform_supported, get_current_arch
 from ppci.wasm import Module, Table, run_wasm_in_node, has_node
 from ppci.wasm import instantiate
-from ppci.utils.reporting import HtmlReportGenerator
+from ppci.utils.reporting import html_reporter
 
 
 def dedent(code):
@@ -65,7 +65,7 @@ def test_table1():
     assert Module(b0).to_bytes() == b0
 
     html_report = 'table_and_element_compilation_report.html'
-    with open(html_report, 'w') as f, HtmlReportGenerator(f) as reporter:
+    with html_reporter(html_report) as reporter:
         printed_numbers = []
         def print_ln(x: int) -> None:
             printed_numbers.append(x)

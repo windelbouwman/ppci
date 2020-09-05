@@ -25,7 +25,7 @@ except ImportError:
 from ppci.api import cc, link
 from ppci.lang.c import COptions
 from ppci.common import CompilerError, logformat
-from ppci.utils.reporting import HtmlReportGenerator
+from ppci.utils.reporting import html_reporter
 
 links_folder = os.environ['LINKS_FOLDER']
 this_dir = os.path.abspath(os.path.dirname(__file__))
@@ -53,7 +53,7 @@ def main():
         '/usr/include',
         ]
     coptions.add_include_paths(include_paths)
-    with open(report_filename, 'w') as f, HtmlReportGenerator(f) as reporter:
+    with html_reporter(report_filename) as reporter:
         for filename in sources:
             filename = os.path.join(links_folder, filename)
             print('      ======================')

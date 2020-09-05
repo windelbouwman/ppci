@@ -59,7 +59,3 @@ On github, there is a list of open issues which need attention:
 
 https://github.com/windelbouwman/ppci/issues
 
-On bitbucket, there is another todo list:
-
-https://bitbucket.org/windel/ppci/issues
-

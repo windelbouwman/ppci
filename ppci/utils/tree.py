@@ -63,7 +63,7 @@ class TreeLexer(BaseLexer):
 
 
 class TreeParser:
-    """ Parser that can parse tree expressions.
+    """Parser that can parse tree expressions.
 
     For example:
         A(B(1,2,3),2,1,C)

@@ -6,7 +6,7 @@ from helper_util import relpath, run_python
 from helper_util import do_long_tests, make_filename
 
 from ppci import api
-from ppci.utils.reporting import HtmlReportGenerator
+from ppci.utils.reporting import html_reporter
 from ppci.irutils import print_module, read_module, to_json, from_json
 from ppci.irutils import verify_module
 
@@ -28,7 +28,7 @@ class TestSamplesOnPython(unittest.TestCase):
            """
         )
         march = "arm"
-        with HtmlReportGenerator(open(list_filename, "w")) as reporter:
+        with html_reporter(list_filename) as reporter:
             ir_modules = build_sample_to_ir(src, lang, bsp_c3, march, reporter)
 
             # Test roundtrip of ir_modules

@@ -211,7 +211,7 @@ def load_code_as_module(source_file, reporter=None):
 
 
 def load_obj(obj, imports=None):
-    """ Load an object into memory.
+    """Load an object into memory.
 
     Args:
         obj: the code object to load.
