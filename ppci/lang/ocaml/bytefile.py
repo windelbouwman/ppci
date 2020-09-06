@@ -9,8 +9,7 @@ logger = logging.getLogger("ocaml")
 
 
 class ByteCodeReader:
-    """ Reader for bytecode files.
-    """
+    """Reader for bytecode files."""
 
     MAGIC_V023 = "Caml1999X023"
 

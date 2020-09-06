@@ -210,7 +210,7 @@ class CCodeGenerator:
         return text_var
 
     def gen_global_compound_literal(self, expr: expressions.CompoundLiteral):
-        """ Generate a global variable for a compound literal.
+        """Generate a global variable for a compound literal.
 
         See also:
         - https://en.cppreference.com/w/c/language/compound_literal
@@ -570,7 +570,7 @@ class CCodeGenerator:
         self.builder.set_block(final_block)
 
     def gen_switch(self, stmt: statements.Switch) -> None:
-        """ Generate switch-case-statement code.
+        """Generate switch-case-statement code.
         See also:
             https://www.codeproject.com/Articles/100473/
             Something-You-May-Not-Know-About-the-Switch-Statem
@@ -979,7 +979,7 @@ class CCodeGenerator:
         return value
 
     def gen_expr(self, expr, rvalue=False):
-        """ Generate code for an expression.
+        """Generate code for an expression.
 
         rvalue: if True, then the result of the expression will be an rvalue.
         """
@@ -1446,7 +1446,7 @@ class CCodeGenerator:
         return ir_arguments, rval_alloc
 
     def gen_fill_varargs(self, var_args):
-        """ Generate code to fill variable arguments.
+        """Generate code to fill variable arguments.
 
         This method takes a list of variable arguments, and returns a
         pointer to an allocated memory slab.

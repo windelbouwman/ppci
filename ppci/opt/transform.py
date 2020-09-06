@@ -6,7 +6,7 @@ from .. import ir
 
 
 class ModulePass(metaclass=abc.ABCMeta):
-    """ Base class of all optimizing passes.
+    """Base class of all optimizing passes.
 
     Subclass this class to implement your own optimization pass.
     """
@@ -73,8 +73,8 @@ class InstructionPass(BlockPass):
 
 
 class RemoveAddZeroPass(InstructionPass):
-    """ Replace additions with zero with the value itself.
-        Replace multiplication by 1 with value itself.
+    """Replace additions with zero with the value itself.
+    Replace multiplication by 1 with value itself.
     """
 
     def on_instruction(self, instruction):

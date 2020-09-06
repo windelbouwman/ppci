@@ -3,24 +3,24 @@ from .. import ir
 
 
 class CleanPass(FunctionPass):
-    """ Glue blocks together if a block has only one predecessor.
+    """Glue blocks together if a block has only one predecessor.
 
 
-        Remove blocks with a single jump in it.
+    Remove blocks with a single jump in it.
 
-            .. code::
+        .. code::
 
-            jump A
-            A:
-            jump B
-            B:
+        jump A
+        A:
+        jump B
+        B:
 
-            Transforms into:
+        Transforms into:
 
-            .. code::
+        .. code::
 
-            jump B
-            B:
+        jump B
+        B:
 
     """
 

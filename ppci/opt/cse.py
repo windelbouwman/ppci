@@ -4,7 +4,7 @@ from .. import ir
 
 class CommonSubexpressionEliminationPass(BlockPass):
     """
-        Replace common sub expressions (cse) with the previously defined one.
+    Replace common sub expressions (cse) with the previously defined one.
     """
 
     def on_block(self, block):

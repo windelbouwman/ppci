@@ -9,9 +9,9 @@ from ..arch.stack import StackLocation
 
 
 class DebugDb:
-    """ This presents intermediate form used in the compiler.
-        This is a class that can track the location.
-        This object is some sort of an internal database.
+    """This presents intermediate form used in the compiler.
+    This is a class that can track the location.
+    This object is some sort of an internal database.
     """
 
     logger = logging.getLogger("debugdb")
@@ -46,9 +46,9 @@ class DebugDb:
 
     def map(self, src, dst):
         """
-            Create a projection from src to dst. This means that dst is a
-            result of src. So all info attached to src should also be
-            attached to dst.
+        Create a projection from src to dst. This means that dst is a
+        result of src. So all info attached to src should also be
+        attached to dst.
         """
         if src in self.mappings:
             info = self.mappings[src]
@@ -59,9 +59,9 @@ class DebugDb:
 
 
 class DebugInfo:
-    """ Container for debug information. Debug info can be stored here
-        in the form of mappings from intermediate code to source locations
-        as well as from assembly code to source locations.
+    """Container for debug information. Debug info can be stored here
+    in the form of mappings from intermediate code to source locations
+    as well as from assembly code to source locations.
     """
 
     def __init__(self):
@@ -95,8 +95,8 @@ class DebugInfo:
         else:  # pragma: no cover
             raise NotImplementedError(str(di))
 
-    def add_location(self, l):
-        self.locations.append(l)
+    def add_location(self, location):
+        self.locations.append(location)
 
     def add_type(self, typ):
         """ Register a type """
@@ -380,8 +380,7 @@ class DebugInfoReplicator:
 
 
 class SymbolIdAdjustingReplicator(DebugInfoReplicator):
-    """ Replicate debug information, but map symbol id's given by mapping.
-    """
+    """Replicate debug information, but map symbol id's given by mapping."""
 
     def __init__(self, mapping):
         self.mapping = mapping
@@ -406,7 +405,7 @@ class DictSerializer:
         # Clear type id's:
         self.type_ids.clear()
 
-        locations = [self.serialize_location(l) for l in dbi.locations]
+        locations = list(map(self.serialize_location, dbi.locations))
         types = list(map(self.serialize_type, dbi.types))
         variables = list(map(self.serialize_variable, dbi.variables))
         functions = list(map(self.serialize_function, dbi.functions))
@@ -534,9 +533,9 @@ class DictDeserializer:
 
         # Start reading debug info:
         debug_info = DebugInfo()
-        for l in x["locations"]:
-            loc = self.read_source_location(l["source"])
-            address = self.read_address(l["address"])
+        for location in x["locations"]:
+            loc = self.read_source_location(location["source"])
+            address = self.read_address(location["address"])
             dl = DebugLocation(loc, address=address)
             debug_info.add(dl)
         for t in x["types"]:

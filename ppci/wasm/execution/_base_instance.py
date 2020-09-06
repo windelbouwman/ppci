@@ -5,7 +5,7 @@ from .. import components
 logger = logging.getLogger("instantiate")
 
 
-class ModuleInstance(metaclass=abc.ABCMeta):
+class ModuleInstance(abc.ABC):
     """ Web assembly module instance """
 
     """ Instantiated module """
@@ -82,7 +82,7 @@ class ModuleInstance(metaclass=abc.ABCMeta):
                 self.exports._function_map[definition.name] = item
 
 
-class WasmMemory(metaclass=abc.ABCMeta):
+class WasmMemory(abc.ABC):
     """ Base class for exported wasm memory. """
 
     def __init__(self, min_size, max_size):
@@ -123,7 +123,7 @@ class WasmMemory(metaclass=abc.ABCMeta):
         raise NotImplementedError()
 
 
-class WasmGlobal(metaclass=abc.ABCMeta):
+class WasmGlobal(abc.ABC):
     """ Base class for an exported wasm global. """
 
     def __init__(self, name):

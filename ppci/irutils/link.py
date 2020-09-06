@@ -7,7 +7,7 @@ from .verify import verify_module
 
 
 def ir_link(ir_modules, name="linked") -> ir.Module:
-    """ Link IR-modules into a single module.
+    """Link IR-modules into a single module.
 
     Example:
 

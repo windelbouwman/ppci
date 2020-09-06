@@ -9,7 +9,7 @@ from .nodes import statements, expressions, types, symbols
 
 
 class CodeGenerator:
-    """ Generates intermediate (IR) code.
+    """Generates intermediate (IR) code.
 
     The entry function is
     'genModule'. The main task of this part is to rewrite complex control
@@ -55,7 +55,10 @@ class CodeGenerator:
         # Register debug info for main function:
         dbg_return_type = self.get_debug_type(None)
         dfi = debuginfo.DebugFunction(
-            function_name, unit.location, dbg_return_type, [],
+            function_name,
+            unit.location,
+            dbg_return_type,
+            [],
         )
         self.debug_db.enter(ir_function, dfi)
 
@@ -70,8 +73,7 @@ class CodeGenerator:
         self.builder.set_function(None)
 
     def _define_builtins(self):
-        """ Create external symbols for the various runtime functions.
-        """
+        """Create external symbols for the various runtime functions."""
         self._add_external_procedure("io_print", [ir.ptr])
         self._add_external_procedure(
             "write_int",
@@ -150,8 +152,8 @@ class CodeGenerator:
 
     def emit(self, instruction):
         """
-            Emits the given instruction to the builder.
-            Can be muted for constants.
+        Emits the given instruction to the builder.
+        Can be muted for constants.
         """
         return self.builder.emit(instruction)
 
@@ -246,8 +248,8 @@ class CodeGenerator:
         self.var_map[subroutine] = ir_function
 
     def gen_subroutine(self, subroutine):
-        """ Generate code for a subroutine.
-        
+        """Generate code for a subroutine.
+
         This involves creating room
         for parameters on the stack, and generating code for the function
         body.
@@ -289,7 +291,10 @@ class CodeGenerator:
             dbg_return_type = self.get_debug_type(None)
 
         dfi = debuginfo.DebugFunction(
-            subroutine.name, subroutine.location, dbg_return_type, dbg_args,
+            subroutine.name,
+            subroutine.location,
+            dbg_return_type,
+            dbg_args,
         )
         self.debug_db.enter(ir_function, dfi)
 
@@ -626,8 +631,8 @@ class CodeGenerator:
         self.emit(ir.ProcedureCall(callee, arguments))
 
     def gen_cond_code(self, expr: expressions.Expression, bbtrue, bbfalse):
-        """ Generate conditional logic.
-            Implement sequential logical operators. """
+        """Generate conditional logic.
+        Implement sequential logical operators."""
         if isinstance(expr, expressions.Binop):
             if expr.op == "or":
                 # Implement sequential logic:
@@ -682,7 +687,7 @@ class CodeGenerator:
             self.error("Condition must be boolean", expr.loc)
 
     def gen_expr_code(self, expr: expressions.Expression, rvalue=False):
-        """ Generate code for an expression.
+        """Generate code for an expression.
         Return the generated ir-value.
         """
         assert isinstance(expr, expressions.Expression)
@@ -868,8 +873,7 @@ class CodeGenerator:
         return value, lvalue
 
     def gen_member_expr(self, expr):
-        """ Generate code for member expression such as struc.mem = 2
-        """
+        """Generate code for member expression such as struc.mem = 2"""
 
         base, base_lvalue = self.gen_expr_code(expr.base)
         # base must be lvalue because we handle with addresses of variables
@@ -1009,8 +1013,7 @@ class CodeGenerator:
         return value, lvalue
 
     def gen_builtin_function_call(self, expr: expressions.BuiltInFunctionCall):
-        """ Generate code for a builtin function call.
-        """
+        """Generate code for a builtin function call."""
 
         # print(expr.func)
         if expr.func == "succ":

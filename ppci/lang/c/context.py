@@ -177,7 +177,7 @@ class CContext:
         return alignment
 
     def layout_struct(self, typ):
-        """ Layout the fields in the struct.
+        """Layout the fields in the struct.
 
         Things to take in account:
         - alignment

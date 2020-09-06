@@ -15,7 +15,6 @@ import logging
 # TODO: this is possibly the third edition of flow graph code.. Merge at will!
 from .digraph import DiGraph, DiNode
 from . import lt
-from .algorithm.fixed_point_dominator import calculate_dominators
 from .algorithm.fixed_point_dominator import calculate_post_dominators
 from .algorithm.fixed_point_dominator import (
     calculate_immediate_post_dominators,
@@ -24,10 +23,9 @@ from collections import namedtuple
 
 
 class DomTreeNode:
-    """ A single node in the dominator tree.
-    """
+    """A single node in the dominator tree."""
 
-    __slots__ = ('node', 'children', 'interval')
+    __slots__ = ("node", "children", "interval")
 
     def __init__(self, node, children, interval):
         self.node = node
@@ -35,16 +33,14 @@ class DomTreeNode:
         self.interval = interval
 
     def below_or_same(self, other):
-        """ Test if this node is a descendant of this node (or is self)
-        """
+        """Test if this node is a descendant of this node (or is self)"""
         return (
             other.interval[0] <= self.interval[0]
             and self.interval[1] <= other.interval[1]
         )
 
     def below(self, other):
-        """ Test if this node is a descendant of this node.
-        """
+        """Test if this node is a descendant of this node."""
         return (
             other.interval[0] < self.interval[0]
             and self.interval[1] < other.interval[1]
@@ -103,7 +99,7 @@ def ir_function_to_graph(ir_function):
 
 
 class ControlFlowGraph(DiGraph):
-    """ Control flow graph.
+    """Control flow graph.
 
     Has methods to query properties of the control flow graph and its nodes.
 
@@ -139,7 +135,7 @@ class ControlFlowGraph(DiGraph):
         assert self.exit_node
 
     def dominates(self, one, other):
-        """ Test whether a node dominates another node.
+        """Test whether a node dominates another node.
 
         To test this, use the dominator tree, check where
         of the other node is below the one node in the tree
@@ -233,7 +229,7 @@ class ControlFlowGraph(DiGraph):
         self._number_dominator_tree()
 
     def _number_dominator_tree(self):
-        """ Assign intervals to the dominator tree.
+        """Assign intervals to the dominator tree.
 
         Very cool idea to check if one node dominates
         another node.
@@ -266,7 +262,7 @@ class ControlFlowGraph(DiGraph):
             t += 1
 
     def _calculate_post_dominator_info(self):
-        """ Calculate the post dominator sets iteratively.
+        """Calculate the post dominator sets iteratively.
 
         Post domination is the same as domination, but then starting at
         the exit node.
@@ -333,7 +329,7 @@ class ControlFlowGraph(DiGraph):
         return loops
 
     def calculate_dominance_frontier(self):
-        """ Calculate the dominance frontier.
+        """Calculate the dominance frontier.
 
         Algorithm from Ron Cytron et al.
 

@@ -90,7 +90,7 @@ class Parser(RecursiveDescentParser):
 
     # Type system
     def parse_type_spec(self):
-        """ Parse type specification. Type specs are read from right to left.
+        """Parse type specification. Type specs are read from right to left.
 
         A variable spec is given by:
         var [typeSpec] [modifiers] [pointer/array suffix] variable_name
@@ -373,7 +373,7 @@ class Parser(RecursiveDescentParser):
             return self.parse_expression()
 
     def parse_expression(self, rbp=0) -> ast.Expression:
-        """ Process expressions with precedence climbing.
+        """Process expressions with precedence climbing.
 
         See also:
 
@@ -398,7 +398,7 @@ class Parser(RecursiveDescentParser):
     # Domain of unary expressions:
 
     def parse_cast_expression(self) -> ast.Expression:
-        """ Parse a cast expression.
+        """Parse a cast expression.
 
         The C-style type cast conflicts with '(' expr ')'
         so introduce extra keyword 'cast'.

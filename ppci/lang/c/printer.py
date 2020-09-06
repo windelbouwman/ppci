@@ -8,7 +8,7 @@ from .nodes import types, declarations, expressions, statements
 
 
 def render_ast(ast):
-    """ Render a C program as text
+    """Render a C program as text
 
     For example:
 
@@ -25,8 +25,7 @@ def render_ast(ast):
 
 
 def expr_to_str(expr):
-    """ Render an expression as text.
-    """
+    """Render an expression as text."""
     print("foo", expr)
     f = io.StringIO()
     printer = CPrinter(f)
@@ -41,9 +40,7 @@ def type_to_str(typ):
 
 
 class CPrinter:
-    """ Render a C program as text
-
-    """
+    """Render a C program as text"""
 
     def __init__(self, f=None):
         self._indent = 0
@@ -301,7 +298,7 @@ class CPrinter:
 
     @contextmanager
     def _indented(self, amount):
-        """ Context manager which increases and decreases the amount
+        """Context manager which increases and decreases the amount
         of indentation.
         """
         self._indent += amount

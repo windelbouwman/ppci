@@ -13,8 +13,8 @@ class DebugState(enum.Enum):
     UNKNOWN = 99
 
 
-class DebugDriver(metaclass=abc.ABCMeta):  # pragma: no cover
-    """ Degug driver interface.
+class DebugDriver(abc.ABC):  # pragma: no cover
+    """Degug driver interface.
 
     Inherit this class to expose a target interface. This class implements
     primitives for a given hardware target.

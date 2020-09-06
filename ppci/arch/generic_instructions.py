@@ -3,7 +3,7 @@ from . import effects
 
 
 class VirtualInstruction(Instruction):
-    """ Virtual instruction.
+    """Virtual instruction.
 
     Virtual instructions are instructions used during code generation
     and can never be encoded into a stream.
@@ -14,10 +14,10 @@ class VirtualInstruction(Instruction):
 
 
 class ArtificialInstruction(VirtualInstruction):
-    """ This is an artificial instruction.
+    """This is an artificial instruction.
 
     It is actually more a macro, when emitted, the render function is
-    called """
+    called"""
 
     def render(self):  # pragma: no cover
         """ Implement this by generating a sequence of actual instructions """
@@ -25,7 +25,7 @@ class ArtificialInstruction(VirtualInstruction):
 
 
 class PseudoInstruction(Instruction):
-    """ Pseudo instruction.
+    """Pseudo instruction.
 
     Pseudo instructions can be emitted into a stream, but are not real
     machine instructions. They are instructions like comments, labels
@@ -90,8 +90,7 @@ class RegisterUseDef(VirtualInstruction):
 
 
 class InlineAssembly(VirtualInstruction):
-    """ This is a placeholder instruction with some inline assembly code.
-    """
+    """This is a placeholder instruction with some inline assembly code."""
 
     def __init__(self, template, output_registers, input_registers, clobbers):
         super().__init__()
@@ -158,7 +157,7 @@ class SetSymbolType(PseudoInstruction):
 
 
 class Alignment(PseudoInstruction):
-    """ Instruction to indicate alignment.
+    """Instruction to indicate alignment.
 
     Encodes to nothing, but is
     used in the linker to enforce multiple of x byte alignment

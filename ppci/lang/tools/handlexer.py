@@ -14,7 +14,7 @@ class Char:
 
 
 class HandLexerBase:
-    """ Base class for handwritten lexers based on an idea of Rob Pike.
+    """Base class for handwritten lexers based on an idea of Rob Pike.
 
     See also:
     http://eli.thegreenplace.net/2012/08/09/
@@ -39,7 +39,7 @@ class HandLexerBase:
             state = state()
 
     def next_char(self, eof=True) -> Char:
-        """ Retrieve next character.
+        """Retrieve next character.
 
         If eof is False, raise an error when end of file is encountered.
         """

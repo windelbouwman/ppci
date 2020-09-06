@@ -34,10 +34,10 @@ def generate_temps():
 
 class Frame:
     """
-        Activation record abstraction. This class contains a flattened
-        function. Instructions are selected and scheduled at this stage.
-        Frames differ per machine. The only thing left to do for a frame
-        is register allocation.
+    Activation record abstraction. This class contains a flattened
+    function. Instructions are selected and scheduled at this stage.
+    Frames differ per machine. The only thing left to do for a frame
+    is register allocation.
     """
 
     def __init__(
@@ -92,7 +92,7 @@ class Frame:
         return location
 
     def add_out_call(self, size):
-        """ Record that we made a call out of this function.
+        """Record that we made a call out of this function.
 
         The size parameter determines how much bytes we needed to reserve
         on the stack to pass the arguments.
@@ -116,8 +116,7 @@ class Frame:
         return lab_name
 
     def is_used(self, register, alias):
-        """ Check if a register or one of its aliases is used by this frame.
-        """
+        """Check if a register or one of its aliases is used by this frame."""
         # assert register in alias
         return any(r in self.used_regs for r in alias[register.get_real()])
 

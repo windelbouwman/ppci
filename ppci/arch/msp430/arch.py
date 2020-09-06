@@ -98,8 +98,8 @@ class Msp430Arch(Architecture):
             )
 
     def gen_epilogue(self, frame):
-        """ Return epilogue sequence for a frame. Adjust frame pointer
-            and add constant pool
+        """Return epilogue sequence for a frame. Adjust frame pointer
+        and add constant pool
         """
 
         # Adjust stack:
@@ -202,14 +202,14 @@ class Msp430Arch(Architecture):
 
     def determine_arg_locations(self, arg_types):
         """
-            Given a set of argument types, determine location for argument
-            ABI:
-            param1 = r12
-            param2 = r13
-            param3 = r14
-            param4 = r15
-            further parameters are put on stack.
-            retval = r12
+        Given a set of argument types, determine location for argument
+        ABI:
+        param1 = r12
+        param2 = r13
+        param3 = r14
+        param4 = r15
+        further parameters are put on stack.
+        retval = r12
         """
         locations = []
         regs = [r12, r13, r14, r15]
@@ -228,8 +228,8 @@ class Msp430Arch(Architecture):
         return rv
 
     def get_runtime(self):
-        """ Compiles the runtime support for msp430. It takes some c3 code and
-            some assembly helpers.
+        """Compiles the runtime support for msp430. It takes some c3 code and
+        some assembly helpers.
         """
         # Circular import, but this is possible!
         from ...api import asm, c3c, link

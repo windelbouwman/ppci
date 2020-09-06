@@ -68,7 +68,7 @@ run_parser.add_argument(
 )
 run_parser.add_argument(
     "args",
-    nargs='*',
+    nargs="*",
     metavar="arg",
     type=str,
     help="Command line argument to wasm accessible via WASI.",
@@ -122,7 +122,7 @@ def wabt(args=None):
                 target=args.wasm_target,
                 function=args.wasm_function,
                 function_args=args.wasm_arguments,
-                reporter=log_setup.reporter
+                reporter=log_setup.reporter,
             )
         else:  # pragma: no cover
             parser.print_usage()

@@ -9,8 +9,7 @@ from .nodes import expressions, types
 
 
 class InitCursor:
-    """ A cursor into an arbitrary complex data structure.
-    """
+    """A cursor into an arbitrary complex data structure."""
 
     def __init__(self, context):
         self.context = context
@@ -124,7 +123,7 @@ class InitCursor:
         self.level.go_to_field(field_path[-1])
 
 
-class InitLevel(metaclass=abc.ABCMeta):
+class InitLevel(abc.ABC):
     """ An in progress initializer. """
 
     def __init__(self, initializer, implicit):

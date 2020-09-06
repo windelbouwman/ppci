@@ -335,8 +335,10 @@ class CSemantics:
 
         # Prevent change of static-ness after first declaration
         if is_static and not was_static:
-            message = "Invalid redefine of storage class. Was {}, but now {}".format(
-                prev_storage_class, new_storage_class
+            message = (
+                "Invalid redefine of storage class. Was {}, but now {}".format(
+                    prev_storage_class, new_storage_class
+                )
             )
             self.invalid_redeclaration(sym, declaration, message)
 
@@ -378,7 +380,7 @@ class CSemantics:
         return self.apply_type_modifiers(modifiers, typ)
 
     def on_struct_or_union(self, kind, tag, is_definition, fields, location):
-        """ Handle struct or union definition.
+        """Handle struct or union definition.
 
         A definition of a struct occurs when we have:
         struct S;
@@ -1139,8 +1141,7 @@ class CSemantics:
 
     # Helpers!
     def coerce(self, expr: expressions.CExpression, typ: types.CType):
-        """ Try to fit the given expression into the given type.
-        """
+        """Try to fit the given expression into the given type."""
         assert isinstance(typ, types.CType)
         assert isinstance(expr, expressions.CExpression)
 
@@ -1182,7 +1183,7 @@ class CSemantics:
         return expr
 
     def pointer(self, expr):
-        """ Handle several conversions.
+        """Handle several conversions.
 
         Things handled:
         - Array to pointer decay.
@@ -1203,7 +1204,7 @@ class CSemantics:
         return conversion
 
     def promote(self, expr):
-        """ Perform integer promotion on expression.
+        """Perform integer promotion on expression.
 
         Integer promotion happens when using char and short
         types in expressions. Those values are promoted
@@ -1232,7 +1233,7 @@ class CSemantics:
             )
 
     def ensure_no_void_ptr(self, expr):
-        """ Test if expr has type void*, and if so, generate
+        """Test if expr has type void*, and if so, generate
         a warning and an implicit cast statement.
         """
         assert expr.typ.is_pointer
@@ -1248,7 +1249,7 @@ class CSemantics:
             return expr
 
     def get_common_type(self, typ1, typ2, location):
-        """ Given two types, determine the common type.
+        """Given two types, determine the common type.
 
         The common type is a type they can both be cast to.
         """

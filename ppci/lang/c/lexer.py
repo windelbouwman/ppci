@@ -322,7 +322,7 @@ class CLexer(HandLexerBase):
             elif self.accept("bB"):
                 number_chars = self.binary_numbers
                 base = 2
-            elif self.accept('.'):
+            elif self.accept("."):
                 return self.lex_float()
             else:
                 number_chars = self.octal_numbers

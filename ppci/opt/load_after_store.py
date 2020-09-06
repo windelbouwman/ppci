@@ -3,20 +3,20 @@ from .. import ir
 
 
 class LoadAfterStorePass(BlockPass):
-    """ Remove load after store to the same location.
+    """Remove load after store to the same location.
 
-        .. code::
+    .. code::
 
-            [x] = a
-            b = [x]
-            c = b + 2
+        [x] = a
+        b = [x]
+        c = b + 2
 
-        transforms into:
+    transforms into:
 
-        .. code::
+    .. code::
 
-            [x] = a
-            c = a + 2
+        [x] = a
+        c = a + 2
     """
 
     def find_store_backwards(

@@ -19,7 +19,6 @@ from .registers import R9, R18, R19
 from .registers import R20, R21, R22, R23, R24, R25, R26, R27
 from .registers import F10, F12, F13, F14, F15, F16, F17
 from ... import ir
-from ..registers import RegisterClass
 from .registers import register_classes_hwfp, register_classes_swfp
 from ..stack import StackLocation
 from ..stack import FramePointerLocation
@@ -27,7 +26,7 @@ from ..data_instructions import data_isa
 from ...binutils.assembler import BaseAssembler
 from .instructions import dcd, Addi, Movr, Bl, Sw, Lw, Blr, Lb, Sb
 from .rvc_instructions import CSwsp, CLwsp, CBl, CJr, CBlr, CMovr
-from .rvc_instructions import CLwsp, CSwsp, CAddi16sp, CAddi4spn
+from .rvc_instructions import CAddi16sp, CAddi4spn
 from . import instructions
 
 
@@ -252,7 +251,9 @@ class RiscvArch(Architecture):
         # Record that certain amount of stack is required:
         frame.add_out_call(stack_size)
 
-        arg_regs = set(l for l in arg_locs if isinstance(l, Register))
+        arg_regs = set(
+            arg_loc for arg_loc in arg_locs if isinstance(arg_loc, Register)
+        )
         yield RegisterUseDef(uses=arg_regs)
 
         yield self.branch(LR, label)
@@ -266,7 +267,9 @@ class RiscvArch(Architecture):
         arg_types = [a[0] for a in args]
         arg_locs = self.determine_arg_locations(arg_types)
 
-        arg_regs = set(l for l in arg_locs if isinstance(l, Register))
+        arg_regs = set(
+            arg_loc for arg_loc in arg_locs if isinstance(arg_loc, Register)
+        )
         yield RegisterUseDef(defs=arg_regs)
 
         for arg_loc, arg2 in zip(arg_locs, args):
@@ -293,10 +296,10 @@ class RiscvArch(Architecture):
 
     def determine_arg_locations(self, arg_types):
         """
-            Given a set of argument types, determine location for argument
-            ABI:
-            pass args in R12-R17
-            return values in R10
+        Given a set of argument types, determine location for argument
+        ABI:
+        pass args in R12-R17
+        return values in R10
         """
         locations = []
         regs = [R12, R13, R14, R15, R16, R17]
@@ -408,8 +411,8 @@ class RiscvArch(Architecture):
             yield ins
 
     def gen_epilogue(self, frame):
-        """ Return epilogue sequence for a frame. Adjust frame pointer
-            and add constant pool
+        """Return epilogue sequence for a frame. Adjust frame pointer
+        and add constant pool
         """
         # Free space for outgoing calls:
         extras = max(frame.out_calls) if frame.out_calls else 0

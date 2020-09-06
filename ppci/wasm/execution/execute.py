@@ -40,7 +40,9 @@ def execute_wasm(
             "random_get": wasi_api.random_get,
         }
     }
-    instance = instantiate(module, imports=imports, target=target, reporter=reporter)
+    instance = instantiate(
+        module, imports=imports, target=target, reporter=reporter
+    )
 
     logger.info("Created instance %s", instance)
 

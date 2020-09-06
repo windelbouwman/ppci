@@ -11,7 +11,7 @@ __all__ = ("parse_sexpr",)
 
 
 def tokenize_sexpr(text):
-    """ Generator that generates tokens for (WASM-compatible) S-expressions.
+    """Generator that generates tokens for (WASM-compatible) S-expressions.
 
     Would need work to produce tokens suited for e.g. syntax highlighting,
     but good enough for now, to make the parser work.
@@ -157,7 +157,7 @@ class SExpressionParser(RecursiveDescentParser):
 
 
 def parse_sexpr(text: str, multiple=False) -> tuple:
-    """ Parse S-expression given as string.
+    """Parse S-expression given as string.
     Returns a tuple that represents the S-expression.
     """
     assert isinstance(text, str)

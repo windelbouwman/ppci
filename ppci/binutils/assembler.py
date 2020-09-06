@@ -171,12 +171,12 @@ class BaseAssembler:
         # self.parser.g.dump()
 
     def generate_syntax_rule(self, cls, nt, stx):
-        """ Construct a rule for rhs <- nt
-            Take the syntax, lookup properties to strings.
-            Construct a sequence of only strings
-            Create a function that maps the correct properties to
-            the newly created class.
-            Apply other properties.
+        """Construct a rule for rhs <- nt
+        Take the syntax, lookup properties to strings.
+        Construct a sequence of only strings
+        Create a function that maps the correct properties to
+        the newly created class.
+        Apply other properties.
         """
         assert isinstance(stx, Syntax)
 

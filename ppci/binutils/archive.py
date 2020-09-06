@@ -20,8 +20,7 @@ def get_archive(filename):
 
 
 class Archive:
-    """ The archive. Holder of object files. Similar to GNU ar.
-    """
+    """The archive. Holder of object files. Similar to GNU ar."""
 
     logger = logging.getLogger("ar")
 

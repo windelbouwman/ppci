@@ -16,8 +16,7 @@ quine = """01->1# +# :# 0# g# ,# :# 5# 8# *# 4# +# -# _@"""
 
 
 def run_befunge(src):
-    """ Execute a slab of befunge.
-    """
+    """Execute a slab of befunge."""
     print("parsing", src)
     lines = src.splitlines()
 

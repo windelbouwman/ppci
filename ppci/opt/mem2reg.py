@@ -58,14 +58,14 @@ def is_alloc_promotable(alloc_inst: ir.Alloc):
 
 
 class Mem2RegPromotor(FunctionPass):
-    """ Tries to find alloc instructions only used by load and store
-    instructions and replace them with values and phi nodes """
+    """Tries to find alloc instructions only used by load and store
+    instructions and replace them with values and phi nodes"""
 
     def place_phi_nodes(self, stores, phi_ty, name, cfg_info):
         """
-         Step 1: place phi-functions where required:
-         Each node in the df(x) requires a phi function,
-         where x is a block where the variable is defined.
+        Step 1: place phi-functions where required:
+        Each node in the df(x) requires a phi function,
+        where x is a block where the variable is defined.
         """
         defining_blocks = set(st.block for st in stores)
 
@@ -145,7 +145,7 @@ class Mem2RegPromotor(FunctionPass):
         search(cfg_info.cfg.root_tree)
 
     def promote(self, alloc: ir.Alloc, cfg_info):
-        """ Promote a single alloc instruction.
+        """Promote a single alloc instruction.
 
         Find load operations and replace them with assignments.
         """

@@ -51,7 +51,7 @@ class TypeChecker:
             raise SemanticError("Errors occurred", None)
 
     def check_type(self, typ, first=True, byname=False):
-        """ Check a type.
+        """Check a type.
 
         Determine struct offsets and check for recursiveness by using
         mark and sweep algorithm.
@@ -570,7 +570,7 @@ class TypeChecker:
             )
 
     def do_coerce(self, expr, typ):
-        """ Try to convert expression into the given type.
+        """Try to convert expression into the given type.
 
         expr: the expression value with a certain type
         typ: the type that it must be

@@ -3,7 +3,7 @@ from .nodes import nodes
 
 
 class CastXmlReader:
-    """ Reads xml produced by cast xml for further processing.
+    """Reads xml produced by cast xml for further processing.
 
     Cast xml converts (compiles) C code to xml format.
 

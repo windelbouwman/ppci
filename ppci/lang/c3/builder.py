@@ -46,7 +46,7 @@ def c3_to_ir(sources, includes, march, reporter=None):
 
 
 class C3Builder:
-    """ Generates IR-code from c3 source.
+    """Generates IR-code from c3 source.
 
     Reports errors to the diagnostics system.
     """
@@ -63,7 +63,7 @@ class C3Builder:
         self.arch_info = arch_info
 
     def build(self, sources, imps=()):
-        """ Create IR-code from sources.
+        """Create IR-code from sources.
 
         Returns:
             A context where modules are living in and an
@@ -111,8 +111,8 @@ class C3Builder:
 
 class C3ExprParser:
     """
-        Generates IR-code from c3 source.
-        Reports errors to the diagnostics system.
+    Generates IR-code from c3 source.
+    Reports errors to the diagnostics system.
     """
 
     def __init__(self, arch_info):

@@ -28,7 +28,7 @@ class PascalBuilder:
         self.verifier = Verifier()
 
     def build(self, sources):
-        """ Build the given sources.
+        """Build the given sources.
 
         Raises compiler error when something goes wrong.
         """

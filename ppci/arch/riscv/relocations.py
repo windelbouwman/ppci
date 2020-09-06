@@ -15,10 +15,10 @@ class BImm12Relocation(Relocation):
         return wrap_negative(offset, 12)
 
     def apply(self, sym_value, data, reloc_value):
-        """ Apply this relocation type given some parameters.
+        """Apply this relocation type given some parameters.
 
         This is the default implementation which stores the outcome of
-        the calculate function into the proper token. """
+        the calculate function into the proper token."""
         assert self.token is not None
         token = self.token.from_data(data)
         assert self.field is not None
@@ -87,10 +87,10 @@ class Abs32Imm12Relocation(Relocation):
         return sym_value & 0xFFF
 
     def apply(self, sym_value, data, reloc_value):
-        """ Apply this relocation type given some parameters.
+        """Apply this relocation type given some parameters.
 
         This is the default implementation which stores the outcome of
-        the calculate function into the proper token. """
+        the calculate function into the proper token."""
         assert self.token is not None
         token = self.token.from_data(data)
         assert self.field is not None
@@ -111,10 +111,10 @@ class RelImm12Relocation(Relocation):
         return offset & 0xFFF
 
     def apply(self, sym_value, data, reloc_value):
-        """ Apply this relocation type given some parameters.
+        """Apply this relocation type given some parameters.
 
         This is the default implementation which stores the outcome of
-        the calculate function into the proper token. """
+        the calculate function into the proper token."""
         assert self.token is not None
         token = self.token.from_data(data)
         assert self.field is not None

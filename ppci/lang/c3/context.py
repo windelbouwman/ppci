@@ -7,7 +7,7 @@ from . import astnodes as ast
 
 
 class Context:
-    """ A context is the space where all modules live in.
+    """A context is the space where all modules live in.
 
     It is actually the container of modules and the top
     level scope.
@@ -184,7 +184,7 @@ class Context:
         return struct.pack(fmt, v)
 
     def get_common_type(self, a, b, loc):
-        """ Determine the greatest common type.
+        """Determine the greatest common type.
 
         This is used for coercing binary operators.
 
@@ -250,7 +250,7 @@ class Context:
         )
 
     def get_type(self, typ, reveil_defined=True):
-        """ Get type given by str, identifier or type.
+        """Get type given by str, identifier or type.
 
         When reveil_defined is True, defined types are resolved to
         their backing types.
@@ -295,7 +295,7 @@ class Context:
             raise NotImplementedError(str(typ))
 
     def equal_types(self, a, b, byname=False):
-        """ Compare types a and b for structural equavalence.
+        """Compare types a and b for structural equavalence.
 
         if byname is True stop on defined types.
         """

@@ -9,7 +9,7 @@ IR_FORMAT_INDENT = 2
 
 
 def print_module(module, file=None, verify=True):
-    """ Print an ir-module as text.
+    """Print an ir-module as text.
 
     Args:
         module (:class:`ir.Module`): The module to turn into textual format.

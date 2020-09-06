@@ -15,8 +15,7 @@ from .isa import thumb_isa, ThumbToken
 
 
 class ThumbInstruction(Instruction):
-    """ Base of all thumb instructions.
-    """
+    """Base of all thumb instructions."""
 
     tokens = [ThumbToken]
     isa = thumb_isa
@@ -437,10 +436,10 @@ class Mov2(ThumbInstruction):
 
 class Mul(ThumbInstruction):
     """
-        mul Rn, Rdm
+    mul Rn, Rdm
 
-        multiply Rn and Rm and store the result in Rd
-        Rd and Rm are the same register.
+    multiply Rn and Rm and store the result in Rd
+    Rd and Rm are the same register.
     """
 
     rn = Operand("rn", LowArmRegister, read=True)
@@ -458,8 +457,8 @@ class Mul(ThumbInstruction):
 
 
 class Sdiv(LongThumbInstruction):
-    """ Signed division.
-        Encoding T1
+    """Signed division.
+    Encoding T1
     """
 
     rd = Operand("rd", ArmRegister, write=True)
@@ -542,8 +541,8 @@ class B(ThumbInstruction):
 
 
 class Bw(LongThumbInstruction):
-    """ Encoding T4
-        Same encoding as Bl, longer jumps are possible with this function!
+    """Encoding T4
+    Same encoding as Bl, longer jumps are possible with this function!
     """
 
     target = Operand("target", str)

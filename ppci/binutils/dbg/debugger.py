@@ -23,11 +23,11 @@ from .debug_driver import DebugState
 
 
 class TmpValue:
-    """ Evaluated expression value.
-        It has a value
-        this value can be an actual value or an address (an lvalue)
-        when lval is True, the value is a location,
-        else it is the value itself
+    """Evaluated expression value.
+    It has a value
+    this value can be an actual value or an address (an lvalue)
+    when lval is True, the value is a location,
+    else it is the value itself
     """
 
     def __init__(self, value, lval, typ):
@@ -41,9 +41,9 @@ class TmpValue:
 
 class Debugger:
     """
-        Main interface to the debugger.
-        Give it a target architecture for which it must debug
-        and driver plugin to connect to hardware.
+    Main interface to the debugger.
+    Give it a target architecture for which it must debug
+    and driver plugin to connect to hardware.
     """
 
     logger = logging.getLogger("dbg")

@@ -4,7 +4,7 @@ from ... import ir, irutils
 
 
 class CodeGenerator:
-    """ Transform llvm-ir into ppci-ir
+    """Transform llvm-ir into ppci-ir
 
     This class has the humble job to convert llvm-IR into ppci-IR.
 

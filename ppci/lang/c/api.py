@@ -17,7 +17,7 @@ def preprocess(f, output_file, coptions=None):
 
 
 def c_to_ir(source: io.TextIOBase, march, coptions=None, reporter=None):
-    """ C to ir translation.
+    """C to ir translation.
 
     Args:
         source (file-like object): The C source to compile.

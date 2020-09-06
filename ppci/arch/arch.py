@@ -44,7 +44,7 @@ class Architecture(MachineArchitecture):
     """ Base class for all targets """
 
     def __init__(self, options=None):
-        """ Create a new machine instance.
+        """Create a new machine instance.
 
         Arguments:
             options: a tuple with which options to enable.
@@ -85,7 +85,7 @@ class Architecture(MachineArchitecture):
 
     @abc.abstractmethod
     def gen_prologue(self, frame):  # pragma: no cover
-        """ Generate instructions for the epilogue of a frame.
+        """Generate instructions for the epilogue of a frame.
 
         Arguments:
             frame: the function frame for which to create a prologue
@@ -94,7 +94,7 @@ class Architecture(MachineArchitecture):
 
     @abc.abstractmethod
     def gen_epilogue(self, frame):  # pragma: no cover
-        """ Generate instructions for the epilogue of a frame.
+        """Generate instructions for the epilogue of a frame.
 
         Arguments:
             frame: the function frame for which to create a prologue
@@ -108,7 +108,7 @@ class Architecture(MachineArchitecture):
 
     @abc.abstractmethod
     def gen_function_enter(self, args):  # pragma: no cover
-        """ Generate code to extract arguments from the proper locations
+        """Generate code to extract arguments from the proper locations
 
         The default implementation tries to use registers and move
         instructions.
@@ -134,8 +134,8 @@ class Architecture(MachineArchitecture):
 
     @abc.abstractmethod
     def determine_rv_location(self, ret_type):  # pragma: no cover
-        """ Determine the location of a return value of a function given the
-        type of return value """
+        """Determine the location of a return value of a function given the
+        type of return value"""
         raise NotImplementedError("Implement this")
 
     def get_reloc(self, name):
@@ -152,14 +152,14 @@ class Architecture(MachineArchitecture):
 
     @lru_cache(maxsize=30)
     def get_compiler_rt_lib(self):
-        """ Gets the runtime for the compiler. Returns an object with the
-        compiler runtime for this architecture """
+        """Gets the runtime for the compiler. Returns an object with the
+        compiler runtime for this architecture"""
         return self.get_runtime()
 
     runtime = property(get_compiler_rt_lib)
 
     def get_reloc_type(self, reloc_type, symbol):
-        """ Re-implement this function to support ELF format
+        """Re-implement this function to support ELF format
         relocations.
         """
-        raise NotImplementedError('ELF format relocations')
+        raise NotImplementedError("ELF format relocations")

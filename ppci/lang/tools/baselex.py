@@ -7,7 +7,7 @@ EPS = "EPS"
 
 
 def on(pattern, flags=0, order=0):
-    """ Register method to the given pattern.
+    """Register method to the given pattern.
 
     Args:
         order: a sorting priority. Lower number comes first.
@@ -42,7 +42,7 @@ class Lexer:
 
 
 class SimpleLexer(Lexer, metaclass=LexMeta):
-    """ Simple class for lexing.
+    """Simple class for lexing.
 
     Use this class by subclassing it and decorating handler methods
     with the 'on' function.
@@ -83,7 +83,7 @@ class SimpleLexer(Lexer, metaclass=LexMeta):
         )
 
     def tokenize(self, txt, eof=False):
-        """ Generator that generates lexical tokens from text.
+        """Generator that generates lexical tokens from text.
 
         Optionally yield the EOF token.
         """
@@ -103,7 +103,7 @@ class SimpleLexer(Lexer, metaclass=LexMeta):
 
 
 class BaseLexer(Lexer):
-    """ Base class for a lexer.
+    """Base class for a lexer.
 
     This class can be overridden to create a
     lexer. This class handles the regular expression generation and
@@ -126,7 +126,7 @@ class BaseLexer(Lexer):
         self.tokens = self.tokenize(txt)
 
     def tokenize(self, txt, eof=False):
-        """ Generator that generates lexical tokens from text.
+        """Generator that generates lexical tokens from text.
 
         Optionally yield the EOF token.
         """

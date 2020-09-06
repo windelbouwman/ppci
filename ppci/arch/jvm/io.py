@@ -54,8 +54,7 @@ def read_manifest(f):
 
 
 class JavaFileReader(BaseIoReader):
-    """ Java class file reader.
-    """
+    """Java class file reader."""
 
     def __init__(self, f, verbose=False):
         super().__init__(f)
@@ -299,8 +298,7 @@ def decode_modified_utf8(data):
 
 
 def read_class_file(f, verbose=False):
-    """ Read a class file.
-    """
+    """Read a class file."""
     logger.debug("Reading classfile %s", f)
     reader = JavaFileReader(f, verbose=verbose)
     return reader.read_class_file()
@@ -381,9 +379,7 @@ class DescriptorParser:
         return typ
 
     def parse_method_descriptor(self):
-        """ Parse a method descriptor.
-
-        """
+        """Parse a method descriptor."""
         # Parameter types:
         c = self.take()
         assert c == "("

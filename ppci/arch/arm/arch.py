@@ -109,7 +109,7 @@ class ArmArch(Architecture):
             )
 
     def gen_prologue(self, frame):
-        """ Returns prologue instruction sequence.
+        """Returns prologue instruction sequence.
 
         Reserve stack for this calling frame for:
 
@@ -167,7 +167,7 @@ class ArmArch(Architecture):
                 yield arm_instructions.SubImm(SP, SP, ssize)
 
     def gen_epilogue(self, frame):
-        """ Return epilogue sequence for a frame.
+        """Return epilogue sequence for a frame.
 
         Adjust frame pointer and add constant pool.
 
@@ -312,7 +312,9 @@ class ArmArch(Architecture):
         arg_types = [a[0] for a in args]
         arg_locs = self.determine_arg_locations(arg_types)
 
-        arg_regs = set(l for l in arg_locs if isinstance(l, ArmRegister))
+        arg_regs = set(
+            arg_loc for arg_loc in arg_locs if isinstance(arg_loc, ArmRegister)
+        )
         yield RegisterUseDef(defs=arg_regs)
 
         for arg_loc, arg2 in zip(arg_locs, args):
@@ -359,13 +361,13 @@ class ArmArch(Architecture):
 
     def determine_arg_locations(self, arg_types):
         """
-            Given a set of argument types, determine location for argument
-            ABI:
-            pass arg1 in R1
-            pass arg2 in R2
-            pass arg3 in R3
-            pass arg4 in R4
-            return value in R0
+        Given a set of argument types, determine location for argument
+        ABI:
+        pass arg1 in R1
+        pass arg2 in R2
+        pass arg3 in R3
+        pass arg4 in R4
+        return value in R0
         """
         # TODO: what ABI to use?
         # Perhaps follow the arm ABI spec?

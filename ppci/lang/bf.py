@@ -17,7 +17,7 @@ def bf_to_ir(source, target):
 
 
 class BrainFuckGenerator:
-    """ Brainfuck is a language that is so simple, the entire front-end can
+    """Brainfuck is a language that is so simple, the entire front-end can
     be implemented in one pass.
     """
 

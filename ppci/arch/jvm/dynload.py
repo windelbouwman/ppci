@@ -8,8 +8,7 @@ from .class2ir import class_to_ir
 
 
 def load_class(filename):
-    """ Load a compiled class into memory.
-    """
+    """Load a compiled class into memory."""
     logger = logging.getLogger("jvm.io")
     with open(filename, "rb") as f:
         class_file = read_class_file(f)

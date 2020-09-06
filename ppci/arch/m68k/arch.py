@@ -53,8 +53,7 @@ class M68kArch(Architecture):
         yield instructions.Rts()
 
     def determine_arg_locations(self, arg_types):
-        """ Determine argument locations.
-        """
+        """Determine argument locations."""
         locations = []
         offset = 0
         for arg_type in arg_types:

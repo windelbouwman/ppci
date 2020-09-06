@@ -2,7 +2,6 @@
 
 import argparse
 import logging
-import os
 import cgitb
 import platform
 import sys

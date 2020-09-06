@@ -275,7 +275,7 @@ class GetElementPtrInst(Instruction):
 
 
 class InsertElementInst(Instruction):
-    """ Insert element instruction.
+    """Insert element instruction.
 
     Returns a new vector with element at index replaced.
     """

@@ -9,7 +9,7 @@ from .scope import SemanticError
 
 
 class CodeGenerator:
-    """ Generates intermediate (IR) code from a package.
+    """Generates intermediate (IR) code from a package.
 
     The entry function is
     'genModule'. The main task of this part is to rewrite complex control
@@ -126,8 +126,7 @@ class CodeGenerator:
             self.debug_db.enter(ir_var, dv)
 
     def emit(self, instruction, loc=None):
-        """ Emits the given instruction to the builder.
-        """
+        """Emits the given instruction to the builder."""
         self.builder.emit(instruction)
         if loc:
             self.debug_db.enter(instruction, debuginfo.DebugLocation(loc))
@@ -186,9 +185,9 @@ class CodeGenerator:
         return self.get_ir_function(function)
 
     def gen_function(self, function):
-        """ Generate code for a function. This involves creating room
-            for parameters on the stack, and generating code for the function
-            body.
+        """Generate code for a function. This involves creating room
+        for parameters on the stack, and generating code for the function
+        body.
         """
         ir_function = self.get_ir_function(function)
         self.builder.set_function(ir_function)
@@ -301,7 +300,7 @@ class CodeGenerator:
             raise NotImplementedError(str(cty))
 
     def get_ir_function(self, function):
-        """ Get the proper IR function for the given function.
+        """Get the proper IR function for the given function.
 
         A new function will be created if required.
         """
@@ -532,8 +531,8 @@ class CodeGenerator:
         self.builder.set_block(final_block)
 
     def gen_cond_code(self, expr, bbtrue, bbfalse):
-        """ Generate conditional logic.
-            Implement sequential logical operators. """
+        """Generate conditional logic.
+        Implement sequential logical operators."""
         if isinstance(expr, ast.Binop):
             if expr.op == "or":
                 # Implement sequential logic:
@@ -750,8 +749,8 @@ class CodeGenerator:
         return False
 
     def gen_member_expr(self, expr):
-        """ Generate code for member expression such as struc.mem = 2
-            This could also be a module deref!
+        """Generate code for member expression such as struc.mem = 2
+        This could also be a module deref!
         """
         if self.is_module_ref(expr):
             # Damn, we are referring something inside another module!

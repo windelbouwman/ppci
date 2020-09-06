@@ -41,6 +41,11 @@ def native_instantiate(module, imports, reporter, cache_file):
             module, arch.info.get_type_info("ptr"), reporter=reporter
         )
         verify_module(ppci_module)
+
+        # This is fun: optimizing might slow down actual performance X-(
+        # from ...api import optimize
+        # optimize(ppci_module, level=2, reporter=reporter)
+
         obj = ir_to_object([ppci_module], arch, debug=True, reporter=reporter)
         if cache_file:
             logger.info("Saving object to %s for later use", cache_file)

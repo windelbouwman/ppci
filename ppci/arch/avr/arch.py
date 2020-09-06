@@ -203,8 +203,8 @@ class AvrArch(Architecture):
             yield Adiw(Y, 1)
 
     def gen_epilogue(self, frame):
-        """ Return epilogue sequence for a frame. Adjust frame pointer
-            and add constant pool
+        """Return epilogue sequence for a frame. Adjust frame pointer
+        and add constant pool
         """
         if frame.stacksize > 0:
             # Pop x times to adjust stack:

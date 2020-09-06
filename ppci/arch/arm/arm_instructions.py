@@ -191,10 +191,10 @@ class Mul1(ArmInstruction):
 
 
 class Sdiv(ArmInstruction):
-    """ Encoding A1
-        rd = rn / rm
+    """Encoding A1
+    rd = rn / rm
 
-        This instruction is not always present
+    This instruction is not always present
     """
 
     rd = Operand("rd", ArmRegister, write=True)
@@ -215,8 +215,8 @@ class Sdiv(ArmInstruction):
 
 
 class Udiv(ArmInstruction):
-    """ Encoding A1
-        rd = rn / rm
+    """Encoding A1
+    rd = rn / rm
     """
 
     rd = Operand("rd", ArmRegister, write=True)
@@ -238,9 +238,9 @@ class Udiv(ArmInstruction):
 
 
 class Mls(ArmInstruction):
-    """ Multiply substract
-        Semantics:
-        rd = ra - rn * rm
+    """Multiply substract
+    Semantics:
+    rd = ra - rn * rm
     """
 
     rd = Operand("rd", ArmRegister, write=True)
@@ -644,7 +644,7 @@ class Ldrb(LdrStrBase):
 
 
 class Ldrsb(ArmInstruction):
-    """ ldrsb rt, [rn, offset].
+    """ldrsb rt, [rn, offset].
 
     Load byte and sign extend.
     """
@@ -678,7 +678,7 @@ class Ldrsb(ArmInstruction):
 
 
 class Ldrh_imm(ArmInstruction):
-    """ ldrh rt, [rn, offset].
+    """ldrh rt, [rn, offset].
 
     Load half word and zero extend.
     """
@@ -712,7 +712,7 @@ class Ldrh_imm(ArmInstruction):
 
 
 class Ldrsh_imm(ArmInstruction):
-    """ ldrsh rt, [rn, offset].
+    """ldrsh rt, [rn, offset].
 
     Load signed half word and sign extend.
     """
@@ -746,7 +746,7 @@ class Ldrsh_imm(ArmInstruction):
 
 
 class Ldrsh_reg(ArmInstruction):
-    """ ldrsh rt, [rn, rm].
+    """ldrsh rt, [rn, rm].
 
     Load signed half word and sign extend.
     """
@@ -793,9 +793,9 @@ class Adr(ArmInstruction):
 
 
 class Ldr3(ArmInstruction):
-    """ Load PC relative constant value
-        LDR rt, label
-        encoding A1
+    """Load PC relative constant value
+    LDR rt, label
+    encoding A1
     """
 
     rt = Operand("rt", ArmRegister, write=True)

@@ -196,7 +196,7 @@ class CPreProcessor:
     def locate_include(
         self, filename, loc, use_current_dir: bool, include_next
     ):
-        """ Determine which file to use given the include filename.
+        """Determine which file to use given the include filename.
 
         Parameters:
             - loc: the location where this include is included.
@@ -241,8 +241,7 @@ class CPreProcessor:
     def include(
         self, filename, loc, use_current_dir=False, include_next=False
     ):
-        """ Turn the given filename into a series of tokens.
-        """
+        """Turn the given filename into a series of tokens."""
         full_path = self.locate_include(
             filename, loc, use_current_dir, include_next
         )
@@ -324,9 +323,9 @@ class CPreProcessor:
             return False
 
     def eat_line(self):
-        """ Eat up all tokens until the end of the line.
+        """Eat up all tokens until the end of the line.
 
-        This does not expand macros. """
+        This does not expand macros."""
         line = []
         while not self.at_line_start:
             line.append(self.consume(expand=False))
@@ -342,7 +341,7 @@ class CPreProcessor:
         self.logger.warning(msg)
 
     def process_tokens(self):
-        """ Process a sequence of tokens into an expanded token sequence.
+        """Process a sequence of tokens into an expanded token sequence.
 
         This function returns an tokens that must be looped over.
         """
@@ -371,9 +370,7 @@ class CPreProcessor:
 
     # Macro expansion functions:
     def expand(self, macro_token):
-        """ Expand a single token into possibly more tokens.
-
-        """
+        """Expand a single token into possibly more tokens."""
         name = macro_token.val
         in_hideset = self.in_hideset(name)
         # in_hideset = name in macro_token.hideset
@@ -480,7 +477,7 @@ class CPreProcessor:
         return args
 
     def normalize_space(self, args):
-        """ Normalize spaces in macro expansions.
+        """Normalize spaces in macro expansions.
 
         If we have space, it will be a single space.
         """
@@ -490,7 +487,7 @@ class CPreProcessor:
                     token.space = " "
 
     def parse_arguments(self):
-        """ Parse arguments for a function like macro.
+        """Parse arguments for a function like macro.
 
         - Keep track of parenthesis level.
         """
@@ -534,7 +531,7 @@ class CPreProcessor:
         return expansion
 
     def substitute_arguments(self, macro, args):
-        """ Return macro contents with substituted arguments.
+        """Return macro contents with substituted arguments.
 
         Pay special care to # and ## operators, When an argument is used
         in # or ##, it is not macro expanded.
@@ -587,8 +584,7 @@ class CPreProcessor:
         return new_line
 
     def copy_tokens(self, tokens, first_space):
-        """ Copy a series of tokens.
-        """
+        """Copy a series of tokens."""
         new_line = []
         first = True
         for token in tokens:
@@ -601,7 +597,7 @@ class CPreProcessor:
         return new_line
 
     def stringify(self, hash_token, snippet, loc):
-        """ Handle the '#' stringify operator.
+        """Handle the '#' stringify operator.
 
         Take care of:
         - single space between the tokens being stringified
@@ -695,7 +691,7 @@ class CPreProcessor:
         self.files[-1].in_directive = False
 
     def skip_excluded_block(self):
-        """ Skip the block excluded by if/ifdef.
+        """Skip the block excluded by if/ifdef.
 
         Skip tokens until we hit #endif or alike.
         """
@@ -987,7 +983,7 @@ class CPreProcessor:
     }
 
     def parse_expression(self, priority=0):
-        """ Parse an expression in an #if
+        """Parse an expression in an #if
 
         Idea taken from: https://github.com/shevek/jcpp/blob/master/
             src/main/java/org/anarres/cpp/Preprocessor.java
@@ -1134,7 +1130,7 @@ class CPreProcessor:
 
 
 class FileExpander:
-    """ Per source or header file an expander class is created
+    """Per source or header file an expander class is created
 
     Contains:
     - An if-stack to keep track of if-else nesting levels
@@ -1222,7 +1218,7 @@ class FileExpander:
 
 
 class MacroExpansion:
-    """ Macro expansion.
+    """Macro expansion.
 
     Contains:
     - a token iterator (tokens)
@@ -1334,7 +1330,7 @@ def skip_ws(tokens):
 
 
 def string_convert(tokens):
-    """ Phase 5 of compilation.
+    """Phase 5 of compilation.
 
     Tasks:
     - Strip quotes.
@@ -1353,9 +1349,9 @@ def string_convert(tokens):
 
 
 def string_concat(tokens):
-    """ Merge adjacent string literals into single tokens.
+    """Merge adjacent string literals into single tokens.
 
-    This is phase 6 of compilation. """
+    This is phase 6 of compilation."""
     string_token = None
     for token in tokens:
         if token.typ == "STRING":
@@ -1374,7 +1370,7 @@ def string_concat(tokens):
 
 
 def prepare_for_parsing(tokens, keywords):
-    """ Strip out tokens on the way from preprocessor to parser.
+    """Strip out tokens on the way from preprocessor to parser.
 
     Apply several modifications on the token stream to adapt it
     to the format that the parser requires.

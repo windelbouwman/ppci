@@ -74,7 +74,7 @@ def _parse(src, filename, context):
 
 
 def parse_type(text, context, filename="foo.c"):
-    """ Parse given C-type AST.
+    """Parse given C-type AST.
 
     For example:
 

@@ -88,7 +88,7 @@ def make_tokens(tokens):
 
 
 class EarleyParser:
-    """ Earley parser.
+    """Earley parser.
 
     As opposed to an LR parser, the Earley parser does not construct
     tables from a grammar. It uses the grammar when parsing.

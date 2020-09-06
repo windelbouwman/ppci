@@ -9,8 +9,8 @@ Examples:
 
 
 class Symbol:
-    """ Symbol is the base class for all named things like variables,
-        functions, constants and types and modules """
+    """Symbol is the base class for all named things like variables,
+    functions, constants and types and modules"""
 
     def __init__(self, name: str, typ):
         self.name = name

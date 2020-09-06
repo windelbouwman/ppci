@@ -15,7 +15,7 @@ Pattern = namedtuple(
 
 
 class Isa:
-    """ Container type for an instruction set.
+    """Container type for an instruction set.
 
     Contains a list of instructions, mappings from intermediate code
     to instructions.
@@ -65,7 +65,7 @@ class Isa:
         self, non_term, tree, condition=None, size=1, cycles=1, energy=1
     ):
         """
-            Decorator function that adds a pattern.
+        Decorator function that adds a pattern.
         """
         if isinstance(tree, str):
             tree = from_string(tree)

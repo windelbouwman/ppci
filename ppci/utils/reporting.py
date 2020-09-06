@@ -30,7 +30,7 @@ def html_reporter(filename):
         yield reporter
 
 
-class ReportGenerator(metaclass=abc.ABCMeta):
+class ReportGenerator(abc.ABC):
     """ Implement all these function to create a custom reporting generator """
 
     def header(self):

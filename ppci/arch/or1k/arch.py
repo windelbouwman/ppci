@@ -12,7 +12,7 @@ from . import instructions, registers
 
 
 class Or1kArch(Architecture):
-    """ Open risc architecture.
+    """Open risc architecture.
 
     ABI:
     r0 -> zero
@@ -180,7 +180,9 @@ class Or1kArch(Architecture):
         arg_locs = self.determine_arg_locations(arg_types)
 
         arg_regs = set(
-            l for l in arg_locs if isinstance(l, registers.Or1kRegister)
+            arg_loc
+            for arg_loc in arg_locs
+            if isinstance(arg_loc, registers.Or1kRegister)
         )
         yield RegisterUseDef(defs=arg_regs)
 

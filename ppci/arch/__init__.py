@@ -42,7 +42,7 @@ def get_current_arch():
 
 
 def get_arch(arch):
-    """ Try to return an architecture instance.
+    """Try to return an architecture instance.
 
     Args:
         arch: can be a string in the form of arch:option1:option2

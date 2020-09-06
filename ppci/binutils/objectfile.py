@@ -17,7 +17,6 @@ The hierarchy is as follows:
 """
 
 import json
-import binascii
 from ..common import CompilerError, make_num, get_file
 from ..utils.binary_txt import bin2asc, asc2bin
 from . import debuginfo
@@ -64,13 +63,15 @@ class Symbol:
         return self.typ == "func"
 
     def __repr__(self):
-        return "Symbol({}, binding={}, val={} section={} typ={} size={})".format(
-            self.name,
-            self.binding,
-            self.value,
-            self.section,
-            self.typ,
-            self.size,
+        return (
+            "Symbol({}, binding={}, val={} section={} typ={} size={})".format(
+                self.name,
+                self.binding,
+                self.value,
+                self.section,
+                self.typ,
+                self.size,
+            )
         )
 
     def __eq__(self, other):
@@ -86,7 +87,7 @@ class Symbol:
 
 
 class RelocationEntry:
-    """ A relocation entry.
+    """A relocation entry.
 
     While it mich be confusing to have Relocation here, and
     RelocationType in arch.encoding, this is cleaner, since the relocation
@@ -150,7 +151,7 @@ class Section:
 
 
 class Image:
-    """ Memory image.
+    """Memory image.
 
     A memory image is a piece that can be loaded into memory.
     """
@@ -218,9 +219,9 @@ def merge_memories(mem1, mem2, name):
 
 
 class ObjectFile:
-    """ Container for sections with compiled code or data.
-        Also contains symbols and relocation entries.
-        Also contains debug information.
+    """Container for sections with compiled code or data.
+    Also contains symbols and relocation entries.
+    Also contains debug information.
     """
 
     def __init__(self, arch):
@@ -241,7 +242,7 @@ class ObjectFile:
 
     @property
     def is_executable(self):
-        """ Test if this object file is executable by checking the
+        """Test if this object file is executable by checking the
         entry point.
         """
         return self.entry_symbol_id is not None
@@ -363,8 +364,7 @@ class ObjectFile:
         )
 
     def serialize(self):
-        """ Serialize the object into a dictionary structure suitable for json.
-        """
+        """Serialize the object into a dictionary structure suitable for json."""
         return serialize(self)
 
     def save(self, output_file):

@@ -4,8 +4,8 @@ import os
 
 class Token:
     """
-        Token is used in the lexical analyzer. The lexical analyzer takes
-        a text and splits it into tokens.
+    Token is used in the lexical analyzer. The lexical analyzer takes
+    a text and splits it into tokens.
     """
 
     __slots__ = ["typ", "val", "loc"]

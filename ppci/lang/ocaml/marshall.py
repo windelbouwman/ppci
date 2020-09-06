@@ -142,7 +142,7 @@ class Marshall:
         return value
 
     def read_shared(self, ofs):
-        """ Read a shared value.
+        """Read a shared value.
 
         Offset is an index back into an already deserialized object.
         0 means the last object, 1 the preceding object, etc..

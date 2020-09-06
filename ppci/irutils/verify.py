@@ -12,7 +12,7 @@ from .. import ir
 
 
 def verify_module(module: ir.Module):
-    """ Check if the module is properly constructed
+    """Check if the module is properly constructed
 
     Args:
         module: The module to verify.
@@ -117,8 +117,8 @@ class Verifier:
             self.verify_instruction(instruction, block)
 
     def verify_instruction(self, instruction, block):
-        """ Verify that instruction belongs to block and that all uses
-            are preceeded by defs """
+        """Verify that instruction belongs to block and that all uses
+        are preceeded by defs"""
 
         # Check that instruction is contained in block:
         assert instruction.block == block

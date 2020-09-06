@@ -9,9 +9,9 @@ import select
 from threading import Thread
 
 
-class Transport(metaclass=abc.ABCMeta):
+class Transport(abc.ABC):
     """
-        Inherit this for each debug communication channel
+    Inherit this for each debug communication channel
     """
 
     @abc.abstractmethod

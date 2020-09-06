@@ -247,8 +247,7 @@ class ArrayType(Type):
         return "ARRAY {} of {}".format(self.dimensions, self.element_type)
 
     def indexed(self, count):
-        """ Return the resulting time when indexing this array count times.
-        """
+        """Return the resulting time when indexing this array count times."""
         if count > len(self.dimensions):
             raise ValueError(
                 "Cannot index type more than the amount of dimensions."

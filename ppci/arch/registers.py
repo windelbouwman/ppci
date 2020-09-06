@@ -46,7 +46,7 @@ class Register:
             return self.name
 
     def get_real(self):
-        """ Retrieve the real hardware register.
+        """Retrieve the real hardware register.
 
         If this is a virtual register, return it's num.
         """
@@ -57,8 +57,8 @@ class Register:
 
     @classmethod
     def from_num(cls, num):
-        """ Retrieve the singleton instance of the given
-        register number. """
+        """Retrieve the singleton instance of the given
+        register number."""
         raise NotImplementedError()
 
     @property

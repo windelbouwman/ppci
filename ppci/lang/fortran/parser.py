@@ -98,12 +98,12 @@ def get_fortran_parser():
 
 class FortranLexer:
     """
-        Handle the nice fortran syntax:
-        column use
-        1-5    label
-        6      continuation character
-        7-72   statements
-        73-80  unused
+    Handle the nice fortran syntax:
+    column use
+    1-5    label
+    6      continuation character
+    7-72   statements
+    73-80  unused
     """
 
     def __init__(self):
@@ -226,8 +226,8 @@ class FortranLexer:
             yield Token("EOL", "EOL", loc)
 
     def tokenize_line(self, txt):
-        """ Generator that generates tokens from text
-            It does not yield the EOF token.
+        """Generator that generates tokens from text
+        It does not yield the EOF token.
         """
         self.pos = 0
         self.txt = txt
@@ -261,10 +261,10 @@ class FortranLexer:
     def split_line(self, line):
         """ Split fortran source line depending on column """
 
-        def int2(l):
-            l = l.strip()
-            if l:
-                return int(l)
+        def int2(line_text):
+            line_text = line_text.strip()
+            if line_text:
+                return int(line_text)
 
         if len(line) < 6:
             return int2(line), None, None
@@ -529,9 +529,9 @@ class FortranParser:
 
     def parse_expression(self, bp=0):
         """
-            Welcome to expression parsing!
+        Welcome to expression parsing!
 
-            Solve this using precedence parsing with binding power.
+        Solve this using precedence parsing with binding power.
         """
         BPS = {
             "+": (50, 0),

@@ -81,7 +81,7 @@ class ArchInfo:
         return self.get_type_info(typ).alignment
 
     def calc_alias(self):
-        """ Calculate a complete overview of register aliasing.
+        """Calculate a complete overview of register aliasing.
 
         This uses the alias attribute when a register is
         defined.
@@ -106,7 +106,7 @@ class ArchInfo:
 
 
 def dfs_alias(register):
-    """ Do a depth first search on the aliases member.
+    """Do a depth first search on the aliases member.
 
     This can be used to find aliases of aliases.
     """

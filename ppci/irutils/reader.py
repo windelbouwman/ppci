@@ -7,7 +7,7 @@ from .. import ir
 
 
 def read_module(f) -> ir.Module:
-    """ Read an ir-module from file.
+    """Read an ir-module from file.
 
     Args:
         f: A file like object ready to be read in text modus.
@@ -19,8 +19,7 @@ def read_module(f) -> ir.Module:
 
 
 class IrParseException(Exception):
-    """ Exception raised when reading of IR-code fails.
-    """
+    """Exception raised when reading of IR-code fails."""
 
     pass
 
@@ -302,7 +301,7 @@ class Reader:
         self.scopes[-1].value_map[value.name] = value
 
     def find_value(self, name, ty=ir.i32):
-        """ Try hard to find a value.
+        """Try hard to find a value.
 
         If the value is undefined, create a placeholder undefined
         value.

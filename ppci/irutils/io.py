@@ -32,11 +32,11 @@ from ..utils.binary_txt import bin2asc, asc2bin
 
 
 def to_json(module):
-    """ Convert an IR-module to json format.
+    """Convert an IR-module to json format.
 
     Args:
         module: the IR-module intended for serialization.
-    
+
     Returns:
         A JSON string representing the module.
     """
@@ -51,11 +51,11 @@ def to_dict(module):
 
 
 def from_json(json_txt):
-    """ Construct a module from valid json.
+    """Construct a module from valid json.
 
     Args:
         json_txt: A string with valid JSON.
-    
+
     Returns:
         The IR-module as represented by JSON.
     """
@@ -343,8 +343,7 @@ class Scope:
 
 
 class DictReader:
-    """ Construct IR-module from given json.
-    """
+    """Construct IR-module from given json."""
 
     def __init__(self):
         # self.subroutines = []
@@ -582,8 +581,7 @@ class DictReader:
         self.scopes[-1].value_map[value.name] = value
 
     def get_value_ref(self, name, ty=ir.ptr):
-        """ Retrieve reference to a value.
-        """
+        """Retrieve reference to a value."""
         for scope in reversed(self.scopes):
             if name in scope.value_map:
                 value = scope.value_map[name]

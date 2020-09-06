@@ -8,8 +8,8 @@ from ..utils.collections import OrderedSet
 
 
 def topological_sort(nodes):
-    """ Sort nodes topological, use Tarjan algorithm here
-        See: https://en.wikipedia.org/wiki/Topological_sorting
+    """Sort nodes topological, use Tarjan algorithm here
+    See: https://en.wikipedia.org/wiki/Topological_sorting
     """
     unmarked = set(nodes)
     marked = set()
@@ -38,7 +38,7 @@ def topological_sort(nodes):
 class BaseGraph(abc.ABC):
     """ Base graph class """
 
-    __slots__ = ('nodes', 'adj_map')
+    __slots__ = ("nodes", "adj_map")
 
     def __init__(self):
         self.nodes = OrderedSet()
@@ -90,7 +90,7 @@ class BaseGraph(abc.ABC):
 
 
 class Graph(BaseGraph):
-    """ Generic graph base class.
+    """Generic graph base class.
 
     Can dump to graphviz dot format for example!
     """
@@ -162,7 +162,7 @@ class Graph(BaseGraph):
 class Node:
     """ Node in a graph. """
 
-    __slots__ = ('graph',)
+    __slots__ = ("graph",)
 
     def __init__(self, graph):
         self.graph = graph

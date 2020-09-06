@@ -21,7 +21,7 @@ def link(
     libraries=None,
     entry=None,
 ):
-    """ Links the iterable of objects into one using the given layout.
+    """Links the iterable of objects into one using the given layout.
 
     Args:
         objects: a collection of objects to be linked together.
@@ -80,8 +80,8 @@ def link(
 
 
 class Linker:
-    """ Merges the sections of several object files and
-        performs relocation """
+    """Merges the sections of several object files and
+    performs relocation"""
 
     logger = logging.getLogger("linker")
 
@@ -125,14 +125,14 @@ class Linker:
         # Define entry symbol:
         if entry_symbol_name:
             self.dst.entry_symbol_id = self.inject_symbol(
-                entry_symbol_name, "global", None, None, 'object', 0
+                entry_symbol_name, "global", None, None, "object", 0
             ).id
 
         # Define extra symbols:
         extra_symbols = extra_symbols or {}
         for symbol_name, value in extra_symbols.items():
             self.logger.debug("Defining extra symbol %s", symbol_name)
-            self.inject_symbol(symbol_name, "global", None, value, 'object', 0)
+            self.inject_symbol(symbol_name, "global", None, value, "object", 0)
 
         # First merge all sections into output sections:
         self.merge_objects(input_objects, debug)
@@ -162,7 +162,7 @@ class Linker:
         return self.dst
 
     def report_link_result(self):
-        """ After linking is complete, this function can be used to dump
+        """After linking is complete, this function can be used to dump
         information to a reporter.
         """
         for section in self.dst.sections:
@@ -236,7 +236,12 @@ class Linker:
                 )
             else:
                 new_symbol = self.inject_symbol(
-                    symbol.name, symbol.binding, section, value, symbol.typ, symbol.size
+                    symbol.name,
+                    symbol.binding,
+                    section,
+                    value,
+                    symbol.typ,
+                    symbol.size,
                 )
 
             symbol_id_mapping[symbol.id] = new_symbol.id
@@ -284,7 +289,9 @@ class Linker:
                         "Multiple defined symbol: {}".format(name)
                     )
         else:
-            new_symbol = self.inject_symbol(name, "global", section, value, typ, size)
+            new_symbol = self.inject_symbol(
+                name, "global", section, value, typ, size
+            )
 
         return new_symbol
 
@@ -347,7 +354,9 @@ class Linker:
                     section = self.dst.get_section(section_name, create=True)
                     section.address = current_address
                     section.alignment = 1
-                    self.merge_global_symbol(symbol_name, section_name, 0, 'object', 0)
+                    self.merge_global_symbol(
+                        symbol_name, section_name, 0, "object", 0
+                    )
                     image.add_section(section)
                 elif isinstance(memory_input, Align):
                     while (current_address % memory_input.alignment) != 0:
@@ -371,7 +380,7 @@ class Linker:
         #    raise CompilerError('Undefined reference "{}"'.format(name))
 
     def add_missing_symbols_from_libraries(self, libraries):
-        """ Try to fetch extra code from libraries to resolve symbols.
+        """Try to fetch extra code from libraries to resolve symbols.
 
         Note that this can be a rabbit hole, since libraries can have undefined
         symbols as well.
@@ -400,13 +409,11 @@ class Linker:
                         reloop = True
 
     def get_undefined_symbols(self):
-        """ Get a list of currently undefined symbols.
-        """
+        """Get a list of currently undefined symbols."""
         return self.dst.get_undefined_symbols()
 
     def check_undefined_symbols(self):
-        """ Find undefined symbols.
-        """
+        """Find undefined symbols."""
         undefined_symbols = self.get_undefined_symbols()
         for symbol in undefined_symbols:
             self.logger.error("Undefined reference: %s", symbol)
@@ -416,7 +423,7 @@ class Linker:
             raise CompilerError("Undefined references: {}".format(undefined))
 
     def do_relaxations(self):
-        """ Linker relaxation. Just relax ;).
+        """Linker relaxation. Just relax ;).
 
         Linker relaxation is the process of finding shorted opcodes for
         jumps to addresses nearby.
@@ -531,7 +538,7 @@ class Linker:
         self._apply_relaxation_holes(holes_map)
 
     def _apply_relaxation_holes(self, hole_map):
-        """ Punch holes in the destination object file.
+        """Punch holes in the destination object file.
 
         Do adjustments to section addresses, symbol offsets
         and relocation offsets.
@@ -617,7 +624,7 @@ class Linker:
             self._do_relocation(reloc)
 
     def _do_relocation(self, relocation):
-        """ Perform a single relocation.
+        """Perform a single relocation.
 
         This involves hammering some specific bits in the section data
         according to symbol location and relocation location in the file.

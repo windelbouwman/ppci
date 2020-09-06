@@ -7,7 +7,7 @@ from .token import TokenSequence
 
 
 class Operand(property):
-    """ An instruction operand.
+    """An instruction operand.
 
     When an instruction has
     an operand, use this function to create the property.
@@ -120,7 +120,7 @@ class Transform(metaclass=abc.ABCMeta):
 
 
 class Constructor:
-    """ Instruction, or part of an instruction.
+    """Instruction, or part of an instruction.
 
     An instruction is a special subclass of a constructor. It is final
     , in other words, it cannot be used in Constructors. An instruction
@@ -239,7 +239,7 @@ class Constructor:
 
     @property
     def leaves(self):
-        """ recursively yield all properties used, expanding composite
+        """recursively yield all properties used, expanding composite
         props.
         All properties and the objects on which those properties can be getted
         are returned.
@@ -253,7 +253,7 @@ class Constructor:
 
     @property
     def non_leaves(self):
-        """ Get all composite parts.
+        """Get all composite parts.
 
         This is a depth first loop.
         """
@@ -300,7 +300,7 @@ class InsMeta(type):
 
 
 class Instruction(Constructor, metaclass=InsMeta):
-    """ Base instruction class.
+    """Base instruction class.
 
     Instructions are created in the following ways:
 
@@ -316,7 +316,7 @@ class Instruction(Constructor, metaclass=InsMeta):
     """
 
     def __init__(self, *args, **kwargs):
-        """ Base instruction constructor.
+        """Base instruction constructor.
 
         Takes an arbitrary amount of arguments and tries to fit them
         on the args or syntax fields.
@@ -419,7 +419,7 @@ class Instruction(Constructor, metaclass=InsMeta):
 
     # Interface methods:
     def encode(self):
-        """ Encode the instruction into binary form.
+        """Encode the instruction into binary form.
 
         returns bytes for this instruction.
         """
@@ -458,7 +458,7 @@ class Instruction(Constructor, metaclass=InsMeta):
 
 
 class Syntax:
-    """ Defines a syntax for an instruction or part of an instruction.
+    """Defines a syntax for an instruction or part of an instruction.
 
     Arguments:
         syntax: a list of syntax elements.
@@ -543,8 +543,8 @@ class Syntax:
 
     @staticmethod
     def _get_repr(syntax_element, obj):
-        """ Get the repr of a syntax part. Can be str or prop class,
-            in refering to an element in the args list """
+        """Get the repr of a syntax part. Can be str or prop class,
+        in refering to an element in the args list"""
         if isinstance(syntax_element, str):
             return syntax_element
         elif isinstance(syntax_element, Operand):
@@ -554,8 +554,8 @@ class Syntax:
 
 
 class BitPattern:
-    """ Base bit pattern class. A bit mapping is a mapping of a field
-        to a value of some kind.
+    """Base bit pattern class. A bit mapping is a mapping of a field
+    to a value of some kind.
     """
 
     def __init__(self, field):
@@ -589,7 +589,7 @@ class VariablePattern(BitPattern):
 
 
 class Relocation:
-    """ Baseclass for all relocation types.
+    """Baseclass for all relocation types.
 
     Subclass this class to create custom relocations.
     Subclasses should add the following attributes:
@@ -633,10 +633,10 @@ class Relocation:
         return cls.token.Info.size // 8
 
     def apply(self, sym_value, data, reloc_value):
-        """ Apply this relocation type given some parameters.
+        """Apply this relocation type given some parameters.
 
         This is the default implementation which stores the outcome of
-        the calculate function into the proper token. """
+        the calculate function into the proper token."""
         assert self.token is not None
         token = self.token.from_data(data)
         assert self.field is not None
@@ -646,7 +646,7 @@ class Relocation:
         return data
 
     def can_shrink(self, sym_value, reloc_value):
-        """ Test if this relocation can shrink during the relaxation phase.
+        """Test if this relocation can shrink during the relaxation phase.
 
         Override this method to enable linker relaxation the relocation
         subtype.

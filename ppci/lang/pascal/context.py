@@ -6,7 +6,7 @@ from .nodes import symbols, types, expressions
 
 
 class Context:
-    """ A global context for all pascal objects of a program.
+    """A global context for all pascal objects of a program.
 
     This is a replacement for the otherwise global variables during
     the processing of pascal code.
@@ -152,7 +152,7 @@ class Context:
 
 
 def create_top_scope(arch_info):
-    """ Create a scope that is the root of the scope tree.
+    """Create a scope that is the root of the scope tree.
 
     This includes the built-in types.
     """

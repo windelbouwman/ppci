@@ -19,10 +19,10 @@ class SemanticError(CompilerError):
 
 
 class Scope:
-    """ A scope contains all symbols in a scope.
+    """A scope contains all symbols in a scope.
 
     It also has a parent scope,
-    when looking for a symbol, also the parent scopes are checked. """
+    when looking for a symbol, also the parent scopes are checked."""
 
     def __init__(self, parent=None):
         self.symbols = {}
@@ -93,7 +93,7 @@ class Scope:
 
 
 def create_top_scope(arch_info):
-    """ Create a scope that is the root of the scope tree.
+    """Create a scope that is the root of the scope tree.
 
     This includes the built-in types.
     """

@@ -104,7 +104,7 @@ class LengauerTarjan:
         self.best[n] = n
 
     def ancestor_with_lowest_semi_naive(self, v):
-        """ O(N^2) implementation.
+        """O(N^2) implementation.
 
         This is a slow algorithm, path compression can be used
         to increase speed.
@@ -119,7 +119,7 @@ class LengauerTarjan:
         return u
 
     def ancestor_with_lowest_semi(self, v):
-        """ O(log N) implementation with path compression.
+        """O(log N) implementation with path compression.
 
         Rewritten from recursive function to prevent hitting the
         recursion limit for large graphs.
@@ -144,7 +144,7 @@ class LengauerTarjan:
         return self.best[original_v]
 
     def ancestor_with_lowest_semi_fast(self, v):
-        """ The O(log N) implementation with path compression.
+        """The O(log N) implementation with path compression.
 
         This version suffers from a recursion limit for large graphs.
         """

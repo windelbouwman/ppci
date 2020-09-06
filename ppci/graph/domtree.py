@@ -2,8 +2,8 @@ from .cfg import ir_function_to_graph
 
 
 class CfgInfo:
-    """ Calculate control flow graph info, such as dominators
-    dominator tree and dominance frontier """
+    """Calculate control flow graph info, such as dominators
+    dominator tree and dominance frontier"""
 
     def __init__(self, function):
         # Store ir related info:

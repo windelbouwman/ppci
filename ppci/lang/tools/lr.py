@@ -39,10 +39,10 @@ class Accept(Action):
 
 class Item:
     """
-        Represents a partially parsed item
-        It has a production it is looking for, a position
-        in this production called the 'dot' and a look ahead
-        symbol that must follow this item.
+    Represents a partially parsed item
+    It has a production it is looking for, a position
+    in this production called the 'dot' and a look ahead
+    symbol that must follow this item.
     """
 
     def __init__(self, production, dotpos, look_ahead):
@@ -94,8 +94,8 @@ class Item:
 
 
 class State:
-    """ A state in the parsing machine. A state contains a set of items and
-    a state number """
+    """A state in the parsing machine. A state contains a set of items and
+    a state number"""
 
     def __init__(self, items, number):
         self.items = items
@@ -104,8 +104,8 @@ class State:
 
 
 class LrParser:
-    """ LR parser automata. This class takes goto and action table
-        and can then process a sequence of tokens.
+    """LR parser automata. This class takes goto and action table
+    and can then process a sequence of tokens.
     """
 
     def __init__(self, grammar, action_table, goto_table):
@@ -176,10 +176,10 @@ class LrParser:
 
 def calculate_first_sets(grammar):
     """
-        Calculate first sets for each grammar symbol
-        This is a dictionary which maps each grammar symbol
-        to a set of terminals that can be encountered first
-        when looking for the symbol.
+    Calculate first sets for each grammar symbol
+    This is a dictionary which maps each grammar symbol
+    to a set of terminals that can be encountered first
+    when looking for the symbol.
     """
     first = {}
     nullable = {}
@@ -214,7 +214,7 @@ def calculate_first_sets(grammar):
 
 class LrParserBuilder:
     """
-        Construct goto and action tables according to LALR algorithm
+    Construct goto and action tables according to LALR algorithm
     """
 
     def __init__(self, grammar):
@@ -229,9 +229,9 @@ class LrParserBuilder:
     @property
     def first(self):
         """
-          The first set is a mapping from a grammar symbol to a set of
-          set of all terminal symbols that can be the first terminal when
-          looking for the grammar symbol
+        The first set is a mapping from a grammar symbol to a set of
+        set of all terminal symbols that can be the first terminal when
+        looking for the grammar symbol
         """
         if not self._first:
             self._first = calculate_first_sets(self.grammar)
@@ -277,8 +277,8 @@ class LrParserBuilder:
 
     def next_item_set(self, itemset, symbol):
         """
-            Determines the next itemset for the current set and a symbol
-            This is the goto procedure
+        Determines the next itemset for the current set and a symbol
+        This is the goto procedure
         """
         next_set = set()
         for item in itemset:

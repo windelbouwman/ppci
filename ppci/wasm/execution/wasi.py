@@ -406,11 +406,7 @@ class WasiApi:
         """ Similar to mkdirat in POSIX """
         path = self._read_string(path_buf, path_len)
 
-        self._trace(
-            "path_create_directory(fd={}, path={})".format(
-                fd, path
-            )
-        )
+        self._trace("path_create_directory(fd={}, path={})".format(fd, path))
 
         # Check if we have a base folder:
         if fd not in self._available_fd:

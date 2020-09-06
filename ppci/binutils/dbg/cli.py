@@ -245,9 +245,9 @@ class DebugCli(cmd.Cmd):
         self.debugger.set_breakpoint(filename, row)
 
     def do_clrbrk(self, arg):
-        """ Clear a breakpoint. Specify the location by "filename, row"
-            for example:
-            main.c, 5
+        """Clear a breakpoint. Specify the location by "filename, row"
+        for example:
+        main.c, 5
         """
         filename, row = arg.split(",")
         row = str2int(row)

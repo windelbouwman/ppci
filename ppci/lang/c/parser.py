@@ -26,7 +26,7 @@ RIGHT_ASSOCIATIVE = "right-associative"
 
 
 class CParser(RecursiveDescentParser):
-    """ C Parser.
+    """C Parser.
 
     Implemented in a recursive descent way, like the CLANG[1]
     frontend for llvm, also without the lexer hack[2]. See for the gcc
@@ -158,7 +158,7 @@ class CParser(RecursiveDescentParser):
 
     # Entry points:
     def parse(self, tokens):
-        """ Here the parsing of C is begun ...
+        """Here the parsing of C is begun ...
 
         Parse the given tokens.
         """
@@ -185,7 +185,7 @@ class CParser(RecursiveDescentParser):
             self.parse_decl_group(decl_spec)
 
     def parse_decl_specifiers(self, allow_storage_class=True):
-        """ Parse declaration specifiers.
+        """Parse declaration specifiers.
 
         At the end we know type, storage class and qualifiers.
 
@@ -399,7 +399,7 @@ class CParser(RecursiveDescentParser):
         self.semantics.exit_enum_values(ctyp, constants, location)
 
     def parse_attributes(self):
-        """ Parse some attributes.
+        """Parse some attributes.
 
         Examples are:
 
@@ -434,7 +434,7 @@ class CParser(RecursiveDescentParser):
         return gnu_attribute
 
     def parse_decl_group(self, decl_spec):
-        """ Parse the rest after the first declaration spec.
+        """Parse the rest after the first declaration spec.
 
         For example we have parsed 'static int' and we will now parse the rest.
         This can be either a function, or a sequence of initializable
@@ -503,7 +503,7 @@ class CParser(RecursiveDescentParser):
         )
 
     def parse_declarator(self, abstract=False):
-        """ Given a declaration specifier, parse the rest.
+        """Given a declaration specifier, parse the rest.
 
         This involves parsing optionally pointers and qualifiers
         and next the declaration itself.
@@ -523,7 +523,7 @@ class CParser(RecursiveDescentParser):
 
     # Initialization section:
     def parse_initializer(self, typ):
-        """ Parse the C-style array or struct initializer stuff.
+        """Parse the C-style array or struct initializer stuff.
 
         Heavily copied from: https://github.com/rui314/8cc/blob/master/parse.c
 
@@ -548,7 +548,7 @@ class CParser(RecursiveDescentParser):
         return initializer
 
     def parse_array_string_initializer(self, typ):
-        """ Handle the special case where an array is initialized with
+        """Handle the special case where an array is initialized with
         a string.
         """
         # isinstance(initializer, expressions.StringLiteral):
@@ -569,7 +569,7 @@ class CParser(RecursiveDescentParser):
         return initializer
 
     def parse_initializer_list(self, typ):
-        """ Parse braced initializer list.
+        """Parse braced initializer list.
 
         Parse opening brace, elements and closing brace.
         """
@@ -578,7 +578,7 @@ class CParser(RecursiveDescentParser):
         return self.parse_initializer_list_sub(init_cursor, typ)
 
     def parse_initializer_list_sub(self, init_cursor, typ):
-        """ Parse braced initializer list.
+        """Parse braced initializer list.
 
         Parse opening brace, elements and closing brace.
         """
@@ -600,8 +600,7 @@ class CParser(RecursiveDescentParser):
         return init_cursor.leave_compound()
 
     def parse_initializer_list_element(self, init_cursor):
-        """ Parse an initializer list element with optional designators.
-        """
+        """Parse an initializer list element with optional designators."""
         # Load eventual designators:
         if self.is_c99 and self.peek in [".", "["]:
             # We face designated initializer here...
@@ -664,7 +663,7 @@ class CParser(RecursiveDescentParser):
 
     # Types section:
     def parse_function_arguments(self):
-        """ Parse function postfix.
+        """Parse function postfix.
 
         We have type and name, now parse function arguments.
         """
@@ -691,7 +690,7 @@ class CParser(RecursiveDescentParser):
         return arguments
 
     def parse_type_modifiers(self, abstract=False):
-        """ Parse the pointer, name and array or function suffixes.
+        """Parse the pointer, name and array or function suffixes.
 
         Can be abstract type, and if so, the type may be nameless.
 
@@ -778,7 +777,7 @@ class CParser(RecursiveDescentParser):
 
     # Statement part:
     def parse_statement_or_declaration(self):
-        """ Parse either a statement or a declaration
+        """Parse either a statement or a declaration
 
         Returns: a list of statements
         """
@@ -881,7 +880,7 @@ class CParser(RecursiveDescentParser):
         return self.semantics.on_switch_exit(expression, statement, location)
 
     def parse_case_statement(self):
-        """ Parse a case.
+        """Parse a case.
 
         For example:
         'case 5:'
@@ -992,7 +991,7 @@ class CParser(RecursiveDescentParser):
 
     # Inline assembly section!
     def parse_asm_statement(self):
-        """ Parse an inline assembly statement.
+        """Parse an inline assembly statement.
 
         See also: https://gcc.gnu.org/onlinedocs/gcc/Extended-Asm.html
         """
@@ -1059,14 +1058,14 @@ class CParser(RecursiveDescentParser):
         return self.parse_binop_with_precedence(10)
 
     def parse_expression(self):
-        """ Parse an expression.
+        """Parse an expression.
 
         See also: http://en.cppreference.com/w/c/language/operator_precedence
         """
         return self.parse_binop_with_precedence(0)
 
     def _binop_take(self, op, priority):
-        """ Decide whether to group.
+        """Decide whether to group.
 
         This is a helper function that determines whether or not to group
         a certain operator further, given the current priority.

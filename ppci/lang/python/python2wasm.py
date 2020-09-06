@@ -18,7 +18,7 @@ def syntax_error(filename, node, message):
 
 
 def python_to_wasm(*sources):
-    """ Compile Python functions to wasm, by using Python's ast parser
+    """Compile Python functions to wasm, by using Python's ast parser
     and compiling a very specific subset to WASM instructions. All values
     are float64. Each source can be a string, a function, or AST.
     """
@@ -142,8 +142,7 @@ def _python_to_wasm_funcdefs(source):
 
 
 class PythonFuncToWasmCompiler:
-    """ Compiles one Python function body to wasm instructions.
-    """
+    """Compiles one Python function body to wasm instructions."""
 
     def __init__(self, args, filename=None):
         self._filename = filename

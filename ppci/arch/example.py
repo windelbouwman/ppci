@@ -12,8 +12,8 @@ from .isa import Isa
 
 
 class ExampleArch(Architecture):
-    """ Simple example architecture. This is intended as starting point
-    when creating a new backend """
+    """Simple example architecture. This is intended as starting point
+    when creating a new backend"""
 
     name = "example"
 
@@ -61,8 +61,7 @@ class ExampleArch(Architecture):
         return []
 
     def determine_arg_locations(self, arg_types):
-        """ Given a set of argument types, determine locations
-        """
+        """Given a set of argument types, determine locations"""
         arg_locs = []
         regs = [R0, R1, R2, R3]
         for a in arg_types:

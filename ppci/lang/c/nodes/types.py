@@ -4,7 +4,7 @@
 
 
 def is_scalar(typ):
-    """ Determine whether the given type is of scalar kind.
+    """Determine whether the given type is of scalar kind.
 
     This includes:
     - integers
@@ -49,8 +49,7 @@ def is_double(typ):
 
 
 def is_promotable(typ):
-    """ Check if this type is of small integer type and can be promoted.
-    """
+    """Check if this type is of small integer type and can be promoted."""
     return (
         isinstance(typ, BasicType)
         and typ.type_id in BasicType.PROMOTABLE_INTEGER_TYPES
@@ -226,8 +225,7 @@ class PointerType(IndexableType):
 
 
 class TaggedType(CType):
-    """ A Type which can be inserted in the tag namespace.
-    """
+    """A Type which can be inserted in the tag namespace."""
 
 
 class EnumType(TaggedType):
@@ -280,7 +278,7 @@ class StructOrUnionType(TaggedType):
     fields = property(_get_fields, _set_fields)
 
     def get_named_field_paths(self):
-        """ Create a list of field-paths, including those in anonymous members.
+        """Create a list of field-paths, including those in anonymous members.
 
         A field path is a sequence of fields to arrive at the named field.
 
@@ -310,7 +308,7 @@ class StructOrUnionType(TaggedType):
         return self._field_map[name][-1]
 
     def get_field_path(self, name: str):
-        """ Return the full path to a specific field.
+        """Return the full path to a specific field.
 
         This takes into account eventual anonymous struct members.
         """

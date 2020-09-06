@@ -125,7 +125,7 @@ class Case(CStatement):
 
 
 class RangeCase(CStatement):
-    """ GNU Case statement.
+    """GNU Case statement.
 
     For example:
     'case 1 ... 4:'

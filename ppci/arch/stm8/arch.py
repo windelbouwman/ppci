@@ -49,7 +49,7 @@ class Stm8Arch(Architecture):
         raise NotImplementedError()
 
     def determine_arg_locations(self, arg_types):
-        """ Calling convention in priority order:
+        """Calling convention in priority order:
 
         - Pointers in index registers;
         - 16-bit variables in index registers;

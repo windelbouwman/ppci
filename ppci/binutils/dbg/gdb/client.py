@@ -54,7 +54,7 @@ class ThreadedCommHandler(GdbCommHandler):
 
 
 class GdbDebugDriver(DebugDriver):
-    """ Implement debugging via the GDB remote interface.
+    """Implement debugging via the GDB remote interface.
 
     GDB servers can communicate via the RSP protocol.
 
@@ -179,7 +179,7 @@ class GdbDebugDriver(DebugDriver):
         self.events.on_stop()
 
     def _process_stop_status(self, pkt):
-        """ Process stopped status like these:
+        """Process stopped status like these:
 
         S05
         T0500:00112233;

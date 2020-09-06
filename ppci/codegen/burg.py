@@ -266,9 +266,9 @@ class BurgError(Exception):
 class BurgParser(burg_parser.Parser):
     """ Derived from automatically generated parser """
 
-    def parse(self, l):
+    def parse(self, lexer):
         self.system = BurgSystem()
-        super().parse(l)
+        super().parse(lexer)
         return self.system
 
 
@@ -432,10 +432,10 @@ def main(args):
     args.source.close()
 
     # Parse specification into burgsystem:
-    l = BurgLexer()
+    lexer = BurgLexer()
     p = BurgParser()
-    l.feed(src)
-    burg_system = p.parse(l)
+    lexer.feed(src)
+    burg_system = p.parse(lexer)
 
     # Generate matcher:
     generator = BurgGenerator()

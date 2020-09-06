@@ -120,8 +120,7 @@ class Gen:
                 self.gen_ins(ins)
 
     def visit_blocks(self):
-        """ Visit all instructions to determine stack size at entry.
-        """
+        """Visit all instructions to determine stack size at entry."""
         self.visited.add(i)
 
     def gen_ins(self, instruction):

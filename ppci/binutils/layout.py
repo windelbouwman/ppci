@@ -38,8 +38,7 @@ class Layout:
 
 
 class EntrySymbol:
-    """ Specify the entry symbol of this file.
-    """
+    """Specify the entry symbol of this file."""
 
     def __init__(self, symbol_name):
         self.symbol_name = symbol_name

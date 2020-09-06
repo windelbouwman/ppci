@@ -5,7 +5,7 @@ from . import nodes
 
 
 class LlvmIrParser(RecursiveDescentParser):
-    """ Recursive descent parser for llvm-ir
+    """Recursive descent parser for llvm-ir
 
     Closely modeled after LLParser.cpp at:
     https://github.com/llvm-mirror/llvm/blob/master/lib/AsmParser/LLParser.cpp
@@ -218,7 +218,7 @@ class LlvmIrParser(RecursiveDescentParser):
         return elements
 
     def parse_metadata(self):
-        """ Parse meta data
+        """Parse meta data
 
         !42
         !{...}
@@ -339,7 +339,7 @@ class LlvmIrParser(RecursiveDescentParser):
         print(body)
 
     def parse_struct_body(self):
-        """ Parse struct body.
+        """Parse struct body.
 
         Can be either of:
         '{' '}'
@@ -648,7 +648,7 @@ class LlvmIrParser(RecursiveDescentParser):
         return nodes.ShuffleVectorInst(op1, op2, op3)
 
     def parse_load(self):
-        """ Parse load instruction
+        """Parse load instruction
 
         'load' 'volatile'? typeandvalue (',' 'align' i32)?
         """
@@ -733,7 +733,7 @@ class LlvmIrParser(RecursiveDescentParser):
             return nodes.BranchInst(op1, op2, op0)
 
     def parse_phi(self):
-        """ Parse a phi instruction.
+        """Parse a phi instruction.
 
         For example 'phi' Type '[' Value ',' Value ']' (',' ...) *
         """

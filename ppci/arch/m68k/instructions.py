@@ -180,7 +180,7 @@ class M68kInstruction(Instruction):
 
 
 def make_ea_dn(mnemonic, opcode, opmode):
-    """ Create an instruction with two operands: ea and dn.
+    """Create an instruction with two operands: ea and dn.
 
     The form is a such:
         instr ea, dn
@@ -202,7 +202,7 @@ def make_ea_dn(mnemonic, opcode, opmode):
 
 
 def make_dn_ea(mnemonic, opcode, opmode):
-    """ Create an instruction with two operands: dn and ea.
+    """Create an instruction with two operands: dn and ea.
 
     The form is a such:
         instr dn, ea

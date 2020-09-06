@@ -7,8 +7,8 @@ from . import astnodes as ast
 
 class Visitor:
     """
-        Visitor that can visit all nodes in the AST
-        and run pre and post functions.
+    Visitor that can visit all nodes in the AST
+    and run pre and post functions.
     """
 
     def __init__(self, pre=None, post=None):

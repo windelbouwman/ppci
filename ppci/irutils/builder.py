@@ -8,7 +8,7 @@ from ..binutils.debuginfo import DebugLocation
 
 
 def split_block(block, pos=None, newname="splitblock"):
-    """ Split a basic block into two which are connected.
+    """Split a basic block into two which are connected.
 
     Note to take care of phi instructions of successors
     and make sure to update those phi instructions.
@@ -45,7 +45,7 @@ def split_block(block, pos=None, newname="splitblock"):
 
 
 class Builder:
-    """ Helper class for IR-code generators.
+    """Helper class for IR-code generators.
 
     This class can assist in the generation of IR-code.
     It's purpose is to simplify the language frontend,
@@ -136,14 +136,14 @@ class Builder:
         return self.emit(ir.Load(address, "tmp_load", ty, volatile=volatile))
 
     def emit_binop(self, a, op, b, ty):
-        """ Emit a binary operation.
+        """Emit a binary operation.
 
         Args:
             a: operand 1
             op: the operation to perform.
             b: operand 2, can be either a value or an int.
             ty: The type of a, b and the result.
-        
+
         Returns:
             The result value of the binary operation.
         """
@@ -175,7 +175,7 @@ class Builder:
 
     # Debug helpers:
     def set_location(self, location):
-        """ Set the current source code location.
+        """Set the current source code location.
 
         All instructions emitted from now on will be associated
         with the given sourcecode.
@@ -195,7 +195,7 @@ class Builder:
 
     @contextlib.contextmanager
     def use_location(self, location):
-        """ Use the location for all code generated
+        """Use the location for all code generated
         within a context.
         """
         self.push_location(location)

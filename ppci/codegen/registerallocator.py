@@ -128,14 +128,14 @@ class MiniCtx(ContextInterface):
     def __init__(self, frame, arch):
         self._frame = frame
         self._arch = arch
-        self.l = []
+        self.instructions = []
 
     def move(self, dst, src):
         """ Generate move """
         self.emit(self._arch.move(dst, src))
 
     def emit(self, instruction):
-        self.l.append(instruction)
+        self.instructions.append(instruction)
 
     def new_reg(self, cls):
         return self._frame.new_reg(cls)
@@ -175,7 +175,7 @@ class MiniGen:
         """ Generate code for a given tree """
         ctx = MiniCtx(frame, self.arch)
         self.selector.gen_tree(ctx, tree)
-        return ctx.l
+        return ctx.instructions
 
     def make_fmt(self, vreg):
         """Determine the type suffix, such as I32 or F64."""

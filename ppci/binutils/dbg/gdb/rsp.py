@@ -97,7 +97,7 @@ class RspHandler:
 
 
 def decoder():
-    """ Process a single byte. Keep track of the packet.
+    """Process a single byte. Keep track of the packet.
 
     Task of this function is to recognize packets in the form of:
       $foo-bar#00

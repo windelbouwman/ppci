@@ -12,7 +12,7 @@ import io
 
 
 def get_runtime_files(names):
-    """ Get a list of files with the required names.
+    """Get a list of files with the required names.
 
     For example:
 

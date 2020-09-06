@@ -51,9 +51,7 @@ class MicroBlazeArch(Architecture):
             raise NotImplementedError()
 
     def gen_prologue(self, frame):
-        """ Returns prologue instruction sequence.
-
-        """
+        """Returns prologue instruction sequence."""
         # Label indication function:
         yield Label(frame.name)
 
@@ -82,9 +80,7 @@ class MicroBlazeArch(Architecture):
         yield instructions.Addk(registers.R19, registers.R1, registers.R0)
 
     def gen_epilogue(self, frame):
-        """ Return epilogue sequence for a frame.
-
-        """
+        """Return epilogue sequence for a frame."""
         # Determine stack size:
         stack_size = 4  # Start with 4?
         if frame.stacksize > 0:
@@ -145,7 +141,9 @@ class MicroBlazeArch(Architecture):
         arg_locs = self.determine_arg_locations(arg_types)
 
         arg_regs = set(
-            l for l in arg_locs if isinstance(l, registers.MicroBlazeRegister)
+            arg_loc
+            for arg_loc in arg_locs
+            if isinstance(arg_loc, registers.MicroBlazeRegister)
         )
         yield RegisterUseDef(defs=arg_regs)
 
@@ -229,7 +227,7 @@ class MicroBlazeArch(Architecture):
         return registers.R3
 
     def get_runtime(self):
-        """ Compiles the runtime support for microblaze.
+        """Compiles the runtime support for microblaze.
 
         It takes some c3 code.
         """

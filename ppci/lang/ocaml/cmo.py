@@ -12,8 +12,7 @@ logger = logging.getLogger("ocaml")
 
 
 def read_file(filename):
-    """ Read a cmo or bytecode file.
-    """
+    """Read a cmo or bytecode file."""
     if isinstance(filename, str):
         logging.info("Processing %s", filename)
         with open(filename, "rb") as f:
@@ -48,8 +47,7 @@ compilation_unit = (
 
 
 class CmoReader:
-    """ Reader for cmo (caml object) files.
-    """
+    """Reader for cmo (caml object) files."""
 
     MAGIC_V023 = "Caml1999O023"
 
@@ -57,7 +55,7 @@ class CmoReader:
         self.reader = FileReader(f)
 
     def is_cmo(self):
-        """ Determine if the current file is a cmo file by reading
+        """Determine if the current file is a cmo file by reading
         the magic marker.
         """
         try:
@@ -95,7 +93,7 @@ class CmoReader:
             raise ValueError("Unexpected magic value {}".format(magic))
 
     def read_value(self, typ):
-        """ Read arbitrary ocaml object.
+        """Read arbitrary ocaml object.
 
         An object is stored with a header first, then a marshalled object.
         """

@@ -10,7 +10,7 @@ from .graph import BaseGraph, Node
 class DiGraph(BaseGraph):
     """ Directed graph. """
 
-    __slots__ = ('suc_map', 'pre_map')
+    __slots__ = ("suc_map", "pre_map")
 
     def __init__(self):
         super().__init__()
@@ -82,7 +82,7 @@ class DiNode(Node):
 
 
 def dfs(start_node, reverse=False):
-    """ Visit nodes in depth-first-search order.
+    """Visit nodes in depth-first-search order.
 
     Args:
         - start_node: node to start with

@@ -3,7 +3,7 @@ from .transform import FunctionPass
 
 
 class TailCallOptimization(FunctionPass):
-    """ Tail call optimization.
+    """Tail call optimization.
 
     This optimization replaces calls to the function
     itself with jumps.
@@ -71,8 +71,7 @@ class TailCallOptimization(FunctionPass):
             self.rewrite_tailcalls(function, tail_calls)
 
     def _replace_entry(self, function):
-        """ Replace tail calls by jumps to the old entry of this function.
-        """
+        """Replace tail calls by jumps to the old entry of this function."""
         z = []
         z.append((function.entry, function.arguments))
         new_entry = ir.Block("new_entry")

@@ -26,7 +26,7 @@ def calculate_dominators(nodes, entry_node):
 
 
 def calculate_post_dominators(nodes, exit_node):
-    """ Calculate the post dominator sets iteratively.
+    """Calculate the post dominator sets iteratively.
 
     Post domination is the same as domination, but then starting at
     the exit node.
@@ -58,8 +58,7 @@ def calculate_post_dominators(nodes, exit_node):
 
 
 def calculate_immediate_dominators(nodes, _dom, _sdom):
-    """ Determine immediate dominators from dominators and strict dominators.
-    """
+    """Determine immediate dominators from dominators and strict dominators."""
 
     _idom = {}
 
@@ -74,7 +73,7 @@ def calculate_immediate_dominators(nodes, _dom, _sdom):
 
 
 def calculate_immediate_post_dominators(nodes, _pdom, _spdom):
-    """ Calculate immediate post dominators for all nodes.
+    """Calculate immediate post dominators for all nodes.
 
     Do this by choosing n from spdom(x) such that pdom(n) == spdom(x).
     """

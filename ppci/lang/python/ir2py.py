@@ -298,7 +298,7 @@ class IrToPythonCompiler:
             raise NotImplementedError(str(shape))
 
     def generate_function_fallback(self, ir_function):
-        """ Generate a while-true with a switch-case on current block.
+        """Generate a while-true with a switch-case on current block.
 
         This is a non-optimal, but always working strategy.
         """

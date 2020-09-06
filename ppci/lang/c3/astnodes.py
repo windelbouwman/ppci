@@ -12,8 +12,8 @@ from ..generic.nodes import Node
 
 # Variables, parameters, local variables, constants and named types:
 class Symbol(Node):
-    """ Symbol is the base class for all named things like variables,
-        functions, constants and types and modules """
+    """Symbol is the base class for all named things like variables,
+    functions, constants and types and modules"""
 
     def __init__(self, name, public):
         self.name = name
@@ -61,9 +61,9 @@ class Type(Node):
 
 
 class NamedType(Type, Symbol):
-    """ Some types are named, for example a user defined type (typedef)
-        and built in types. That is why this class derives from both Type
-        and Symbol. """
+    """Some types are named, for example a user defined type (typedef)
+    and built in types. That is why this class derives from both Type
+    and Symbol."""
 
     def __init__(self, name, public):
         super().__init__(name, public)
@@ -371,8 +371,8 @@ class Binop(Expression):
 
 
 class Identifier(Expression):
-    """ Reference to some identifier, can be anything from package, variable
-        function or type, any named thing! """
+    """Reference to some identifier, can be anything from package, variable
+    function or type, any named thing!"""
 
     def __init__(self, target, scope, loc):
         super().__init__(loc)

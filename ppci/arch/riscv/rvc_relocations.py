@@ -34,7 +34,7 @@ class CBImm11Relocation(CRel):
         return isinsrange(12, offset)
 
     def do_shrink(self, sym_value, data, reloc_value):
-        """ Optimize instruction!
+        """Optimize instruction!
 
         Do several cool things now:
         - Patch memory to change opcode.

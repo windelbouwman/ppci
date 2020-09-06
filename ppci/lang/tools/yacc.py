@@ -52,7 +52,7 @@ class XaccLexer(BaseLexer):
 
 
 class XaccParser(RecursiveDescentParser):
-    """ Implements a recursive descent parser to parse grammar rules.
+    """Implements a recursive descent parser to parse grammar rules.
 
     We could have made an generated parser, but that would yield a chicken
     egg issue.

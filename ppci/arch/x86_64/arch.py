@@ -61,7 +61,7 @@ class WindowsCallingConvention(CallingConvention):
 
 
 class LinuxCallingConvention(CallingConvention):
-    """ Sys V ABI calling convention
+    """Sys V ABI calling convention
 
     Given a set of argument types, determine locations
     the first arguments go into registers. The others on the stack.
@@ -154,7 +154,8 @@ class X86_64Arch(Architecture):
             raise ValueError("Unknown data model: {}".format(data_model))
 
         self.info = ArchInfo(
-            type_infos=type_infos, register_classes=register_classes,
+            type_infos=type_infos,
+            register_classes=register_classes,
         )
 
         self.isa = isa + data_isa + sse1_isa + sse2_isa
@@ -166,7 +167,7 @@ class X86_64Arch(Architecture):
         self.stack_grows_down = True
         self.gdb_registers = registers.full_registers
 
-        if self.has_option('wincc'):
+        if self.has_option("wincc"):
             self._callee_save = registers.callee_save_windows
             self._caller_save = registers.caller_save_windows
         else:
@@ -261,7 +262,7 @@ class X86_64Arch(Architecture):
             return Pop(register)
 
     def determine_arg_locations(self, arg_types):
-        """ Given a set of argument types, determine locations
+        """Given a set of argument types, determine locations
             the first arguments go into registers. The others on the stack.
 
         see also http://www.x86-64.org/documentation/abi.pdf
@@ -398,7 +399,9 @@ class X86_64Arch(Architecture):
         """ Copy arguments into local temporaries and mark registers live """
         arg_types = [a[0] for a in args]
         arg_locs = self.determine_arg_locations(arg_types)
-        arg_regs = set(l for l in arg_locs if isinstance(l, Register))
+        arg_regs = set(
+            arg_loc for arg_loc in arg_locs if isinstance(arg_loc, Register)
+        )
         yield RegisterUseDef(defs=arg_regs)
 
         stack_offset = 0
@@ -572,7 +575,9 @@ class X86_64Arch(Architecture):
             stack_size += 32
 
         # Mark all dedicated registers as used:
-        arg_regs = set(l for l in arg_locs if isinstance(l, Register))
+        arg_regs = set(
+            arg_loc for arg_loc in arg_locs if isinstance(arg_loc, Register)
+        )
         yield RegisterUseDef(uses=arg_regs)
 
         if isinstance(label, Register64):
@@ -622,8 +627,8 @@ class X86_64Arch(Architecture):
             yield self.push(reg)
 
     def gen_epilogue(self, frame):
-        """ Return epilogue sequence for a frame. Adjust frame pointer
-            and add constant pool
+        """Return epilogue sequence for a frame. Adjust frame pointer
+        and add constant pool
         """
         saved_registers = self.get_callee_saved(frame)
         saved_size = sum(r.bitsize // 8 for r in saved_registers)
@@ -661,11 +666,7 @@ class X86_64Arch(Architecture):
 
     def get_reloc_type(self, reloc_type, symbol):
         """ Get the reloc type for ELF format. """
-        if (
-            symbol.is_function
-            and symbol.undefined
-            and reloc_type == "rel32"
-        ):
+        if symbol.is_function and symbol.undefined and reloc_type == "rel32":
             # TODO: can we always use PLT32 here?
             r_type = elf_support.R_X86_64_PLT32
         else:

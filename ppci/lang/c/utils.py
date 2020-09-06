@@ -12,8 +12,7 @@ def required_padding(address, alignment):
 
 
 def print_ast(ast, file=None):
-    """ Display an abstract syntax tree.
-    """
+    """Display an abstract syntax tree."""
     CAstPrinter(file=file).print(ast)
 
 
@@ -38,7 +37,7 @@ class CAstPrinter(Visitor):
 
 
 class LineInfo:
-    """ Line information indicating where the following content comes from.
+    """Line information indicating where the following content comes from.
 
     Flags can be given.
     1: start of new file

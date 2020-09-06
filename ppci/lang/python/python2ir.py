@@ -12,7 +12,7 @@ from ...binutils import debuginfo
 
 
 def python_to_ir(f, imports=None):
-    """ Compile a piece of python code to an ir module.
+    """Compile a piece of python code to an ir module.
 
     Args:
         f (file-like-object): a file like object containing the python code
@@ -50,7 +50,7 @@ class PythonToIrCompiler:
         self.type_mapping = {"int": ir.i64, "float": ir.f64, "str": ir.ptr}
 
     def compile(self, f, imports=None):
-        """ Convert python into IR-code.
+        """Convert python into IR-code.
 
         Arguments:
             f: the with the python code
@@ -370,7 +370,7 @@ class PythonToIrCompiler:
             self.not_impl(statement)
 
     def gen_aug_assign(self, statement):
-        """ Compile augmented assign.
+        """Compile augmented assign.
 
         For example: 'a += 2'
         """
@@ -461,7 +461,7 @@ class PythonToIrCompiler:
                 value = self.gen_name(expr)
             elif isinstance(expr, ast.Call):
                 value = self.gen_call(expr)
-            elif hasattr(ast, 'Constant') and isinstance(expr, ast.Constant):
+            elif hasattr(ast, "Constant") and isinstance(expr, ast.Constant):
                 # Exists in Python 3.6+, generated in Python 3.8+
                 value = expr.value
                 if isinstance(value, str):
@@ -551,8 +551,7 @@ class PythonToIrCompiler:
 
     # Helper functions:
     def get_variable(self, node, name, ty=None):
-        """ Retrieve a variable, or create it if type is given.
-        """
+        """Retrieve a variable, or create it if type is given."""
         if name in self.local_map:
             var = self.local_map[name]
         else:
@@ -568,7 +567,7 @@ class PythonToIrCompiler:
         return var
 
     def common_type(self, ty1, ty2):
-        """ Determine the best target type for two input types.
+        """Determine the best target type for two input types.
 
         For example,
             (float, int) -> float
@@ -632,7 +631,7 @@ class PythonToIrCompiler:
 
     @contextlib.contextmanager
     def use_location(self, node):
-        """ Use the location of the node for all code generated
+        """Use the location of the node for all code generated
         within the with clause.
         """
         location = self.node_location(node)

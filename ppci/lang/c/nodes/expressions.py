@@ -267,7 +267,7 @@ class StringLiteral(Literal):
 
 
 class CompoundLiteral(CExpression):
-    """ Compound literal available since C99.
+    """Compound literal available since C99.
 
     For example:
     (char[]){'a', 'b'}

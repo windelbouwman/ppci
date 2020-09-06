@@ -43,9 +43,9 @@ class Grammar:
         print_grammar(self)
 
     def add_one_or_more(self, element_nonterm, list_nonterm):
-        """ Helper to add the rule
-           lst: elem
-           lst: lst elem
+        """Helper to add the rule
+        lst: elem
+        lst: lst elem
         """
 
         def a(el):
@@ -77,9 +77,9 @@ class Grammar:
         return name in self.nonterminals
 
     def rewrite_eps_productions(self):
-        """ Make the grammar free of empty productions.
-            Do this by permutating all combinations of rules that would
-            otherwise contain an empty place.
+        """Make the grammar free of empty productions.
+        Do this by permutating all combinations of rules that would
+        otherwise contain an empty place.
         """
         while True:
             eps = [rule for rule in self.productions if rule.is_epsilon]
@@ -99,16 +99,16 @@ class Grammar:
                     self.create_combinations(rule, eps_rule.name)
 
     def create_combinations(self, rule, non_terminal):
-        """ Create n copies of rule where nt is removed.
-            For example replace:
-            A -> B C B
-            by:
-            A -> B C B
-            A -> B C
-            A -> C B
-            A -> C
-            if:
-            B -> epsilon
+        """Create n copies of rule where nt is removed.
+        For example replace:
+        A -> B C B
+        by:
+        A -> B C B
+        A -> B C
+        A -> C B
+        A -> C
+        if:
+        B -> epsilon
         """
         count = rule.symbols.count(non_terminal)
         # TODO: refactor this restriction:
@@ -125,9 +125,9 @@ class Grammar:
 
     @property
     def is_normal(self):
-        """ Check if this grammar is normal.
-            Which means:
-            - No empty productions (epsilon productions)
+        """Check if this grammar is normal.
+        Which means:
+        - No empty productions (epsilon productions)
         """
         # If the grammar contains an epsilon production, it is not normal:
         if any(rule.is_epsilon for rule in self.productions):
@@ -149,10 +149,10 @@ class Grammar:
 
 
 class Production:
-    """ Production rule for a grammar. It consists of a left hand side
-        non-terminal and a list of symbols as right hand side. Also it
-        contains a function that must be called when this rule is applied.
-        The right hand side may contain terminals and non-terminals.
+    """Production rule for a grammar. It consists of a left hand side
+    non-terminal and a list of symbols as right hand side. Also it
+    contains a function that must be called when this rule is applied.
+    The right hand side may contain terminals and non-terminals.
     """
 
     def __init__(self, name, symbols, semantics, priority=0):

@@ -6,7 +6,7 @@ from .python2ir import python_to_ir
 
 
 def load_py(f, imports=None, reporter=None):
-    """ Load a type annotated python file.
+    """Load a type annotated python file.
 
     Args:
         f: a file like object containing the python source code.
@@ -37,7 +37,7 @@ class JittedFunction:
 
 
 def jit(function):
-    """ Jitting function decorator.
+    """Jitting function decorator.
 
     Can be used to just-in-time (jit) compile and load a function. When
     a function is decorated with this decorator, the python code is translated

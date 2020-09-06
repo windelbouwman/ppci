@@ -593,8 +593,8 @@ class Out(AvrInstruction):
 
 
 class PseudoAvrInstruction(ArtificialInstruction):
-    """ These instructions are used to implement word arithmatic that is
-        actually implemented by two 8-bit registers """
+    """These instructions are used to implement word arithmatic that is
+    actually implemented by two 8-bit registers"""
 
     pass
 

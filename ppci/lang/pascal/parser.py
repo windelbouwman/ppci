@@ -92,7 +92,7 @@ class Parser(RecursiveDescentParser):
         return program
 
     def parse_block(self):
-        """ Parse a block.
+        """Parse a block.
 
         A block being constants, types, variables and statements.
         """
@@ -123,7 +123,7 @@ class Parser(RecursiveDescentParser):
         return self.parse_compound_statement()
 
     def parse_constant_definitions(self):
-        """ Parse constant definitions.
+        """Parse constant definitions.
 
         This has the form:
 
@@ -176,7 +176,7 @@ class Parser(RecursiveDescentParser):
 
     # Type system
     def parse_type_spec(self, packed=False):
-        """ Parse type specification.
+        """Parse type specification.
 
         This can be any type, from record to ordinal or boolean.
         """
@@ -215,8 +215,7 @@ class Parser(RecursiveDescentParser):
         return typ
 
     def parse_record_type_definition(self, packed):
-        """ Parse record type description. 
-        """
+        """Parse record type description."""
         location = self.consume("record").loc
         fields = self.parse_record_type_definition_field_list()
         self.consume("end")
@@ -328,12 +327,12 @@ class Parser(RecursiveDescentParser):
         return typ
 
     def parse_enum_type_definition(self):
-        """ Parse enumerated type definition.
+        """Parse enumerated type definition.
 
         This looks like:
 
         colors = (red, green, blue)
-        
+
         """
         location = self.consume("(").loc
         identifiers = self.parse_id_sequence()
@@ -351,7 +350,7 @@ class Parser(RecursiveDescentParser):
         return typ
 
     def parse_type_definitions(self):
-        """ Parse type definitions.
+        """Parse type definitions.
 
         These have the form:
 
@@ -485,7 +484,7 @@ class Parser(RecursiveDescentParser):
         #     func.body = self.parse_compound()
 
     def parse_formal_parameter_list(self):
-        """ Parse format parameters to a subroutine.
+        """Parse format parameters to a subroutine.
 
         These can be immutable values, variables, or
         function pointers.
@@ -590,7 +589,7 @@ class Parser(RecursiveDescentParser):
         return statement
 
     def parse_procedure_call(self, symbol, location):
-        """ Procedure call.
+        """Procedure call.
 
         This can be either a builtin procedure, or a user
         defined procedure. Builtin procedure are somewhat magical
@@ -837,14 +836,14 @@ class Parser(RecursiveDescentParser):
         return statements.With(record_variables, inner_statement, location)
 
     def parse_single_with_variable(self):
-        """ Parse a single with statement variable.
-        """
+        """Parse a single with statement variable."""
 
         record_ref = self.parse_variable()
 
         if not record_ref.typ.is_record:
             self.error(
-                "Expected variable of record type", loc=record_ref.location,
+                "Expected variable of record type",
+                loc=record_ref.location,
             )
 
         # Enter new scope:
@@ -984,7 +983,7 @@ class Parser(RecursiveDescentParser):
         return expr
 
     def require_boolean(self, expr):
-        """ Check the type of expression to be boolean, and raise
+        """Check the type of expression to be boolean, and raise
         an error if not.
         """
         if not self.context.equal_types(expr.typ, self._boolean_type):
@@ -995,7 +994,7 @@ class Parser(RecursiveDescentParser):
         return self.parse_binop_with_precedence(0)
 
     def parse_binop_with_precedence(self, priority) -> expressions.Expression:
-        """ Parse binary operators using a binding strength.
+        """Parse binary operators using a binding strength.
 
         This is a neat trick to parse expressions without a whole
         bunch of similar looking functions for each operator.
@@ -1212,7 +1211,7 @@ class Parser(RecursiveDescentParser):
         return expr
 
     def parse_one_or_more(self, parse_function, seperator: str):
-        """ Parse one or more occurences parsed by parse_function
+        """Parse one or more occurences parsed by parse_function
         seperated by seperator.
         """
         items = []
@@ -1222,7 +1221,7 @@ class Parser(RecursiveDescentParser):
         return items
 
     def do_coerce(self, expr: expressions.Expression, to_type: types.Type):
-        """ Try to convert expression into the given type.
+        """Try to convert expression into the given type.
 
         expr: the expression value with a certain type
         typ: the type that it must be
@@ -1316,7 +1315,7 @@ class Parser(RecursiveDescentParser):
         return expr
 
     def get_common_type(self, a, b, loc):
-        """ Determine the greatest common type.
+        """Determine the greatest common type.
 
         This is used for coercing binary operators.
         For example:

@@ -17,8 +17,8 @@ from .objectfile import RelocationEntry
 from . import debuginfo
 
 
-class OutputStream(metaclass=abc.ABCMeta):
-    """ Interface to generate code with.
+class OutputStream(abc.ABC):
+    """Interface to generate code with.
 
     Contains the emit function to output instruction to the stream.
     """
@@ -90,8 +90,7 @@ class BinaryOutputStream(OutputStream):
         self.current_section = None
 
     def do_emit(self, item):
-        """ Encode instruction and add symbol and relocation information.
-        """
+        """Encode instruction and add symbol and relocation information."""
         assert isinstance(item, Instruction), str(item) + str(type(item))
 
         if isinstance(item, SectionInstruction):
@@ -181,7 +180,7 @@ class BinaryOutputStream(OutputStream):
     def _new_symbol(self, name, section, value):
         assert name not in self._symbols
         binding = "global" if name in self._globals else "local"
-        typ = self._symbol_types.get(name, 'object')
+        typ = self._symbol_types.get(name, "object")
         size = 0
         symbol_id = len(self._symbols)
         symbol = self.obj_file.add_symbol(

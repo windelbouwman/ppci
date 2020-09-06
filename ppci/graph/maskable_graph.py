@@ -11,7 +11,7 @@ from ..utils.collections import OrderedSet
 class MaskableGraph(Graph):
     """ A graph that allows masking nodes temporarily """
 
-    __slots__ = ('_masked_nodes', '_masked_adj')
+    __slots__ = ("_masked_nodes", "_masked_adj")
 
     def __init__(self):
         super().__init__()

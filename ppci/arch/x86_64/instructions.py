@@ -517,8 +517,8 @@ rm32_modes = mem_modes + (RmReg32,)
 
 class rmregbase64(X86Instruction):
     """
-        Base class for legio instructions involving a register and a
-        register / memory location
+    Base class for legio instructions involving a register and a
+    register / memory location
     """
 
     tokens = [
@@ -584,8 +584,8 @@ class RmBase(rmregbase64):
 
 class rmregbase32(X86Instruction):
     """
-        Base class for legio instructions involving a register and a
-        register / memory location
+    Base class for legio instructions involving a register and a
+    register / memory location
     """
 
     tokens = [
@@ -1102,7 +1102,7 @@ class Imul32(X86Instruction):
 
 
 class Div(X86Instruction):
-    """ div r/m64 divide rdx:rax by the operand, leaving the remainder in
+    """div r/m64 divide rdx:rax by the operand, leaving the remainder in
     rdx and the quotient in rax.
     """
 
@@ -1120,7 +1120,7 @@ class Div(X86Instruction):
 
 
 class Idiv(X86Instruction):
-    """ idiv r/m64 divide rdx:rax by the operand, leaving the remainder in
+    """idiv r/m64 divide rdx:rax by the operand, leaving the remainder in
     rdx and the quotient in rax.
     """
 
@@ -1138,7 +1138,7 @@ class Idiv(X86Instruction):
 
 
 class Div32(X86Instruction):
-    """ idiv r/m32 divide rdx:rax by the operand, leaving the remainder in
+    """idiv r/m32 divide rdx:rax by the operand, leaving the remainder in
     rdx and the quotient in rax.
     """
 
@@ -1156,7 +1156,7 @@ class Div32(X86Instruction):
 
 
 class Idiv32(X86Instruction):
-    """ idiv r/m32 divide rdx:rax by the operand, leaving the remainder in
+    """idiv r/m32 divide rdx:rax by the operand, leaving the remainder in
     rdx and the quotient in rax.
     """
 
@@ -1174,7 +1174,7 @@ class Idiv32(X86Instruction):
 
 
 class Div16(X86Instruction):
-    """ idiv r/m16 divide dx:ax by the operand, leaving the remainder in
+    """idiv r/m16 divide dx:ax by the operand, leaving the remainder in
     dx and the quotient in ax.
     """
 
@@ -1191,7 +1191,7 @@ class Div16(X86Instruction):
 
 
 class Idiv16(X86Instruction):
-    """ idiv r/m16 divide dx:ax by the operand, leaving the remainder in
+    """idiv r/m16 divide dx:ax by the operand, leaving the remainder in
     dx and the quotient in ax.
     """
 

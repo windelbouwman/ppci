@@ -4,9 +4,9 @@ from .nodes import types, declarations, expressions, statements
 
 
 class CSynthesizer:
-    """ Take an IR-module and convert it into a C-AST.
+    """Take an IR-module and convert it into a C-AST.
 
-    This does essentially the opposite of the codegenerator. """
+    This does essentially the opposite of the codegenerator."""
 
     def __init__(self):
         self.var_map = {}

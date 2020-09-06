@@ -33,7 +33,7 @@ from .cfg import ir_function_to_graph, Loop
 
 
 def find_structure(ir_function):
-    """ Figure out the block structure of
+    """Figure out the block structure of
 
     Args:
         ir_function: an `ir.SubRoutine` containing a soup-of-blocks.
@@ -90,7 +90,7 @@ class StructureDetector:
 
         # Loop info:
         self.loops = self.cfg.calculate_loops()
-        self.loop_headers = {l.header: l for l in self.loops}
+        self.loop_headers = {loop.header: loop for loop in self.loops}
 
         self.marked = {self.cfg.exit_node}
         self.follow_stack = [self.cfg.exit_node]
@@ -179,7 +179,7 @@ class StructureDetector:
 
     def is_inactive_header(self, block):
         if block in self.loop_headers:
-            active_headers = {l[0].header for l in self.loop_stack}
+            active_headers = {loop[0].header for loop in self.loop_stack}
             return block not in active_headers
         else:
             return False

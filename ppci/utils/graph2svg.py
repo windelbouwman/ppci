@@ -107,7 +107,7 @@ class Graph:
 
     def to_svg(self, f):
         self.dump_file = f
-        spacex = 20
+        # spacex = 20
 
         # Render graph:
         width = self.width
@@ -215,7 +215,10 @@ class LayeredLayout:
         - Repeat until all nodes are ranked
         """
         unranked = OrderedSet(graph.nodes)
-        is_ranked = lambda n: n not in unranked
+
+        def is_ranked(n):
+            return n not in unranked
+
         layers = []
         while unranked:
             layer = OrderedSet()

@@ -44,7 +44,7 @@ class RecursiveDescentParser:
 
     # Lexer helpers:
     def consume(self, typ=None):
-        """ Assert that the next token is typ, and if so, return it.
+        """Assert that the next token is typ, and if so, return it.
 
         If typ is a list or tuple, consume one of the given types.
         If typ is not given, consume the next token.
@@ -61,8 +61,8 @@ class RecursiveDescentParser:
             self.error('Expected {0}, got "{1}"'.format(expected, self.peek))
 
     def has_consumed(self, typ):
-        """ Checks if the look-ahead token is of type typ, and if so
-            eats the token and returns true """
+        """Checks if the look-ahead token is of type typ, and if so
+        eats the token and returns true"""
         if self.peek == typ:
             self.consume()
             return True
