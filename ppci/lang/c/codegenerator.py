@@ -793,16 +793,12 @@ class CCodeGenerator:
             asm_input_ir = self.gen_expr(asm_input_expr, rvalue=True)
             inline_asm.add_input_variable(asm_input_ir)
 
+        for _, asm_output_expr in stmt.output_operands:
+            asm_output_ir = self.gen_expr(asm_output_expr)
+            inline_asm.add_output_variable(asm_output_ir)
+        
         # Emit inline assembly:
         self.emit(inline_asm)
-
-        # Store asm outputs:
-        for asm_output_expr in stmt.output_operands:
-            # asm_input_ir = self.gen_expr(asm_input_expr, rvalue=True)
-            # Ouch, we cannot have an ir-node with more than a single
-            # output value ...
-            # inline_asm.add_def(asm_input_ir)
-            raise NotImplementedError()
 
     def gen_condition(self, condition, yes_block, no_block):
         """ Generate switch based on condition. """

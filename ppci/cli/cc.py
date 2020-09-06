@@ -75,6 +75,7 @@ def cc(args=None):
                     printer.print(ast)
         else:
             ir_modules = []
+            
             for src in args.sources:
                 # Compile and optimize in any case:
                 ir_module = api.c_to_ir(
@@ -83,7 +84,6 @@ def cc(args=None):
                 ir_modules.append(ir_module)
 
             do_compile(ir_modules, march, log_setup.reporter, log_setup.args)
-
 
 if __name__ == "__main__":
     cc()

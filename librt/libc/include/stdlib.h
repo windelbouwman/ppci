@@ -2,11 +2,24 @@
 #define STDLIB_H
 
 #include <stddef.h>
+#include <stdbool.h>
+
+// Get insights from https://github.com/embeddedartistry/libc
+
+// Raw
+long syscall(long nr, long a, long b, long c);
+void *sbrk(long incr);
+void *brk(void *addr);
 
 // Memory
-void* malloc(size_t size);
-void* calloc(size_t num, size_t size);
-void free(void* ptr);
+void memmove(void *dest, void *src, size_t n);
+void memcpy(void *dest, void *src, size_t n);
+void memset(void* str, char ch, size_t n);
+
+void *malloc(size_t size);
+void *calloc(size_t num, size_t nsize);
+void *realloc(void *block, size_t size);
+void free(void *block);
 
 void abort(void);
 
@@ -17,7 +30,7 @@ void exit(int status);
 void qsort(void* base, size_t num, size_t size, int(*compar)(const void*, const void*));
 
 // String conversions
-int atoi(const char * str);
+static unsigned int atoi(const char** str);
 long int atol(const char * str);
 double atof(const char * str);
 unsigned long int strtoul(const char* str, char** endptr, int base);
