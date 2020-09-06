@@ -2,9 +2,11 @@
 #define STDINT_H_PPCI
 
 // In case of hosted C compilation, take stdint from c library:
+
 #if __STDC_HOSTED__
 #include_next <stdint.h>
 #else
+
 // In case of free standing C compilation, take these defines:
 
 // See also: http://www.cplusplus.com/reference/cstdint/

@@ -1,76 +1,20 @@
-// Mantaining this file for tests sake
+#include <stdio.h>
+#include <stdbool.h>
+#include <stdint.h>
+#include <stdarg.h>
+#include <string.h>
 
-#include "include/stdio.h"
-#include "include/stdarg.h"
-// #include "include/stdlib.h"
-
-// Reverse a string!
-void reverse(char *str, int length)
+void puts(char *s)
 {
-  int start = 0;
-  int end = length - 1;
-  char tmp;
-  while (start < end)
-  {
-    // Swap:
-    tmp = str[start];
-    str[start] = str[end];
-    str[end] = tmp;
-
-    start++;
-    end--;
-  }
+    while (*s) {
+        putc(*s++);
+    }
+    putc('\n');
 }
 
-// Integer to ascii:
-char* itoa(int value, char* str, int base)
-{
-  int i = 0, neg = 0;
-
-  // Handle 0 case:
-  if (value == 0)
-  {
-    str[i++] = '0';
-    str[i] = '\0';
-    return str;
-  }
-
-  if (value < 0)
-  {
-    neg = 1;
-    value = -value;
-  }
-
-  while (value != 0)
-  {
-    int rem = value % base;
-    char c;
-    if (rem < 10)
-    {
-      c = rem + '0';
-    }
-    else 
-    {
-      c = rem - 10 + 'a';
-    }
-    str[i++] = c;
-    value = value / base;
-  }
-
-  // Append minus:
-  if (neg)
-    str[i++] = '-';
-
-  str[i] = 0;
-
-  reverse(str, i);
-
-  return str;
-}
-
-static void puts(char* s)
-{
-  while (*s) bsp_putc(*s++);
+void putc(char c)
+{   
+    syscall(1, 1, (long int)&c, 1);
 }
 
 // Variadic argument function!
@@ -126,7 +70,7 @@ int printf(const char* txt, ...)
         // TODO: how to grab a character from varargs?
         // during calling, it is promoted to integer!
         char c = va_arg(args, int);
-        bsp_putc(c);
+        putc(c);
       }
       else if (*txt == 's')
       {
@@ -147,17 +91,18 @@ int printf(const char* txt, ...)
       else
       {
         txt--;
-        bsp_putc(*txt);
+        putc(*txt);
         txt++;
-        bsp_putc(*txt);
+        putc(*txt);
       }
     }
     else
     {
-      bsp_putc(*txt);
+      putc(*txt);
       txt++;
     }
   }
 
   va_end(args);
 }
+

@@ -1,7 +1,7 @@
 #ifndef STRING_H
 #define STRING_H
 
-#include <stdlib.h>
+#include "stdlib.h"
 
 /*
  * See also: http://www.cplusplus.com/reference/cstring/
@@ -9,8 +9,9 @@
  */
 
 // Copying:
-void* memcpy(void* destination, const void* source, size_t num);
-void* memmove(void* destination, const void* source, size_t num);
+// void* memcpy(void* destination, const void* source, size_t num);
+// void* memmove(void* destination, const void* source, size_t num);
+
 char* strcpy(char* destination, const char* source);
 char* strncpy(char* destination, const char* source, size_t num);
 char* strdup(const char* str1);
@@ -34,8 +35,10 @@ size_t strspn(const char* str1, const char* str2 );
 size_t strcspn(const char* str1, const char* str2);
 
 // Other:
-void* memset(void* ptr, int value, size_t num);
+// void* memset(void* ptr, int value, size_t num);
 size_t strlen(const char* str);
+void reverse(char *str, int length);
+char* itoa(int value, char* str, int base);
 
 char *strerror(int errnum);
 int strcasecmp(const char *f1, const char *f2);
