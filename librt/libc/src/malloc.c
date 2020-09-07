@@ -10,8 +10,6 @@ struct header_t {
 
 struct header_t *head = NULL, *tail = NULL;
 
-
-// from https://www.geeksforgeeks.org/write-memcpy/
 void memmove(void *dest, void *src, size_t n) 
 { 
    char *csrc = (char *)src; 
@@ -22,7 +20,6 @@ void memmove(void *dest, void *src, size_t n)
        cdest[i] = csrc[i];
 } 
 
-// from https://www.geeksforgeeks.org/write-memcpy/
 void memcpy(void *dest, void *src, size_t n) 
 { 
    char *csrc = (char *)src; 
@@ -32,7 +29,6 @@ void memcpy(void *dest, void *src, size_t n)
        cdest[i] = csrc[i]; 
 } 
 
-// https://www.includehelp.com/c-programs/write-your-own-memset-function-in-c.aspx
 void memset(void* str, char ch, size_t n){
 	int i;
 
@@ -55,35 +51,6 @@ struct header_t *get_free_block(size_t size){
 	return NULL;
 }
 
-// size_t release_size(){
-// 	/* This calculates the size of all trailing elements */
-// 	struct header_t *new_tail, *tmp;
-// 	size_t release_size_ = 0;
-// 	new_tail = tmp = head;
-
-// 	while (tmp) {
-// 		if(tmp->next == NULL) {
-// 			new_tail->next = NULL;
-// 			tail = new_tail;
-// 		}
-// 		if(!tmp->is_free) {
-// 			new_tail = tmp;
-// 			release_size_ = 0;
-// 		} else {
-// 			release_size_ -= tmp->size - sizeof(*tmp);
-// 		}
-// 		tmp = tmp->next;
-// 	}
-// 	/* Head equals tail can indicate two things:
-// 	     * this is the last remaining element on the heap
-// 	     * there are no remaining elements on the heap
-// 	*/
-// 	if (head == tail && head->is_free) {
-// 		head = tail = NULL;
-//     }
-
-// 	return release_size_;
-// }
 
 void free(void *block){
 	struct header_t *header, *tmp;
