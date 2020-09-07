@@ -17,6 +17,11 @@ int fileno(FILE* stream);
 // Formatted output:
 int fprintf(FILE*stream, const char* format, ...);
 int printf(const char *format, ...);
+int sprintf(char* str, const char* format, ...);
+int snprintf(char* str, size_t n, const char *format, ...);	
+int vprintf(const char * format, va_list arg);	
+int vsnprintf(char* str, size_t n, const char *format, va_list arg);	
+int vsprintf(char* str, const char*, va_list arg);
 int vfprintf(FILE* stream, const char * format, va_list arg);
 
 extern FILE *stdin;

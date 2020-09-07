@@ -30,7 +30,7 @@ void exit(int status);
 void qsort(void* base, size_t num, size_t size, int(*compar)(const void*, const void*));
 
 // String conversions
-static unsigned int atoi(const char** str);
+int atoi(const char * str);
 long int atol(const char * str);
 double atof(const char * str);
 unsigned long int strtoul(const char* str, char** endptr, int base);
