@@ -1,7 +1,5 @@
 #include <stdlib.h>
 
-extern void *_curbrk;
-
 long syscall(long nr, long a, long b, long c)
 {   
     long ret;
