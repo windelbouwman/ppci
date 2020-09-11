@@ -2,7 +2,7 @@
 #ifndef TIME_H
 #define TIME_H
 
-#include <stdlib.h>
+#include "stdlib.h"
 
 // TODO: this is a weird hack to prevent clashes with /usr/include/bits/types/time_t.h
 #ifndef __time_t_defined

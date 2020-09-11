@@ -1,9 +1,12 @@
 #ifndef STDIO_H
 #define STDIO_H
 
-#include <stdlib.h>
-#include <stdarg.h>
+#include "stdlib.h"
+#include "stdarg.h"
 // See also: http://www.cplusplus.com/reference/cstdio/
+
+// Mantaining this function for tests sake
+extern void bsp_putc(char);
 
 typedef int FILE;
 
@@ -30,7 +33,7 @@ extern FILE *stderr;
 
 // Character IO:
 void putc(char c);
-void puts(char *s);
+//void puts(char *s);
 char getc();
 int fgetc(FILE* stream);
 int fputc(int character, FILE* stream);

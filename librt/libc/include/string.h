@@ -1,7 +1,7 @@
 #ifndef STRING_H
 #define STRING_H
 
-#include <stdlib.h>
+#include "stdlib.h"
 
 /*
  * See also: http://www.cplusplus.com/reference/cstring/

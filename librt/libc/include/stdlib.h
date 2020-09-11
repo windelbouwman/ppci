@@ -1,8 +1,8 @@
 #ifndef STDLIB_H
 #define STDLIB_H
 
-#include <stddef.h>
-#include <stdbool.h>
+#include "stddef.h"
+#include "stdbool.h"
 
 // Get insights from https://github.com/embeddedartistry/libc
 
