@@ -402,7 +402,7 @@ class SelectionGraphBuilder:
             address = self.get_address(addr)
             
             param_node = self.new_node("REG", address.ty, value=reg)
-            output = param_node.new_output(f"ret_{i}")
+            output = param_node.new_output("ret_" + str(i))
             output.wants_vreg = False
 
             sgnode = self.new_node("STR", address.ty, address,output)
