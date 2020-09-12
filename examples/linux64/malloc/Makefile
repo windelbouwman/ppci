@@ -12,7 +12,7 @@ CFLAGS = -O1
 all: malloc_test
 
 malloc_test: malloc_test.o
-	python -m ppci ld --entry main --layout linux64.ld $^ -o $@
+	python -m ppci ld --entry main --layout ../linux64.mmap $^ -o $@
 
 malloc_test.o:
 	# in case you want to see the asm, use the -S flag
@@ -21,4 +21,4 @@ malloc_test.o:
 	$(CC) malloc_test.c ../../../librt/libc/src/*.c ../../../librt/libc/src/*/*.c -o malloc_test.o
 	
 clean:
-	rm -f *.o *.S hello
+	rm -f *.o *.S malloc_test malloc_test.o

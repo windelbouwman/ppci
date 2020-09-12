@@ -4,7 +4,8 @@
 
 
 typedef int wchar_t;
-typedef int size_t;
+typedef unsigned int size_t;
+typedef int ssize_t;
 
 #define offsetof(TYPE, MEMBER) __builtin_offsetof(TYPE, MEMBER)
 
