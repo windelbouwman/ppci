@@ -3,7 +3,7 @@ Testing
 =======
 
 Long tests
-~~~~~~~~~~
+----------
 
 There are a series of test snippets located in the test/samples folder. If
 you want to run these, you can use this:
@@ -42,7 +42,7 @@ these, use this:
     $ LONGTESTS=all IVERILOG=1 python -m pytest test/
 
 3rd party test suites
-~~~~~~~~~~~~~~~~~~~~~
+---------------------
 
 There exist many different compiler validation suites. Some of them are pure validation sets,
 others are part of a compiler toolchain. In order to use these test suites, a series of test
@@ -51,15 +51,41 @@ suite adapter files exists.
 Available test adapters:
 
 * mcpp (set `MCPP_DIR`) `test/lang/c/test_mcpp_test_suite.py`
-* wasm spec (set `WASM_SPEC_DIR`) `test/wasm/test_suite_full.py`
 * fortran compiler validation system 2.1 (set `FCVS_DIR`) `test/lang/fortran/test_fortran_test_suite.py`
 
-To run for example wasm test spec tests:
+WebAssembly spec
+~~~~~~~~~~~~~~~~
+
+The WebAssembly specification contains a validation suite.
+
+To use these tests, clone https://github.com/WebAssembly/spec and set
+the environment variable WASM_SPEC_DIR
+to the location where the code was cloned.
+
+To run the test spec tests:
 
 .. code:: bash
 
-    $ WASM_SPEC_DIR=~/GIT/spec python -m pytest test/wasm/test_suite_full -v
+    $ export WASM_SPEC_DIR=~/GIT/spec
+    $ python -m pytest test/wasm/test_suite_full -v
 
+C testsuite
+~~~~~~~~~~~
+
+The c-testsuite is a collection of C test cases.
+
+Usage with pytest:
+
+    $ export C_TEST_SUITE_DIR=/path/to/GIT/c-testsuite
+    $ python -m pytest test/lang/c/test_c_test_suite.py -v
+
+Usage as a script:
+
+    $ python test_c_test_suite.py /path/to/GIT/c-testsuite
+
+See also:
+
+https://github.com/c-testsuite/c-testsuite
 
 Compiler testing
 ----------------

@@ -20,7 +20,8 @@ from ppci.common import CompilerError, logformat
 home = os.environ['HOME']
 src_folder = os.path.join(home, 'GIT', 'Musashi')
 this_dir = os.path.abspath(os.path.dirname(__file__))
-libc_includes = os.path.join(this_dir, '..', 'librt', 'libc')
+libc_path = os.path.join(this_dir, '..', 'librt', 'libc')
+libc_includes = os.path.join(libc_path, 'include')
 arch = 'x86_64'
 
 

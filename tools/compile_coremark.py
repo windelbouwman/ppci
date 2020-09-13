@@ -51,7 +51,7 @@ march = api.get_arch('x86_64')
 coptions = COptions()
 coptions.add_include_path(core_mark_folder)
 coptions.add_include_path(port_folder)
-coptions.add_include_path(libc_folder)
+coptions.add_include_path(os.path.join(libc_folder, "include"))
 coptions.add_define('COMPILER_VERSION', '"ppci {}"'.format(ppci_version))
 coptions.add_define('FLAGS_STR', '"-O{}"'.format(opt_level))
 

@@ -7,13 +7,14 @@ def compile(r: str):
     """ Turn regular expression into a DFA """
     expr = parse(r)
 
-    states = {expr: 0}
+    states = [expr]
+    state_numbers = {expr: 0}
     transitions = [[]]
     stack = [expr]
 
     while stack:
         state = stack.pop()
-        state_number = states[state]
+        state_number = state_numbers[state]
         print("=> state", state_number, ":", state, type(state))
         for derivative_class in state.derivative_classes():
 
@@ -30,13 +31,14 @@ def compile(r: str):
             next_state = state.derivative(symbol)
 
             # Add state if not yet present:
-            if next_state not in states:
-                states[next_state] = len(states)
+            if next_state not in state_numbers:
+                states.append(next_state)
+                state_numbers[next_state] = len(state_numbers)
                 transitions.append([])
                 stack.append(next_state)
 
             # Add transitions to next state:
-            next_state_number = states[next_state]
+            next_state_number = state_numbers[next_state]
             for first, last in derivative_class.ranges:
                 transitions[state_number].append(
                     (first, last, next_state_number)
@@ -45,6 +47,6 @@ def compile(r: str):
         transitions[state_number].sort()
 
     accepts = [state.nullable() for state in states]
-    error = states[NULL]
+    error = state_numbers[NULL]
 
     return transitions, accepts, error

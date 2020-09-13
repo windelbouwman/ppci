@@ -11,7 +11,7 @@
         <ccompile
             arch="arm"
             sources="../../src/structs/structs.c;../../../librt/libc/lib.c"
-            includes="../../../librt/libc"
+            includes="../../../librt/libc/include"
             report="ccode_report.html"
             optimize="2"
             output="ccode.oj" />

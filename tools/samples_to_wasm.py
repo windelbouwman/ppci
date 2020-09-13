@@ -10,6 +10,7 @@ https://github.com/WebAssembly/wabt
 
 """
 
+import argparse
 import io
 import os
 import html
@@ -22,14 +23,25 @@ from ppci.api import c_to_ir, get_arch, optimize, c3_to_ir
 from ppci.wasm import ir_to_wasm
 from ppci.irutils import ir_link
 
-logging.basicConfig(level=logging.DEBUG)
+parser = argparse.ArgumentParser()
+parser.add_argument('--verbose', '-v', action='count', default=0)
+args = parser.parse_args()
+
+if args.verbose:
+    loglevel = logging.DEBUG
+else:
+    loglevel = logging.INFO
+
+logging.basicConfig(level=loglevel)
+
 this_dir = os.path.dirname(os.path.abspath(__file__))
 root_dir = os.path.join(this_dir, '..')
 wasm_filename = os.path.join(this_dir, 'samples_in_wasm.wasm')
 arch = get_arch('arm')
 coptions = COptions()
 libc_dir = os.path.join(this_dir, '..', 'librt', 'libc')
-coptions.add_include_path(libc_dir)
+libc_include_path = os.path.join(libc_dir, 'include')
+coptions.add_include_path(libc_include_path)
 
 libc_filename = os.path.join(
     this_dir, '..', 'librt', 'libc', 'lib.c')
@@ -37,7 +49,7 @@ libio_filename = os.path.join(
     this_dir, '..', 'librt', 'io.c3')
 
 
-def c_to_wasm(filename):
+def c_to_wasm(filename, verbose=False):
     # Compile c source:
     with open(libc_filename, 'r') as f:
         ir_libc = c_to_ir(f, arch, coptions=coptions)
@@ -52,19 +64,21 @@ def c_to_wasm(filename):
     optimize(x, level='2')
     print(x, x.stats())
 
-    x.display()
+    if verbose:
+        x.display()
 
     wasm_module = ir_to_wasm(ir_link([ir_libc, x]))
 
     print('Completed generating wasm module', wasm_module)
-    wasm_module.show()
-    print(wasm_module.to_bytes())
+    if verbose:
+        wasm_module.show()
+        print(wasm_module.to_bytes())
     # with open(wasm_filename, 'wb') as f:
     #    wasm_module.to_file(f)
     return wasm_module
 
 
-def c3_to_wasm(filename):
+def c3_to_wasm(filename, verbose=False):
     """ Take c3 to wasm """
     bsp = io.StringIO("""
        module bsp;
@@ -73,7 +87,8 @@ def c3_to_wasm(filename):
     ir_module = c3_to_ir([bsp, libio_filename, filename], [], arch)
 
     # ir_modules.insert(0, ir_modules.pop(-1))  # Shuffle bsp forwards
-    print(str(ir_module))
+    if verbose:
+        print(str(ir_module))
     # optimize(x, level='2')
     # print(x, x.stats())
 
@@ -82,8 +97,9 @@ def c3_to_wasm(filename):
     wasm_module = ir_to_wasm(ir_module)
 
     print('Completed generating wasm module', wasm_module)
-    wasm_module.show()
-    print(wasm_module.to_bytes())
+    if verbose:
+        wasm_module.show()
+        print(wasm_module.to_bytes())
     # with open(wasm_filename, 'wb') as f:
     #    wasm_module.to_file(f)
     return wasm_module
@@ -128,9 +144,9 @@ with open(html_filename, 'w') as f:
         # Actual wasm code:
         try:
             if sample.endswith('.c3'):
-                wasm_module = c3_to_wasm(sample)
+                wasm_module = c3_to_wasm(sample, verbose=args.verbose)
             else:
-                wasm_module = c_to_wasm(sample)
+                wasm_module = c_to_wasm(sample, verbose=args.verbose)
         except:
             print('Massive error!', file=f)
             print('<pre>', file=f)
