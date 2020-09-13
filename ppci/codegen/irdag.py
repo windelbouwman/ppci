@@ -370,15 +370,21 @@ class SelectionGraphBuilder:
         for input_value in node.input_values:
             arg_val = self.get_value(input_value)
             reg_loc = self.new_vreg(input_value.ty)
+
             mov_sgnode = self.new_node(
                 "MOV", input_value.ty, arg_val, value=reg_loc
             )
+
             self.chain(mov_sgnode)
             input_registers.append(reg_loc)
 
-        # TODO: fill output registers
-        output_registers = []
+        if len(node.output_values) > 0:
+            assert len(node.output_values) <= len(node.input_values), "Output registers on asm cannot be greater than the number of input"
+        elif len(node.output_values) > 3:
+            assert False, "Currently, asm uses at most 3 output registers"
 
+        output_registers = []
+                
         sgnode = self.new_node(
             "ASM",
             None,
@@ -391,6 +397,17 @@ class SelectionGraphBuilder:
         )
         self.chain(sgnode)
         self.debug_db.map(node, sgnode)
+        
+        for i,(reg,addr) in enumerate(zip(node.clobbers,node.output_values)):
+            address = self.get_address(addr)
+            
+            param_node = self.new_node("REG", address.ty, value=reg)
+            output = param_node.new_output("ret_" + str(i))
+            output.wants_vreg = False
+
+            sgnode = self.new_node("STR", address.ty, address,output)
+
+            self.chain(sgnode)
 
     def do_const(self, node):
         """ Process constant instruction """
