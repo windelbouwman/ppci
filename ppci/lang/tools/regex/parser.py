@@ -19,12 +19,21 @@ class Parser:
     def parse(self, txt):
         self.txt = txt
         self.pos = 0
-        expr = self._parse_top()
+        if self.at_end():
+            expr = regex.EPSILON
+        else:
+            expr = self._parse_top()
+            while not self.at_end():
+                expr2 = self._parse_top()
+                expr = expr + expr2
         return expr
 
     def current(self):
         if self.pos < len(self.txt):
             return self.txt[self.pos]
+
+    def at_end(self):
+        return self.pos >= len(self.txt)
 
     def peek(self, c):
         """ Look at next character """
@@ -58,6 +67,7 @@ class Parser:
         while self.did_eat("|"):
             rhs = self._parse_and()
             expr = expr | rhs
+        return expr
 
     def _parse_and(self):
         return self._parse_element()
@@ -69,16 +79,23 @@ class Parser:
             expr = self._parse_top()
             self.eat(")")
         elif self.peek("["):
-            return self._parse_set()
-        else:
-            raise NotImplementedError()
             expr = self._parse_set()
+        else:
+            expr = self._parse_symbol()
+
+        expr = self._parse_modifier(expr)
+
         return expr
+
+    def _parse_symbol(self):
+        """ Simple symbol. """
+        sym = self.eat()
+        return regex.Symbol(sym)
 
     def _parse_set(self):
         """ Parse a set of options '[0-9abc]' """
         self.eat("[")
-        options = []
+        ranges = []
         # Check inversion:
         if self.peek("^"):
             self.eat("^")
@@ -86,25 +103,41 @@ class Parser:
         else:
             complement = False
 
-        options.append(complement)
+        # options.append(complement)
         while not self.peek("]"):
-            start = self.eat()
+            start = ord(self.eat())
             if self.peek("-"):
                 self.eat("-")
-                end = self.eat()
-                options.append((start, end))
+                end = ord(self.eat())
+                if not (start < end):
+                    raise ValueError("Start must be before end")
+                ranges.append((start, end))
             else:
-                options.append(start)
+                ranges.append(start)
         self.eat("]")
+
+        if not ranges:
+            raise ValueError(
+                "Expected at least 1 item in regex option group [...]"
+            )
+
+        expr = regex.SymbolSet(ranges)
+
+        if complement:
+            expr = not expr
+            raise NotImplementedError("TODO?")
+            # Something like this: expr = SIGMA - expr?
+
+        return expr
 
     def _parse_modifier(self, expr):
         """ Parse any modifiers after an expression """
-        if self.eat("*"):
-            return regex.Kleene(expr)
-        elif self.eat("+"):
-            return expr + regex.Kleene(expr)
-        elif self.eat("?"):
+        if self.did_eat("*"):
+            expr = regex.Kleene(expr)
+        elif self.did_eat("+"):
+            expr = expr + regex.Kleene(expr)
+        elif self.did_eat("?"):
             raise NotImplementedError()
             # return expr | eps
-        else:
-            return expr
+
+        return expr
