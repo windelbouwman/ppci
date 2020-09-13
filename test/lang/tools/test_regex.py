@@ -42,6 +42,7 @@ class RegexParsingTestCase(unittest.TestCase):
 class RegexCompilationTestCase(unittest.TestCase):
     def test_compile(self):
         prog = regex.compile("[0-9]+hi")
+        print(prog)
         res = list(regex.scan(prog, "1234hi88hi"))
         self.assertEqual(res, ["1234hi", '88hi'])
 

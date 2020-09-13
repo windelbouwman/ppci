@@ -30,7 +30,8 @@ from ppci.utils.reporting import html_reporter
 links_folder = os.environ['LINKS_FOLDER']
 this_dir = os.path.abspath(os.path.dirname(__file__))
 report_filename = os.path.join(this_dir, 'report_links.html')
-libc_includes = os.path.join(this_dir, '..', 'librt', 'libc')
+libc_path = os.path.join(this_dir, '..', 'librt', 'libc')
+libc_includes = os.path.join(libc_path, 'include')
 arch = 'x86_64'
 
 

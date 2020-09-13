@@ -22,7 +22,7 @@ from pygments.formatters import HtmlFormatter
 
 
 THIS_DIR = os.path.abspath(os.path.dirname(__file__))
-LIBC_INCLUDES = os.path.join(THIS_DIR, '..', 'librt', 'libc')
+LIBC_INCLUDES = os.path.join(THIS_DIR, '..', 'librt', 'libc', 'include')
 logger = logging.getLogger('c-analyzer')
 
 

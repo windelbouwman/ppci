@@ -55,7 +55,8 @@ def build_sample_to_ir(src, lang, bsp_c3, march, reporter):
         ir_modules = [api.bf_to_ir(src, march)]
     elif lang == "c":
         coptions = COptions()
-        include_path1 = relpath("..", "librt", "libc")
+        libc_path = relpath("..", "librt", "libc")
+        include_path1 = os.path.join(libc_path, "include")
         lib = relpath("..", "librt", "libc", "lib.c")
         coptions.add_include_path(include_path1)
         with open(lib, "r") as f:
@@ -94,7 +95,8 @@ def build_sample_to_code(src, lang, bsp_c3, opt_level, march, debug, reporter):
     elif lang == "c":
         o2 = api.c3c([bsp_c3], [], march, reporter=reporter)
         coptions = COptions()
-        include_path1 = relpath("..", "librt", "libc")
+        libc_path = relpath("..", "librt", "libc")
+        include_path1 = os.path.join(libc_path, "include")
         coptions.add_include_path(include_path1)
         with open(relpath("..", "librt", "libc", "lib.c"), "r") as f:
             o3 = api.cc(

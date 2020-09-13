@@ -82,7 +82,7 @@ def compile_8cc():
 
     home = os.environ['HOME']
     _8cc_folder = os.path.join(home, 'GIT', '8cc')
-    libc_includes = os.path.join(this_dir, '..', 'librt', 'libc')
+    libc_includes = os.path.join(this_dir, '..', 'librt', 'libc', 'include')
     linux_include_dir = '/usr/include'
     arch = api.get_arch('x86_64')
     coptions = COptions()

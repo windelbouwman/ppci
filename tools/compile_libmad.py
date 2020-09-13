@@ -49,7 +49,8 @@ def main():
 
     this_dir = os.path.abspath(os.path.dirname(__file__))
     report_filename = os.path.join(this_dir, "report_libmad.html")
-    libc_includes = os.path.join(this_dir, "..", "librt", "libc")
+    libc_folder = os.path.join(this_dir, "..", "librt", "libc")
+    libc_includes = os.path.join(libc_folder, "include")
     include_paths = [libc_includes, libmad_folder]
     arch = "x86_64"
 

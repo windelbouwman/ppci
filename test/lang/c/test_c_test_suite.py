@@ -100,7 +100,9 @@ def perform_test(filename):
     html_report = os.path.splitext(filename)[0] + "_report.html"
 
     coptions = COptions()
-    libc_include = os.path.join(this_dir, "..", "..", "..", "librt", "libc")
+    root_folder = os.path.join(this_dir, "..", "..", "..")
+    libc_folder = os.path.join(root_folder, "librt", "libc")
+    libc_include = os.path.join(libc_folder, "include")
     coptions.add_include_path(libc_include)
     
     # TODO: this should be injected elsewhere?

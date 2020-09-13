@@ -12,7 +12,7 @@ public function bool get_key(int* key);
 """)
 
 coptions = COptions()
-coptions.add_include_path('../../librt/libc')
+coptions.add_include_path('../../librt/libc/include')
 
 sources = ['../src/structs/structs.c', '../../librt/libc/lib.c']
 ir_modules = []

@@ -21,7 +21,8 @@ except ImportError:
 home = os.environ['HOME']
 micropython_folder = os.path.join(home, 'GIT', 'micropython')
 this_dir = os.path.abspath(os.path.dirname(__file__))
-libc_includes = os.path.join(this_dir, '..', 'librt', 'libc')
+libc_path = os.path.join(this_dir, '..', 'librt', 'libc')
+libc_includes = os.path.join(libc_path, 'include')
 port_folder = os.path.join(micropython_folder, 'ports', 'unix')
 arch = 'arm'
 
