@@ -2,6 +2,7 @@
 
 import abc
 import itertools
+import functools
 from ....utils.integer_set import IntegerSet
 
 
@@ -27,6 +28,10 @@ class Regex(abc.ABC):
     def orderby(self):
         raise NotImplementedError()
 
+    @property
+    def null(self):
+        return NULL
+
     def __eq__(self, other):
         return self.orderby() == other.orderby()
 
@@ -41,13 +46,23 @@ class Regex(abc.ABC):
     def __and__(self, other):
         if not isinstance(other, Regex):
             raise TypeError("Expected Regex but got {}".format(type(other)))
-        return LogicalAnd(self, other)
+        return logical_and(self, other)
 
     def __add__(self, other):
         if not isinstance(other, Regex):
             raise TypeError("Expected Regex but got {}".format(type(other)))
 
         return concatenate(self, other)
+
+    def optional(self):
+        """Return a new regex, which is this regex, or empty string.
+        Equivalent to the ?-operator.
+        """
+        return self | EPSILON
+
+    def kleene(self):
+        """ Apply the *-operator to this regex. """
+        return Kleene(self)
 
 
 class Epsilon(Regex):
@@ -66,7 +81,7 @@ class Epsilon(Regex):
         return self.__class__.__name__
 
     def __str__(self):
-        return ""
+        return "eps"
 
 
 EPSILON = Epsilon()
@@ -158,6 +173,12 @@ class Concatenation(Regex):
     def __init__(self, lhs, rhs):
         if not isinstance(lhs, Regex):
             raise TypeError("Expected Regex but got {}".format(type(lhs)))
+
+        if lhs == EPSILON:
+            raise ValueError(
+                "Concatenating epsilon to something else makes no sense."
+            )
+
         self.lhs = lhs
         if not isinstance(rhs, Regex):
             raise TypeError("Expected Regex but got {}".format(type(rhs)))
@@ -192,6 +213,9 @@ def logical_or(left, right):
     if isinstance(left, SymbolSet) and isinstance(right, SymbolSet):
         return SymbolSet(left.symbols | right.symbols)
 
+    if left == right:
+        return left
+
     if left == NULL:
         return right
 
@@ -207,9 +231,20 @@ class LogicalOr(Regex):
     def __init__(self, lhs, rhs):
         if not isinstance(lhs, Regex):
             raise TypeError("Expected Regex but got {}".format(type(lhs)))
-        self.lhs = lhs
+
         if not isinstance(rhs, Regex):
             raise TypeError("Expected Regex but got {}".format(type(rhs)))
+
+        if lhs == rhs:
+            raise ValueError("Logical or of the same values makes no sense")
+
+        if lhs == NULL:
+            raise ValueError("Cannot logical or with NULL")
+
+        if rhs == NULL:
+            raise ValueError("Cannot logical or with NULL")
+
+        self.lhs = lhs
         self.rhs = rhs
 
     def nu(self):
@@ -230,15 +265,44 @@ class LogicalOr(Regex):
         return "({})|({})".format(self.lhs, self.rhs)
 
 
+def logical_and(lhs, rhs):
+    if lhs == rhs:
+        # We must match left and right,
+        # but since this is equal, we must
+        # match one of the two.
+        return lhs
+
+    if lhs == NULL:
+        return lhs
+
+    if rhs == NULL:
+        return rhs
+
+    return LogicalAnd(lhs, rhs)
+
+
 class LogicalAnd(Regex):
     """ operator a & b """
 
     def __init__(self, lhs, rhs):
         if not isinstance(lhs, Regex):
             raise TypeError("Expected Regex but got {}".format(type(rhs)))
-        self.lhs = lhs
+
         if not isinstance(rhs, Regex):
             raise TypeError("Expected Regex but got {}".format(type(rhs)))
+
+        if lhs == rhs:
+            raise ValueError(
+                "Logical and of two the same values makes no sense"
+            )
+
+        if lhs == NULL:
+            raise ValueError("Cannot logical and with NULL")
+
+        if rhs == NULL:
+            raise ValueError("Cannot logical and with NULL")
+
+        self.lhs = lhs
         self.rhs = rhs
 
     def nu(self):
@@ -263,3 +327,43 @@ def product_intersections(*sets):
     return list(
         filter(None, (a.intersection(b) for a, b in itertools.product(*sets)))
     )
+
+
+class ExpressionVector:
+    """ Holds a vector of name, expression pairs. """
+
+    def __init__(self, vector):
+        self.vector = tuple(vector)
+
+    def __repr__(self):
+        return "Vec: " + " $ ".join(map(str, self.vector))
+
+    def __eq__(self, other):
+        return self.vector == other.vector
+
+    def __hash__(self):
+        return hash(self.vector)
+
+    def nullable(self):
+        """ Return names of the expressions that are nullable. """
+        return [name for name, expr in self.vector if expr.nullable()]
+
+    @property
+    def null(self):
+        return ExpressionVector([(name, NULL) for name, _ in self.vector])
+
+    def derivative_classes(self):
+        return list(
+            filter(
+                None,
+                functools.reduce(
+                    product_intersections,
+                    (expr.derivative_classes() for _, expr in self.vector),
+                ),
+            )
+        )
+
+    def derivative(self, symbol):
+        return ExpressionVector(
+            [(name, expr.derivative(symbol)) for name, expr in self.vector]
+        )

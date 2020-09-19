@@ -5,7 +5,10 @@ from ....utils.integer_set import IntegerSet
 
 def compile(r: str):
     """ Turn regular expression into a DFA """
-    expr = parse(r)
+    if isinstance(r, str):
+        expr = parse(r)
+    else:
+        expr = r
 
     states = [expr]
     state_numbers = {expr: 0}
@@ -15,11 +18,11 @@ def compile(r: str):
     while stack:
         state = stack.pop()
         state_number = state_numbers[state]
-        print("=> state", state_number, ":", state, type(state))
+        # print("=> state", state_number, ":", state, type(state))
         for derivative_class in state.derivative_classes():
 
             assert isinstance(derivative_class, IntegerSet)
-            print("  -> derivative_class", derivative_class)
+            # print("  -> derivative_class", derivative_class)
 
             if not derivative_class:
                 continue
@@ -47,6 +50,6 @@ def compile(r: str):
         transitions[state_number].sort()
 
     accepts = [state.nullable() for state in states]
-    error = state_numbers[NULL]
+    error = state_numbers[expr.null]
 
     return transitions, accepts, error

@@ -67,7 +67,7 @@ class IntegerSet:
     def contains(self, value) -> bool:
         # Find index in sorted ranges:
         index = bisect.bisect(self.ranges, (value,))
-        print("contains", value, index, self.ranges)
+        # print("contains", value, index, self.ranges)
         return (
             index < len(self.ranges) and value == self.ranges[index][0]
         ) or (
@@ -83,7 +83,7 @@ class IntegerSet:
         return self.union(other)
 
     def intersection(self, other):
-        print("intersection", self.ranges, other.ranges)
+        # print("intersection", self.ranges, other.ranges)
         ranges = []
 
         i, j = iter(self.ranges), iter(other.ranges)

@@ -39,14 +39,22 @@ class Parser:
         """ Look at next character """
         return c == self.current()
 
-    def eat(self, c=None):
-        """ Consume single character """
-        actual = self.current()
-        if actual is None:
+    def _next_char(self):
+        c = self.current()
+        if c is None:
             raise ValueError("At end of string!")
 
         self.pos += 1
+        return c
+
+    def eat(self, c=None):
+        """ Consume single character """
+        actual = self._next_char()
+
         if c is None:
+            # Handle escape backslash:
+            if actual == "\\":
+                actual = self._next_char()
             return actual
         elif actual == c:
             return actual
@@ -80,6 +88,9 @@ class Parser:
             self.eat(")")
         elif self.peek("["):
             expr = self._parse_set()
+        elif self.peek("."):
+            self.eat(".")
+            expr = regex.SIGMA
         else:
             expr = self._parse_symbol()
 
@@ -137,7 +148,6 @@ class Parser:
         elif self.did_eat("+"):
             expr = expr + regex.Kleene(expr)
         elif self.did_eat("?"):
-            raise NotImplementedError()
-            # return expr | eps
+            expr = expr | regex.EPSILON
 
         return expr
