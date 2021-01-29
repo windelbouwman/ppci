@@ -1,0 +1,6 @@
+The PPCI (Pure Python Compiler Infrastructure) project is a compiler
+written entirely in the Python programming
+language. It contains front-ends for various programming languages as
+well as machine code generation functionality. With this library you can
+generate (working!) machine code using Python (and thus very easy to
+explore, extend, etc.)!
