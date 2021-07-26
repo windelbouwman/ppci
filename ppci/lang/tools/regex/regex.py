@@ -210,6 +210,11 @@ class Concatenation(Regex):
 
 
 def logical_or(left, right):
+    """ Perform logical or, but in a smart way
+    so that we only construct a logical or when we need to.
+
+    This implements the weaker notion of RE equivalence.
+    """
     if isinstance(left, SymbolSet) and isinstance(right, SymbolSet):
         return SymbolSet(left.symbols | right.symbols)
 

@@ -3,7 +3,7 @@
 
 import io
 from .common import SourceLocation
-from .tools.handlexer import HandLexerBase, Char
+from .tools.handlexer import HandLexerBase
 from .tools.recursivedescent import RecursiveDescentParser
 
 
@@ -16,26 +16,24 @@ def tokenize_sexpr(text):
     Would need work to produce tokens suited for e.g. syntax highlighting,
     but good enough for now, to make the parser work.
     """
-    lexer = SExpressionLexer()
     filename = "?"
     f = io.StringIO(text)
-    characters = create_characters(f, filename)
-    return lexer.tokenize(characters)
+    lexer = SExpressionLexer()
+    return lexer.tokenize(f, filename)
 
 
-def create_characters(f, filename):
-    """ Create a sequence of characters """
+def create_chunks(f):
+    """ Create a sequence of chunks """
     for row, line in enumerate(f, 1):
-        for col, char in enumerate(line, 1):
-            loc = SourceLocation(filename, row, col, 1)
-            yield Char(char, loc)
+        yield (row, 1, line)
 
 
 class SExpressionLexer(HandLexerBase):
     """ Lexical scanner for s expressions """
 
-    def tokenize(self, characters):
-        for token in super().tokenize(characters, self.lex_sexpr):
+    def tokenize(self, f, filename):
+        chunks = create_chunks(f)
+        for token in super().tokenize(filename, chunks, self.lex_sexpr):
             # print(token)
             # Modify some values of tokens:
             if token.typ == "string":
@@ -58,7 +56,6 @@ class SExpressionLexer(HandLexerBase):
         if c is None:
             return  # EOF
 
-        c = c.char
         if c == "(":
             if self.accept(";"):
                 self.lex_block_comment()
@@ -85,7 +82,7 @@ class SExpressionLexer(HandLexerBase):
             c = self.next_char()
             if c is None:
                 break
-            elif c.char in "() \t\r\n;":
+            elif c in "() \t\r\n;":
                 self.backup_char(c)
                 break
         self.emit("word")
@@ -94,17 +91,17 @@ class SExpressionLexer(HandLexerBase):
         """ Eat all characters until end of line """
         while True:
             c = self.next_char()
-            if c is None or c.char in "\n\r":
+            if c is None or c in "\n\r":
                 break
         self.emit("comment")
         return
 
     def lex_block_comment(self):
         level = 1
-        c2 = self.next_char(eof=False).char
+        c2 = self.next_char(eof=False)
         while level > 0:
             c1 = c2
-            c2 = self.next_char(eof=False).char
+            c2 = self.next_char(eof=False)
             if c1 == ";" and c2 == ")":
                 level -= 1
             elif c1 == "(" and c2 == ";":

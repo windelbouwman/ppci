@@ -3,9 +3,8 @@
 import logging
 import io
 
-from ..common import SourceLocation
 from .token import CToken
-from ..tools.handlexer import HandLexerBase, Char
+from ..tools.handlexer import HandLexerBase
 
 
 class SourceFile:
@@ -19,65 +18,69 @@ class SourceFile:
         return "<SourceFile at {}:{}>".format(self.filename, self.row)
 
 
-def create_characters(f, source_file):
-    """ Create a sequence of characters """
-    for row, line in enumerate(f, 1):
-        line = line.expandtabs()
-        for col, char in enumerate(line, 1):
-            loc = SourceLocation(source_file.filename, source_file.row, col, 1)
-            yield Char(char, loc)
-        source_file.row += 1
+tri_map = {
+    "=": "#",
+    "(": "[",
+    ")": "]",
+    "<": "{",
+    ">": "}",
+    "-": "~",
+    "!": "|",
+    "/": "\\",
+    "'": "^",
+}
 
 
-def trigraph_filter(characters):
-    """ Replace trigraphs in a character sequence """
-    tri_map = {
-        "=": "#",
-        "(": "[",
-        ")": "]",
-        "<": "{",
-        ">": "}",
-        "-": "~",
-        "!": "|",
-        "/": "\\",
-        "'": "^",
-    }
-    buf = []
-    for char in characters:
-        buf.append(char)
-        if len(buf) >= 3:
-            if (
-                buf[0].char == "?"
-                and buf[1].char == "?"
-                and buf[2].char in tri_map
-            ):
-                loc = buf.pop(0).loc
-                buf.pop(0)
-                char = tri_map[buf.pop(0).char]
-                yield Char(char, loc)
-            else:
-                yield buf.pop(0)
+def trigraph_filter(chunks):
+    """ Replace trigraphs in a chunk sequence """
 
-    for c in buf:
-        yield c
+    for row, column, text in chunks:
+        if len(text) > 2:
+            j = i = 0
+
+            while i < len(text) - 2:
+                if (
+                    text[i] == "?"
+                    and text[i + 1] == "?"
+                    and text[i + 2] in tri_map
+                ):
+                    char = tri_map[text[i + 2]]
+                    if j < i:
+                        yield (row, column + j, text[j:i])
+                    yield (row, column + i, char)
+                    j = i = i + 3
+                else:
+                    i += 1
+            if j < len(text):
+                yield (row, column + j, text[j:])
+        else:
+            yield (row, column, text)
 
 
-def continued_lines_filter(characters):
+def continued_lines_filter(chunks):
     r""" Glue lines which end with a backslash '\' """
     backslash = None
-    for char in characters:
+    for row, column, text in chunks:
         if backslash:
-            if char.char in "\r\n":
-                pass
+            # Assume here that text does not start with a newline.
+            if text in "\r\n":
+                row, column, text = backslash
+                if len(text) > 1:
+                    yield row, column, text[:-1]
             else:
                 yield backslash
-                yield char
+                yield row, column, text
             backslash = False
         else:
-            if char.char == "\\":
-                backslash = char
+            if text.endswith("\\"):
+                backslash = row, column, text
+            elif text.endswith("\\\r") or text.endswith("\\\n"):
+                yield row, column, text[:-2]
             else:
-                yield char
+                yield row, column, text
+
+    if backslash:
+        yield backslash
 
 
 def lex_text(text, coptions):
@@ -105,31 +108,32 @@ class CLexer(HandLexerBase):
         """ Read a source and generate a series of tokens """
         self.logger.debug("Lexing %s", source_file.filename)
 
-        characters = create_characters(src, source_file)
+        self._source_file = source_file
+        self._filename = source_file.filename
+        chunks = self.create_chunks(src)
         if self.coptions["trigraphs"]:
-            characters = trigraph_filter(characters)
-        characters = continued_lines_filter(characters)
+            chunks = trigraph_filter(chunks)
+        chunks = continued_lines_filter(chunks)
         # print('=== lex ')
         # print(s)
         # print('=== end lex ')
 
         # s = '\n'.join(r)
-        return self.tokenize(characters)
+        return self.tokenize(source_file.filename, chunks)
 
     def lex_text(self, txt):
         """ Create tokens from the given text """
         f = io.StringIO(txt)
         filename = None
         source_file = SourceFile(filename)
-        characters = characters = create_characters(f, source_file)
-        return self.tokenize(characters)
+        return self.lex(f, source_file)
 
-    def tokenize(self, characters):
+    def tokenize(self, filename, chunks):
         """ Generate tokens from characters """
         space = ""
         first = True
         token = None
-        for token in super().tokenize(characters, self.lex_c):
+        for token in super().tokenize(filename, chunks, self.lex_c):
             if token.typ == "BOL":
                 if first:
                     # Yield an extra start of line
@@ -148,32 +152,44 @@ class CLexer(HandLexerBase):
             # Yield an extra start of line
             yield CToken("BOL", "", "", first, token.loc)
 
+    def create_chunks(self, f):
+        """ Create a sequence of chunks.
+
+        Each chunk is a tuple of (row, column, text)
+        """
+        for line in f:
+            # TODO: expand tabs brakes the column info..
+            line = line.expandtabs()
+            yield (self._source_file.row, 1, line)
+            self._source_file.row += 1
+
     def lex_c(self):
         """ Root parsing function """
-        r = self.next_char()
-        if r is None:
+        char = self.next_char()
+
+        if char is None:
             pass
-        elif r.char == "L":
+        elif char == "L":
             # Wide char or identifier
             if self.accept("'"):
                 return self.lex_char
             else:
                 return self.lex_identifier
-        elif r.char in self.lower_letters + self.upper_letters + "_":
+        elif char in self.lower_letters + self.upper_letters + "_":
             return self.lex_identifier
-        elif r.char in self.numbers:
-            self.backup_char(r)
+        elif char in self.numbers:
+            self.backup_char(char)
             return self.lex_number
-        elif r.char in " \t":
+        elif char in " \t":
             return self.lex_whitespace
-        elif r.char in "\n":
+        elif char in "\n":
             self.emit("BOL")
             return self.lex_c
-        elif r.char == "\f":
+        elif char == "\f":
             # Skip form feed ^L chr(0xc) character
             self.ignore()
             return self.lex_c
-        elif r.char == "/":
+        elif char == "/":
             if self.accept("/"):
                 if self.coptions["std"] == "c89":
                     self.error("C++ style comments are not allowed in C90")
@@ -186,11 +202,11 @@ class CLexer(HandLexerBase):
             else:
                 self.emit("/")
                 return self.lex_c
-        elif r.char == '"':
+        elif char == '"':
             return self.lex_string
-        elif r.char == "'":
+        elif char == "'":
             return self.lex_char
-        elif r.char == "<":
+        elif char == "<":
             if self.accept("="):
                 self.emit("<=")
             elif self.accept("<"):
@@ -201,7 +217,7 @@ class CLexer(HandLexerBase):
             else:
                 self.emit("<")
             return self.lex_c
-        elif r.char == ">":
+        elif char == ">":
             if self.accept("="):
                 self.emit(">=")
             elif self.accept(">"):
@@ -212,19 +228,19 @@ class CLexer(HandLexerBase):
             else:
                 self.emit(">")
             return self.lex_c
-        elif r.char == "=":
+        elif char == "=":
             if self.accept("="):
                 self.emit("==")
             else:
                 self.emit("=")
             return self.lex_c
-        elif r.char == "!":
+        elif char == "!":
             if self.accept("="):
                 self.emit("!=")
             else:
                 self.emit("!")
             return self.lex_c
-        elif r.char == "|":
+        elif char == "|":
             if self.accept("|"):
                 self.emit("||")
             elif self.accept("="):
@@ -232,7 +248,7 @@ class CLexer(HandLexerBase):
             else:
                 self.emit("|")
             return self.lex_c
-        elif r.char == "&":
+        elif char == "&":
             if self.accept("&"):
                 self.emit("&&")
             elif self.accept("="):
@@ -240,13 +256,13 @@ class CLexer(HandLexerBase):
             else:
                 self.emit("&")
             return self.lex_c
-        elif r.char == "#":
+        elif char == "#":
             if self.accept("#"):
                 self.emit("##")
             else:
                 self.emit("#")
             return self.lex_c
-        elif r.char == "+":
+        elif char == "+":
             if self.accept("+"):
                 self.emit("++")
             elif self.accept("="):
@@ -254,7 +270,7 @@ class CLexer(HandLexerBase):
             else:
                 self.emit("+")
             return self.lex_c
-        elif r.char == "-":
+        elif char == "-":
             if self.accept("-"):
                 self.emit("--")
             elif self.accept("="):
@@ -264,47 +280,50 @@ class CLexer(HandLexerBase):
             else:
                 self.emit("-")
             return self.lex_c
-        elif r.char == "*":
+        elif char == "*":
             if self.accept("="):
                 self.emit("*=")
             else:
                 self.emit("*")
             return self.lex_c
-        elif r.char == "%":
+        elif char == "%":
             if self.accept("="):
                 self.emit("%=")
             else:
                 self.emit("%")
             return self.lex_c
-        elif r.char == "^":
+        elif char == "^":
             if self.accept("="):
                 self.emit("^=")
             else:
                 self.emit("^")
             return self.lex_c
-        elif r.char == "~":
+        elif char == "~":
             if self.accept("="):
                 self.emit("~=")
             else:
                 self.emit("~")
             return self.lex_c
-        elif r.char == ".":
-            if self.accept_sequence([".", "."]):
-                self.emit("...")
-            elif self.accept(self.numbers):
+        elif char == ".":
+            if self.accept(self.numbers):
                 # We got .[0-9]
                 return self.lex_float
+            elif self.accept("."):
+                if self.accept('.'):
+                    self.emit("...")
+                else:
+                    self.error('Expected . or ...')
             else:
                 self.emit(".")
             return self.lex_c
-        elif r.char in ";{}()[],?:":
-            self.emit(r.char)
+        elif char in ";{}()[],?:":
+            self.emit(char)
             return self.lex_c
-        elif r.char == "\\":
-            self.emit(r.char)
+        elif char == "\\":
+            self.emit(char)
             return self.lex_c
         else:  # pragma: no cover
-            raise NotImplementedError(r)
+            raise NotImplementedError(char)
 
     def lex_identifier(self):
         id_chars = self.lower_letters + self.upper_letters + self.numbers + "_"
@@ -371,7 +390,7 @@ class CLexer(HandLexerBase):
 
     def lex_linecomment(self):
         c = self.next_char()
-        while c and c.char != "\n":
+        while c and c != "\n":
             c = self.next_char()
         self.backup_char(c)
         self.ignore()
@@ -391,8 +410,8 @@ class CLexer(HandLexerBase):
     def lex_string(self):
         """ Scan for a complete string """
         c = self.next_char(eof=False)
-        while c.char != '"':
-            if c.char == "\\":
+        while c != '"':
+            if c == "\\":
                 self._handle_escape_character()
             c = self.next_char(eof=False)
         self.emit("STRING")

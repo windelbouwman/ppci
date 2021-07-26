@@ -8,6 +8,7 @@ except:
     from unittest import mock
 
 
+from ppci.lang.common import SourceLocation
 from ppci.lang.c import CLexer, lexer, CParser, CSemantics
 from ppci.lang.c.preprocessor import prepare_for_parsing, SourceFile
 from ppci.lang.c.options import COptions
@@ -17,7 +18,7 @@ def gen_tokens(tokens):
     """ Helper function which creates a token iterator """
     for col, token in enumerate(tokens, start=1):
         typ, val = token
-        loc = lexer.SourceLocation("test.c", 1, col, 1)
+        loc = SourceLocation("test.c", 1, col, 1)
         yield lexer.CToken(typ, val, "", False, loc)
 
 

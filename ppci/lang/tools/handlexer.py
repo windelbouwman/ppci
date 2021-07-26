@@ -1,16 +1,17 @@
-from ..common import Token
+""" Hand written lexer.
+
+The idea of lexers is to split the sourcecode into chunks.
+
+Chunks consists of a tuple (row, column, text)
+
+A source file can be split up into a sequence of these chunks.
+
+A cursor is a pointer to a specific character in the chunk sequence.
+
+"""
+
+from ..common import Token, SourceLocation
 from ...common import CompilerError
-
-
-class Char:
-    """ Represents a single character with a location """
-
-    def __init__(self, char, loc):
-        self.char = char
-        self.loc = loc
-
-    def __repr__(self):
-        return "CHAR '{}' at {}".format(self.char, self.loc)
 
 
 class HandLexerBase:
@@ -25,59 +26,110 @@ class HandLexerBase:
     """
 
     def __init__(self):
-        self.token_buffer = []
-        self.pushed_back = []
+        self.token_buffer = []  # emitted tokens
         self.current_text = []
+        self._start_loc = None
+        self._chunk = None
+        self._chunk_index = 0
+        self._chunk_start = 0
 
-    def tokenize(self, characters, start_state):
+    def tokenize(self, filename, chunks, start_state):
         """ Return a sequence of tokens """
-        self.characters = characters
+        self._filename = filename
+        self._chunk_iter = iter(chunks)
+        self._next_chunk()
+        self._mark_start()
         state = start_state
         while state:
             while self.token_buffer:
                 yield self.token_buffer.pop(0)
             state = state()
 
-    def next_char(self, eof=True) -> Char:
+    def next_char(self, eof=True):
         """Retrieve next character.
 
         If eof is False, raise an error when end of file is encountered.
         """
-        if self.pushed_back:
-            char = self.pushed_back.pop(0)
-        else:
-            char = next(self.characters, None)
-
-        if char:
-            self.current_text.append(char)
+        char = self._get_char()
 
         if not eof and char is None:
             self.error("Expected a character, but at end of file")
 
         return char
 
-    def backup_char(self, char: Char):
+    def backup_char(self, char):
         """ go back one item """
         if char:
-            self.current_text.pop(-1)
-            self.pushed_back.insert(0, char)
+            assert self._chunk_index > 0
+            self._chunk_index -= 1
+
+    def get_chunk(self):
+        """ Retrieve the next chunk of text
+
+        This function must be implemented by subclasses.
+
+        Must yield tuples of: (row, column, text)
+
+        """
+        return next(self._chunk_iter, None)
+
+    def _get_char(self):
+        if self._chunk:
+            if self._chunk_index < len(self._chunk[2]):
+                c = self._chunk[2][self._chunk_index]
+                self._chunk_index += 1
+            else:
+                self._next_chunk()
+                c = self._get_char()
+        else:
+            c = None
+        return c
+
+    def get_location(self):
+        """ Return current location.
+        """
+        if self._chunk:
+            row = self._chunk[0]
+            column = self._chunk[1] + self._chunk_index
+            return SourceLocation(self._filename, row, column, 1)
+
+    def _next_chunk(self):
+        """ Enter next text chunk. """
+        if self._chunk:
+            text = self._chunk[2][self._chunk_start:]
+            self.current_text.append(text)
+        self._chunk = self.get_chunk()
+        self._chunk_index = 0
+        self._chunk_start = 0
+
+    def _mark_start(self):
+        """ Store location, and reset text buffer. """
+        self._start_loc = self.get_location()
+        self.current_text.clear()
+        self._chunk_start = self._chunk_index
 
     def emit(self, typ):
         """ Emit the current text under scope as a token """
-        val = "".join(c.char for c in self.current_text)
-        loc = self.current_text[0].loc
-        token = Token(typ, val, loc)
+        # Check if we have some text in this chunk:
+        if self._chunk_index > self._chunk_start:
+            text = self._chunk[2][self._chunk_start:self._chunk_index]
+            self.current_text.append(text)
+        # Grab all pieces of text from start to here:
+        val = "".join(self.current_text)
+        location = self._start_loc
+        assert location
+        token = Token(typ, val, location)
         self.token_buffer.append(token)
-        self.current_text.clear()
+        self._mark_start()
 
     def ignore(self):
         """ Ignore text under cursor """
-        self.current_text.clear()
+        self._mark_start()
 
     def accept(self, valid):
         """ Accept a single character if it is in the valid set """
         char = self.next_char()
-        if char and char.char in valid:
+        if char and char in valid:
             return True
         else:
             self.backup_char(char)
@@ -87,25 +139,9 @@ class HandLexerBase:
         while self.accept(valid):
             pass
 
-    def accept_sequence(self, sequence):
-        """ Munch the exact given sequence of characters """
-        chars = []
-        for valid in sequence:
-            char = self.next_char()
-            chars.append(char)
-            if char and char.char in valid:
-                continue
-            else:
-                # Retreat! Pull back! We are wrong!
-                for char in reversed(chars):
-                    self.backup_char(char)
-                return False
-        return True
-
     def error(self, message):
-        char = self.next_char()
-        loc = None if char is None else char.loc
-        raise CompilerError(message, loc)
+        location = self.get_location()
+        raise CompilerError(message, location)
 
     def expect(self, valid):
         if not self.accept(valid):

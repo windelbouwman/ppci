@@ -22,36 +22,69 @@ class CLexerTestCase(unittest.TestCase):
         tokens = list(self.lexer.lex(io.StringIO(src), source_file))
         return tokens
 
-    def test_generate_characters(self):
-        src = "ab\ndf"
-        source_file = SourceFile("a.h")
-        chars = list(lexer.create_characters(io.StringIO(src), source_file))
-        self.assertSequenceEqual([1, 1, 1, 2, 2], [c.loc.row for c in chars])
-        self.assertSequenceEqual([1, 2, 3, 1, 2], [c.loc.col for c in chars])
-
     def test_trigraphs(self):
-        src = "??( ??) ??/ ??' ??< ??> ??! ??- ??="
-        source_file = SourceFile("a.h")
-        chars = list(lexer.create_characters(io.StringIO(src), source_file))
-        chars = list(lexer.trigraph_filter(chars))
+        """ Test the handling of trigraph sequences. """
+        src_chunks = [(1, 1, "??( ??) ??/ ??' ??< ??> ??! ??- ??= ")]
+        chunks = list(lexer.trigraph_filter(src_chunks))
+        # should be: r"[ ] \ ^ { } | ~ #"
         self.assertSequenceEqual(
-            list(r"[ ] \ ^ { } | ~ #"), [c.char for c in chars]
+            [
+                (1, 1, "["),
+                (1, 4, " "),
+                (1, 5, "]"),
+                (1, 8, " "),
+                (1, 9, "\\"),
+                (1, 12, " "),
+                (1, 13, "^"),
+                (1, 16, " "),
+                (1, 17, "{"),
+                (1, 20, " "),
+                (1, 21, "}"),
+                (1, 24, " "),
+                (1, 25, "|"),
+                (1, 28, " "),
+                (1, 29, "~"),
+                (1, 32, " "),
+                (1, 33, "#"),
+                (1, 36, " "),
+            ], chunks
         )
-        self.assertSequenceEqual([1] * 17, [c.loc.row for c in chars])
+    
+    def test_line_glue(self):
+        """ Test handling of backslash-newline combinations. """
+        src_chunks = [
+            (1, 1, "bla \\\n"),
+            (2, 1, "foo"),
+            (2, 5, "baz\\"),
+            (2, 8, "\n"),
+            (3, 1, "bar"),
+            (4, 5, "\\"),
+            (4, 8, "\n"),
+            (6, 1, "\\"),
+        ]
+        chunks = list(lexer.continued_lines_filter(src_chunks))
         self.assertSequenceEqual(
-            [1, 4, 5, 8, 9, 12, 13, 16, 17, 20, 21, 24, 25, 28, 29, 32, 33],
-            [c.loc.col for c in chars],
+            [
+                (1, 1, "bla "),
+                (2, 1, "foo"),
+                (2, 5, "baz"),
+                (3, 1, "bar"),
+                (6, 1, "\\"),
+            ],
+            chunks
         )
 
     def test_trigraph_challenge(self):
         """ Test a nice example for the lexer including some trigraphs """
         src = "Hell??/\no world"
-        tokens = self.tokenize(src)
-        self.assertSequenceEqual(["Hello", "world"], [t.val for t in tokens])
-        self.assertSequenceEqual([1, 2], [t.loc.row for t in tokens])
-        self.assertSequenceEqual([1, 3], [t.loc.col for t in tokens])
-        self.assertSequenceEqual(["", " "], [t.space for t in tokens])
-        self.assertSequenceEqual([True, False], [t.first for t in tokens])
+        tokens = [
+            (t.val, t.loc.row, t.loc.col, t.space, t.first)
+            for t in self.tokenize(src)
+        ]
+        self.assertSequenceEqual(
+            [("Hello", 1, 1, "", True), ("world", 2, 3, " ", False)],
+            tokens
+        )
 
     def test_block_comment(self):
         """ Test block comments """
@@ -62,7 +95,8 @@ class CLexerTestCase(unittest.TestCase):
     def test_block_comments_and_values(self):
         src = "1/* bla bla */0/*w00t*/"
         tokens = [(t.typ, t.val) for t in self.tokenize(src)]
-        self.assertEqual([("NUMBER", "1"), ("NUMBER", "0")], tokens)
+        expected_tokens = [("NUMBER", "1"), ("NUMBER", "0")]
+        self.assertEqual(expected_tokens, tokens)
 
     def test_line_comment(self):
         """ Test single line comments """
@@ -72,19 +106,19 @@ class CLexerTestCase(unittest.TestCase):
         // ?
         b;
         """
-        tokens = [(t.typ, t.val) for t in self.tokenize(src)]
+        tokens = [(t.typ, t.val, t.loc.row) for t in self.tokenize(src)]
         self.assertSequenceEqual(
             [
-                ("BOL", ""),
-                ("ID", "int"),
-                ("ID", "a"),
-                (";", ";"),
+                ("BOL", "", 1),
+                ("ID", "int", 2),
+                ("ID", "a", 2),
+                (";", ";", 2),
                 # ('BOL', ''),
-                ("ID", "int"),
-                ("BOL", ""),
-                ("ID", "b"),
-                (";", ";"),
-                ("BOL", ""),
+                ("ID", "int", 3),
+                ("BOL", "", 4),
+                ("ID", "b", 5),
+                (";", ";", 5),
+                ("BOL", "", 5),
             ],
             tokens,
         )
@@ -117,45 +151,41 @@ class CLexerTestCase(unittest.TestCase):
 
     def test_dotdotdot(self):
         """ Test the lexing of the triple dot """
-        src = ". .. ... ....."
-        tokens = self.tokenize(src)
-        dots = list(map(lambda t: t.typ, tokens))
-        self.assertSequenceEqual([".", ".", ".", "...", "...", ".", "."], dots)
+        # TODO: accept '..' during lexing?
+        # giving an error is a safe bet here.
+        # the source below could be validly lexed, but does not parse:
+        # src = ". .. ... ....."
+        src = ". ... ...."
+        dots = [t.typ for t in self.tokenize(src)]
+        # self.assertSequenceEqual([".", ".", ".", "...", "...", ".", "."], dots)
+        self.assertSequenceEqual([".", "...", "...", "."], dots)
 
     def test_character_literals(self):
         """ Test various character literals """
         src = r"'a' '\n' L'\0' '\\' '\a' '\b' '\f' '\r' '\t' '\v' '\11' '\xee'"
-        expected_chars = [
-            "'a'",
-            r"'\n'",
-            r"L'\0'",
-            r"'\\'",
-            r"'\a'",
-            r"'\b'",
-            r"'\f'",
-            r"'\r'",
-            r"'\t'",
-            r"'\v'",
-            r"'\11'",
-            r"'\xee'",
+        expected_tokens = [
+            ("CHAR", "'a'"),
+            ("CHAR", r"'\n'"),
+            ("CHAR", r"L'\0'"),
+            ("CHAR", r"'\\'"),
+            ("CHAR", r"'\a'"),
+            ("CHAR", r"'\b'"),
+            ("CHAR", r"'\f'"),
+            ("CHAR", r"'\r'"),
+            ("CHAR", r"'\t'"),
+            ("CHAR", r"'\v'"),
+            ("CHAR", r"'\11'"),
+            ("CHAR", r"'\xee'"),
         ]
-        tokens = self.tokenize(src)
-        self.assertTrue(all(t.typ == "CHAR" for t in tokens))
-        chars = list(map(lambda t: t.val, tokens))
-        self.assertSequenceEqual(expected_chars, chars)
+        tokens = [(t.typ, t.val) for t in self.tokenize(src)]
+        self.assertSequenceEqual(expected_tokens, tokens)
 
     def test_string_literals(self):
         """ Test various string literals """
         src = r'"\"|\x7F"'
-        tokens = self.tokenize(src)
-
-        expected_types = ["STRING"]
-        types = list(map(lambda t: t.typ, tokens))
-        self.assertSequenceEqual(expected_types, types)
-
-        expected_strings = [r'"\"|\x7F"']
-        strings = list(map(lambda t: t.val, tokens))
-        self.assertSequenceEqual(expected_strings, strings)
+        tokens = [(t.typ, t.val) for t in self.tokenize(src)]
+        expected_tokens = [("STRING", r'"\"|\x7F"')]
+        self.assertSequenceEqual(expected_tokens, tokens)
 
     def test_token_spacing(self):
         src = "1239hello"
