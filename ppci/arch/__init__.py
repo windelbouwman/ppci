@@ -39,8 +39,11 @@ def get_current_arch():
     elif sys.platform in ("linux", "darwin"):
         if platform.architecture()[0] == "64bit":
             return get_arch("x86_64")
+    elif sys.platform == "darwin":
+        if platform.architecture()[0] == "64bit":
+            return get_arch("x86_64")
 
-
+        
 def get_arch(arch):
     """Try to return an architecture instance.
 
