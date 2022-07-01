@@ -415,7 +415,7 @@ class Type(Definition):
 
     Flat form and abbreviations:
 
-    * In the flat form, a module has type definitions, and these are refered to
+    * In the flat form, a module has type definitions, and these are referred to
       with "type uses": ``(type $xx)``.
     * A type use can be given to *define* the type rather than reference it,
       this is resolved by the Module class.
