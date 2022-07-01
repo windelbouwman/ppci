@@ -368,7 +368,7 @@ class CSemantics:
         return ctyp
 
     def on_typename(self, name, location):
-        """ Handle the case when a typedef is refered """
+        """ Handle the case when a typedef is referred """
         # Lookup typedef
         typedef = self.scope.get_identifier(name).declaration
         assert isinstance(typedef, declarations.Typedef)

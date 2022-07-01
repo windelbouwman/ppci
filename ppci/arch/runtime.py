@@ -1,4 +1,4 @@
-""" Runtime libraries for operations that some platforms do not supprt.
+""" Runtime libraries for operations that some platforms do not support.
 
 Examples of these are functions like __divsi3. This function performs a
 signed integer division.
