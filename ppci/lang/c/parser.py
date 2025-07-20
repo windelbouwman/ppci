@@ -542,6 +542,7 @@ class CParser(RecursiveDescentParser):
             initializer = self.parse_array_string_initializer(typ)
         else:
             expr = self.parse_constant_expression()
+            self.semantics.check_invalid_constant(expr)
             expr = self.semantics.pointer(expr)
             initializer = self.semantics.coerce(expr, typ)
 

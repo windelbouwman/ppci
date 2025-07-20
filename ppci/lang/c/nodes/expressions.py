@@ -243,8 +243,9 @@ class CharLiteral(Literal):
 class NumericLiteral(Literal):
     """ A numeric literal """
 
-    def __init__(self, value, typ, location):
+    def __init__(self, value, typ, location, oval = ""):
         super().__init__(value, typ, False, location)
+        self.oval = oval
 
     def __repr__(self):
         return "Numeric literal {} <{}>".format(self.value, self.typ)

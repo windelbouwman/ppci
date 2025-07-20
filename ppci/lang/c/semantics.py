@@ -656,6 +656,7 @@ class CSemantics:
 
     def on_number(self, value, location):
         """ React on integer numeric literal """
+        oval = value # safe for later
         # Get value from string:
         value, type_specifiers = utils.cnum(value)
 
@@ -693,7 +694,7 @@ class CSemantics:
                 "Integer value too big for type ({})".format(max_value),
                 location,
             )
-        return expressions.NumericLiteral(value, typ, location)
+        return expressions.NumericLiteral(value, typ, location, oval)
 
     def on_float(self, value, location):
         """ Process floating point literal. """
@@ -863,6 +864,19 @@ class CSemantics:
         return expressions.BinaryOperator(
             lhs, op, rhs, result_typ, False, location
         )
+    
+    def check_invalid_constant(self, expr):
+        """ Check for invalid constant due to maximal munch """ 
+        assert isinstance(expr, expressions.BinaryOperator)
+        int_const = expr.a.oval
+        if len(int_const) < 2:
+            return
+        if (
+                int_const[0].isdigit() and int_const[-1] in ["e","E"] and expr.op in ["+", "-"] 
+                and expr.a.location.row == expr.b.location.row 
+                and expr.a.location.col+len(int_const)+1 == expr.b.location.col
+           ):
+            self.error("invalid suffix on integer constant", expr.location)
 
     def on_unop(self, op, a, location):
         """ Check unary operator semantics """
