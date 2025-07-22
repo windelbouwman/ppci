@@ -1,6 +1,4 @@
-""" Python to IR compilation.
-
-"""
+"""Python to IR compilation."""
 
 import logging
 import ast
@@ -42,7 +40,7 @@ class Var:
 
 
 class PythonToIrCompiler:
-    """ Not peer-to-peer but python to ppci :) """
+    """Not peer-to-peer but python to ppci :)"""
 
     logger = logging.getLogger("p2p")
 
@@ -112,7 +110,7 @@ class PythonToIrCompiler:
         self.function_map[name] = ir_function, return_type, arg_types
 
     def gen_function(self, df):
-        """ Transform a python function into an IR-function """
+        """Transform a python function into an IR-function"""
         self.local_map = {}
 
         function_name = df.name
@@ -183,7 +181,7 @@ class PythonToIrCompiler:
         ir_function.delete_unreachable()
 
     def gen_statement(self, statement):
-        """ Generate code for a statement """
+        """Generate code for a statement"""
         if isinstance(statement, list):
             for inner_statement in statement:
                 self.gen_statement(inner_statement)
@@ -225,7 +223,7 @@ class PythonToIrCompiler:
         self.builder.set_block(unreachable_block)
 
     def gen_return(self, statement):
-        """ Compile return statement. """
+        """Compile return statement."""
         if self.builder.function.is_procedure:
             if statement.value:
                 self.error(
@@ -244,7 +242,7 @@ class PythonToIrCompiler:
         self.builder.set_block(void_block)
 
     def gen_if(self, statement):
-        """ Compile a python if-statement. """
+        """Compile a python if-statement."""
         ja_block = self.builder.new_block()
         else_block = self.builder.new_block()
         continue_block = self.builder.new_block()
@@ -263,7 +261,7 @@ class PythonToIrCompiler:
         self.builder.set_block(continue_block)
 
     def gen_while(self, statement):
-        """ Compile python while-statement. """
+        """Compile python while-statement."""
         if statement.orelse:
             self.error(statement, "while-else not supported")
         test_block = self.builder.new_block()
@@ -286,7 +284,7 @@ class PythonToIrCompiler:
         self.builder.set_block(final_block)
 
     def gen_for(self, statement):
-        """ Compile python for-statement. """
+        """Compile python for-statement."""
         # Check else-clause:
         if statement.orelse:
             self.error(statement, "for-else not supported")
@@ -346,7 +344,7 @@ class PythonToIrCompiler:
         self.builder.set_block(final_block)
 
     def gen_assign(self, statement):
-        """ Compile assignment-statement. """
+        """Compile assignment-statement."""
         if len(statement.targets) == 1:
             target = statement.targets[0]
         else:
@@ -389,7 +387,7 @@ class PythonToIrCompiler:
             self.not_impl(statement)
 
     def store_value(self, target, value):
-        """ Store an IR-value into a target node. """
+        """Store an IR-value into a target node."""
         assert isinstance(target, ast.Name)
         name = target.id
         var = self.get_variable(target, name, ty=value.ty)
@@ -397,7 +395,7 @@ class PythonToIrCompiler:
         self.emit(ir.Store(value, var.value))
 
     def gen_cond(self, condition, yes_block, no_block):
-        """ Compile a condition. """
+        """Compile a condition."""
         if isinstance(condition, ast.Compare):
             self.gen_compare(condition, yes_block, no_block)
         elif isinstance(condition, ast.BoolOp):
@@ -428,7 +426,7 @@ class PythonToIrCompiler:
         self.emit(ir.CJump(a, op, b, yes_block, no_block))
 
     def gen_bool_op(self, condition, yes_block, no_block):
-        """ Compile a boolean operator such as 'and' """
+        """Compile a boolean operator such as 'and'"""
         assert len(condition.values) >= 1
         first_values = condition.values[:-1]
         last_value = condition.values[-1]
@@ -453,7 +451,7 @@ class PythonToIrCompiler:
             self.not_impl(condition)
 
     def gen_expr(self, expr):
-        """ Generate code for a single expression """
+        """Generate code for a single expression"""
         with self.use_location(expr):
             if isinstance(expr, ast.BinOp):
                 value = self.gen_binop(expr)
@@ -479,7 +477,7 @@ class PythonToIrCompiler:
         return value
 
     def gen_name(self, expr):
-        """ Compile name node access. """
+        """Compile name node access."""
         var = self.local_map[expr.id]
         if var.lvalue:
             value = self.builder.emit_load(var.value, var.ty)
@@ -496,7 +494,7 @@ class PythonToIrCompiler:
     }
 
     def gen_binop(self, expr):
-        """ Compile binary operator. """
+        """Compile binary operator."""
         a = self.gen_expr(expr.left)
         b = self.gen_expr(expr.right)
         if a.ty is not b.ty:
@@ -513,7 +511,7 @@ class PythonToIrCompiler:
         return value
 
     def gen_call(self, expr):
-        """ Compile call-expression. """
+        """Compile call-expression."""
         assert isinstance(expr.func, ast.Name)
         name = expr.func.id
 
@@ -580,7 +578,7 @@ class PythonToIrCompiler:
         pass
 
     def coerce(self, value, ty):
-        """ Try to fit the value into a new value of a type. """
+        """Try to fit the value into a new value of a type."""
         return value
 
     def not_impl(self, node):  # pragma: no cover
@@ -588,31 +586,31 @@ class PythonToIrCompiler:
         self.error(node, "Cannot do {}".format(node))
 
     def node_location(self, node):
-        """ Create a source code location for the given node. """
+        """Create a source code location for the given node."""
         location = SourceLocation(
             self._filename, node.lineno, node.col_offset + 1, 1
         )
         return location
 
     def error(self, node, message):
-        """ Raise a nice error message as feedback """
+        """Raise a nice error message as feedback"""
         location = self.node_location(node)
         raise CompilerError(message, location)
 
     def emit(self, instruction):
-        """ Emit an instruction """
+        """Emit an instruction"""
         self.builder.emit(instruction)
         return instruction
 
     def get_ty(self, annotation) -> ir.Typ:
-        """ Get the type based on type annotation """
+        """Get the type based on type annotation"""
         if isinstance(annotation, type):
             type_name = annotation.__name__
         elif annotation is None:
             return
         else:
             if (
-                isinstance(annotation, ast.NameConstant)
+                isinstance(annotation, ast.Constant)
                 and annotation.value is None
             ):
                 return

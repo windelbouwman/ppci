@@ -79,15 +79,13 @@ def get_reporter(reporter):
             r.header()
             return r
         else:
-            raise ValueError(
-                "Cannot determine report type for {}".format(reporter)
-            )
+            raise ValueError(f"Cannot determine report type for {reporter}")
     else:
         return reporter
 
 
 def is_platform_supported():
-    """ Determine if this platform is supported """
+    """Determine if this platform is supported"""
     return get_current_arch() is not None
 
 
@@ -367,7 +365,7 @@ def cc(
 
 
 def wasmcompile(source: io.TextIOBase, march, opt_level=2, reporter=None):
-    """ Webassembly compile """
+    """Webassembly compile"""
     march = get_arch(march)
 
     if not reporter:  # pragma: no cover
@@ -386,7 +384,7 @@ def wasmcompile(source: io.TextIOBase, march, opt_level=2, reporter=None):
 
 
 def llc(source, march):
-    """ Compile llvm assembly source into machine code """
+    """Compile llvm assembly source into machine code"""
     march = get_arch(march)
     ir_module = llvm_to_ir(source)
     return ir_to_object([ir_module], march)
@@ -482,9 +480,7 @@ def bfcompile(source, target, reporter=None):
     reporter.message("brainfuck compilation listings")
     target = get_arch(target)
     ir_module = bf_to_ir(source, target)
-    reporter.message(
-        "Before optimization {} {}".format(ir_module, ir_module.stats())
-    )
+    reporter.message(f"Before optimization {ir_module} {ir_module.stats()}")
     reporter.dump_ir(ir_module)
     optimize(ir_module, reporter=reporter)
     return ir_to_object([ir_module], target, reporter=reporter)
@@ -502,14 +498,14 @@ def pycompile(source, march, reporter=None):
 
 
 def fortrancompile(sources, target, reporter=DummyReportGenerator()):
-    """ Compile fortran code to target """
+    """Compile fortran code to target"""
     # TODO!
     ir_modules = fortran_to_ir(sources[0])
     return ir_to_object(ir_modules, target, reporter=reporter)
 
 
 def objcopy(obj: ObjectFile, image_name: str, fmt: str, output_filename):
-    """ Copy some parts of an object file to an output """
+    """Copy some parts of an object file to an output"""
     fmts = ["bin", "hex", "elf", "exe", "ldb", "uimage"]
     if fmt not in fmts:
         formats = ", ".join(fmts[:-1]) + " and " + fmts[-1]
@@ -562,6 +558,6 @@ def objcopy(obj: ObjectFile, image_name: str, fmt: str, output_filename):
 
 
 def chmod_x(filename):
-    """ Perform sort of chmod +x on filename. """
+    """Perform sort of chmod +x on filename."""
     status = os.stat(filename)
     os.chmod(filename, status.st_mode | stat.S_IEXEC)

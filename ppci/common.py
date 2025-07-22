@@ -1,27 +1,26 @@
 """
-   Error handling routines
-   Diagnostic utils
-   Source location structures
+Error handling routines
+Diagnostic utils
+Source location structures
 """
-
 
 import logging
 from .lang.common import SourceLocation
 
 
-logformat = '%(asctime)s | %(levelname)8s | %(name)10.10s | %(message)s'
+logformat = "%(asctime)s | %(levelname)8s | %(name)10.10s | %(message)s"
 
 
 def make_num(txt):
-    if txt.startswith('0x'):
+    if txt.startswith("0x"):
         return int(txt[2:], 16)
-    elif txt.startswith('-0x'):
+    elif txt.startswith("-0x"):
         return -int(txt[3:], 16)
-    elif txt.startswith('$'):
+    elif txt.startswith("$"):
         return int(txt[1:], 16)
-    elif txt.startswith('0b'):
+    elif txt.startswith("0b"):
         return int(txt[2:], 2)
-    elif txt.startswith('%'):
+    elif txt.startswith("%"):
         return int(txt[1:], 2)
     else:
         return int(txt)
@@ -30,15 +29,15 @@ def make_num(txt):
 str2int = make_num
 
 
-def get_file(f, mode='r'):
-    """ Determine if argument is a file like object or make it so! """
-    if hasattr(f, 'read'):
+def get_file(f, mode="r"):
+    """Determine if argument is a file like object or make it so!"""
+    if hasattr(f, "read"):
         # Assume this is a file like object
         return f
     elif isinstance(f, str):
         return open(f, mode)
     else:
-        raise FileNotFoundError('Cannot open {}'.format(f))
+        raise FileNotFoundError("Cannot open {}".format(f))
 
 
 class CompilerError(Exception):
@@ -47,8 +46,9 @@ class CompilerError(Exception):
         self.msg = msg
         self.loc = loc
         if loc:
-            assert isinstance(loc, SourceLocation), \
-                   '{0} must be SourceLocation'.format(type(loc))
+            assert isinstance(loc, SourceLocation), "{0} must be SourceLocation".format(
+                type(loc)
+            )
 
         if hints is None:
             hints = []
@@ -58,13 +58,13 @@ class CompilerError(Exception):
         return '"{}"'.format(self.msg)
 
     def render(self, lines):
-        """ Render this error in some lines of context """
-        self.loc.print_message('Error: {0}'.format(self.msg), lines=lines)
+        """Render this error in some lines of context"""
+        self.loc.print_message("Error: {0}".format(self.msg), lines=lines)
         for hint in self.hints:
             print(hint)
 
     def print(self, file=None):
-        """ Print the error inside some nice context """
+        """Print the error inside some nice context"""
         if self.loc and self.loc.filename:
             self.loc.print_message(self.msg, file=file)
         else:
@@ -86,17 +86,17 @@ class DiagnosticsManager:
     def __init__(self):
         self.diags = []
         self.sources = {}
-        self.logger = logging.getLogger('diagnostics')
+        self.logger = logging.getLogger("diagnostics")
 
     def add_source(self, name, src):
-        """ Add a source for error reporting """
+        """Add a source for error reporting"""
         self.logger.debug('Adding source, filename="%s"', name)
         self.sources[name] = src
 
     def add_diag(self, d):
-        """ Add a diagnostic message """
+        """Add a diagnostic message"""
         if d.loc:
-            self.logger.error('Line %s: %s', d.loc.row, d.msg)
+            self.logger.error("Line %s: %s", d.loc.row, d.msg)
         else:
             self.logger.error(str(d.msg))
         self.diags.append(d)
@@ -109,30 +109,30 @@ class DiagnosticsManager:
         self.sources.clear()
 
     def print_errors(self):
-        """ Print all errors reported """
+        """Print all errors reported"""
         if len(self.diags) > 0:
-            print('{0} Errors'.format(len(self.diags)))
+            print("{0} Errors".format(len(self.diags)))
             for d in self.diags:
                 self.print_error(d)
 
     def print_line(self, row, lines):
-        """ Print a single source line """
+        """Print a single source line"""
         if row in range(len(lines)):
             txt = lines[row - 1]
-            print('{:5}:{}'.format(row, txt))
+            print("{:5}:{}".format(row, txt))
 
     def print_error(self, e):
-        """ Print a single error in a nice formatted way """
-        print('==============')
+        """Print a single error in a nice formatted way"""
+        print("==============")
         if e.loc:
             if e.loc.filename not in self.sources:
-                print('Error: {0}'.format(e))
+                print("Error: {0}".format(e))
                 return
             print("File: {}".format(e.loc.filename))
             source = self.sources[e.loc.filename]
-            lines = source.split('\n')
+            lines = source.split("\n")
             e.render(lines)
         else:
-            print('Error: {0}'.format(e))
+            print("Error: {0}".format(e))
 
-        print('==============')
+        print("==============")

@@ -1,4 +1,4 @@
-""" AVR architecture.
+"""AVR architecture.
 
 See for good documentation about AVR ABI:
 
@@ -74,7 +74,7 @@ from .registers import register_classes, gdb_registers
 
 
 class AvrArch(Architecture):
-    """ Avr architecture description. """
+    """Avr architecture description."""
 
     name = "avr"
 
@@ -117,7 +117,7 @@ class AvrArch(Architecture):
         return obj
 
     def determine_arg_locations(self, arg_types):
-        """ Given a set of argument types, determine location for argument """
+        """Given a set of argument types, determine location for argument"""
         locations = []
         regs = [
             r25,
@@ -175,7 +175,7 @@ class AvrArch(Architecture):
         return s
 
     def gen_prologue(self, frame):
-        """ Generate the prologue instruction sequence. """
+        """Generate the prologue instruction sequence."""
         # Label indication function:
         yield Label(frame.name)
 
@@ -241,7 +241,7 @@ class AvrArch(Architecture):
             else:  # pragma: no cover
                 raise NotImplementedError("Parameters in memory not impl")
 
-        arg_regs = set(l for l in arg_locs if isinstance(l, Register))
+        arg_regs = set(loc for loc in arg_locs if isinstance(loc, Register))
         yield RegisterUseDef(uses=arg_regs)
 
         if isinstance(label, AvrWordRegister):
@@ -265,10 +265,10 @@ class AvrArch(Architecture):
                 raise NotImplementedError("Parameters in memory not impl")
 
     def gen_function_enter(self, args):
-        """ Copy arguments into local temporaries and mark registers live """
+        """Copy arguments into local temporaries and mark registers live"""
         arg_types = [a[0] for a in args]
         arg_locs = self.determine_arg_locations(arg_types)
-        arg_regs = set(l for l in arg_locs if isinstance(l, Register))
+        arg_regs = set(loc for loc in arg_locs if isinstance(loc, Register))
         yield RegisterUseDef(defs=arg_regs)
 
         # Copy parameters:
@@ -288,7 +288,7 @@ class AvrArch(Architecture):
         yield RegisterUseDef(uses=live_out)
 
     def litpool(self, frame):
-        """ Generate instruction for the current literals """
+        """Generate instruction for the current literals"""
         # Align at 4 bytes
 
         if frame.constants:
@@ -315,7 +315,7 @@ class AvrArch(Architecture):
             yield instruction
 
     def move(self, dst, src):
-        """ Generate a move from src to dst """
+        """Generate a move from src to dst"""
         if isinstance(dst, AvrRegister) and isinstance(src, AvrRegister):
             return Mov(dst, src, ismove=True)
         elif isinstance(dst, AvrWordRegister) and isinstance(

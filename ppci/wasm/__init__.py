@@ -5,7 +5,7 @@ and for converting between PPCI-IR and WASM.
 
 from .opcodes import I
 from .components import *
-from .components import Ref
+from .components import Ref, Module
 from .wasm2ppci import wasm_to_ir
 from .ppci2wasm import ir_to_wasm
 from .arch import WasmArchitecture
@@ -22,7 +22,7 @@ def read_wasm(input) -> Module:
 
 
 def read_wat(f) -> Module:
-    """ Read wasm module from file handle """
+    """Read wasm module from file handle"""
     wat = f.read()
     return Module(wat)
 

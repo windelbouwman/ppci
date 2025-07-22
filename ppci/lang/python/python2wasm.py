@@ -8,11 +8,11 @@ import inspect
 import types
 
 from ...common import SourceLocation, CompilerError
-from ...wasm import Module, Func
+from ...wasm import Module
 
 
 def syntax_error(filename, node, message):
-    """ Raise a nice error message as feedback """
+    """Raise a nice error message as feedback"""
     location = SourceLocation(filename, node.lineno, node.col_offset + 1, 1)
     raise CompilerError(message, location)
 
@@ -182,7 +182,7 @@ class PythonFuncToWasmCompiler:
                 return i
 
     def _compile_expr(self, node, push_stack):
-        """ Generate wasm instruction for the given ast node """
+        """Generate wasm instruction for the given ast node"""
         if isinstance(node, ast.Expr):
             self._compile_expr(node.value, push_stack)
 
@@ -201,8 +201,11 @@ class PythonFuncToWasmCompiler:
             assert push_stack
             self.instructions.append(("local.get", self.name_idx(node.id)))
 
-        elif isinstance(node, ast.Num):
-            self.instructions.append(("f64.const", node.n))
+        elif isinstance(node, ast.Constant):
+            if isinstance(node.value, (float, int)):
+                self.instructions.append(("f64.const", node.value))
+            else:
+                self.syntax_error(node, f"Unsupported constant: {node.value}")
 
         elif isinstance(node, ast.UnaryOp):
             self._compile_expr(node.operand, True)

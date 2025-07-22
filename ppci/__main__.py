@@ -1,7 +1,6 @@
-""" Main entry point """
+"""Main entry point"""
 
 # from ppci.cli import main
-
 
 import sys
 import importlib
@@ -36,9 +35,8 @@ valid_programs = [
     "yacc",
 ]
 
-aliases = {
-    'ld': 'link'
-}
+aliases = {"ld": "link"}
+
 
 def main():
     if len(sys.argv) < 2:

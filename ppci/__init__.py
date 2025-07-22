@@ -1,4 +1,4 @@
-""" A compiler for ARM, X86, MSP430, xtensa and more implemented in
+"""A compiler for ARM, X86, MSP430, xtensa and more implemented in
 pure Python.
 
 Example usage:
@@ -14,7 +14,7 @@ import sys
 
 # Define version here. Used in docs, and setup script:
 __version_info__ = (0, 5, 9)
-__version__ = '.'.join(map(str, __version_info__))
+__version__ = ".".join(map(str, __version_info__))
 
 # Show detailed warning about python2:
 python2_message = """

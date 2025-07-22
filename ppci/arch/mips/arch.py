@@ -1,4 +1,4 @@
-""" Define MIPS architecture """
+"""Define MIPS architecture"""
 
 from ... import ir
 from ...binutils.assembler import BaseAssembler
@@ -11,7 +11,7 @@ from . import instructions, registers
 
 
 class MipsArch(Architecture):
-    """ Mips architecture """
+    """Mips architecture"""
 
     name = "mips"
 
@@ -41,7 +41,7 @@ class MipsArch(Architecture):
         self.assembler.gen_asm_parser(self.isa)
 
     def get_runtime(self):
-        """ Retrieve the runtime for this target """
+        """Retrieve the runtime for this target"""
         from ...api import c3c
 
         c3_sources = get_runtime_files(["divsi3", "mulsi3"])
@@ -69,7 +69,7 @@ class MipsArch(Architecture):
         return arg_locs
 
     def determine_rv_location(self, ret_type):
-        """ return value in v0-v1 """
+        """return value in v0-v1"""
         if ret_type in [ir.i8, ir.u8, ir.i16, ir.u16, ir.i32, ir.u32, ir.ptr]:
             rv = registers.v0
         else:  # pragma: no cover
@@ -77,7 +77,7 @@ class MipsArch(Architecture):
         return rv
 
     def gen_prologue(self, frame):
-        """ Returns prologue instruction sequence """
+        """Returns prologue instruction sequence"""
 
         # Label indication function:
         yield Alignment(4)
@@ -104,7 +104,7 @@ class MipsArch(Architecture):
             yield instructions.Push(reg)
 
     def gen_epilogue(self, frame):
-        """ Return epilogue sequence """
+        """Return epilogue sequence"""
         # Pop save registers back:
         for reg in reversed(self.get_callee_saved(frame)):
             yield instructions.Pop(reg)
@@ -160,7 +160,7 @@ class MipsArch(Architecture):
         arg_locs = self.determine_arg_locations(arg_types)
 
         arg_regs = set(
-            l for l in arg_locs if isinstance(l, registers.MipsRegister)
+            loc for loc in arg_locs if isinstance(loc, registers.MipsRegister)
         )
         yield RegisterUseDef(defs=arg_regs)
 

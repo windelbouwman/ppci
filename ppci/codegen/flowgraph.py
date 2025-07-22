@@ -1,6 +1,6 @@
 import logging
 from collections import defaultdict
-from ..graph.digraph import DiGraph, DiNode, dfs
+from ..graph.digraph import DiGraph, DiNode
 
 
 class FlowGraphNode(DiNode):
@@ -19,7 +19,7 @@ class FlowGraphNode(DiNode):
         self.add_instruction(ins)
 
     def add_instruction(self, ins):
-        """ Bundle the instruction into the current node. """
+        """Bundle the instruction into the current node."""
         ins.gen = set(ins.used_registers)
         ins.kill = set(ins.defined_registers)
         self.instructions.append(ins)
@@ -45,10 +45,10 @@ class FlowGraphNode(DiNode):
 
 
 class FlowGraph(DiGraph):
-    """ A directed graph containing nodes with linear lists of instructions """
+    """A directed graph containing nodes with linear lists of instructions"""
 
     def __init__(self, instrs):
-        """ Create a flowgraph from a linear list of abstract instructions """
+        """Create a flowgraph from a linear list of abstract instructions"""
         super().__init__()
         self.logger = logging.getLogger("flowgraph")
         self._map = {}
@@ -91,11 +91,11 @@ class FlowGraph(DiGraph):
                 node.add_instruction(ins)
 
     def has_node(self, ins):
-        """ Return true if statement is a leader instruction """
+        """Return true if statement is a leader instruction"""
         return ins in self._map
 
     def get_node(self, ins):
-        """ Get the node belonging to the instruction """
+        """Get the node belonging to the instruction"""
         if ins not in self._map:
             node = FlowGraphNode(self, ins)
             self._map[ins] = node
@@ -104,7 +104,7 @@ class FlowGraph(DiGraph):
 
     # def live_range(
     def calculate_liveness(self):
-        """ Calculate liveness in CFG: """
+        """Calculate liveness in CFG:"""
         ###
         # Liveness:
         #  in[n] = use[n] UNION (out[n] - def[n])
