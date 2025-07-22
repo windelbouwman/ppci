@@ -1,6 +1,6 @@
 
 import unittest
-from test_asm import AsmTestCaseBase
+from ..test_asm import AsmTestCaseBase
 
 
 class Sse1TestCase(AsmTestCaseBase):

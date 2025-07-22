@@ -1,6 +1,6 @@
 import io
 import os
-from helper_util import relpath, source_files
+from ..helper_util import relpath, source_files
 from ppci import api
 from ppci.utils.reporting import html_reporter
 from ppci.lang.c import COptions

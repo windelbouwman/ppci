@@ -1,8 +1,8 @@
 import unittest
 
-from sample_helpers import add_samples, build
-from helper_util import has_avr_emulator, run_avr, relpath
-from helper_util import do_long_tests, do_iverilog, make_filename
+from .sample_helpers import add_samples, build
+from ..helper_util import has_avr_emulator, run_avr, relpath
+from ..helper_util import do_long_tests, do_iverilog, make_filename
 
 
 @unittest.skipUnless(do_long_tests("avr"), "skipping slow tests")

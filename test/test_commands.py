@@ -22,7 +22,7 @@ from ppci.cli.yacc import yacc
 from ppci import api
 from ppci.common import DiagnosticsManager, SourceLocation
 from ppci.binutils.objectfile import ObjectFile, Section, Image
-from helper_util import relpath, do_long_tests
+from .helper_util import relpath, do_long_tests
 
 
 def new_temp_file(suffix):

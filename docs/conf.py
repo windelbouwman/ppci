@@ -15,7 +15,7 @@
 
 import sys
 import os
-import pkg_resources
+from importlib.metadata import distribution
 
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
@@ -61,7 +61,7 @@ copyright = '2020, Windel Bouwman'
 #
 # The short X.Y version.
 try:
-    version = pkg_resources.get_distribution('ppci').version
+    version = distribution('ppci').version
 except Exception:
     import ppci
     version = ppci.__version__

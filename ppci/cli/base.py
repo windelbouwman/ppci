@@ -2,7 +2,6 @@
 
 import argparse
 import logging
-import cgitb
 import platform
 import sys
 from .. import __version__
@@ -152,7 +151,6 @@ class LogSetup:
         self.console_handler = None
         self.file_handler = None
         self.logger = logging.getLogger()
-        cgitb.enable(format="text")
 
         if args.drop_into_pudb:
 

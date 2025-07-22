@@ -3,7 +3,7 @@ import io
 import os
 from ppci.lang.llvmir import LlvmIrFrontend
 from ppci.common import CompilerError
-from helper_util import relpath, source_files
+from .helper_util import relpath, source_files
 
 
 def create_test_function(source):

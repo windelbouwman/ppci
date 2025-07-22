@@ -2,3 +2,13 @@
 vppci.py
 __pycache__/
 *.profile
+
+*.bin
+*.elf
+*.exe
+*.hex
+*.oj
+*report.html
+
+dist
+test/listings

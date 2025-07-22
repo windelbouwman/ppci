@@ -1,9 +1,9 @@
 import unittest
 import io
 
-from sample_helpers import add_samples, build_sample_to_ir
-from helper_util import run_nodejs, relpath
-from helper_util import do_long_tests, make_filename
+from .sample_helpers import add_samples, build_sample_to_ir
+from ..helper_util import run_nodejs, relpath
+from ..helper_util import do_long_tests, make_filename
 
 from ppci import api
 from ppci.utils.reporting import html_reporter

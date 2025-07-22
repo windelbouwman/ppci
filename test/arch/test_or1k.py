@@ -1,5 +1,5 @@
 import unittest
-from test_asm import AsmTestCaseBase
+from ..test_asm import AsmTestCaseBase
 
 
 class Or1kOrbisTestCase(AsmTestCaseBase):

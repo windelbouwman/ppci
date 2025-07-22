@@ -4,7 +4,7 @@ import io
 import os
 from unittest.mock import patch
 
-from helper_util import relpath, do_long_tests
+from .helper_util import relpath, do_long_tests
 from ppci.cli.hexutil import hexutil
 
 

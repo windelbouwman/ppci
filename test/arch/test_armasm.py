@@ -1,6 +1,6 @@
 import unittest
 import io
-from test_asm import AsmTestCaseBase
+from ..test_asm import AsmTestCaseBase
 from ppci.binutils.layout import Layout
 
 

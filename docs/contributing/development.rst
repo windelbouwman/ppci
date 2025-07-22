@@ -50,7 +50,7 @@ To run the unit tests with the compiler, use `pytest`_:
 
 .. code:: bash
 
-    $ python -m pytest -v test/
+    $ python -m pytest -v
 
 Or, yet another way, use tox:
 
@@ -71,8 +71,7 @@ Note that those command will **not work properly**:
 
 .. code:: bash
 
-    $ python -m unittest discover -s  # will not recursively discover test cases
-    $ python setup.py test  # does not work and is deprecated
+    $ python -m unittest
 
 :doc:`Read more about testing <testing>`.
 

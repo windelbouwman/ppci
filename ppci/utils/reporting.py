@@ -6,7 +6,6 @@
 """
 
 import abc
-import cgitb
 from contextlib import contextmanager
 from datetime import datetime
 import logging
@@ -195,7 +194,7 @@ class TextReportGenerator(TextWritingReporter):
                 self.print("- {}".format(root))
 
     def dump_exception(self, einfo):
-        self.print(cgitb.text(einfo))
+        self.print(str(einfo))
 
     def dump_trees(self, trees):
         self.print("Selection trees:")
@@ -457,7 +456,7 @@ class HtmlReportGenerator(TextWritingReporter):
                 self.print("- {}".format(root))
 
     def dump_exception(self, einfo):
-        self.print(cgitb.html(einfo))
+        self.print(str(einfo))
 
     def dump_trees(self, trees):
         with collapseable(self, "Selection trees"):

@@ -1,4 +1,4 @@
-""" Object files are used to store assembled code.
+"""Object files are used to store assembled code.
 
 Information contained
 is code, symbol table and relocation information.
@@ -23,7 +23,7 @@ from . import debuginfo
 
 
 def get_object(obj):
-    """ Try hard to load an object """
+    """Try hard to load an object"""
     if not isinstance(obj, ObjectFile):
         f = get_file(obj)
         obj = ObjectFile.load(f)
@@ -32,7 +32,7 @@ def get_object(obj):
 
 
 class Symbol:
-    """ A symbol definition in an object file """
+    """A symbol definition in an object file"""
 
     def __init__(self, id, name, binding, value, section, typ, size):
         assert isinstance(id, int)
@@ -46,7 +46,7 @@ class Symbol:
 
     @property
     def undefined(self):
-        """ Test if this symbol is undefined. """
+        """Test if this symbol is undefined."""
         return self.value is None
 
     @property
@@ -59,19 +59,17 @@ class Symbol:
 
     @property
     def is_function(self):
-        """ Test if this symbol is a function. """
+        """Test if this symbol is a function."""
         return self.typ == "func"
 
     def __repr__(self):
-        return (
-            "Symbol({}, binding={}, val={} section={} typ={} size={})".format(
-                self.name,
-                self.binding,
-                self.value,
-                self.section,
-                self.typ,
-                self.size,
-            )
+        return "Symbol({}, binding={}, val={} section={} typ={} size={})".format(
+            self.name,
+            self.binding,
+            self.value,
+            self.section,
+            self.typ,
+            self.size,
         )
 
     def __eq__(self, other):
@@ -117,7 +115,7 @@ class RelocationEntry:
 
 
 class Section:
-    """ A defined region of data in the object file """
+    """A defined region of data in the object file"""
 
     def __init__(self, name):
         self.name = name
@@ -126,7 +124,7 @@ class Section:
         self.data = bytearray()
 
     def add_data(self, data):
-        """ Append data to the end of this section """
+        """Append data to the end of this section"""
         self.data += data
 
     @property
@@ -181,7 +179,7 @@ class Image:
 
     @property
     def data(self):
-        """ Get the data of this memory """
+        """Get the data of this memory"""
         data = bytearray()
         current_address = self.address
         for section in self.sections:
@@ -198,16 +196,16 @@ class Image:
 
     @property
     def size(self):
-        """ Determine the size of this memory """
+        """Determine the size of this memory"""
         return len(self.data)
 
     def add_section(self, section):
-        """ Add a section to this memory image """
+        """Add a section to this memory image"""
         self.sections.append(section)
 
 
 def merge_memories(mem1, mem2, name):
-    """ Merge two memories into a new one """
+    """Merge two memories into a new one"""
     # TODO: pick location based on address?
     address = mem1.address
     mem3 = Image(name, address)
@@ -248,15 +246,15 @@ class ObjectFile:
         return self.entry_symbol_id is not None
 
     def has_symbol(self, name):
-        """ Check if this object file has a symbol with name 'name' """
+        """Check if this object file has a symbol with name 'name'"""
         return name in self.symbol_map
 
     def get_symbol(self, name):
-        """ Get a symbol """
+        """Get a symbol"""
         return self.symbol_map[name]
 
     def add_symbol(self, id, name, binding, value, section, typ, size):
-        """ Define a new symbol """
+        """Define a new symbol"""
         # assert self.has_section(section)
         symbol = Symbol(id, name, binding, value, section, typ, size)
         self.symbols.append(symbol)
@@ -276,7 +274,7 @@ class ObjectFile:
         return self.get_symbol_id_value(symbol.id)
 
     def get_symbol_id_value(self, symbol_id):
-        """ Lookup a symbol and determine its value """
+        """Lookup a symbol and determine its value"""
         symbol = self.symbols_by_id[symbol_id]
         if symbol.undefined:
             raise ValueError("Undefined reference {}".format(symbol.name))
@@ -288,26 +286,24 @@ class ObjectFile:
             return symbol.value + section.address
 
     def del_symbol(self, name):
-        """ Remove a symbol with a given name """
+        """Remove a symbol with a given name"""
         sym = self.symbol_map.pop(name)
         self.symbols.remove(sym)
 
     def get_undefined_symbols(self):
-        """ Get a list of undefined symbols. """
+        """Get a list of undefined symbols."""
         undefined_symbols = [
             s.name for s in self.symbols if (s.undefined and s.is_global)
         ]
         return undefined_symbols
 
     def get_defined_symbols(self):
-        """ Get a list of defined symbols. """
-        defined_symbols = [
-            s.name for s in self.symbols if (s.defined and s.is_global)
-        ]
+        """Get a list of defined symbols."""
+        defined_symbols = [s.name for s in self.symbols if (s.defined and s.is_global)]
         return defined_symbols
 
     def add_relocation(self, reloc):
-        """ Add a relocation entry """
+        """Add a relocation entry"""
         assert isinstance(reloc, RelocationEntry)
         assert isinstance(reloc.symbol_id, int)
         assert self.has_section(reloc.section)
@@ -319,22 +315,22 @@ class ObjectFile:
         self.add_relocation(reloc)
 
     def has_section(self, name):
-        """ Check if the object file has a section with the given name """
+        """Check if the object file has a section with the given name"""
         return name in self.section_map
 
     def add_section(self, section):
-        """ Add a section """
+        """Add a section"""
         self.sections.append(section)
         self.section_map[section.name] = section
 
     def get_section(self, name, create=False):
-        """ Get or create a section with the given name """
+        """Get or create a section with the given name"""
         if (not self.has_section(name)) and create:
             self.add_section(Section(name))
         return self.section_map[name]
 
     def create_section(self, name):
-        """ Create and add a section with the given name. """
+        """Create and add a section with the given name."""
         if name in self.section_map:
             raise ValueError("section {} already exists!".format(name))
         section = Section(name)
@@ -342,17 +338,17 @@ class ObjectFile:
         return section
 
     def get_image(self, name):
-        """ Get a memory image """
+        """Get a memory image"""
         return self.image_map[name]
 
     def add_image(self, image):
-        """ Add an image """
+        """Add an image"""
         self.images.append(image)
         self.image_map[image.name] = image
 
     @property
     def byte_size(self):
-        """ Get the size in bytes of this object file """
+        """Get the size in bytes of this object file"""
         return sum(section.size for section in self.sections)
 
     def __eq__(self, other):
@@ -368,18 +364,18 @@ class ObjectFile:
         return serialize(self)
 
     def save(self, output_file):
-        """ Save object file to a file like object """
+        """Save object file to a file like object"""
         json.dump(self.serialize(), output_file, indent=2, sort_keys=True)
         print(file=output_file)
 
     @staticmethod
     def load(input_file):
-        """ Load object file from file """
+        """Load object file from file"""
         return deserialize(json.load(input_file))
 
 
 def print_object(obj):
-    """ Display an object in a user friendly manner """
+    """Display an object in a user friendly manner"""
     print(obj)
     for section in obj.sections:
         print(section)
@@ -392,7 +388,7 @@ def print_object(obj):
 
 
 def serialize(x):
-    """ Serialize an object so it can be json-ified, or serialized """
+    """Serialize an object so it can be json-ified, or serialized"""
     res = {}
     if isinstance(x, ObjectFile):
         res["sections"] = []
@@ -450,7 +446,7 @@ def serialize(x):
 
 
 def deserialize(data):
-    """ Create an object file from dict-like data """
+    """Create an object file from dict-like data"""
     from ..api import get_arch
 
     arch = get_arch(data["arch"])

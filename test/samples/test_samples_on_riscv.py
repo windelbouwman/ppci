@@ -1,12 +1,12 @@
 import io
 import unittest
 
-from sample_helpers import add_samples, build
+from .sample_helpers import add_samples, build
 
-from helper_util import has_iverilog, run_picorv32
-from helper_util import do_long_tests, do_iverilog, make_filename
+from ..helper_util import has_iverilog, run_picorv32
+from ..helper_util import do_long_tests, do_iverilog, make_filename
 from ppci.binutils.objectfile import merge_memories
-from helper_util import has_qemu, qemu
+from ..helper_util import has_qemu, qemu
 
 
 @unittest.skipUnless(do_long_tests("riscv"), "skipping slow tests")
@@ -16,8 +16,8 @@ class TestSamplesOnRiscv(unittest.TestCase):
     maxDiff = None
     march = "riscv"
     startercode = """
-    global main_main 
-    global bsp_exit 
+    global main_main
+    global bsp_exit
     LUI sp, 0x1F        ; setup stack pointer
     JAL ra, main_main    ; Branch to sample start LR
     JAL ra, bsp_exit     ; do exit stuff LR
@@ -107,10 +107,10 @@ class TestSamplesOnRiscvSiFiveU(unittest.TestCase):
     march = "riscv"
     opt_level = 0
     startercode = """
-    global main_main 
-    global bsp_exit 
+    global main_main
+    global bsp_exit
     global _start
-    
+
     section reset
     _start:
       ; Ensure only cpu 0 runs:

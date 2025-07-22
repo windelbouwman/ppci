@@ -1,8 +1,8 @@
 import unittest
 import io
 
-from sample_helpers import add_samples, partial_build
-from helper_util import do_long_tests, make_filename
+from .sample_helpers import add_samples, partial_build
+from ..helper_util import do_long_tests, make_filename
 
 from ppci.api import get_current_arch
 from ppci.utils.codepage import load_obj

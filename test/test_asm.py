@@ -9,7 +9,7 @@ from ppci.binutils.outstream import BinaryOutputStream
 from ppci.arch.generic_instructions import Label
 from ppci.api import link, get_arch
 from ppci.binutils.layout import Layout
-from helper_util import gnu_assemble
+from .helper_util import gnu_assemble
 
 
 class AssemblerLexingCase(unittest.TestCase):

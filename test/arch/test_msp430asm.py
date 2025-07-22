@@ -3,7 +3,7 @@
 import unittest
 import io
 from ppci.binutils.layout import Layout
-from test_asm import AsmTestCaseBase
+from ..test_asm import AsmTestCaseBase
 from ppci.arch.msp430 import instructions, registers
 
 

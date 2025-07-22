@@ -1,4 +1,4 @@
-from test_asm import AsmTestCaseBase
+from ..test_asm import AsmTestCaseBase
 import unittest
 
 

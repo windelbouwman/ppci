@@ -1,10 +1,10 @@
 import io
 import unittest
 
-from sample_helpers import add_samples, build
-from helper_util import relpath
-from helper_util import has_iverilog, run_msp430
-from helper_util import do_long_tests, do_iverilog, make_filename
+from .sample_helpers import add_samples, build
+from ..helper_util import relpath
+from ..helper_util import has_iverilog, run_msp430
+from ..helper_util import do_long_tests, do_iverilog, make_filename
 from ppci.binutils.objectfile import merge_memories
 
 

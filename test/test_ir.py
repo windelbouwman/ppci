@@ -4,7 +4,7 @@ from ppci import ir
 from ppci import irutils
 from ppci.opt import ConstantFolder
 from ppci.binutils.debuginfo import DebugDb
-from helper_util import relpath
+from .helper_util import relpath
 
 
 class IrCodeTestCase(unittest.TestCase):

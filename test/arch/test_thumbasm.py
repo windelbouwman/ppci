@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import unittest
-from test_asm import AsmTestCaseBase
+from ..test_asm import AsmTestCaseBase
 
 
 class ThumbAssemblerTestCase(AsmTestCaseBase):
