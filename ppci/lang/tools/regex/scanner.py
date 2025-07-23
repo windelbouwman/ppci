@@ -1,4 +1,3 @@
-import functools
 import bisect
 from .regex import ExpressionVector
 from .compiler import compile
@@ -76,7 +75,6 @@ class Scanner:
         self._prog = prog
 
     def scan(self, txt):
-
         # Initialize some variables:
         (
             self._state_transitions,

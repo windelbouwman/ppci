@@ -1,4 +1,4 @@
-""" Classes to represent a WASM program.
+"""Classes to represent a WASM program.
 
 * Module: the toplevel unit of deployment, loading, and compilation.
 * Definition: child field of a module, there are several subclasses.
@@ -207,7 +207,7 @@ class Ref:
 
     @property
     def is_zero(self):
-        """ Check if we refer to element 0 """
+        """Check if we refer to element 0"""
         if self.name:
             return self.name == "$0"
         else:
@@ -266,7 +266,7 @@ class Module(WASMComponent):
         hexdump(self.to_bytes())
 
     def to_file(self, f):
-        """ Write this wasm module to file """
+        """Write this wasm module to file"""
         from .binary.writer import write_module
 
         write_module(self, f)
@@ -340,7 +340,7 @@ class Module(WASMComponent):
 
 
 class Instruction(WASMComponent):
-    """ Class ro represent an instruction (an opcode plus arguments). """
+    """Class ro represent an instruction (an opcode plus arguments)."""
 
     __slots__ = ("opcode", "args")
 
@@ -697,7 +697,7 @@ class Func(Definition):
         return "<WASM-Func %s>" % (self.id)
 
     def to_string(self):
-        """ Render function def as text """
+        """Render function def as text"""
         from .text.writer import TextWriter
 
         writer = TextWriter()
@@ -821,5 +821,15 @@ __all__ = [
     "BlockInstruction",
     "Module",
     "Definition",
+    "Type",
+    "Import",
+    "Table",
+    "Memory",
+    "Global",
+    "Export",
+    "Start",
+    "Func",
+    "Elem",
+    "Data",
+    "Custom",
 ]
-__all__ += [cls.__name__ for cls in DEFINITION_CLASSES.values()]

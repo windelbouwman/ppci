@@ -1,4 +1,4 @@
-""" Regular expression routines.
+"""Regular expression routines.
 
 Implement regular expressions using derivatives.
 
@@ -25,5 +25,9 @@ __all__ = (
     "Symbol",
     "SymbolSet",
     "Kleene",
+    "EPSILON",
+    "NULL",
+    "make_scanner",
+    "scan",
     "generate_code",
 )

@@ -1,14 +1,14 @@
-""" Encode line number programs """
+"""Encode line number programs"""
+
 import abc
 import operator
 import functools
 
 from ...utils import leb128
-from .. import header
 
 
 class LineNumberProgram:
-    """ Line number program.
+    """Line number program.
 
     A line number program contains a series of operations which when
     executed create a table.
@@ -18,19 +18,19 @@ class LineNumberProgram:
         self.instructions = list(instructions)
 
     def show(self):
-        """ Display line number program """
+        """Display line number program"""
         for instruction in self.instructions:
             print(instruction)
 
     def run(self):
-        """ Run the program, resulting in a line number table """
+        """Run the program, resulting in a line number table"""
         context = ExecutionContext(False)
         for instruction in self.instructions:
             instruction.execute(context)
         context.print_table()
 
     def encode(self):
-        """ Encode the program into bytes """
+        """Encode the program into bytes"""
         return functools.reduce(
             operator.add, (i.encode() for i in self.instructions)
         )
@@ -41,13 +41,13 @@ class LineNumberProgram:
 
 
 def table_to_program(table):
-    """ Create a line number program from the given line number table """
+    """Create a line number program from the given line number table"""
     instructions = []
     return LineNumberProgram(instructions)
 
 
 class ExecutionContext:
-    """ The line number fsm. """
+    """The line number fsm."""
 
     def __init__(self, default_is_stmt):
         # Registers:
@@ -76,7 +76,7 @@ class ExecutionContext:
 
 # Opcodes for line number programs:
 class Opcode(metaclass=abc.ABCMeta):
-    """ A single line number program instruction """
+    """A single line number program instruction"""
 
     fields = ()
 
@@ -86,7 +86,7 @@ class Opcode(metaclass=abc.ABCMeta):
 
     # @abc.abstractmethod
     def encode(self):
-        """ Encode this instruction into bytes """
+        """Encode this instruction into bytes"""
         data = [bytes([self.opcode])]
         for field_name, field_type in self.fields:
             value = getattr(self, field_name)
@@ -99,7 +99,7 @@ class Opcode(metaclass=abc.ABCMeta):
 
 
 class Copy(Opcode):
-    """ Enter current state machine state as row into matrix """
+    """Enter current state machine state as row into matrix"""
 
     opcode = 0x01
 
@@ -111,7 +111,7 @@ class Copy(Opcode):
 
 
 class AdvancePc(Opcode):
-    """ Modify address """
+    """Modify address"""
 
     opcode = 0x02
     fields = (("amount", False),)
@@ -141,7 +141,7 @@ class AdvanceLine(Opcode):
 
 
 class SetFile(Opcode):
-    """ DW_LNS_set_file """
+    """DW_LNS_set_file"""
 
     opcode = 0x04
     fields = (("file", False),)
@@ -157,7 +157,7 @@ class SetFile(Opcode):
 
 
 class SetColumn(Opcode):
-    """ Set column """
+    """Set column"""
 
     opcode = 0x05
     fields = (("column", False),)
@@ -173,7 +173,7 @@ class SetColumn(Opcode):
 
 
 class NegateStmt(Opcode):
-    """ Negate is_stmt field """
+    """Negate is_stmt field"""
 
     opcode = 0x06
 
@@ -185,7 +185,7 @@ class NegateStmt(Opcode):
 
 
 class SetBasicBlock(Opcode):
-    """ Sets `basic_block` to `true` """
+    """Sets `basic_block` to `true`"""
 
     opcode = 0x07
 
@@ -204,7 +204,7 @@ class SetPrologueEnd:
 
 
 class SetEpilogueBegin:
-    """ Set `epilogue_begin` to true """
+    """Set `epilogue_begin` to true"""
 
     opcode = 0x0B
 

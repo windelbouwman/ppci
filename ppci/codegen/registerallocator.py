@@ -120,7 +120,7 @@ from .interferencegraph import InterferenceGraph
 from ..arch.arch import Architecture, Frame
 from ..arch.registers import Register
 from ..utils.tree import Tree
-from ..utils.collections import OrderedSet, OrderedDict
+from ..utils.collections import OrderedSet
 from .instructionselector import ContextInterface
 
 
@@ -131,7 +131,7 @@ class MiniCtx(ContextInterface):
         self.instructions = []
 
     def move(self, dst, src):
-        """ Generate move """
+        """Generate move"""
         self.emit(self._arch.move(dst, src))
 
     def emit(self, instruction):
@@ -142,14 +142,14 @@ class MiniCtx(ContextInterface):
 
 
 class MiniGen:
-    """ Spill code generator """
+    """Spill code generator"""
 
     def __init__(self, arch, selector):
         self.arch = arch
         self.selector = selector
 
     def gen_load(self, frame, vreg, slot):
-        """ Generate instructions to load vreg from a stack slot """
+        """Generate instructions to load vreg from a stack slot"""
         at = self.make_at(slot)
         fmt = self.make_fmt(vreg)
 
@@ -161,7 +161,7 @@ class MiniGen:
         return self.gen(frame, t)
 
     def gen_store(self, frame, vreg, slot):
-        """ Generate instructions to store vreg at a stack slot """
+        """Generate instructions to store vreg at a stack slot"""
         at = self.make_at(slot)
         fmt = self.make_fmt(vreg)
         t = Tree(
@@ -172,7 +172,7 @@ class MiniGen:
         return self.gen(frame, t)
 
     def gen(self, frame, tree):
-        """ Generate code for a given tree """
+        """Generate code for a given tree"""
         ctx = MiniCtx(frame, self.arch)
         self.selector.gen_tree(ctx, tree)
         return ctx.instructions
@@ -285,7 +285,7 @@ class GraphColoringRegisterAllocator:
         self.apply_colors()
 
     def link_move(self, move):
-        """ Associate move with its source and destination """
+        """Associate move with its source and destination"""
         src = self.node(move.used_registers[0])
         dst = self.node(move.defined_registers[0])
         src.moves.add(move)
@@ -300,7 +300,7 @@ class GraphColoringRegisterAllocator:
             dst.moves.remove(move)
 
     def init_data(self, frame: Frame):
-        """ Initialize data structures """
+        """Initialize data structures"""
         self.frame = frame
 
         cfg = FlowGraph(self.frame.instructions)
@@ -365,7 +365,7 @@ class GraphColoringRegisterAllocator:
         return self.frame.ig.get_node(vreg)
 
     def has_edge(self, t, r):
-        """ Helper function to check for an interfering edge """
+        """Helper function to check for an interfering edge"""
         if self.frame.ig.has_edge(t, r):
             return True
 
@@ -389,7 +389,7 @@ class GraphColoringRegisterAllocator:
 
     @lru_cache(maxsize=None)
     def q(self, B, C) -> int:
-        """ The number of class B registers that can be blocked by class C. """
+        """The number of class B registers that can be blocked by class C."""
         assert issubclass(B, Register)
         assert issubclass(C, Register)
         B_regs = self.cls_regs[B]
@@ -446,11 +446,11 @@ class GraphColoringRegisterAllocator:
         return n.moves
 
     def is_move_related(self, n):
-        """ Check if a node is used by move instructions """
+        """Check if a node is used by move instructions"""
         return bool(self.NodeMoves(n))
 
     def simplify(self):
-        """ Remove nodes from the graph """
+        """Remove nodes from the graph"""
         n = self.simplify_worklist.pop()
         self.select_stack.append(n)
 
@@ -541,7 +541,7 @@ class GraphColoringRegisterAllocator:
             self.simplify_worklist.add(u)
 
     def ok(self, t, r):
-        """ Implement coalescing testing with pre-colored register """
+        """Implement coalescing testing with pre-colored register"""
         return t.is_colored or self.is_colorable(t) or self.has_edge(t, r)
 
     def conservative(self, u, v):
@@ -566,7 +566,7 @@ class GraphColoringRegisterAllocator:
         return num_blocked < self.K[B]
 
     def combine(self, u, v):
-        """ Combine u and v into one node, updating work lists """
+        """Combine u and v into one node, updating work lists"""
         if self.verbose:
             self.logger.debug("Combining %s and %s", u, v)
 
@@ -616,7 +616,7 @@ class GraphColoringRegisterAllocator:
 
     @lru_cache(maxsize=None)
     def common_reg_class(self, u, v):
-        """ Determine the smallest common register class of two nodes """
+        """Determine the smallest common register class of two nodes"""
         if issubclass(u, v):
             cc = u
         elif issubclass(v, u):
@@ -645,7 +645,7 @@ class GraphColoringRegisterAllocator:
         self.freeze_moves(u)
 
     def freeze_moves(self, u):
-        """ Freeze moves for node u """
+        """Freeze moves for node u"""
         for m in list(self.NodeMoves(u)):
             if m in self.activeMoves:
                 self.activeMoves.remove(m)
@@ -696,7 +696,7 @@ class GraphColoringRegisterAllocator:
         self.freeze_moves(node)
 
     def rewrite_program(self, node):
-        """ Rewrite program by creating a load and a store for each use """
+        """Rewrite program by creating a load and a store for each use"""
         # Generate spill code:
         self.logger.debug("Placing {} on stack".format(node))
         if self.verbose:
@@ -786,12 +786,12 @@ class GraphColoringRegisterAllocator:
         return spilled_nodes
 
     def remove_redundant_moves(self):
-        """ Remove coalesced moves """
+        """Remove coalesced moves"""
         for move in self.coalescedMoves:
             self.frame.instructions.remove(move)
 
     def apply_colors(self):
-        """ Assign colors to registers """
+        """Assign colors to registers"""
         # Apply all colors:
         for node in self.frame.ig:
             assert node.reg is not None
@@ -809,7 +809,7 @@ class GraphColoringRegisterAllocator:
                 #        reg, self.arch.get_register(node.reg))
 
     def check_invariants(self):  # pragma: no cover
-        """ Test invariants """
+        """Test invariants"""
         # When changing the code, these asserts validate the worklists.
         assert all(self.is_colorable(u) for u in self.simplify_worklist)
         assert all(not self.is_move_related(u) for u in self.simplify_worklist)

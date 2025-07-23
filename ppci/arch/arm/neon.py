@@ -1,5 +1,3 @@
-""" Neon instructions """
-
-from .isa import neon_isa
+"""Neon instructions"""
 
 # TODO!

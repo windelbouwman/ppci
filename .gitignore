@@ -3,6 +3,7 @@ junit.xml
 vppci.py
 __pycache__/
 *.profile
+.cache
 
 *.bin
 *.elf

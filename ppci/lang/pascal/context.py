@@ -1,6 +1,5 @@
 import logging
 import struct
-from ...common import CompilerError
 from .symbol_table import Scope
 from .nodes import symbols, types, expressions
 
@@ -35,7 +34,7 @@ class Context:
         return typ
 
     def equal_types(self, a, b, byname=False):
-        """ Check if two types are equal """
+        """Check if two types are equal"""
         a = self.get_type(a)
         b = self.get_type(b)
         if type(a) is type(b):
@@ -83,7 +82,7 @@ class Context:
         return False
 
     def eval_const_expr(self, expr):
-        """ Evaluate constant expression. """
+        """Evaluate constant expression."""
         if isinstance(expr, expressions.Literal):
             if expr.typ.is_integer:
                 value = int(expr.val)
@@ -129,7 +128,7 @@ class Context:
         return 8
 
     def pack_string(self, txt):
-        """ Pack a string an int as length followed by text data """
+        """Pack a string an int as length followed by text data"""
         length = self.pack_int(len(txt))
         data = txt.encode("ascii")
         return length + data
@@ -189,7 +188,7 @@ def create_top_scope(arch_info):
         constant = symbols.Constant(name, typ, value, None)
         scope.add_symbol(constant)
 
-    max_int_value = 2 ** 31
+    max_int_value = 2**31
     add_constant("maxint", int_type, max_int_value)
 
     # built-in functionsL

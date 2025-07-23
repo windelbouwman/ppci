@@ -1,4 +1,4 @@
-""" MSP430 architecture description.
+"""MSP430 architecture description.
 
 There is no frame pointer concept in msp430.
 
@@ -36,7 +36,7 @@ from .instructions import push, Addw, Subw, ConstSrc, RegDst
 
 
 class Msp430Arch(Architecture):
-    """ Texas Instruments msp430 target architecture """
+    """Texas Instruments msp430 target architecture"""
 
     name = "msp430"
 
@@ -74,16 +74,16 @@ class Msp430Arch(Architecture):
         self.fp_location = FramePointerLocation.BOTTOM
 
     def move(self, dst, src):
-        """ Generate a move from src to dst """
+        """Generate a move from src to dst"""
         return mov(src, dst)
 
     @staticmethod
     def round_upwards(value):
-        """ Round value upwards to multiple of 2 """
+        """Round value upwards to multiple of 2"""
         return value + (value % 2)
 
     def gen_prologue(self, frame):
-        """ Returns prologue instruction sequence """
+        """Returns prologue instruction sequence"""
         # Label indication function:
         yield Label(frame.name)
 
@@ -159,7 +159,9 @@ class Msp430Arch(Architecture):
         arg_types = [a[0] for a in args]
         arg_locs = self.determine_arg_locations(arg_types)
 
-        arg_regs = set(l for l in arg_locs if isinstance(l, Msp430Register))
+        arg_regs = set(
+            loc for loc in arg_locs if isinstance(loc, Msp430Register)
+        )
         yield RegisterUseDef(defs=arg_regs)
 
         ofs = 0
@@ -182,7 +184,7 @@ class Msp430Arch(Architecture):
         yield RegisterUseDef(uses=live_out)
 
     def litpool(self, frame):
-        """ Generate instruction for the current literals """
+        """Generate instruction for the current literals"""
         # Align at 2 bytes
         if frame.constants:
             yield Alignment(2)

@@ -30,4 +30,4 @@ class Orbis32StoreToken(Orbis32BaseToken):
 
 class Orbis32ShiftImmediateToken(Orbis32BaseToken):
     opcode2 = bit_range(6, 8)
-    l = bit_range(0, 6)
+    l = bit_range(0, 6)  # noqa

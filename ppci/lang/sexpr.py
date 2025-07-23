@@ -1,8 +1,6 @@
-""" Functionality to tokenize and parse S-expressions.
-"""
+"""Functionality to tokenize and parse S-expressions."""
 
 import io
-from .common import SourceLocation
 from .tools.handlexer import HandLexerBase
 from .tools.recursivedescent import RecursiveDescentParser
 
@@ -23,13 +21,13 @@ def tokenize_sexpr(text):
 
 
 def create_chunks(f):
-    """ Create a sequence of chunks """
+    """Create a sequence of chunks"""
     for row, line in enumerate(f, 1):
         yield (row, 1, line)
 
 
 class SExpressionLexer(HandLexerBase):
-    """ Lexical scanner for s expressions """
+    """Lexical scanner for s expressions"""
 
     def tokenize(self, f, filename):
         chunks = create_chunks(f)
@@ -88,7 +86,7 @@ class SExpressionLexer(HandLexerBase):
         self.emit("word")
 
     def lex_line_comment(self):
-        """ Eat all characters until end of line """
+        """Eat all characters until end of line"""
         while True:
             c = self.next_char()
             if c is None or c in "\n\r":
@@ -129,7 +127,7 @@ def filtered(tokens):
 
 
 class SExpressionParser(RecursiveDescentParser):
-    """ This class can be used to parse S-expressions. """
+    """This class can be used to parse S-expressions."""
 
     def parse(self, tokens):
         self.init_lexer(tokens)

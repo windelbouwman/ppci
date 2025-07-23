@@ -46,7 +46,7 @@ from .build.recipe import RecipeLoader
 from .common import CompilerError, DiagnosticsManager, get_file
 from .arch import get_arch, get_current_arch
 
-# When using 'from ppci.api import *' include the following:
+
 __all__ = [
     "asm",
     "archive",

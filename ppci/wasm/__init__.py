@@ -4,8 +4,10 @@ and for converting between PPCI-IR and WASM.
 """
 
 from .opcodes import I
-from .components import *
-from .components import Ref, Module
+from .components import Ref, Module, Instruction, BlockInstruction
+from .components import Type, Import, Table, Memory, Global, Export
+from .components import Start, Func, Elem
+from .components import Data, Custom
 from .wasm2ppci import wasm_to_ir
 from .ppci2wasm import ir_to_wasm
 from .arch import WasmArchitecture
@@ -45,4 +47,34 @@ def wasmify(func, target="native"):
     return wasmfunc
 
 
-__all__ = list(globals())
+__all__ = [
+    "ir_to_wasm",
+    "wasm_to_ir",
+    "instantiate",
+    "execute_wasm",
+    "read_wasm",
+    "read_wat",
+    "run_wasm_in_node",
+    "export_wasm_example",
+    "run_wasm_in_notebook",
+    "has_node",
+    "WasmArchitecture",
+    "WASMComponent",
+    "Instruction",
+    "BlockInstruction",
+    "Definition",
+    "Module",
+    "Ref",
+    "Type",
+    "Import",
+    "Table",
+    "Memory",
+    "Global",
+    "Export",
+    "Start",
+    "Func",
+    "Elem",
+    "Data",
+    "Custom",
+    "I",
+]

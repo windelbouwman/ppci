@@ -1,4 +1,4 @@
-""" Definitions of Riscv instructions. """
+"""Definitions of Riscv instructions."""
 
 # pylint: disable=no-member,invalid-name
 from ..isa import Isa
@@ -10,7 +10,6 @@ from ..generic_instructions import SectionInstruction
 from ..generic_instructions import RegisterUseDef, Global
 from .registers import (
     RiscvRegister,
-    RiscvFRegister,
     RiscvCsrRegister,
     FP,
     LR,
@@ -237,7 +236,7 @@ class IBase(RiscvInstruction):
 
 
 def make_i(mnemonic, func):
-    """ Factory function for immediate value instructions """
+    """Factory function for immediate value instructions"""
     rd = Operand("rd", RiscvRegister, write=True)
     rs1 = Operand("rs1", RiscvRegister, read=True)
     offset = Operand("offset", int)
@@ -998,7 +997,7 @@ def pattern_sw32(context, tree, c0, c1):
 @isa.pattern("stm", "STRI32(reg, reg)", size=2)
 @isa.pattern("stm", "STRF32(reg, reg)", size=10)
 @isa.pattern("stm", "STRF64(reg, reg)", size=10)
-def pattern_sw32(context, tree, c0, c1):
+def pattern_sw32_reg(context, tree, c0, c1):
     base_reg = c0
     Code = Sw(c1, 0, base_reg)
     context.emit(Code)
@@ -1006,7 +1005,7 @@ def pattern_sw32(context, tree, c0, c1):
 
 @isa.pattern("stm", "STRI16(mem, reg)", size=2)
 @isa.pattern("stm", "STRU16(mem, reg)", size=2)
-def pattern_str16(context, tree, c0, c1):
+def pattern_str16_mem(context, tree, c0, c1):
     base_reg, offset = c0
     Code = Sh(c1, offset, base_reg)
     Code.fprel = True
@@ -1015,7 +1014,7 @@ def pattern_str16(context, tree, c0, c1):
 
 @isa.pattern("stm", "STRI16(reg, reg)", size=2)
 @isa.pattern("stm", "STRU16(reg, reg)", size=2)
-def pattern_str16(context, tree, c0, c1):
+def pattern_str16_reg(context, tree, c0, c1):
     base_reg = c0
     Code = Sh(c1, 0, base_reg)
     context.emit(Code)
@@ -1023,7 +1022,7 @@ def pattern_str16(context, tree, c0, c1):
 
 @isa.pattern("stm", "STRU8(mem, reg)", size=2)
 @isa.pattern("stm", "STRI8(mem, reg)", size=2)
-def pattern_sbi8(context, tree, c0, c1):
+def pattern_sbi8_mem(context, tree, c0, c1):
     base_reg, offset = c0
     Code = Sb(c1, offset, base_reg)
     Code.fprel = True
@@ -1032,7 +1031,7 @@ def pattern_sbi8(context, tree, c0, c1):
 
 @isa.pattern("stm", "STRU8(reg, reg)", size=2)
 @isa.pattern("stm", "STRI8(reg, reg)", size=2)
-def pattern_sbi8(context, tree, c0, c1):
+def pattern_sbi8_reg(context, tree, c0, c1):
     base_reg = c0
     Code = Sb(c1, 0, base_reg)
     context.emit(Code)
@@ -1049,7 +1048,7 @@ def pattern_ldri8(context, tree, c0):
 
 
 @isa.pattern("reg", "LDRI8(reg)", size=2)
-def pattern_ldri8(context, tree, c0):
+def pattern_ldri8_reg(context, tree, c0):
     d = context.new_reg(RiscvRegister)
     base_reg = c0
     Code = Lb(d, 0, base_reg)
@@ -1068,7 +1067,7 @@ def pattern_ldru8_fprel(context, tree, c0):
 
 
 @isa.pattern("reg", "LDRU8(reg)", size=2)
-def pattern_ldru8_fprel(context, tree, c0):
+def pattern_ldru8_reg(context, tree, c0):
     d = context.new_reg(RiscvRegister)
     base_reg = c0
     Code = Lbu(d, 0, base_reg)
@@ -1093,7 +1092,7 @@ def pattern_ldr32_fprel(context, tree, c0):
 @isa.pattern("reg", "LDRI32(reg)", size=2)
 @isa.pattern("reg", "LDRF32(reg)", size=10)
 @isa.pattern("reg", "LDRF64(reg)", size=10)
-def pattern_ldr32_fprel(context, tree, c0):
+def pattern_ldr32_reg(context, tree, c0):
     d = context.new_reg(RiscvRegister)
     base_reg = c0
     Code = Lw(d, 0, base_reg)
@@ -1233,7 +1232,7 @@ def pattern_shr_u32(context, tree, c0, c1):
 
 
 @isa.pattern("reg", "SHRI8(reg, reg)", size=2)
-def pattern_shr_i32(context, tree, c0, c1):
+def pattern_shr_i8(context, tree, c0, c1):
     d = context.new_reg(RiscvRegister)
     context.emit(Slli(c0, c0, 24))
     context.emit(Srai(c0, c0, 24))
@@ -1242,7 +1241,7 @@ def pattern_shr_i32(context, tree, c0, c1):
 
 
 @isa.pattern("reg", "SHRI16(reg, reg)", size=2)
-def pattern_shr_i32(context, tree, c0, c1):
+def pattern_shr_i16(context, tree, c0, c1):
     d = context.new_reg(RiscvRegister)
     context.emit(Slli(c0, c0, 16))
     context.emit(Srai(c0, c0, 16))

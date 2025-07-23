@@ -1,10 +1,8 @@
-from .headers import DosHeader, CoffHeader, PeOptionalHeader64
-from .headers import ImageSectionHeader, PeHeader, DataDirectoryHeader
-from .headers import ImportDirectoryTable
+from .headers import PeHeader
 
 
 class PeFile:
-    """ Pe (exe) file """
+    """Pe (exe) file"""
 
     def __init__(self):
         self.pe_header = PeHeader()

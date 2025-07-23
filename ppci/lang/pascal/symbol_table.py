@@ -1,5 +1,5 @@
 import itertools
-from .nodes import symbols, types
+from .nodes import symbols
 
 
 class Scope:
@@ -20,35 +20,35 @@ class Scope:
 
     @property
     def syms(self):
-        """ Get all the symbols defined in this scope """
+        """Get all the symbols defined in this scope"""
         syms = self.symbols.values()
         return sorted(syms, key=lambda v: v.name)
 
     @property
     def types(self):
-        """ Returns all the types in this scope """
+        """Returns all the types in this scope"""
         return [s for s in self.syms if isinstance(s, symbols.DefinedType)]
 
     @property
     def constants(self):
-        """ All defined constants in this scope """
+        """All defined constants in this scope"""
         return [s for s in self.syms if isinstance(s, symbols.Constant)]
 
     @property
     def variables(self):
-        """ All variables defined in the current scope """
+        """All variables defined in the current scope"""
         return [s for s in self.syms if isinstance(s, symbols.Variable)]
 
     @property
     def functions(self):
-        """ Gets all the functions in the current scope """
+        """Gets all the functions in the current scope"""
         return [s for s in self.syms if isinstance(s, symbols.SubRoutine)]
 
     def __getitem__(self, key):
         return self.get_symbol(key)
 
     def get_symbol(self, name: str):
-        """ Get symbol from this or parent scope """
+        """Get symbol from this or parent scope"""
         assert isinstance(name, str)
         if name in self.symbols:
             return self.symbols[name]
@@ -58,7 +58,7 @@ class Scope:
             raise KeyError(name)
 
     def has_symbol(self, name: str, include_parent=True):
-        """ Check if name is a defined symbol in this or parent scope """
+        """Check if name is a defined symbol in this or parent scope"""
         if name in self.symbols:
             return True
         elif self.parent and include_parent:
@@ -67,7 +67,7 @@ class Scope:
             return False
 
     def add_symbol(self, sym):
-        """ Add a symbol to this scope """
+        """Add a symbol to this scope"""
         assert sym.name not in self.symbols
         assert isinstance(sym, symbols.Symbol)
         self.symbols[sym.name] = sym

@@ -1,4 +1,4 @@
-""" Peephole optimization using the pipe-filter approach.
+"""Peephole optimization using the pipe-filter approach.
 
 We face a certain stream of instructions. We take a look
 at a very specific window and check if we can apply the
@@ -43,23 +43,23 @@ class PeepHoleStream(OutputStream):
                         self._window.pop(0)
 
     def clip_window(self, size):
-        """ Flush items, until we have `size` items in scope. """
+        """Flush items, until we have `size` items in scope."""
         while len(self._window) > size:
             item = self._window.pop(0)
             self._downstream.emit(item)
 
     def flush(self):
-        """ Flush remaining items in the peephole window. """
+        """Flush remaining items in the peephole window."""
         self.clip_window(0)
 
 
 class PeepHoleOptimization:
-    """ Inherit this class to implement a peephole optimization. """
+    """Inherit this class to implement a peephole optimization."""
 
     def apply(self):
         pass
 
 
-def peephole():
-    for optimization in optimizations:
-        optimization.filter
+# def peephole():
+#     for optimization in optimizations:
+#         optimization.filter

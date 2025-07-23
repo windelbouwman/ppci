@@ -459,19 +459,14 @@ class PythonToIrCompiler:
                 value = self.gen_name(expr)
             elif isinstance(expr, ast.Call):
                 value = self.gen_call(expr)
-            elif hasattr(ast, "Constant") and isinstance(expr, ast.Constant):
-                # Exists in Python 3.6+, generated in Python 3.8+
+            elif isinstance(expr, ast.Constant):
                 value = expr.value
                 if isinstance(value, str):
                     value = self.gen_string_constant(expr, value)
                 elif isinstance(value, (int, float)):
                     value = self.gen_num(expr, value)
                 else:  # pragma: no cover
-                    self.not_impl(condition)
-            elif isinstance(expr, ast.Num):  # Python < 3.8
-                value = self.gen_num(expr, expr.n)
-            elif isinstance(expr, ast.Str):  # Python < 3.8
-                value = self.gen_string_constant(expr, expr.s)
+                    self.not_impl(expr)
             else:  # pragma: no cover
                 self.not_impl(expr)
         return value
@@ -571,7 +566,7 @@ class PythonToIrCompiler:
             (float, int) -> float
             (int, int) -> int
         """
-        type_ranks = {
+        _type_ranks = {
             float: 10,
             int: 5,
         }

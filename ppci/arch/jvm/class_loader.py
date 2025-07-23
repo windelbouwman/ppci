@@ -1,8 +1,6 @@
-""" Methods to load classes easily.
-"""
+"""Methods to load classes easily."""
 
 import os
-from .jarfile import JarFile
 
 
 class ClassLoader:
@@ -11,7 +9,7 @@ class ClassLoader:
         self.add_class_path("/usr/lib/jvm/default/jre/lib/rt.jar")
 
     def add_class_path(self, path):
-        """ Add a jar or directory to the class path. """
+        """Add a jar or directory to the class path."""
         self.class_paths.append(path)
 
     def load(self, name):

@@ -1,4 +1,4 @@
-""" Implements the exe file format used by windows.
+"""Implements the exe file format used by windows.
 
 See also:
 
@@ -17,13 +17,13 @@ from ..binutils import linker
 from ..binutils.objectfile import ObjectFile
 from .pefile.pefile import ExeFile
 from .pefile.headers import DosHeader, CoffHeader, PeOptionalHeader64
-from .pefile.headers import ImageSectionHeader, PeHeader, DataDirectoryHeader
+from .pefile.headers import ImageSectionHeader, DataDirectoryHeader
 from .pefile.headers import ImportDirectoryTable
 
 
 def write_dos_stub(f):
-    """ Write dos stub to file. This stub prints to stdout:
-        'this program cannot be run in dos mode'
+    """Write dos stub to file. This stub prints to stdout:
+    'this program cannot be run in dos mode'
     """
     code = bytearray(
         [
@@ -72,7 +72,7 @@ def roundup(value, multiple):
 
 
 def align(f, alignment, padding_value=0):
-    """ Pad with 0 bytes until certain alignment is met """
+    """Pad with 0 bytes until certain alignment is met"""
     x = f.tell() % alignment
     if x > 0:
         pad_count = alignment - x
@@ -81,7 +81,7 @@ def align(f, alignment, padding_value=0):
 
 
 def read_exe(f):
-    """ Process an exe file """
+    """Process an exe file"""
     dos_header = DosHeader.deserialize(f)
     print(dos_header)
     print("Dos header:")
@@ -156,7 +156,7 @@ def read_exe(f):
 
 class ExeWriter:
     def create_import_table(self, imports, import_rva=0x0):
-        """ Create import table from a dictionary of lists.
+        """Create import table from a dictionary of lists.
 
         An import table is:
         - a null terminated list of dll files to import
@@ -260,7 +260,7 @@ class ExeWriter:
             return data
 
     def write(self, obj, f, entry="_main"):
-        """ Write object to exe file """
+        """Write object to exe file"""
         imports = {
             "KERNEL32.dll": [
                 "ExitProcess",
@@ -276,17 +276,17 @@ class ExeWriter:
 
         # Link object at right position:
         base_address = 0x00400000
-        l = layout.Layout()
+        mem_layout = layout.Layout()
         m = layout.Memory("code")
         m.size = 0x100000
         m.location = base_address + 0x1000
-        l.add_memory(m)
+        mem_layout.add_memory(m)
         m.add_input(layout.Section("code"))
         m.add_input(layout.Align(4096))
         m.add_input(layout.Section("data"))
         m.add_input(layout.Align(4096))
         m.add_input(layout.Section("import"))
-        obj = linker.link([obj, import_obj], layout=l)
+        obj = linker.link([obj, import_obj], layout=mem_layout)
 
         dos_header = DosHeader()
         dos_header.write(f)

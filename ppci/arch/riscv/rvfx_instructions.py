@@ -1,10 +1,10 @@
-""" Definitions of Riscv instructions. """
+"""Definitions of Riscv instructions."""
 
 import struct
 from ..isa import Isa
 from ..encoding import Instruction, Syntax, Operand
 from .registers import RiscvRegister, R0
-from .tokens import RiscvToken, RiscvIToken, RiscvSToken
+from .tokens import RiscvToken
 from .instructions import Li, B, Bne, Sw, Lw
 
 
@@ -57,7 +57,7 @@ FSgnjn = make_fregfregfreg("fsgnjn", 0b001, 0b0010000)
 
 
 def negf(dst, src):
-    """ Move src into dst register """
+    """Move src into dst register"""
     return FSgnjn(dst, src, src)
 
 
@@ -118,7 +118,7 @@ class Fcvtwus(RiscvInstruction):
 
 
 def make_fcmp(mnemonic, func3, invert):
-    """ Factory function for immediate value instructions """
+    """Factory function for immediate value instructions"""
     rd = Operand("rd", RiscvRegister, write=True)
     rn = Operand("rn", RiscvRegister, read=True)
     rm = Operand("rm", RiscvRegister, read=True)
@@ -267,7 +267,7 @@ def pattern_utof_f32(context, tree, c0):
 
 @rvfxisa.pattern("reg", "LDRF32(mem)", size=2)
 @rvfxisa.pattern("reg", "LDRF64(mem)", size=2)
-def pattern_ldr32_fprel(context, tree, c0):
+def pattern_ldrf32_fprel(context, tree, c0):
     d = context.new_reg(RiscvRegister)
     base_reg, offset = c0
     Code = Lw(d, offset, base_reg)
@@ -278,7 +278,7 @@ def pattern_ldr32_fprel(context, tree, c0):
 
 @rvfxisa.pattern("reg", "LDRF32(reg)", size=2)
 @rvfxisa.pattern("reg", "LDRF64(reg)", size=2)
-def pattern_ldr32_fprel(context, tree, c0):
+def pattern_ldrf32_reg(context, tree, c0):
     d = context.new_reg(RiscvRegister)
     base_reg, offset = c0, 0
     Code = Lw(d, offset, base_reg)
@@ -288,7 +288,7 @@ def pattern_ldr32_fprel(context, tree, c0):
 
 @rvfxisa.pattern("stm", "STRF32(mem, reg)", size=2)
 @rvfxisa.pattern("stm", "STRF64(mem, reg)", size=2)
-def pattern_sw32(context, tree, c0, c1):
+def pattern_sw32_mem(context, tree, c0, c1):
     base_reg, offset = c0
     Code = Sw(c1, offset, base_reg)
     Code.fprel = True
@@ -297,7 +297,7 @@ def pattern_sw32(context, tree, c0, c1):
 
 @rvfxisa.pattern("stm", "STRF32(reg, reg)", size=2)
 @rvfxisa.pattern("stm", "STRF64(reg, reg)", size=2)
-def pattern_sw32(context, tree, c0, c1):
+def pattern_sw32_reg(context, tree, c0, c1):
     base_reg, offset = c0, 0
     Code = Sw(c1, offset, base_reg)
     context.emit(Code)

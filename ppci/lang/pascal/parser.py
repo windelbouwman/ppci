@@ -1,4 +1,4 @@
-""" A recursive descent pascal parser. """
+"""A recursive descent pascal parser."""
 
 import logging
 from ...common import CompilerError
@@ -8,7 +8,7 @@ from .symbol_table import Scope
 
 
 class Parser(RecursiveDescentParser):
-    """ Parses pascal into ast-nodes """
+    """Parses pascal into ast-nodes"""
 
     logger = logging.getLogger("pascal.parser")
 
@@ -19,7 +19,7 @@ class Parser(RecursiveDescentParser):
         self.mod = None
 
     def parse_source(self, tokens, context):
-        """ Parse a module from tokens """
+        """Parse a module from tokens"""
         self.logger.debug("Parsing source")
         self.context = context
         self.init_lexer(tokens)
@@ -41,7 +41,7 @@ class Parser(RecursiveDescentParser):
         return program
 
     def add_symbol(self, sym):
-        """ Add a symbol to the current scope """
+        """Add a symbol to the current scope"""
         if self.current_scope.has_symbol(sym.name, include_parent=False):
             self.error(
                 "Redefinition of {0}".format(sym.name), loc=sym.location
@@ -59,17 +59,17 @@ class Parser(RecursiveDescentParser):
             raise KeyError(name)
 
     def enter_scope(self):
-        """ Enter a lexical scope. """
+        """Enter a lexical scope."""
         scope = Scope(self.current_scope)
         self.current_scope = scope
         return scope
 
     def leave_scope(self):
-        """ Leave the current lexical scope. """
+        """Leave the current lexical scope."""
         self.current_scope = self.current_scope.parent
 
     def parse_program(self, context):
-        """ Parse a program """
+        """Parse a program"""
         self.consume("program")
         name = self.consume("ID")
         if self.has_consumed("("):
@@ -148,14 +148,14 @@ class Parser(RecursiveDescentParser):
     #     pass
 
     def parse_uses(self):
-        """ Parse import construct """
+        """Parse import construct"""
         self.consume("uses")
         self.consume("ID").val
         # self.mod.imports.append(name)
         self.consume(";")
 
     def parse_designator(self):
-        """ A designator designates an object with a name. """
+        """A designator designates an object with a name."""
         name = self.consume("ID")
         # Look it up!
         if self.current_scope.has_symbol(name.val):
@@ -165,7 +165,7 @@ class Parser(RecursiveDescentParser):
             self.error("Unknown identifier {}".format(name.val), name.loc)
 
     def parse_id_sequence(self):
-        """ Parse one or more identifiers seperated by ',' """
+        """Parse one or more identifiers seperated by ','"""
         ids = [self.parse_id()]
         while self.has_consumed(","):
             ids.append(self.parse_id())
@@ -238,7 +238,7 @@ class Parser(RecursiveDescentParser):
         return fields
 
     def parse_record_fixed_list(self):
-        """ Parse fixed parts of a record type definition. """
+        """Parse fixed parts of a record type definition."""
         fields = []
         # Fixed fields part:
         while self.peek == "ID":
@@ -260,7 +260,7 @@ class Parser(RecursiveDescentParser):
         return fields
 
     def parse_record_variant(self):
-        """ Parse case .. of part. """
+        """Parse case .. of part."""
         location = self.consume("case").loc
         if self.peek == "ID":
             tag_field = self.consume("ID").val
@@ -370,7 +370,7 @@ class Parser(RecursiveDescentParser):
             self.add_symbol(typedef)
 
     def parse_variable_declarations(self):
-        """ Parse variable declarations """
+        """Parse variable declarations"""
         self.consume("var")
         variables = []
         variables.extend(self.parse_single_variable_declaration())
@@ -379,7 +379,7 @@ class Parser(RecursiveDescentParser):
         return variables
 
     def parse_single_variable_declaration(self):
-        """ Parse a single variable declaration line ending in ';' """
+        """Parse a single variable declaration line ending in ';'"""
         names = self.parse_id_sequence()
         self.consume(":")
         var_type = self.parse_type_spec()
@@ -400,12 +400,12 @@ class Parser(RecursiveDescentParser):
         return variables
 
     def parse_function_declarations(self):
-        """ Parse all upcoming function / procedure definitions """
+        """Parse all upcoming function / procedure definitions"""
         while self.peek == "function" or self.peek == "procedure":
             self.parse_function_def()
 
     def parse_function_def(self):
-        """ Parse function definition """
+        """Parse function definition"""
         if self.peek == "function":
             location = self.consume("function").loc
             is_function = True
@@ -543,7 +543,7 @@ class Parser(RecursiveDescentParser):
         return parameters
 
     def parse_statement(self) -> statements.Statement:
-        """ Determine statement type based on the pending token """
+        """Determine statement type based on the pending token"""
         if self.peek == "if":
             statement = self.parse_if_statement()
         elif self.peek == "while":
@@ -610,7 +610,7 @@ class Parser(RecursiveDescentParser):
         return statement
 
     def parse_builtin_procedure_call(self, func: str, location):
-        """ Do sort of macro expansion of built-in procedure call. """
+        """Do sort of macro expansion of built-in procedure call."""
         if func in ["write", "writeln"]:
             if self.peek == "(":
                 self.consume("(")
@@ -692,7 +692,8 @@ class Parser(RecursiveDescentParser):
             # Only allowed with writeln and friends.
             field_width = self.parse_expression()
             if self.has_consumed(":"):
-                frac_digits = self.parse_expression()
+                # TODO: handle digits
+                _frac_digits = self.parse_expression()
         else:
             # Assume 10 digits field width with integer values
             # 20 with real values.
@@ -733,7 +734,7 @@ class Parser(RecursiveDescentParser):
         return statements.Assignment(lhs, rhs, location)
 
     def parse_if_statement(self):
-        """ Parse if statement """
+        """Parse if statement"""
         location = self.consume("if").loc
         condition = self.parse_condition()
         self.consume("then")
@@ -745,7 +746,7 @@ class Parser(RecursiveDescentParser):
         return statements.If(condition, true_code, false_code, location)
 
     def parse_case_of(self) -> statements.CaseOf:
-        """ Parse case-of statement """
+        """Parse case-of statement"""
         location = self.consume("case").loc
         expression = self.parse_expression()
 
@@ -783,7 +784,7 @@ class Parser(RecursiveDescentParser):
         return statements.CaseOf(expression, options, location)
 
     def parse_while(self) -> statements.While:
-        """ Parses a while statement """
+        """Parses a while statement"""
         location = self.consume("while").loc
         condition = self.parse_condition()
         self.consume("do")
@@ -791,7 +792,7 @@ class Parser(RecursiveDescentParser):
         return statements.While(condition, statement, location)
 
     def parse_repeat(self):
-        """ Parses a repeat statement """
+        """Parses a repeat statement"""
         location = self.consume("repeat").loc
         inner = []
         while self.peek != "until":
@@ -806,7 +807,7 @@ class Parser(RecursiveDescentParser):
         return statements.Repeat(code, condition, location)
 
     def parse_for(self) -> statements.For:
-        """ Parse a for statement """
+        """Parse a for statement"""
         location = self.consume("for").loc
         loop_var, _ = self.parse_designator()
         assert isinstance(loop_var, symbols.Variable)
@@ -863,7 +864,7 @@ class Parser(RecursiveDescentParser):
         return statements.Goto(label, location)
 
     def parse_actual_parameter_list(self, parameter_types):
-        """ Parse a list of parameters """
+        """Parse a list of parameters"""
         location = self.consume("(").loc
         expressions = self.parse_expression_list()
         self.consume(")")
@@ -880,7 +881,7 @@ class Parser(RecursiveDescentParser):
         return parameters
 
     def parse_return(self) -> statements.Return:
-        """ Parse a return statement """
+        """Parse a return statement"""
         loc = self.consume("return").loc
         if self.has_consumed(";"):
             expr = None
@@ -890,7 +891,7 @@ class Parser(RecursiveDescentParser):
         return statements.Return(expr, loc)
 
     def parse_compound_statement(self):
-        """ Parse a compound statement """
+        """Parse a compound statement"""
         location = self.consume("begin").loc
         statement_list = self.parse_one_or_more(self.parse_statement, ";")
         self.consume("end")
@@ -898,12 +899,12 @@ class Parser(RecursiveDescentParser):
         return statements.Compound(statement_list, location)
 
     def parse_variable(self):
-        """ Parse access to a variable with eventual accessor suffixes. """
+        """Parse access to a variable with eventual accessor suffixes."""
         symbol, location = self.parse_designator()
         return self.parse_variable_access(symbol, location)
 
     def parse_variable_access(self, symbol, location):
-        """ Process any trailing variable access. """
+        """Process any trailing variable access."""
 
         if not isinstance(
             symbol,
@@ -973,7 +974,7 @@ class Parser(RecursiveDescentParser):
         return lhs
 
     def parse_expression_list(self):
-        """ Parse one or more expressions seperated by ',' """
+        """Parse one or more expressions seperated by ','"""
         expression_list = self.parse_one_or_more(self.parse_expression, ",")
         return expression_list
 
@@ -990,7 +991,7 @@ class Parser(RecursiveDescentParser):
             self.error("Expected boolean value", loc=expr.location)
 
     def parse_expression(self) -> expressions.Expression:
-        """ Parse a an expression. """
+        """Parse a an expression."""
         return self.parse_binop_with_precedence(0)
 
     def parse_binop_with_precedence(self, priority) -> expressions.Expression:
@@ -1059,7 +1060,7 @@ class Parser(RecursiveDescentParser):
     }
 
     def parse_primary_expression(self) -> expressions.Expression:
-        """ Literal and parenthesis expression parsing """
+        """Literal and parenthesis expression parsing"""
         if self.peek == "(":
             self.consume("(")
             expr = self.parse_expression()

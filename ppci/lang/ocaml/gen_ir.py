@@ -1,4 +1,4 @@
-""" Transform ocaml bytecode into ir-code.
+"""Transform ocaml bytecode into ir-code.
 
 Following the same line as described here:
 https://www.irif.fr/~balat/publications/vouillon_balat-js_of_ocaml.pdf
@@ -14,7 +14,7 @@ logger = logging.getLogger("ocaml")
 
 
 def ocaml_to_ir(module):
-    """ Transform ocaml bytecode into ir-code. """
+    """Transform ocaml bytecode into ir-code."""
     # Detect blocks first:
     instructions = module["CODE"]
 
@@ -31,7 +31,7 @@ class Gen:
         self._blocks = {}
 
     def gen(self, instructions):
-        """ Generate code from instruction stream. """
+        """Generate code from instruction stream."""
         self.instructions = instructions
         self.indirect = {i.label: i for i in instructions}
 
@@ -59,7 +59,7 @@ class Gen:
         return block
 
     def make_blocks(self):
-        """ Determine basic blocks of instruction sequence """
+        """Determine basic blocks of instruction sequence"""
         logger.debug("Splitting bytecode into blocks")
 
         conditional_branches = [
@@ -108,7 +108,7 @@ class Gen:
         return ins
 
     def walk_program(self):
-        """ Recursively visit the whole bytecode program. """
+        """Recursively visit the whole bytecode program."""
         logger.debug("Taking a stroll through the bytecode")
         self.visited = set()
         while True:
@@ -121,10 +121,11 @@ class Gen:
 
     def visit_blocks(self):
         """Visit all instructions to determine stack size at entry."""
-        self.visited.add(i)
+        # self.visited.add(i)
+        pass
 
     def gen_ins(self, instruction):
-        """ Generate instruction code """
+        """Generate instruction code"""
         logger.debug("%s: %s", instruction.label, instruction)
         # label = instruction.label
         opcode = instruction.opcode
@@ -320,9 +321,10 @@ class Gen:
         self._accumulator = self.emit(ir.Const(value, "const", ir.i32))
 
     def do_makeblock(self, n, t):
-        """ Create a block from accumulator and stack content """
+        """Create a block from accumulator and stack content"""
+        raise NotImplementedError("do_makeblock")
         # block = ?
-        self._accumulator = block
+        # self._accumulator = block
 
     def do_getfield(self, n):
         block = self._accumulator
@@ -334,6 +336,6 @@ class Gen:
         self._accumulator = self.emit(ir.Binop(a, op, b, "binop", ir.i32))
 
     def emit(self, inst):
-        """ Emit an ir instruction """
+        """Emit an ir instruction"""
         print(inst)
         return inst

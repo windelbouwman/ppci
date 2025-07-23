@@ -1,4 +1,4 @@
-""" Instruction selector.
+"""Instruction selector.
 
 This part of the compiler takes in a DAG (directed
 acyclic graph) of instructions and selects the proper target instructions.
@@ -124,7 +124,7 @@ class ContextInterface(metaclass=abc.ABCMeta):
 
 
 class InstructionContext(ContextInterface):
-    """ Usable to patterns when emitting code """
+    """Usable to patterns when emitting code"""
 
     def __init__(self, frame, arch):
         self.frame = frame
@@ -133,19 +133,19 @@ class InstructionContext(ContextInterface):
         self.tree = None
 
     def new_reg(self, cls):
-        """ Generate a new temporary of a given class """
+        """Generate a new temporary of a given class"""
         return self.frame.new_reg(cls)
 
     def new_label(self):
-        """ Generate a new unique label """
+        """Generate a new unique label"""
         return self.frame.new_label()
 
     def move(self, dst, src):
-        """ Generate move """
+        """Generate move"""
         self.emit(self.arch.move(dst, src))
 
     def emit(self, instruction):
-        """ Abstract instruction emitter proxy """
+        """Abstract instruction emitter proxy"""
         self.frame.emit(instruction)
         if self.tree:
             self.debug_db.map(self.tree, instruction)
@@ -153,7 +153,7 @@ class InstructionContext(ContextInterface):
 
 
 class TreeSelector:
-    """ Tree matcher that can match a tree and generate instructions """
+    """Tree matcher that can match a tree and generate instructions"""
 
     def __init__(self, sys):
         self.sys = sys
@@ -169,7 +169,7 @@ class TreeSelector:
         return self.apply_rules(context, tree, "stm")
 
     def burm_label(self, tree):
-        """ Label all nodes in the tree bottom up """
+        """Label all nodes in the tree bottom up"""
         for child_tree in tree.children:
             self.burm_label(child_tree)
 
@@ -208,7 +208,7 @@ class TreeSelector:
                 self.mark_tree(tree, cr, cost, marked_rules)
 
     def apply_rules(self, context, tree, goal):
-        """ Apply all selected instructions to the tree """
+        """Apply all selected instructions to the tree"""
         rule = tree.state.get_rule(goal)
         results = [
             self.apply_rules(context, kid_tree, kid_goal)
@@ -224,12 +224,12 @@ class TreeSelector:
         return res
 
     def kids(self, tree, rule):
-        """ Determine the kid trees for a rule """
+        """Determine the kid trees for a rule"""
         template_tree = self.sys.get_rule(rule).tree
         return self.sys.get_kids(tree, template_tree)
 
     def nts(self, rule):
-        """ Get the open ends of this rules pattern """
+        """Get the open ends of this rules pattern"""
         template_tree = self.sys.get_rule(rule).tree
         return self.sys.get_nts(template_tree)
 
@@ -324,7 +324,7 @@ class InstructionSelector1:
             context.emit(instruction)
 
     def inline_asm(self, context, tree):
-        """ Run assembler on inline assembly code. """
+        """Run assembler on inline assembly code."""
         template, output_registers, input_registers, clobbers = tree.value
         context.emit(
             InlineAssembly(
@@ -332,13 +332,8 @@ class InstructionSelector1:
             )
         )
 
-    def memcp(self):
-        """ Invoke memcpy arch function """
-        for instruction in self.arch.gen_memcpy(dst, src, size):
-            context.emit(instruction)
-
     def select(self, ir_function: ir.SubRoutine, frame):
-        """ Select instructions of function into a frame """
+        """Select instructions of function into a frame"""
         assert isinstance(ir_function, ir.SubRoutine)
         self.logger.debug("Creating selection dag for %s", ir_function.name)
 
@@ -409,5 +404,5 @@ class InstructionSelector1:
                 self.gen_tree(context, tree)
 
     def gen_tree(self, context, tree):
-        """ Generate code from a tree """
+        """Generate code from a tree"""
         self.tree_selector.gen(context, tree)

@@ -1,4 +1,4 @@
-""" C parsing logic.
+"""C parsing logic.
 
 The C parsing is implemented in a recursive descent parser.
 
@@ -170,7 +170,7 @@ class CParser(RecursiveDescentParser):
         return cu
 
     def parse_translation_unit(self):
-        """ Top level start of parsing """
+        """Top level start of parsing"""
         self.semantics.begin()
         while not self.at_end:
             self.parse_declarations()
@@ -178,7 +178,7 @@ class CParser(RecursiveDescentParser):
 
     # Declarations part:
     def parse_declarations(self):
-        """ Parse normal declarations """
+        """Parse normal declarations"""
         decl_spec = self.parse_decl_specifiers()
         # TODO: perhaps not parse functions here?
         if not self.has_consumed(";"):
@@ -284,7 +284,7 @@ class CParser(RecursiveDescentParser):
         return decl_spec
 
     def parse_struct_or_union(self):
-        """ Parse a struct or union """
+        """Parse a struct or union"""
         keyword = self.consume({"struct", "union"})
 
         # We might have an optional tag:
@@ -313,7 +313,7 @@ class CParser(RecursiveDescentParser):
         )
 
     def parse_struct_fields(self):
-        """ Parse struct or union fields """
+        """Parse struct or union fields"""
         # We have a struct declarations:
         self.consume("{")
         fields = []
@@ -351,7 +351,7 @@ class CParser(RecursiveDescentParser):
         return fields
 
     def parse_enum(self):
-        """ Parse an enum definition """
+        """Parse an enum definition"""
         keyword = self.consume("enum")
 
         # We might have an optional tag:
@@ -380,7 +380,7 @@ class CParser(RecursiveDescentParser):
         return ctyp
 
     def parse_enum_fields(self, ctyp, location):
-        """ Parse enum declarations """
+        """Parse enum declarations"""
         self.consume("{")
         constants = []
         while self.peek != "}":
@@ -415,7 +415,7 @@ class CParser(RecursiveDescentParser):
         return attributes
 
     def parse_gnu_attribute(self):
-        """ Parse a gnu attribute like __attribute__((noreturn)) """
+        """Parse a gnu attribute like __attribute__((noreturn))"""
         self.consume("__attribute__")
         self.consume("(")
         self.consume("(")
@@ -461,7 +461,7 @@ class CParser(RecursiveDescentParser):
             self.consume(";")
 
     def parse_function_declaration(self, decl_spec, declarator):
-        """ Parse a function declaration with implementation """
+        """Parse a function declaration with implementation"""
         function = self.semantics.on_function_declaration(
             decl_spec.storage_class,
             decl_spec.typ,
@@ -475,7 +475,7 @@ class CParser(RecursiveDescentParser):
         self.semantics.end_function(body)
 
     def parse_variable_declaration(self, decl_spec, declarator):
-        """ Parse variable declaration optionally followed by initializer. """
+        """Parse variable declaration optionally followed by initializer."""
         # Create the variable:
         variable = self.semantics.on_variable_declaration(
             decl_spec.storage_class,
@@ -493,7 +493,7 @@ class CParser(RecursiveDescentParser):
             self.semantics.on_variable_initialization(variable, initializer)
 
     def parse_typedef(self, decl_spec, declarator):
-        """ Process typedefs """
+        """Process typedefs"""
         self.typedefs.add(declarator.name)
         self.semantics.on_typedef(
             decl_spec.typ,
@@ -641,7 +641,7 @@ class CParser(RecursiveDescentParser):
         init_cursor.next_element()
 
     def parse_array_designator(self, init_cursor):
-        """ Parse array designator like '{2, [10]=4}' """
+        """Parse array designator like '{2, [10]=4}'"""
         location = self.consume("[").loc
         index = self.parse_constant_expression()
         self.consume("]")
@@ -649,7 +649,7 @@ class CParser(RecursiveDescentParser):
         return location
 
     def parse_struct_designator(self, init_cursor):
-        """ Parse a struct designator in an initializer list. """
+        """Parse a struct designator in an initializer list."""
         location = self.consume(".").loc
         field = self.consume("ID")
         field_name = field.val
@@ -657,7 +657,7 @@ class CParser(RecursiveDescentParser):
         return location
 
     def skip_initializer_lists(self):
-        """ Skip superfluous initial values. """
+        """Skip superfluous initial values."""
         while self.peek != "}":
             self.next_token()
 
@@ -766,7 +766,7 @@ class CParser(RecursiveDescentParser):
         return type_modifiers, name
 
     def parse_typename(self):
-        """ Parse a type specifier used in sizeof(int) for example. """
+        """Parse a type specifier used in sizeof(int) for example."""
         decl_spec = self.parse_decl_specifiers(allow_storage_class=False)
         assert not decl_spec.storage_class
         type_modifiers, name = self.parse_type_modifiers(abstract=True)
@@ -788,7 +788,7 @@ class CParser(RecursiveDescentParser):
             self.semantics.add_statement(self.parse_statement())
 
     def is_declaration_statement(self):
-        """ Determine whether we are facing a declaration or not """
+        """Determine whether we are facing a declaration or not"""
         if self.peek in self.storage_classes:
             return True
         elif self.peek in self.type_qualifiers:
@@ -807,7 +807,7 @@ class CParser(RecursiveDescentParser):
             return False
 
     def parse_statement(self):
-        """ Parse a statement """
+        """Parse a statement"""
         m = {
             "for": self.parse_for_statement,
             "if": self.parse_if_statement,
@@ -836,19 +836,19 @@ class CParser(RecursiveDescentParser):
         return statement
 
     def parse_label(self):
-        """ Parse a label statement """
+        """Parse a label statement"""
         name = self.consume("ID")
         self.consume(":")
         statement = self.parse_statement()
         return self.semantics.on_label(name.val, statement, name.loc)
 
     def parse_empty_statement(self):
-        """ Parse a statement that does nothing! """
+        """Parse a statement that does nothing!"""
         location = self.consume(";").loc
         return statements.Empty(location)
 
     def parse_compound_statement(self):
-        """ Parse a series of statements surrounded by '{' and '}' """
+        """Parse a series of statements surrounded by '{' and '}'"""
         location = self.consume("{").loc
         self.semantics.enter_compound_statement(location)
         while self.peek != "}":
@@ -857,7 +857,7 @@ class CParser(RecursiveDescentParser):
         return self.semantics.on_compound_statement(location)
 
     def parse_if_statement(self):
-        """ Parse an if statement """
+        """Parse an if statement"""
         location = self.consume("if").loc
         condition = self.parse_condition()
         then_statement = self.parse_statement()
@@ -870,7 +870,7 @@ class CParser(RecursiveDescentParser):
         )
 
     def parse_switch_statement(self):
-        """ Parse an switch statement """
+        """Parse an switch statement"""
         location = self.consume("switch").loc
         self.consume("(")
         expression = self.parse_expression()
@@ -902,40 +902,40 @@ class CParser(RecursiveDescentParser):
         return self.semantics.on_case(value, statement, location)
 
     def parse_default_statement(self):
-        """ Parse the default case """
+        """Parse the default case"""
         location = self.consume("default").loc
         self.consume(":")
         statement = self.parse_statement()
         return self.semantics.on_default(statement, location)
 
     def parse_break_statement(self):
-        """ Parse a break """
+        """Parse a break"""
         location = self.consume("break").loc
         self.consume(";")
         return statements.Break(location)
 
     def parse_continue_statement(self):
-        """ Parse a continue statement """
+        """Parse a continue statement"""
         location = self.consume("continue").loc
         self.consume(";")
         return statements.Continue(location)
 
     def parse_goto_statement(self):
-        """ Parse a goto """
+        """Parse a goto"""
         location = self.consume("goto").loc
         label = self.consume("ID").val
         self.consume(";")
         return statements.Goto(label, location)
 
     def parse_while_statement(self):
-        """ Parse a while statement """
+        """Parse a while statement"""
         location = self.consume("while").loc
         condition = self.parse_condition()
         body = self.parse_statement()
         return self.semantics.on_while(condition, body, location)
 
     def parse_do_statement(self):
-        """ Parse a do-while statement """
+        """Parse a do-while statement"""
         location = self.consume("do").loc
         body = self.parse_statement()
         self.consume("while")
@@ -944,7 +944,7 @@ class CParser(RecursiveDescentParser):
         return self.semantics.on_do(body, condition, location)
 
     def parse_for_statement(self):
-        """ Parse a for statement """
+        """Parse a for statement"""
         location = self.consume("for").loc
         self.semantics.enter_scope()  # for loops have their own scope.
         self.consume("(")
@@ -980,7 +980,7 @@ class CParser(RecursiveDescentParser):
         return self.semantics.on_for(initial, condition, post, body, location)
 
     def parse_return_statement(self):
-        """ Parse a return statement """
+        """Parse a return statement"""
         location = self.consume("return").loc
         if self.peek == ";":
             value = None
@@ -996,7 +996,7 @@ class CParser(RecursiveDescentParser):
         See also: https://gcc.gnu.org/onlinedocs/gcc/Extended-Asm.html
         """
         location = self.consume("asm").loc
-        valid_qualifiers = ["volatile", "inline", "goto"]
+        _valid_qualifiers = ["volatile", "inline", "goto"]
         # while self.peek in
         # TODO qualifiers
         self.consume("(")
@@ -1012,7 +1012,7 @@ class CParser(RecursiveDescentParser):
         )
 
     def parse_asm_operands(self):
-        """ Parse a series of assembly operands. Empty list is allowed. """
+        """Parse a series of assembly operands. Empty list is allowed."""
         operands = []
         if self.has_consumed(":"):
             if self.peek not in [")", ":"]:
@@ -1024,7 +1024,7 @@ class CParser(RecursiveDescentParser):
         return operands
 
     def parse_asm_operand(self):
-        """ Parse a single asm operand. """
+        """Parse a single asm operand."""
         constraint = self.parse_string()
         self.consume("(")
         variable = self.parse_expression()
@@ -1044,14 +1044,14 @@ class CParser(RecursiveDescentParser):
 
     # Expression parts:
     def parse_condition(self):
-        """ Parse an expression between parenthesis """
+        """Parse an expression between parenthesis"""
         self.consume("(")
         condition = self.parse_expression()
         self.consume(")")
         return condition
 
     def parse_constant_expression(self):
-        """ Parse a constant expression """
+        """Parse a constant expression"""
         return self.parse_binop_with_precedence(17)
 
     def parse_assignment_expression(self):
@@ -1101,7 +1101,7 @@ class CParser(RecursiveDescentParser):
         return lhs
 
     def parse_primary_expression(self):
-        """ Parse a primary expression """
+        """Parse a primary expression"""
         if self.peek == "ID":
             identifier = self.consume("ID")
             expr = self.semantics.on_variable_access(
@@ -1219,7 +1219,7 @@ class CParser(RecursiveDescentParser):
         return expr
 
     def parse_call(self, callee):
-        """ Parse a function call """
+        """Parse a function call"""
         location = self.consume("(").loc
         args = []
         while self.peek != ")":
@@ -1232,14 +1232,14 @@ class CParser(RecursiveDescentParser):
 
     # Lexer helpers:
     def next_token(self):
-        """ Advance to the next token """
+        """Advance to the next token"""
         tok = super().next_token()
         if self.verbose:  # pragma: no cover
             self.logger.debug("Token: %s", tok)
         return tok
 
     def at_type_id(self):
-        """ Check if the upcoming token is a typedef identifier """
+        """Check if the upcoming token is a typedef identifier"""
         # Implement lexer hack here:
         if self.token:
             # Also implement lexer hack here:
@@ -1252,7 +1252,7 @@ class CParser(RecursiveDescentParser):
 
 
 class DeclSpec:
-    """ Contains a type and a set of modifiers """
+    """Contains a type and a set of modifiers"""
 
     def __init__(self, storage_class, typ):
         self.storage_class = storage_class

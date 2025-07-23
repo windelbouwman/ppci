@@ -1,10 +1,9 @@
 from .parser import parse
-from .regex import NULL
 from ....utils.integer_set import IntegerSet
 
 
 def compile(r: str):
-    """ Turn regular expression into a DFA """
+    """Turn regular expression into a DFA"""
     if isinstance(r, str):
         expr = parse(r)
     else:
@@ -20,7 +19,6 @@ def compile(r: str):
         state_number = state_numbers[state]
         # print("=> state", state_number, ":", state, type(state))
         for derivative_class in state.derivative_classes():
-
             assert isinstance(derivative_class, IntegerSet)
             # print("  -> derivative_class", derivative_class)
 

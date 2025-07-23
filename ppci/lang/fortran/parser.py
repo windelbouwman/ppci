@@ -32,7 +32,6 @@ supposed to look at its C output, not at its appalling inner workings'
 
 """
 
-
 import re
 from ...common import CompilerError
 from ..common import Token, SourceLocation
@@ -68,12 +67,12 @@ def get_fortran_parser():
 
     # Basics:
     for letter in letters:
-        g.add_production("letter", [letter], lambda l: l.val)
+        g.add_production("letter", [letter], lambda x: x.val)
     for digit in digits:
-        g.add_production("digit", [digit], lambda l: l.val)
+        g.add_production("digit", [digit], lambda x: x.val)
     for keyword in KEYWORDS:
         g.add_production(keyword.lower(), list(keyword))
-    g.add_production("name", ["letter"], lambda l: l)
+    g.add_production("name", ["letter"], lambda x: x)
 
     g.add_production("program", ["A"])
 
@@ -107,7 +106,6 @@ class FortranLexer:
     """
 
     def __init__(self):
-
         self.mode_progs = {}
 
         def mk(spec):
@@ -164,7 +162,7 @@ class FortranLexer:
     mode = property(get_mode, set_mode)
 
     def lex(self, src):
-        """ Initialize the lexer with some source code """
+        """Initialize the lexer with some source code"""
         self.filename = "a.txt"
         self.row = 0
         self.col = 0
@@ -173,7 +171,7 @@ class FortranLexer:
         self.next_token()
 
     def next_token(self):
-        """ Take the next token from the stream """
+        """Take the next token from the stream"""
         t = self.token
         self.token = self.tokens.__next__()
         # print("M", self.mode, 'CUR:', t, 'NXT:', self.token)
@@ -181,7 +179,7 @@ class FortranLexer:
 
     @property
     def peak(self):
-        """ Take a look at the next token in line """
+        """Take a look at the next token in line"""
         return self.token.typ
 
     def handle_id(self, typ, val):
@@ -201,7 +199,7 @@ class FortranLexer:
         return (typ, val, new_pos)
 
     def tokenize(self, src):
-        """ Tokenize line by line """
+        """Tokenize line by line"""
         # Fortran is case insensitive, convert all to uppercase:
         src = src.upper()
 
@@ -259,7 +257,7 @@ class FortranLexer:
             )
 
     def split_line(self, line):
-        """ Split fortran source line depending on column """
+        """Split fortran source line depending on column"""
 
         def int2(line_text):
             line_text = line_text.strip()
@@ -275,13 +273,13 @@ class FortranLexer:
 
 
 class FortranParser:
-    """ Parse some fortran language """
+    """Parse some fortran language"""
 
     def __init__(self):
         self.lexer = FortranLexer()
 
     def parse(self, src):
-        """ parse a piece of FORTRAN77 """
+        """parse a piece of FORTRAN77"""
         self.lexer.lex(src)
         program = self.parse_program()
         return program
@@ -304,7 +302,7 @@ class FortranParser:
             return False
 
     def parse_program(self):
-        """ Parse a program """
+        """Parse a program"""
         if self.peak == "PROGRAM":
             loc = self.consume("PROGRAM").loc
             name = self.consume("ID").val
@@ -330,7 +328,7 @@ class FortranParser:
         return program
 
     def parse_declaration(self):
-        """ Parse variable declarations """
+        """Parse variable declarations"""
         variables = []
         typ = self.consume()
         assert typ.typ in TYPES
@@ -374,7 +372,7 @@ class FortranParser:
             raise NotImplementedError()
 
     def parse_assignment(self):
-        """ Parse an assignment """
+        """Parse an assignment"""
         var = self.consume("ID")
         var = nodes.VarRef(var.val, var.loc)
         loc = self.consume("=").loc
@@ -382,15 +380,15 @@ class FortranParser:
         return nodes.Assignment(var, expr, loc)
 
     def parse_for(self):
-        """ Parse a for loop statement """
+        """Parse a for loop statement"""
         pass
 
     def parse_end(self):
-        """ Parse end statement """
+        """Parse end statement"""
         self.consume("END")
 
     def parse_format(self):
-        """ Parse a format statement """
+        """Parse a format statement"""
         loc = self.consume("FORMAT").loc
         self.lexer.mode = "F"
         spec_list = []
@@ -440,7 +438,7 @@ class FortranParser:
         raise NotImplementedError()
 
     def parse_go(self):
-        """ Parse go to syntax """
+        """Parse go to syntax"""
         loc = self.consume("GO").loc
         self.consume("TO")
         target = self.parse_label_ref()
@@ -505,20 +503,20 @@ class FortranParser:
         return nodes.Write(fmt, args, loc)
 
     def parse_label_ref(self):
-        """ Parse a label reference, this can be a number or.. a variable? """
+        """Parse a label reference, this can be a number or.. a variable?"""
         label = self.consume("NUMBER")
         c = nodes.Const(label.val, "INT", label.loc)
         return c
 
     def parse_fmt_spec(self):
-        """ Parse a format specifier """
+        """Parse a format specifier"""
         if self.peak == "*":
             return self.consume("*").val
         else:
             return self.consume("NUMBER").val
 
     def parse_unit_spec(self):
-        """ Parse a unit (file) specifier """
+        """Parse a unit (file) specifier"""
         if self.peak == "*":
             return self.consume("*").val
         elif self.peak == "ID":

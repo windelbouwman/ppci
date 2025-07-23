@@ -1,5 +1,4 @@
-""" This module deals with encoding and decoding of instructions """
-
+"""This module deals with encoding and decoding of instructions"""
 
 import abc
 from .registers import Register
@@ -53,7 +52,7 @@ class Operand(property):
 
     @property
     def is_constructor(self):
-        """ Check if this is a simple type, or a choice for many types """
+        """Check if this is a simple type, or a choice for many types"""
         if isinstance(self._cls, tuple):
             return True
         else:
@@ -61,11 +60,11 @@ class Operand(property):
 
     @property
     def source(self):
-        """ Get the original """
+        """Get the original"""
         return self
 
     def get_value(self, objref):
-        """ Get the numerical value of this property """
+        """Get the numerical value of this property"""
         val = self.__get__(objref)
         if isinstance(val, Register):
             val = val.num
@@ -75,11 +74,11 @@ class Operand(property):
         return val
 
     def set_value(self, objref, value):
-        """ Set the numeric value of this property """
+        """Set the numeric value of this property"""
         raise NotImplementedError()
 
     def from_value(self, value):
-        """ Create the an object of the right type from the given value """
+        """Create the an object of the right type from the given value"""
         if issubclass(self._cls, Register):
             regs = self._cls.all_registers()
             reg_map = {r.num: r for r in regs}
@@ -90,22 +89,22 @@ class Operand(property):
 
 
 class Transform(metaclass=abc.ABCMeta):
-    """ Wrapper to transform the numeric value of a property """
+    """Wrapper to transform the numeric value of a property"""
 
     def __init__(self, wrapped):
         self._wrapped = wrapped
 
     @abc.abstractmethod
     def forwards(self, value):  # pragma: no cover
-        """ Implement the forward transform here """
+        """Implement the forward transform here"""
         raise NotImplementedError()
 
     def backwards(self, value):  # pragma: no cover
-        """ Implement the backward transform here """
+        """Implement the backward transform here"""
         raise NotImplementedError()
 
     def get_value(self, obj):
-        """ Get the numerical value of this property """
+        """Get the numerical value of this property"""
         val = self._wrapped.get_value(obj)
         return self.forwards(val)
 
@@ -115,7 +114,7 @@ class Transform(metaclass=abc.ABCMeta):
 
     @property
     def source(self):
-        """ Get the original data source """
+        """Get the original data source"""
         return self._wrapped.source
 
 
@@ -160,7 +159,7 @@ class Constructor:
             setattr(self, pname, pval)
 
     def __str__(self):
-        """ Create a nice looking assembly string """
+        """Create a nice looking assembly string"""
         if self.syntax:
             return self.syntax.render(self)
         else:
@@ -168,7 +167,7 @@ class Constructor:
 
     @staticmethod
     def dict_to_patterns(d):
-        """ Create patterns from dictionary """
+        """Create patterns from dictionary"""
         if isinstance(d, dict):
             patterns = []
             for field, value in d.items():
@@ -183,7 +182,7 @@ class Constructor:
         return patterns
 
     def set_patterns(self, tokens):
-        """ Fill tokens with the specified bit patterns """
+        """Fill tokens with the specified bit patterns"""
         for pattern in self.dict_to_patterns(self.patterns):
             value = pattern.get_value(self)
             assert isinstance(value, int), str(self) + str(value)
@@ -191,12 +190,12 @@ class Constructor:
         self.set_user_patterns(tokens)
 
     def set_user_patterns(self, tokens):
-        """ This is the place for custom patterns """
+        """This is the place for custom patterns"""
         pass
 
     @classmethod
     def from_tokens(cls, tokens):
-        """ Create this constructor from tokens """
+        """Create this constructor from tokens"""
         prop_map = {}
 
         patterns = cls.dict_to_patterns(cls.patterns)
@@ -232,7 +231,7 @@ class Constructor:
 
     @property
     def properties(self):
-        """ Return all properties available into this syntax """
+        """Return all properties available into this syntax"""
         if not self.syntax:
             return []
         return self.syntax.formal_arguments
@@ -266,12 +265,12 @@ class Constructor:
                     yield nl
 
     def gen_relocations(self):
-        """ Override this method to generate relocation information """
+        """Override this method to generate relocation information"""
         return []
 
 
 class InsMeta(type):
-    """ Meta class to register an instruction within an isa class. """
+    """Meta class to register an instruction within an isa class."""
 
     def __init__(cls, name, bases, attrs):
         super(InsMeta, cls).__init__(name, bases, attrs)
@@ -342,7 +341,7 @@ class Instruction(Constructor, metaclass=InsMeta):
 
     @property
     def used_registers(self):
-        """ Return a set of all registers used by this instruction """
+        """Return a set of all registers used by this instruction"""
         s = []
         for p, o in self.leaves:
             if p._read:
@@ -351,12 +350,12 @@ class Instruction(Constructor, metaclass=InsMeta):
         return s
 
     def reads_register(self, register):
-        """ Check if this instruction reads the given register """
+        """Check if this instruction reads the given register"""
         return register in self.used_registers
 
     @property
     def defined_registers(self):
-        """ Return a set of all defined registers """
+        """Return a set of all defined registers"""
         s = []
         for p, o in self.leaves:
             if p._write:
@@ -365,25 +364,25 @@ class Instruction(Constructor, metaclass=InsMeta):
         return s
 
     def writes_register(self, register):
-        """ Check if this instruction writes the given register """
+        """Check if this instruction writes the given register"""
         return register in self.defined_registers
 
     @property
     def registers(self):
-        """ Determine all registers used by this instruction """
+        """Determine all registers used by this instruction"""
         for p, o in self.leaves:
             if issubclass(p._cls, Register):
                 yield p.__get__(o)
 
     def set_all_patterns(self, tokens):
-        """ Look for all patterns and apply them to the tokens """
+        """Look for all patterns and apply them to the tokens"""
         assert hasattr(self, "patterns")
         # self.set_patterns(tokens)
         for nl in self.non_leaves:
             nl.set_patterns(tokens)
 
     def replace_register(self, old, new):
-        """ Replace a register usage with another register """
+        """Replace a register usage with another register"""
         for p, o in self.leaves:
             if issubclass(p._cls, Register):
                 if p.__get__(o) is old:
@@ -403,7 +402,7 @@ class Instruction(Constructor, metaclass=InsMeta):
         return TokenSequence(precodes + tokens)
 
     def get_positions(self):
-        """ Calculate the positions in the byte stream of all parts """
+        """Calculate the positions in the byte stream of all parts"""
         pos = 0
         positions = {}
         for nl in self.non_leaves:
@@ -430,7 +429,7 @@ class Instruction(Constructor, metaclass=InsMeta):
 
     @classmethod
     def decode(cls, data):
-        """ Decode data into an instruction of this class """
+        """Decode data into an instruction of this class"""
         tokens = [tok_cls() for tok_cls in cls.tokens]
         tokens = TokenSequence(tokens)
         tokens.fill(data)
@@ -438,14 +437,14 @@ class Instruction(Constructor, metaclass=InsMeta):
 
     @classmethod
     def sizes(cls):
-        """ Get possible encoding sizes in bytes """
+        """Get possible encoding sizes in bytes"""
         if hasattr(cls, "tokens"):
             return [sum(t.size for t in cls.tokens) // 8]
         else:
             return []
 
     def relocations(self):
-        """ Determine the total set of relocations for this instruction """
+        """Determine the total set of relocations for this instruction"""
         relocs = []
         positions = self.get_positions()
         for nl, offset in positions.items():
@@ -531,14 +530,14 @@ class Syntax:
         return "{}".format(self.syntax)
 
     def get_args(self):
-        """ Return all non-whitespace elements """
+        """Return all non-whitespace elements"""
         for element in self.syntax:
             if isinstance(element, str) and element.isspace():
                 continue
             yield element
 
     def render(self, obj):
-        """ Return this syntax formatted for the given object. """
+        """Return this syntax formatted for the given object."""
         return "".join(self._get_repr(e, obj) for e in self.syntax)
 
     @staticmethod
@@ -569,7 +568,7 @@ class BitPattern:
 
 
 class FixedPattern(BitPattern):
-    """ Bind a field to a fixed value """
+    """Bind a field to a fixed value"""
 
     def __init__(self, field, value):
         super().__init__(field)
@@ -616,19 +615,19 @@ class Relocation:
         return (
             (self.symbol_name == other.symbol_name)
             and (self.offset == other.offset)
-            and (type(self) == type(other))
+            and (type(self) is type(other))
             and (self.addend == other.addend)
         )
 
     def shifted(self, offset):
-        """ Create a shifted copy of this relocation """
+        """Create a shifted copy of this relocation"""
         return type(self)(
             self.symbol_name, offset=self.offset + offset, addend=self.addend
         )
 
     @classmethod
     def size(cls):
-        """ Calculate the amount of bytes this relocation requires """
+        """Calculate the amount of bytes this relocation requires"""
         assert cls.token.Info.size % 8 == 0
         return cls.token.Info.size // 8
 
@@ -654,5 +653,5 @@ class Relocation:
         return False
 
     def calc(self, sym_value, reloc_value):  # pragma: no cover
-        """ Calculate the relocation """
+        """Calculate the relocation"""
         raise NotImplementedError()

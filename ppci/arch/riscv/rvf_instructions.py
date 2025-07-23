@@ -1,4 +1,4 @@
-""" Definitions of Riscv instructions. """
+"""Definitions of Riscv instructions."""
 
 import struct
 from ..isa import Isa
@@ -59,17 +59,17 @@ FSgnjx = make_fregfregfreg("fsgnjx", 0b010, 0b0010000)
 
 
 def movf(dst, src):
-    """ Move src into dst register """
+    """Move src into dst register"""
     return FSgnj(dst, src, src, ismove=True)
 
 
 def negf(dst, src):
-    """ Move src into dst register """
+    """Move src into dst register"""
     return FSgnjn(dst, src, src)
 
 
 def absf(dst, src):
-    """ Move src into dst register """
+    """Move src into dst register"""
     return FSgnjx(dst, src, src)
 
 
@@ -190,7 +190,7 @@ class FSw(RiscvInstruction):
 
 
 def make_fcmp(mnemonic, func3, invert):
-    """ Factory function for immediate value instructions """
+    """Factory function for immediate value instructions"""
     rd = Operand("rd", RiscvRegister, write=True)
     rn = Operand("rn", RiscvFRegister, read=True)
     rm = Operand("rm", RiscvFRegister, read=True)
@@ -341,7 +341,7 @@ def pattern_utof_f32(context, tree, c0):
 
 @rvfisa.pattern("freg", "LDRF32(mem)", size=2)
 @rvfisa.pattern("freg", "LDRF64(mem)", size=2)
-def pattern_ldr32_fprel(context, tree, c0):
+def pattern_ldrf32_mem(context, tree, c0):
     d = context.new_reg(RiscvFRegister)
     base_reg, offset = c0
     Code = FLw(d, offset, base_reg)
@@ -352,7 +352,7 @@ def pattern_ldr32_fprel(context, tree, c0):
 
 @rvfisa.pattern("freg", "LDRF32(reg)", size=2)
 @rvfisa.pattern("freg", "LDRF64(reg)", size=2)
-def pattern_ldr32_fprel(context, tree, c0):
+def pattern_ldrf32_reg(context, tree, c0):
     d = context.new_reg(RiscvFRegister)
     base_reg, offset = c0, 0
     Code = FLw(d, offset, base_reg)
@@ -362,7 +362,7 @@ def pattern_ldr32_fprel(context, tree, c0):
 
 @rvfisa.pattern("stm", "STRF32(mem, freg)", size=2)
 @rvfisa.pattern("stm", "STRF64(mem, freg)", size=2)
-def pattern_sw32(context, tree, c0, c1):
+def pattern_sw32_mem(context, tree, c0, c1):
     base_reg, offset = c0
     Code = FSw(c1, offset, base_reg)
     Code.fprel = True
@@ -371,7 +371,7 @@ def pattern_sw32(context, tree, c0, c1):
 
 @rvfisa.pattern("stm", "STRF32(reg, freg)", size=2)
 @rvfisa.pattern("stm", "STRF64(reg, freg)", size=2)
-def pattern_sw32(context, tree, c0, c1):
+def pattern_sw32_reg(context, tree, c0, c1):
     base_reg, offset = c0, 0
     Code = FSw(c1, offset, base_reg)
     context.emit(Code)

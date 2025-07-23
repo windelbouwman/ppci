@@ -1,4 +1,4 @@
-""" Python back-end. Generates python code from ir-code. """
+"""Python back-end. Generates python code from ir-code."""
 
 import math
 import contextlib
@@ -10,12 +10,12 @@ from ...graph import relooper
 
 
 def literal_label(lit):
-    """ Invent a nice label name for the given literal """
+    """Invent a nice label name for the given literal"""
     return "{}_{}".format(lit.function.name, lit.name)
 
 
 def ir_to_python(ir_modules, f, reporter=None):
-    """ Convert ir-code to python code """
+    """Convert ir-code to python code"""
     if reporter:
         f2 = f
         f = io.StringIO()
@@ -34,7 +34,7 @@ def ir_to_python(ir_modules, f, reporter=None):
 
 
 class IrToPythonCompiler:
-    """ Can generate python script from ir-code """
+    """Can generate python script from ir-code"""
 
     logger = logging.getLogger("ir2py")
 
@@ -46,7 +46,7 @@ class IrToPythonCompiler:
         self._level = 0
 
     def print(self, level, *args):
-        """ Print args to current file with level indents """
+        """Print args to current file with level indents"""
         print("    " * level, end="", file=self.output_file)
         print(*args, file=self.output_file)
 
@@ -63,11 +63,11 @@ class IrToPythonCompiler:
         self._dedent()
 
     def emit(self, txt):
-        """ Emit python code at current indentation level """
+        """Emit python code at current indentation level"""
         self.print(self._level, txt)
 
     def header(self):
-        """ Emit a header suitable for in a python file """
+        """Emit a header suitable for in a python file"""
         self.emit("# Automatically generated on {}".format(time.ctime()))
         self.emit("# Generator {}".format(__file__))
         self.emit("")
@@ -204,7 +204,7 @@ class IrToPythonCompiler:
         self.emit("")
 
     def generate(self, ir_mod):
-        """ Write ir-code to file f """
+        """Write ir-code to file f"""
         self.mod_name = ir_mod.name
         self.literals = []
         self.emit("")
@@ -235,7 +235,7 @@ class IrToPythonCompiler:
         self.emit("")
 
     def generate_function(self, ir_function):
-        """ Generate a function to python code """
+        """Generate a function to python code"""
         self.stack_size = 0
         args = ",".join(a.name for a in ir_function.arguments)
         self.emit("def {}({}):".format(ir_function.name, args))
@@ -263,7 +263,7 @@ class IrToPythonCompiler:
         self.emit("")
 
     def generate_shape(self, shape):
-        """ Generate python code for a shape structured program """
+        """Generate python code for a shape structured program"""
         if isinstance(shape, relooper.BasicShape):
             self.generate_block(self._rmap[shape.content])
         elif isinstance(shape, relooper.SequenceShape):
@@ -313,7 +313,7 @@ class IrToPythonCompiler:
         self.emit("")
 
     def generate_block(self, block):
-        """ Generate code for one block """
+        """Generate code for one block"""
         for ins in block:
             self.generate_instruction(ins, block)
 
@@ -333,13 +333,13 @@ class IrToPythonCompiler:
         self.stack_size = 0
 
     def emit_jump(self, target: ir.Block):
-        """ Perform a jump in block mode. """
+        """Perform a jump in block mode."""
         assert isinstance(target, ir.Block)
         self.emit("_irpy_prev_block = _irpy_current_block")
         self.emit('_irpy_current_block = "{}"'.format(target.name))
 
     def generate_instruction(self, ins, block):
-        """ Generate python code for this instruction """
+        """Generate python code for this instruction"""
         if isinstance(ins, ir.CJump):
             self.gen_cjump(ins)
         elif isinstance(ins, ir.Jump):
@@ -500,7 +500,7 @@ class IrToPythonCompiler:
         self.emit("{} = {}".format(ins.name, value))
 
     def _fetch_callee(self, callee):
-        """ Retrieves a callee and puts it into _fptr variable """
+        """Retrieves a callee and puts it into _fptr variable"""
         if isinstance(callee, ir.SubRoutine):
             expr = "{}".format(callee.name)
         elif isinstance(callee, ir.ExternalSubRoutine):

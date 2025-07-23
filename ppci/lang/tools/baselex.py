@@ -22,7 +22,7 @@ def on(pattern, flags=0, order=0):
 
 
 class LexMeta(type):
-    """ Meta class which inspects the functions decorated with 'on' """
+    """Meta class which inspects the functions decorated with 'on'"""
 
     def __new__(cls, name, bases, attrs):
         lexmap = []
@@ -32,7 +32,7 @@ class LexMeta(type):
             if hasattr(value, "$lex"):
                 prog, order = getattr(value, "$lex")
                 lexmap.append((prog, order, value))
-        lexmap.sort(key=lambda l: l[1])
+        lexmap.sort(key=lambda x: x[1])
         attrs["lexmap"] = lexmap
         return type.__new__(cls, name, bases, attrs)
 
@@ -49,7 +49,7 @@ class SimpleLexer(Lexer, metaclass=LexMeta):
     """
 
     def gettok(self):
-        """ Find a match at the given position """
+        """Find a match at the given position"""
         for prog, _, func in self.lexmap:
             mo = prog.match(self.txt, self.pos)
             if mo:
@@ -122,7 +122,7 @@ class BaseLexer(Lexer):
         self.pos = 0
 
     def feed(self, txt):
-        """ Feeds the lexer with extra input """
+        """Feeds the lexer with extra input"""
         self.tokens = self.tokenize(txt)
 
     def tokenize(self, txt, eof=False):
@@ -163,7 +163,7 @@ class BaseLexer(Lexer):
             yield Token(EOF, EOF, loc)
 
     def newline(self):
-        """ Enters a new line """
+        """Enters a new line"""
         self.line_start = self.pos
         self.line = self.line + 1
 

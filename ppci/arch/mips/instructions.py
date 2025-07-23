@@ -1,4 +1,4 @@
-""" Mips instruction definitions.
+"""Mips instruction definitions.
 
 See also: https://en.wikipedia.org/wiki/MIPS_architecture
 """
@@ -67,7 +67,7 @@ def make_r(mnemonic, opcode, funct, shamt=0):
 
 
 def make_i(mnemonic, opcode):
-    """ Factory function to create an I-format instruction """
+    """Factory function to create an I-format instruction"""
     rs = Operand("rs", MipsRegister, read=True)
     rt = Operand("rt", MipsRegister, write=True)
     imm = Operand("imm", int)
@@ -85,7 +85,7 @@ def make_i(mnemonic, opcode):
 
 
 def make_mem(mnemonic, opcode, is_load=False):
-    """ Factory function to create an load or store instruction """
+    """Factory function to create an load or store instruction"""
     rs = Operand("rs", MipsRegister, read=True)
     rt = Operand("rt", MipsRegister, read=not is_load, write=is_load)
     imm = Operand("imm", int)
@@ -104,7 +104,7 @@ def make_mem(mnemonic, opcode, is_load=False):
 
 @isa.register_relocation
 class Abs26Relocation(Relocation):
-    """ Apply 26 bit relocation """
+    """Apply 26 bit relocation"""
 
     name = "abs26"
     token = MipsJToken
@@ -156,7 +156,7 @@ Srav = make_r("srav", 0, 7)
 
 
 class Jr(MipsInstruction):
-    """ Jump register """
+    """Jump register"""
 
     tokens = [MipsRToken]
     rs = Operand("rs", MipsRegister, read=True)
@@ -165,7 +165,7 @@ class Jr(MipsInstruction):
 
 
 class Jalr(MipsInstruction):
-    """ Jump and link register """
+    """Jump and link register"""
 
     tokens = [MipsRToken]
     rs = Operand("rs", MipsRegister, read=True)
@@ -174,7 +174,7 @@ class Jalr(MipsInstruction):
 
 
 class J(MipsInstruction):
-    """ Jump """
+    """Jump"""
 
     tokens = [MipsJToken]
     label = Operand("label", str)
@@ -186,7 +186,7 @@ class J(MipsInstruction):
 
 
 class Jal(MipsInstruction):
-    """ Jump and link """
+    """Jump and link"""
 
     tokens = [MipsJToken]
     label = Operand("label", str)
@@ -201,13 +201,13 @@ class Jal(MipsInstruction):
 
 
 class PseudoMipsInstruction(ArtificialInstruction):
-    """ Base class for all pseudo instructions """
+    """Base class for all pseudo instructions"""
 
     isa = isa
 
 
 class Nop(PseudoMipsInstruction):
-    """ No-operation """
+    """No-operation"""
 
     syntax = Syntax(["nop"])
 
@@ -216,7 +216,7 @@ class Nop(PseudoMipsInstruction):
 
 
 def mov(dst, src):
-    """ Move src into dst register """
+    """Move src into dst register"""
     return Addi(dst, src, 0, ismove=True)
 
 
@@ -480,8 +480,9 @@ def pattern_cast(context, tree, c0):
 
 @isa.pattern("reg", "LABEL", size=8, cycles=2, energy=2)
 def pattern_label(context, tree):
-    label = tree.value
+    # label = tree.value
     d = context.new_reg(MipsRegister)
+    # raise NotImplementedError(f"read {label}")
     # TODO!
     return d
 
@@ -501,12 +502,12 @@ def pattern_cjmp(context, tree, c0, c1):
     # TODO
     return
     opnames = {
-        "<": (Blt, False),
-        ">": (Blt, True),
-        "==": (Beq, False),
-        "!=": (Bne, False),
-        ">=": (Bge, False),
-        "<=": (Bge, True),
+        # "<": (Blt, False),
+        # ">": (Blt, True),
+        # "==": (Beq, False),
+        # "!=": (Bne, False),
+        # ">=": (Bge, False),
+        # "<=": (Bge, True),
     }
     jmp_ins = J(no_label.name, jumps=[no_label])
     tmp_label = context.new_label()

@@ -1,4 +1,4 @@
-""" Definitions of Riscv instructions. """
+"""Definitions of Riscv instructions."""
 
 from ..isa import Isa
 from ..encoding import Instruction, Syntax, Operand
@@ -10,7 +10,6 @@ from ..generic_instructions import ArtificialInstruction
 from .instructions import Andr, Orr, Xorr, Subr, Addi, Slli, Srli
 from .instructions import Lw, Sw, Blt, Bgt, Bge, Beq, Bne, Ble, Blr
 from .instructions import Bgtu, Bltu, Bgeu, Bleu
-import logging
 
 
 class RegisterSet(set):
@@ -38,13 +37,13 @@ class RiscvInstruction(Instruction):
 
 
 class PseudoRiscvInstruction(ArtificialInstruction):
-    """ These instruction is used to switch between RV and RVC-encoding """
+    """These instruction is used to switch between RV and RVC-encoding"""
 
     pass
 
 
 class OpcRegReg(RiscvcInstruction):
-    """ c.sub rd, rn """
+    """c.sub rd, rn"""
 
     def encode(self):
         tokens = self.get_tokens()
@@ -158,7 +157,7 @@ class CMovr(RiscvcInstruction):
 
 
 class CBl(RiscvInstruction):
-    """ jal instruction (32-bits) """
+    """jal instruction (32-bits)"""
 
     target = Operand("target", str)
     rd = Operand("rd", RiscvRegister, write=True)
@@ -175,7 +174,7 @@ class CBl(RiscvInstruction):
 
 
 class CJal(RiscvcInstruction):
-    """ c.jal instruction. """
+    """c.jal instruction."""
 
     target = Operand("target", str)
     syntax = Syntax(["c", ".", "jal", " ", target])
@@ -191,7 +190,7 @@ class CJal(RiscvcInstruction):
 
 
 class CB(RiscvInstruction):
-    """ Full 32-bit `J` instruction. """
+    """Full 32-bit `J` instruction."""
 
     target = Operand("target", str)
     syntax = Syntax(["j", " ", target])
@@ -207,7 +206,7 @@ class CB(RiscvInstruction):
 
 
 class CJ(RiscvcInstruction):
-    """ C.J instruction. """
+    """C.J instruction."""
 
     target = Operand("target", str)
     syntax = Syntax(["c", ".", "j", " ", target])

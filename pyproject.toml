@@ -66,12 +66,22 @@ line-length = 79
 
 [tool.ruff]
 line-length = 79
+cache-dir = ".cache/ruff"
 
 [tool.pytest]
 junit_family = "xunit1"
 
+[tool.pytest.ini_options]
+cache_dir = ".cache/pytest"
+
 [tool.pytest.logging]
 log_level = "info"
+
+[tool.coverage.run]
+data_file = ".cache/.coverage"
+
+[tool.coverage.xml]
+output = ".cache/coverage.xml"
 
 [tool.flit.sdist]
 include = [

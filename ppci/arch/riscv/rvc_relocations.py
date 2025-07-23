@@ -1,7 +1,6 @@
 from ...utils.bitfun import wrap_negative, BitView
 from ..encoding import Relocation
 from .tokens import RiscvToken, RiscvcToken
-import logging
 
 
 class CRel(Relocation):
@@ -9,7 +8,7 @@ class CRel(Relocation):
 
 
 class CBImm11Relocation(CRel):
-    """ 32-bit relocation for `J` instruction """
+    """32-bit relocation for `J` instruction"""
 
     name = "cb_imm11"
     token = RiscvToken
@@ -27,7 +26,7 @@ class CBImm11Relocation(CRel):
         return data
 
     def can_shrink(self, sym_value, reloc_value):
-        """ Test if we can optimize. """
+        """Test if we can optimize."""
         assert sym_value % 2 == 0
         assert reloc_value % 2 == 0
         offset = sym_value - reloc_value
@@ -52,7 +51,7 @@ class CBImm11Relocation(CRel):
 
 
 class CBlImm11Relocation(CRel):
-    """ 32 bit relocation for `jal` instruction. """
+    """32 bit relocation for `jal` instruction."""
 
     name = "cbl_imm11"
     token = RiscvToken
@@ -120,7 +119,7 @@ class BcImm8Relocation(CRel):
 
 
 def apply_cool_mapping(bv, rel11):
-    """ This is some really nice bit fiddling! """
+    """This is some really nice bit fiddling!"""
     bv[2:3] = rel11 >> 4 & 0x1
     bv[3:6] = rel11 & 0x7
     bv[6:7] = rel11 >> 6 & 0x1
@@ -132,7 +131,7 @@ def apply_cool_mapping(bv, rel11):
 
 
 def isinsrange(bits, val):
-    """ Helper function to test if value is withing range. """
+    """Helper function to test if value is withing range."""
     msb = 1 << (bits - 1)
     ll = -msb
     return val <= (msb - 1) and (val >= ll)
