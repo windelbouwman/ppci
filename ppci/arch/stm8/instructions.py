@@ -1,4 +1,4 @@
-""" Stm8 instructions """
+"""Stm8 instructions"""
 
 from .registers import Stm8RegisterA, A
 from .registers import Stm8RegisterX, Stm8RegisterXL, Stm8RegisterXH
@@ -317,7 +317,7 @@ class LongOffsetYSource(Constructor):
 
 
 class ShortOffsetSp(Constructor):
-    """ Memory at offset from SP """
+    """Memory at offset from SP"""
 
     tokens = [Stm8ByteToken]
     v = Operand("v", int)
@@ -363,7 +363,7 @@ AdcAShortptrY = create_instruction(
 
 
 class Add(Stm8Instruction):
-    """ Addition """
+    """Addition"""
 
     a = Operand("a", Stm8RegisterA, read=True, write=True)
     src = Operand(
@@ -421,7 +421,7 @@ AddwSpByte = create_instruction(
 
 
 class And(Stm8Instruction):
-    """ Logical and """
+    """Logical and"""
 
     a = Operand("a", Stm8RegisterA, read=True, write=True)
     src = Operand(
@@ -461,7 +461,7 @@ Bccm = create_instruction(
 
 
 class Bcp(Stm8Instruction):
-    """ Logical bit compare """
+    """Logical bit compare"""
 
     a = Operand("a", Stm8RegisterA, read=True)
     src = Operand(
@@ -558,7 +558,7 @@ Ccf = create_instruction(mnemonic="ccf", opcode=0x8C)
 
 
 class Clr(Stm8Instruction):
-    """ Logical bit compare """
+    """Logical bit compare"""
 
     src = Operand(
         "src",
@@ -601,7 +601,7 @@ ClrwY = create_instruction(
 
 
 class Cp(Stm8Instruction):
-    """ Compare """
+    """Compare"""
 
     a = Operand("a", Stm8RegisterA, read=True)
     src = Operand(
@@ -684,7 +684,7 @@ CpwYLongptrX = create_instruction(
 
 
 class Cpl(Stm8Instruction):
-    """ Logical 1 complement """
+    """Logical 1 complement"""
 
     src = Operand("src", {ASource: 0x43, XSource: 0x73, ShortOffsetSp: 0x03})
     syntax = Syntax(["cpl", " ", src])
@@ -727,7 +727,7 @@ CplwY = create_instruction(
 
 
 class Dec(Stm8Instruction):
-    """ Decrement """
+    """Decrement"""
 
     src = Operand("src", {ASource: 0x4A, XSource: 0x7A, ShortOffsetSp: 0x0A})
     syntax = Syntax(["dec", " ", src])
@@ -798,7 +798,7 @@ Halt = create_instruction(mnemonic="halt", opcode=0x8E)
 
 
 class Inc(Stm8Instruction):
-    """ Increment """
+    """Increment"""
 
     src = Operand("src", {ASource: 0x4C, XSource: 0x7C, ShortOffsetSp: 0x0C})
     syntax = Syntax(["inc", " ", src])
@@ -955,7 +955,7 @@ Jrv = create_instruction(
 
 
 class Ld(Stm8Instruction):
-    """ Load """
+    """Load"""
 
     a = Operand("a", Stm8RegisterA, write=True)
     src = Operand(
@@ -1227,7 +1227,7 @@ Nop = create_instruction(mnemonic="nop", opcode=0x9D)
 
 
 class Or(Stm8Instruction):
-    """ Logical or """
+    """Logical or"""
 
     a = Operand("a", Stm8RegisterA, read=True, write=True)
     src = Operand(
@@ -1292,7 +1292,7 @@ Rcf = create_instruction(mnemonic="rcf", opcode=0x98)
 
 
 class Ret(Stm8Instruction):
-    """ Return from subroutine """
+    """Return from subroutine"""
 
     syntax = Syntax(["ret"])
     tokens = [Stm8OpcodeToken]
@@ -1300,7 +1300,7 @@ class Ret(Stm8Instruction):
 
 
 class Rim(Stm8Instruction):
-    """ Reset interrupt mask / enable interrupt """
+    """Reset interrupt mask / enable interrupt"""
 
     syntax = Syntax(["rim"])
     tokens = [Stm8OpcodeToken]
@@ -1308,7 +1308,7 @@ class Rim(Stm8Instruction):
 
 
 class Rlc(Stm8Instruction):
-    """ Rotate left logical through carry """
+    """Rotate left logical through carry"""
 
     src = Operand(
         "src",
@@ -1359,7 +1359,7 @@ RlwaYA = create_instruction(
 
 
 class Rrc(Stm8Instruction):
-    """ Rotate right logical through carry """
+    """Rotate right logical through carry"""
 
     src = Operand(
         "src",
@@ -1413,7 +1413,7 @@ Rvf = create_instruction(mnemonic="rvf", opcode=0x9C)
 
 
 class Sbc(Stm8Instruction):
-    """ Substract with carry / borrow """
+    """Substract with carry / borrow"""
 
     a = Operand("a", Stm8RegisterA, read=True, write=True)
     src = Operand(
@@ -1454,7 +1454,7 @@ Sim = create_instruction(mnemonic="sim", opcode=0x9B)
 
 
 class Sll(Stm8Instruction):
-    """ Shift left logical """
+    """Shift left logical"""
 
     src = Operand("src", {ASource: 0x48, XSource: 0x78, ShortOffsetSp: 0x08})
     syntax = Syntax(["sll", " ", src])
@@ -1497,7 +1497,7 @@ SllwY = create_instruction(
 
 
 class Sra(Stm8Instruction):
-    """ Shift right arithmatic """
+    """Shift right arithmatic"""
 
     src = Operand("src", {ASource: 0x47, XSource: 0x77, ShortOffsetSp: 0x07})
     syntax = Syntax(["sra", " ", src])
@@ -1540,7 +1540,7 @@ SrawY = create_instruction(
 
 
 class Srl(Stm8Instruction):
-    """ Shift right logical """
+    """Shift right logical"""
 
     src = Operand("src", {ASource: 0x44, XSource: 0x74, ShortOffsetSp: 0x04})
     syntax = Syntax(["srl", " ", src])
@@ -1583,7 +1583,7 @@ SrlwY = create_instruction(
 
 
 class Sub(Stm8Instruction):
-    """ Substraction """
+    """Substraction"""
 
     a = Operand("a", Stm8RegisterA, read=True, write=True)
     src = Operand(
@@ -1732,7 +1732,7 @@ Wfi = create_instruction(mnemonic="wfi", opcode=0x8F)
 
 
 class Xor(Stm8Instruction):
-    """ Logical exclusive or """
+    """Logical exclusive or"""
 
     a = Operand("a", Stm8RegisterA, read=True, write=True)
     src = Operand(

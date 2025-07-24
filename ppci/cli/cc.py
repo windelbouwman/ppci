@@ -1,9 +1,8 @@
-""" C compiler.
+"""C compiler.
 
 Use this compiler to compile C source code to machine code for different
 computer architectures.
 """
-
 
 import argparse
 from .base import base_parser, march_parser
@@ -47,7 +46,7 @@ parser.add_argument(
 
 
 def cc(args=None):
-    """ Run c compile task """
+    """Run c compile task"""
     args = parser.parse_args(args)
     with LogSetup(args) as log_setup:
         # Compile sources:
@@ -75,7 +74,7 @@ def cc(args=None):
                     printer.print(ast)
         else:
             ir_modules = []
-            
+
             for src in args.sources:
                 # Compile and optimize in any case:
                 ir_module = api.c_to_ir(
@@ -84,6 +83,7 @@ def cc(args=None):
                 ir_modules.append(ir_module)
 
             do_compile(ir_modules, march, log_setup.reporter, log_setup.args)
+
 
 if __name__ == "__main__":
     cc()

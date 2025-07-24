@@ -63,13 +63,15 @@ class Symbol:
         return self.typ == "func"
 
     def __repr__(self):
-        return "Symbol({}, binding={}, val={} section={} typ={} size={})".format(
-            self.name,
-            self.binding,
-            self.value,
-            self.section,
-            self.typ,
-            self.size,
+        return (
+            "Symbol({}, binding={}, val={} section={} typ={} size={})".format(
+                self.name,
+                self.binding,
+                self.value,
+                self.section,
+                self.typ,
+                self.size,
+            )
         )
 
     def __eq__(self, other):
@@ -299,7 +301,9 @@ class ObjectFile:
 
     def get_defined_symbols(self):
         """Get a list of defined symbols."""
-        defined_symbols = [s.name for s in self.symbols if (s.defined and s.is_global)]
+        defined_symbols = [
+            s.name for s in self.symbols if (s.defined and s.is_global)
+        ]
         return defined_symbols
 
     def add_relocation(self, reloc):

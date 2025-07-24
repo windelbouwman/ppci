@@ -1,4 +1,4 @@
-""" Machine code generator.
+"""Machine code generator.
 
 The architecture is provided when the generator is created.
 """
@@ -25,7 +25,7 @@ from .peephole import PeepHoleStream
 
 
 class CodeGenerator:
-    """ Machine code generator """
+    """Machine code generator"""
 
     logger = logging.getLogger("codegen")
 
@@ -51,7 +51,7 @@ class CodeGenerator:
         )
 
     def generate(self, ircode: ir.Module, output_stream, debug=False):
-        """ Generate machine code from ir-code into output stream """
+        """Generate machine code from ir-code into output stream"""
         assert isinstance(ircode, ir.Module)
         if ircode.debug_db:
             self.debug_db = ircode.debug_db
@@ -89,7 +89,7 @@ class CodeGenerator:
                     output_stream.emit(DebugData(di))
 
     def generate_global(self, var, output_stream, debug):
-        """ Generate code for a global variable """
+        """Generate code for a global variable"""
         alignment = Alignment(var.alignment)
         output_stream.emit(alignment)
         self._mark_global(output_stream, var)
@@ -132,7 +132,7 @@ class CodeGenerator:
             output_stream.emit(DebugData(dv))
 
     def generate_function(self, ir_function, output_stream, debug=False):
-        """ Generate code for one function into a frame """
+        """Generate code for one function into a frame"""
         self.logger.info(
             "Generating %s code for function %s",
             str(self.arch),
@@ -203,7 +203,7 @@ class CodeGenerator:
         self.reporter.dump_instructions(instruction_list, self.arch)
 
     def select_and_schedule(self, ir_function, frame):
-        """ Perform instruction selection and scheduling """
+        """Perform instruction selection and scheduling"""
         self.logger.debug("Selecting instructions")
 
         tree_method = True

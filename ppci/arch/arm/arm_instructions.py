@@ -1,4 +1,4 @@
-""" Definitions of arm instructions. """
+"""Definitions of arm instructions."""
 
 # pylint: disable=no-member,invalid-name
 
@@ -37,14 +37,14 @@ COND_MAP = {
 
 
 class NoShift(Constructor):
-    """ No shift """
+    """No shift"""
 
     syntax = Syntax([])
     patterns = {"shift_typ": 0, "shift_imm": 0}
 
 
 class ShiftLsl(Constructor):
-    """ Logical shift left n bits """
+    """Logical shift left n bits"""
 
     n = Operand("n", int)
     syntax = Syntax([",", " ", "lsl", " ", n])
@@ -52,7 +52,7 @@ class ShiftLsl(Constructor):
 
 
 class ShiftLsr(Constructor):
-    """ Logical shift right n bits """
+    """Logical shift right n bits"""
 
     n = Operand("n", int)
     syntax = Syntax([",", " ", "lsr", " ", n])
@@ -60,7 +60,7 @@ class ShiftLsr(Constructor):
 
 
 class ShiftAsr(Constructor):
-    """ Arithmetic shift right n bits """
+    """Arithmetic shift right n bits"""
 
     n = Operand("n", int)
     syntax = Syntax([",", " ", "asr", " ", n])
@@ -75,7 +75,7 @@ shift_modes = (NoShift, ShiftLsl, ShiftLsr, ShiftAsr)
 
 
 def inter_twine(a, cond):
-    """ Create a permutation for a instruction class """
+    """Create a permutation for a instruction class"""
     # TODO: give this function the right name
     stx = list(a.syntax.syntax)
     ccode = COND_MAP[cond.upper()]
@@ -99,7 +99,7 @@ class ArmExpand(Transform):
 
 
 class Mov1(ArmInstruction):
-    """ Mov Rd, imm16 """
+    """Mov Rd, imm16"""
 
     rd = Operand("rd", ArmRegister, write=True)
     imm = Operand("imm", int)
@@ -116,7 +116,7 @@ class Mov1(ArmInstruction):
 
 
 class Mov2(ArmInstruction):
-    """ Mov register to register """
+    """Mov register to register"""
 
     rd = Operand("rd", ArmRegister, write=True)
     rm = Operand("rm", ArmRegister, read=True)
@@ -139,7 +139,7 @@ Mov2LS = inter_twine(Mov2, "ls")
 
 
 class Cmp1(ArmInstruction):
-    """ CMP Rn, imm """
+    """CMP Rn, imm"""
 
     reg = Operand("reg", ArmRegister, read=True)
     imm = Operand("imm", int)
@@ -156,7 +156,7 @@ class Cmp1(ArmInstruction):
 
 
 class Cmp2(ArmInstruction):
-    """ CMP Rn, Rm """
+    """CMP Rn, Rm"""
 
     rn = Operand("rn", ArmRegister, read=True)
     rm = Operand("rm", ArmRegister, read=True)
@@ -263,7 +263,7 @@ class Mls(ArmInstruction):
 
 
 def make_regregreg(mnemonic, opcode):
-    """ Create a new instruction class with three registers as operands """
+    """Create a new instruction class with three registers as operands"""
     rd = Operand("rd", ArmRegister, write=True)
     rn = Operand("rn", ArmRegister, read=True)
     rm = Operand("rm", ArmRegister, read=True)
@@ -303,7 +303,7 @@ Sub1NE = inter_twine(Sub, "ne")
 
 
 class ShiftBase(ArmInstruction):
-    """ ? rd, rn, rm """
+    """? rd, rn, rm"""
 
     rd = Operand("rd", ArmRegister, write=True)
     rn = Operand("rn", ArmRegister, read=True)
@@ -359,7 +359,7 @@ class Asr(ShiftBase):
 
 
 class OpRegRegImm(ArmInstruction):
-    """ add rd, rn, imm12 """
+    """add rd, rn, imm12"""
 
     def encode(self):
         tokens = self.get_tokens()
@@ -447,7 +447,7 @@ Blo = make_branch("blo", CC)  # Lo (unsigned lower) is synonim for CC
 
 
 class Blx(ArmInstruction):
-    """ Branch with link to a subroutine pointer to by register """
+    """Branch with link to a subroutine pointer to by register"""
 
     rm = Operand("rm", ArmRegister, read=True)
     syntax = Syntax(["blx", " ", rm])
@@ -492,7 +492,7 @@ class Pop(ArmInstruction):
 
 
 def LdrPseudo(rt, lab, add_lit):
-    """ Ldr rt, =lab ==> ldr rt, [pc, offset in litpool] ... dcd lab """
+    """Ldr rt, =lab ==> ldr rt, [pc, offset in litpool] ... dcd lab"""
     lit_lbl = add_lit(lab)
     return Ldr3(rt, lit_lbl)
 
@@ -565,7 +565,7 @@ class Ldr1(LdrStrBase):
 
 
 class Strh(ArmInstruction):
-    """ Store half word at register + immediate """
+    """Store half word at register + immediate"""
 
     rd = Operand("rd", ArmRegister, write=True)
     rn = Operand("rn", ArmRegister, read=True)
@@ -594,7 +594,7 @@ class Strh(ArmInstruction):
 
 
 class Strb(LdrStrBase):
-    """ ldrb rt, [rn, offset] # Store byte at address """
+    """ldrb rt, [rn, offset] # Store byte at address"""
 
     rt = Operand("rt", ArmRegister, read=True)
     opcode = 0b010
@@ -619,7 +619,7 @@ class Strb(LdrStrBase):
 
 
 class Ldrb(LdrStrBase):
-    """ ldrb rt, [rn, offset] """
+    """ldrb rt, [rn, offset]"""
 
     rt = Operand("rt", ArmRegister, write=True)
     opcode = 0b010
@@ -816,7 +816,7 @@ class Ldr3(ArmInstruction):
 
 
 class McrBase(ArmInstruction):
-    """ Mov arm register to coprocessor register """
+    """Mov arm register to coprocessor register"""
 
     def encode(self):
         tokens = self.get_tokens()
@@ -834,7 +834,7 @@ class McrBase(ArmInstruction):
 
 
 class Mcr(McrBase):
-    """ Move from register to co processor register """
+    """Move from register to co processor register"""
 
     coproc = Operand("coproc", Coproc, read=True)
     opc1 = Operand("opc1", int)
@@ -1345,7 +1345,7 @@ def pattern_ldr32(context, tree, c0):
 
 
 def call_internal2(context, name, a, b):
-    """ Call internal helper with two parameters and one return value """
+    """Call internal helper with two parameters and one return value"""
     d = context.new_reg(ArmRegister)
     # Generate call into runtime lib function!
     context.move(R1, a)

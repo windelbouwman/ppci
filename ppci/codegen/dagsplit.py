@@ -1,4 +1,4 @@
-""" DAG splitting into trees.
+"""DAG splitting into trees.
 
 The selection dag is splitted into trees by this module.
 
@@ -54,14 +54,14 @@ class DagSplitter:
         return self.make_trees(nodes, tail_node)
 
     def assign_vregs(self, sgraph, function_info):
-        """ Give vreg values to values that cross block boundaries """
+        """Give vreg values to values that cross block boundaries"""
         frame = function_info.frame
         for node in sgraph:
             if node.group:
                 self.check_vreg(node, frame)
 
     def check_vreg(self, node, frame):
-        """ Determine whether node outputs need a virtual register """
+        """Determine whether node outputs need a virtual register"""
         assert node.group is not None
 
         for data_output in node.data_outputs:
@@ -76,7 +76,7 @@ class DagSplitter:
                     data_output.vreg = vreg
 
     def make_trees(self, nodes, tail_node):
-        """ Create a tree from a list of sorted nodes. """
+        """Create a tree from a list of sorted nodes."""
         sorted_nodes = topological_sort_modified(nodes, tail_node)
         trees = []
         node_map = {}
@@ -136,19 +136,19 @@ class DagSplitter:
         return trees
 
     def make_op(self, op, typ):
-        """ Construct a string opcode from an operation and a type """
+        """Construct a string opcode from an operation and a type"""
         assert isinstance(typ, ir.Typ), str(typ)
         return "{}{}".format(op, typ).upper()
 
     def get_reg_class(self, data_flow):
-        """ Determine the register class suited for this data flow line """
+        """Determine the register class suited for this data flow line"""
         op = data_flow.node.name
         assert isinstance(op.ty, ir.Typ)
         return self.arch.get_reg_class(ty=op.ty)
 
 
 def topological_sort_modified(nodes, start):
-    """ Modified topological sort, start at the end and work back """
+    """Modified topological sort, start at the end and work back"""
     unmarked = set(nodes)
     marked = set()
     temp_marked = set()

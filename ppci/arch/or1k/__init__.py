@@ -1,6 +1,4 @@
-""" Open risk architecture target.
-
-"""
+"""Open risk architecture target."""
 
 from .arch import Or1kArch
 

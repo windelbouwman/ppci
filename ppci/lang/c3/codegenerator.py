@@ -1,4 +1,4 @@
-""" This module contains the code generation class. """
+"""This module contains the code generation class."""
 
 import logging
 from ... import ir
@@ -31,7 +31,7 @@ class CodeGenerator:
         self.module_ok = False
 
     def gen(self, context):
-        """ Generate code for a whole context """
+        """Generate code for a whole context"""
         self.context = context
         ir_module = ir.Module("c3_code", debug_db=self.debug_db)
         self.builder = irutils.Builder()
@@ -48,7 +48,7 @@ class CodeGenerator:
         return ir_module
 
     def gen_module(self, mod: ast.Module):
-        """ Generate code for a single module """
+        """Generate code for a single module"""
         assert isinstance(mod, ast.Module)
         self.logger.info("Generating ir-code for %s", mod.name)
         self.module_ok = True
@@ -69,7 +69,7 @@ class CodeGenerator:
         return self.builder.module
 
     def gen_global_ival(self, ival, typ):
-        """ Create memory image for initial value """
+        """Create memory image for initial value"""
         typ = self.context.get_type(typ)
         if isinstance(typ, ast.ArrayType):
             assert isinstance(ival, ast.ExpressionList)
@@ -101,7 +101,7 @@ class CodeGenerator:
             return cval
 
     def gen_globals(self, module):
-        """ Generate global variables and modules """
+        """Generate global variables and modules"""
         for var in module.inner_scope.variables:
             assert not var.isLocal
             if var.ival:
@@ -133,11 +133,11 @@ class CodeGenerator:
         return instruction
 
     def new_block(self):
-        """ Create a new basic block into the current function """
+        """Create a new basic block into the current function"""
         return self.builder.new_block()
 
     def get_debug_type(self, typ):
-        """ Get or create debug type info in the debug information """
+        """Get or create debug type info in the debug information"""
         # Lookup the type:
         typ = self.context.get_type(typ)
 
@@ -176,12 +176,12 @@ class CodeGenerator:
         return dbg_typ
 
     def error(self, msg, loc=None):
-        """ Emit error to diagnostic system and mark package as invalid """
+        """Emit error to diagnostic system and mark package as invalid"""
         self.module_ok = False
         self.diag.error(msg, loc)
 
     def gen_external_function(self, function):
-        """ Generate external function """
+        """Generate external function"""
         return self.get_ir_function(function)
 
     def gen_function(self, function):
@@ -276,7 +276,7 @@ class CodeGenerator:
         return mapping[self.context.get_type("int").byte_size]
 
     def get_ir_type(self, cty):
-        """ Given a certain type, get the corresponding ir-type """
+        """Given a certain type, get the corresponding ir-type"""
         cty = self.context.get_type(cty)
         if isinstance(cty, ast.FloatType):
             float_types = {32: ir.f32, 64: ir.f64}
@@ -334,7 +334,7 @@ class CodeGenerator:
         return ir_function
 
     def gen_stmt(self, code: ast.Statement):
-        """ Generate code for a statement """
+        """Generate code for a statement"""
         try:
             assert isinstance(code, ast.Statement)
             if isinstance(code, ast.Compound):
@@ -368,7 +368,7 @@ class CodeGenerator:
             self.error(exc.msg, exc.loc)
 
     def gen_return_stmt(self, code):
-        """ Generate code for return statement """
+        """Generate code for return statement"""
         if code.expr:
             ret_val = self.gen_expr_code(code.expr, rvalue=True)
             self.emit(ir.Return(ret_val))
@@ -377,7 +377,7 @@ class CodeGenerator:
         self.builder.set_block(self.new_block())
 
     def gen_assignment_stmt(self, code):
-        """ Generate code for assignment statement """
+        """Generate code for assignment statement"""
         # Evaluate left hand side:
         lval = self.gen_expr_code(code.lval)
 
@@ -417,14 +417,14 @@ class CodeGenerator:
         )
 
     def gen_local_var_init(self, var):
-        """ Initialize a local variable """
+        """Initialize a local variable"""
         if var.ival is None:
             return
         alloc = self.context.var_map[var]
         self.gen_expr_at(alloc, var.ival)
 
     def gen_expr_at(self, ptr, expr):
-        """ Generate code at a pointer in memory """
+        """Generate code at a pointer in memory"""
         if isinstance(expr, ast.ExpressionList):
             # We have list of expressions, recurse!
             for e in expr.expressions:
@@ -449,7 +449,7 @@ class CodeGenerator:
             return ptr
 
     def gen_if_stmt(self, code):
-        """ Generate code for if statement """
+        """Generate code for if statement"""
         true_block = self.new_block()
         false_block = self.new_block()
         final_block = self.new_block()
@@ -463,7 +463,7 @@ class CodeGenerator:
         self.builder.set_block(final_block)
 
     def gen_while(self, code):
-        """ Generate code for while statement """
+        """Generate code for while statement"""
         main_block = self.new_block()
         test_block = self.new_block()
         final_block = self.new_block()
@@ -476,7 +476,7 @@ class CodeGenerator:
         self.builder.set_block(final_block)
 
     def gen_for_stmt(self, code):
-        """ Generate for-loop code """
+        """Generate for-loop code"""
         main_block = self.new_block()
         test_block = self.new_block()
         final_block = self.new_block()
@@ -491,7 +491,7 @@ class CodeGenerator:
         self.builder.set_block(final_block)
 
     def gen_switch_stmt(self, switch):
-        """ Generate code for a switch statement """
+        """Generate code for a switch statement"""
         ir_val = self.gen_expr_code(switch.expression, rvalue=True)
         assert self.context.equal_types("int", switch.expression.typ)
 
@@ -580,7 +580,7 @@ class CodeGenerator:
         assert self.context.equal_types(expr.typ, "bool")
 
     def gen_expr_code(self, expr: ast.Expression, rvalue=False) -> ir.Value:
-        """ Generate code for an expression. Return the generated ir-value """
+        """Generate code for an expression. Return the generated ir-value"""
         assert isinstance(expr, ast.Expression)
         if expr.is_bool:
             value = self.gen_bool_expr(expr)
@@ -640,7 +640,7 @@ class CodeGenerator:
         )
 
     def gen_dereference(self, expr: ast.Deref):
-        """ dereference pointer type, which means \\*(expr) """
+        """dereference pointer type, which means \\*(expr)"""
         assert isinstance(expr, ast.Deref)
 
         # Make sure to have the rvalue of the pointer:
@@ -654,7 +654,7 @@ class CodeGenerator:
         return deref_value
 
     def gen_unop(self, expr):
-        """ Generate code for unary operator """
+        """Generate code for unary operator"""
         if expr.op == "&":
             rhs = self.gen_expr_code(expr.a)
             assert expr.a.lvalue
@@ -672,7 +672,7 @@ class CodeGenerator:
             raise NotImplementedError(str(expr.op))
 
     def gen_bool_expr(self, expr):
-        """ Generate code for cases where a boolean value is assigned """
+        """Generate code for cases where a boolean value is assigned"""
         # In case of boolean assignment like:
         # 'var bool x = true or false;'
 
@@ -703,7 +703,7 @@ class CodeGenerator:
         return phi
 
     def gen_binop(self, expr: ast.Binop):
-        """ Generate code for binary operation """
+        """Generate code for binary operation"""
         assert isinstance(expr, ast.Binop)
         assert expr.op not in ast.Binop.cond_ops
         expr.lvalue = False
@@ -721,7 +721,7 @@ class CodeGenerator:
         )
 
     def gen_identifier(self, expr):
-        """ Generate code for when an identifier was referenced """
+        """Generate code for when an identifier was referenced"""
         # Generate code for this identifier.
         target = self.context.resolve_symbol(expr)
 
@@ -739,7 +739,7 @@ class CodeGenerator:
         return value
 
     def is_module_ref(self, expr):
-        """ Determine whether a module is referenced """
+        """Determine whether a module is referenced"""
         if isinstance(expr, ast.Member):
             if isinstance(expr.base, ast.Identifier):
                 target = self.context.resolve_symbol(expr.base)
@@ -785,7 +785,7 @@ class CodeGenerator:
         return self.emit(ir.add(base, offset, "mem_addr", ir.ptr))
 
     def gen_index_expr(self, expr):
-        """ Array indexing """
+        """Array indexing"""
         base = self.gen_expr_code(expr.base)
         idx = self.gen_expr_code(expr.i, rvalue=True)
 
@@ -820,7 +820,7 @@ class CodeGenerator:
         )
 
     def gen_literal_expr(self, expr):
-        """ Generate code for literal """
+        """Generate code for literal"""
         expr.lvalue = False
 
         # Construct correct const value:
@@ -840,7 +840,7 @@ class CodeGenerator:
         return value
 
     def gen_type_cast(self, expr):
-        """ Generate code for type casting """
+        """Generate code for type casting"""
         # When type casting, the rvalue property is lost.
         ar = self.gen_expr_code(expr.a, rvalue=True)
         expr.lvalue = False
@@ -892,7 +892,7 @@ class CodeGenerator:
             )
 
     def gen_function_call(self, expr):
-        """ Generate code for a function call """
+        """Generate code for a function call"""
         # Lookup the function in question:
         target_func = self.context.resolve_symbol(expr.proc)
         assert isinstance(target_func, ast.Function)

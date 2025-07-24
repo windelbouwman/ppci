@@ -1,4 +1,4 @@
-""" Mips architecture """
+"""Mips architecture"""
 
 from .arch import MipsArch
 

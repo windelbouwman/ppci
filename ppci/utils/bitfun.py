@@ -1,9 +1,9 @@
-""" Module full of bit manipulating helper classes. """
+"""Module full of bit manipulating helper classes."""
 
 
 def rotate_right(v, n):
-    """ bit-wise Rotate right n times """
-    mask = (2 ** n) - 1
+    """bit-wise Rotate right n times"""
+    mask = (2**n) - 1
     mask_bits = v & mask
     return (v >> n) | (mask_bits << (32 - n))
 
@@ -15,7 +15,7 @@ def rotate_left(v, n):
 
 
 def rotl(v, count, bits):
-    """ Rotate v left count bits """
+    """Rotate v left count bits"""
     mask = (1 << bits) - 1
     count = count % bits
     return ((v << count) & mask) | (v >> (bits - count))
@@ -38,7 +38,7 @@ def reverse_bits(v, bits):
 
 
 def rotr(v, count, bits):
-    """ Rotate v right count bits """
+    """Rotate v right count bits"""
     mask = (1 << bits) - 1
     count = count % bits
     return (v >> count) | ((v << (bits - count)) & mask)
@@ -62,7 +62,7 @@ def correct(value, bits, signed):
 
 
 def clz(v: int, bits: int) -> int:
-    """ count leading zeroes """
+    """count leading zeroes"""
     mask = 1 << (bits - 1)
     count = 0
     while (count < bits) and (v & mask) == 0:
@@ -72,7 +72,7 @@ def clz(v: int, bits: int) -> int:
 
 
 def ctz(v: int, bits: int) -> int:
-    """ count trailing zeroes """
+    """count trailing zeroes"""
     count = 0
     while count < bits and (v % 2) == 0:
         count += 1
@@ -81,7 +81,7 @@ def ctz(v: int, bits: int) -> int:
 
 
 def popcnt(v: int, bits: int) -> int:
-    """ count number of one bits """
+    """count number of one bits"""
     count = 0
     for i in range(bits):
         if v & (1 << i):
@@ -97,13 +97,13 @@ def sign_extend(value: int, bits: int) -> int:
 
 
 def value_to_bytes_big_endian(value: int, size: int):
-    """ Pack integer value into bytes """
+    """Pack integer value into bytes"""
     byte_numbers = reversed(range(size))
     return bytes((value >> (x * 8)) & 0xFF for x in byte_numbers)
 
 
 def value_to_bits(v, bits):
-    """ Convert a value to a list of booleans """
+    """Convert a value to a list of booleans"""
     b = []
     for i in range(bits):
         b.append(bool((1 << i) & v))
@@ -111,7 +111,7 @@ def value_to_bits(v, bits):
 
 
 def bits_to_bytes(bits):
-    """ Convert a sequence of booleans into bytes """
+    """Convert a sequence of booleans into bytes"""
     while len(bits) % 8 != 0:
         bits.append(False)
 
@@ -126,7 +126,7 @@ def bits_to_bytes(bits):
 
 
 def encode_imm32(v):
-    """ Bundle 32 bit value into 4 bits rotation and 8 bits value """
+    """Bundle 32 bit value into 4 bits rotation and 8 bits value"""
     for i in range(0, 16):
         v2 = rotate_left(v, i * 2)
         if (v2 & 0xFFFFFF00) == 0:
@@ -138,14 +138,14 @@ def encode_imm32(v):
 
 
 def align(value, m):
-    """ Increase value to a multiple of m """
+    """Increase value to a multiple of m"""
     while (value % m) != 0:
         value = value + 1
     return value
 
 
 def wrap_negative(value, bits):
-    """ Make a bitmask of a value, even if it is a negative value ! """
+    """Make a bitmask of a value, even if it is a negative value !"""
     upper_limit = (1 << (bits)) - 1
     lower_limit = -(1 << (bits - 1))
     if value not in range(lower_limit, upper_limit + 1):
@@ -161,7 +161,7 @@ def wrap_negative(value, bits):
 
 
 def inrange(value, bits):
-    """ Test if a signed value can be fit into the given number of bits """
+    """Test if a signed value can be fit into the given number of bits"""
     upper_limit = 1 << (bits - 1)
     lower_limit = -(1 << (bits - 1))
     return value in range(lower_limit, upper_limit)

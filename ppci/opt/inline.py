@@ -2,7 +2,7 @@ from .. import ir
 
 
 def inline_function(call: ir.ProcedureCall, function: ir.SubRoutine):
-    """ Replace the call instruction with the function implementation """
+    """Replace the call instruction with the function implementation"""
     dst_function = call.function
     for block in function:
         block_copy = block.copy

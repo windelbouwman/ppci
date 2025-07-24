@@ -1,4 +1,4 @@
-""" Architecture information carriers.
+"""Architecture information carriers.
 
 This module contains classes with information about a specific target.
 
@@ -8,6 +8,7 @@ The information present:
 - int size for the machine
 
 """
+
 import enum
 from .. import ir
 from collections import defaultdict
@@ -15,14 +16,14 @@ from ..utils.collections import OrderedSet
 
 
 class Endianness(enum.Enum):
-    """ Define endianness as little or big """
+    """Define endianness as little or big"""
 
     LITTLE = 1
     BIG = 1000
 
 
 class TypeInfo:
-    """ Target specific type information """
+    """Target specific type information"""
 
     def __init__(self, size, alignment):
         self.size = size
@@ -30,7 +31,7 @@ class TypeInfo:
 
 
 class ArchInfo:
-    """ A collection of information for language frontends """
+    """A collection of information for language frontends"""
 
     def __init__(
         self,
@@ -58,26 +59,26 @@ class ArchInfo:
         self.calc_alias()
 
     def get_register(self, name):
-        """ Retrieve the machine register by name. """
+        """Retrieve the machine register by name."""
         return self._registers_by_name[name]
 
     def has_register(self, name):
-        """ Test if this architecture has a register with the given name. """
+        """Test if this architecture has a register with the given name."""
         return name in self._registers_by_name
 
     def get_type_info(self, typ):
-        """ Retrieve type information for the given type """
+        """Retrieve type information for the given type"""
         if isinstance(typ, str):
             typ = self.type_infos[typ]
         assert isinstance(typ, ir.Typ)
         return self.type_infos[typ]
 
     def get_size(self, typ):
-        """ Get the size (in bytes) of the given type """
+        """Get the size (in bytes) of the given type"""
         return self.get_type_info(typ).size
 
     def get_alignment(self, typ):
-        """ Get the alignment for the given type """
+        """Get the alignment for the given type"""
         return self.get_type_info(typ).alignment
 
     def calc_alias(self):

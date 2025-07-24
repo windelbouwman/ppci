@@ -1,4 +1,4 @@
-""" Lexer for pascal. """
+"""Lexer for pascal."""
 
 import re
 from ..common import SourceLocation, Token
@@ -6,7 +6,7 @@ from ..tools.baselex import SimpleLexer, on
 
 
 class Lexer(SimpleLexer):
-    """ Generates a sequence of token from an input stream """
+    """Generates a sequence of token from an input stream"""
 
     keywords = [
         "and",
@@ -84,7 +84,7 @@ class Lexer(SimpleLexer):
         return self.tokenize(s)
 
     def tokenize(self, text):
-        """ Keeps track of the long comments """
+        """Keeps track of the long comments"""
         for token in super().tokenize(text):
             # Convert some lexical alternatives:
             if token.typ == "(.":

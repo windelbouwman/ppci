@@ -1,5 +1,5 @@
 def calculate_dominators(nodes, entry_node):
-    """ Calculate the dominator sets iteratively """
+    """Calculate the dominator sets iteratively"""
 
     # Initialize dominator map:
     _dom = {}

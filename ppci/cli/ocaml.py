@@ -1,4 +1,4 @@
-""" OCaml utility.
+"""OCaml utility.
 
 Multiple usage possible, for example:
 

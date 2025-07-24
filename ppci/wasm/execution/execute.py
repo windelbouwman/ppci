@@ -14,7 +14,7 @@ def execute_wasm(
     function_args=(),
     reporter=None,
 ):
-    """ Execute the given wasm module. """
+    """Execute the given wasm module."""
     wasi_api = wasi.WasiApi(args)
     imports = {
         "wasi_unstable": {

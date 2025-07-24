@@ -1,5 +1,4 @@
-""" Assembler utility. """
-
+"""Assembler utility."""
 
 import argparse
 from .base import base_parser, march_parser, out_parser, LogSetup
@@ -27,7 +26,7 @@ parser.add_argument(
 
 
 def asm(args=None):
-    """ Run asm from command line """
+    """Run asm from command line"""
     args = parser.parse_args(args)
     with LogSetup(args):
         # Assemble source:

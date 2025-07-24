@@ -1,4 +1,4 @@
-""" Data structures for most java related items. """
+"""Data structures for most java related items."""
 
 from .enums import ConstantTag
 from .opcodes import op_to_name
@@ -54,14 +54,14 @@ class ClassFile:
         return self.constant_pool[index]
 
     def get_name(self, index):
-        """ Get a name given by an index. """
+        """Get a name given by an index."""
         constant = self.get_constant(index)
         assert constant.tag == ConstantTag.Utf8
         return constant.value
 
 
 class ConstantPool:
-    """ Constant pool. """
+    """Constant pool."""
 
     def __init__(self):
         self._pool = [None]  # Start with a dummy at position 0.
@@ -121,7 +121,7 @@ class CodeAttribute:
 
 
 class Instruction:
-    """ A single java instruction. """
+    """A single java instruction."""
 
     def __init__(self, opcode, args):
         self.opcode = opcode

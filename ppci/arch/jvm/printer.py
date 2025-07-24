@@ -1,9 +1,8 @@
-""" Functions to print class contents in a verbose way.
-"""
+"""Functions to print class contents in a verbose way."""
 
 
 def print_class_file(class_file):
-    """ Dump a class file. """
+    """Dump a class file."""
     ClassFilePrinter(class_file)
 
 

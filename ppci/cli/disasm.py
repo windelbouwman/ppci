@@ -1,5 +1,4 @@
-""" Disassembler utility. """
-
+"""Disassembler utility."""
 
 import argparse
 from .base import base_parser, march_parser, get_arch_from_args, LogSetup
@@ -15,7 +14,7 @@ parser.add_argument(
 
 
 def disasm(args=None):
-    """ Run asm from command line """
+    """Run asm from command line"""
     args = parser.parse_args(args)
     with LogSetup(args):
         # Assemble source:

@@ -1,4 +1,4 @@
-""" Xtensa architecture """
+"""Xtensa architecture"""
 
 from ... import ir
 from ...binutils.assembler import BaseAssembler
@@ -13,7 +13,7 @@ from . import instructions
 
 
 class XtensaArch(Architecture):
-    """ Xtensa architecture implementation. """
+    """Xtensa architecture implementation."""
 
     name = "xtensa"
 
@@ -47,11 +47,11 @@ class XtensaArch(Architecture):
         self.caller_save = registers.caller_save
 
     def move(self, dst, src):
-        """ Generate a move from src to dst """
+        """Generate a move from src to dst"""
         return instructions.Mov(dst, src, ismove=True)
 
     def get_runtime(self):
-        """ Retrieve the runtime for this target """
+        """Retrieve the runtime for this target"""
         from ...api import c3c
 
         c3_sources = get_runtime_files(["divsi3", "mulsi3"])
@@ -77,7 +77,7 @@ class XtensaArch(Architecture):
         return arg_locs
 
     def determine_rv_location(self, ret_type):
-        """ return value in a2 """
+        """return value in a2"""
         # TODO: what is the frame pointer??
         if ret_type in [ir.i8, ir.u8, ir.i32, ir.u32, ir.ptr]:
             rv = registers.a2
@@ -86,7 +86,7 @@ class XtensaArch(Architecture):
         return rv
 
     def gen_prologue(self, frame):
-        """ Returns prologue instruction sequence """
+        """Returns prologue instruction sequence"""
         # Literal pool must reside before function!
         for label, value in frame.constants:
             yield Alignment(4)
@@ -124,7 +124,7 @@ class XtensaArch(Architecture):
             yield instructions.Push(reg)
 
     def gen_epilogue(self, frame):
-        """ Return epilogue sequence """
+        """Return epilogue sequence"""
         # Pop save registers back:
         for reg in reversed(self.get_callee_saved(frame)):
             yield instructions.Pop(reg)

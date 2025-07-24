@@ -1,11 +1,11 @@
-""" Microblaze register definitions """
+"""Microblaze register definitions"""
 
 from ... import ir
 from ..registers import Register, RegisterClass
 
 
 class MicroBlazeRegister(Register):
-    """ A microblaze register """
+    """A microblaze register"""
 
     bitsize = 32
 

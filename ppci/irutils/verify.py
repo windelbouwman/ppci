@@ -1,4 +1,4 @@
-""" Verify an IR-module for consistency.
+"""Verify an IR-module for consistency.
 
 This is a very useful module since it allows to isolate
 bugs in the compiler itself.
@@ -21,7 +21,7 @@ def verify_module(module: ir.Module):
 
 
 class Verifier:
-    """ Checks an ir module for correctness """
+    """Checks an ir module for correctness"""
 
     logger = logging.getLogger("verifier")
 
@@ -29,14 +29,14 @@ class Verifier:
         self.name_map = {}
 
     def verify(self, module):
-        """ Verifies a module for some sanity """
+        """Verifies a module for some sanity"""
         self.logger.debug("Verifying %s", module)
         assert isinstance(module, ir.Module)
         for function in module.functions:
             self.verify_function(function)
 
     def verify_function(self, function):
-        """ Verify all blocks in the function """
+        """Verify all blocks in the function"""
         self.name_map = {}
         for block in function:
             assert block.name not in self.name_map
@@ -99,7 +99,7 @@ class Verifier:
             self.verify_block(block)
 
     def verify_block_termination(self, block):
-        """ Verify that the block is terminated correctly """
+        """Verify that the block is terminated correctly"""
         if block.is_empty:
             raise ValueError("Block is empty: {}".format(block))
         if not block.last_instruction.is_terminator:
@@ -112,7 +112,7 @@ class Verifier:
         assert all(isinstance(p, ir.Block) for p in block.predecessors)
 
     def verify_block(self, block):
-        """ Verify block for correctness """
+        """Verify block for correctness"""
         for instruction in block:
             self.verify_instruction(instruction, block)
 
@@ -175,9 +175,8 @@ class Verifier:
 
         # Verify that all uses are defined before this instruction.
         for value in instruction.uses:
-            assert self.instruction_dominates(
-                value, instruction
-            ), "{} does not dominate {}".format(value, instruction)
+            issue = f"{value} does not dominate {instruction}"
+            assert self.instruction_dominates(value, instruction), issue
 
             # Check that a value is not undefined:
             if isinstance(value, ir.Undefined):
@@ -191,7 +190,7 @@ class Verifier:
                 # raise IrFormError("{} is used".format(value))
 
     def verify_subroutine_call(self, instruction):
-        """ Check some properties of a function call """
+        """Check some properties of a function call"""
         # Check if we called function or procedure:
         callee = instruction.callee
         if isinstance(instruction, ir.FunctionCall):
@@ -242,7 +241,7 @@ class Verifier:
                 )
 
     def instruction_dominates(self, one, another):
-        """ Checks if one instruction dominates another instruction """
+        """Checks if one instruction dominates another instruction"""
         if isinstance(one, (ir.Parameter, ir.GlobalValue)):
             # TODO: hack, parameters and globals dominate all other
             # instructions..
@@ -274,7 +273,7 @@ class Verifier:
                 return self.block_dominates(one.block, another.block)
 
     def block_dominates(self, one: ir.Block, another: ir.Block):
-        """ Check if this block dominates other block """
+        """Check if this block dominates other block"""
         assert one in one.function
         one_node = self.cfg_info.get_node(one)
         another_node = self.cfg_info.get_node(another)

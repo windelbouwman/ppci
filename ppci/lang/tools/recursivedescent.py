@@ -12,7 +12,7 @@ def make_comma_or(parts):
 
 
 class RecursiveDescentParser:
-    """ Base class for recursive descent parsers """
+    """Base class for recursive descent parsers"""
 
     def __init__(self):
         self.token = None  # The current token under cursor
@@ -21,13 +21,13 @@ class RecursiveDescentParser:
         self._last_loc = None
 
     def init_lexer(self, tokens):
-        """ Initialize the parser with the given tokens (an iterator) """
+        """Initialize the parser with the given tokens (an iterator)"""
         self.tokens = tokens
         self.token = next(self.tokens, None)
         self._look_ahead = []
 
     def error(self, msg, loc=None):
-        """ Raise an error at the current location """
+        """Raise an error at the current location"""
         if loc is None:
             if self.token is None:
                 if self._last_loc is None:
@@ -69,7 +69,7 @@ class RecursiveDescentParser:
         return False
 
     def next_token(self):
-        """ Advance to the next token """
+        """Advance to the next token"""
         tok = self.token
         if self._look_ahead:
             self.token = self._look_ahead.pop(0)
@@ -82,17 +82,17 @@ class RecursiveDescentParser:
         return tok
 
     def not_impl(self, msg=""):  # pragma: no cover
-        """ Call this function when parsing reaches unimplemented parts """
+        """Call this function when parsing reaches unimplemented parts"""
         raise CompilerError("Not implemented " + msg, loc=self.token.loc)
 
     @property
     def peek(self):
-        """ Look at the next token to parse without popping it """
+        """Look at the next token to parse without popping it"""
         if self.token:
             return self.token.typ
 
     def look_ahead(self, amount):
-        """ Take a look at x tokens ahead """
+        """Take a look at x tokens ahead"""
         if amount > 0:
             while len(self._look_ahead) < amount:
                 next_token = next(self.tokens, None)

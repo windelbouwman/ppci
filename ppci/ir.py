@@ -1,4 +1,4 @@
-""" Intermediate representation (IR) code classes.
+"""Intermediate representation (IR) code classes.
 
 Ir-code is organized into modules.
 Modules may contain functions and global variables. Functions
@@ -17,7 +17,7 @@ from .utils.collections import OrderedSet
 
 # Types:
 class Typ:
-    """ Built in type representation """
+    """Built in type representation"""
 
     def __init__(self, name):
         self.name = name
@@ -27,22 +27,22 @@ class Typ:
 
     @property
     def is_integer(self) -> bool:
-        """ Test if this type is of integer type """
+        """Test if this type is of integer type"""
         return isinstance(self, IntegerTyp)
 
     @property
     def is_unsigned(self) -> bool:
-        """ Test if this type is of unsigned integer type """
+        """Test if this type is of unsigned integer type"""
         return isinstance(self, UnsignedIntegerTyp)
 
     @property
     def is_signed(self) -> bool:
-        """ Test if this type is of signed integer type """
+        """Test if this type is of signed integer type"""
         return isinstance(self, SignedIntegerTyp)
 
     @property
     def is_blob(self) -> bool:
-        """ Test if this type is bytes blob """
+        """Test if this type is bytes blob"""
         return isinstance(self, BlobDataTyp)
 
     def __repr__(self):
@@ -50,13 +50,13 @@ class Typ:
 
 
 class PointerTyp(Typ):
-    """ Pointer type """
+    """Pointer type"""
 
     pass
 
 
 class BasicTyp(Typ):
-    """ Basic arithmatic type """
+    """Basic arithmatic type"""
 
     _instances = {}
 
@@ -76,19 +76,19 @@ class BasicTyp(Typ):
 
 
 class IntegerTyp(BasicTyp):
-    """ Integer type """
+    """Integer type"""
 
     pass
 
 
 class SignedIntegerTyp(IntegerTyp):
-    """ Signed integer type """
+    """Signed integer type"""
 
     signed = True
 
 
 class UnsignedIntegerTyp(IntegerTyp):
-    """ Unsigned integer type """
+    """Unsigned integer type"""
 
     signed = False
 
@@ -98,7 +98,7 @@ class FloatingPointTyp(BasicTyp):
 
 
 class BlobDataTyp(Typ):
-    """ The type of a opaque data blob.
+    """The type of a opaque data blob.
 
     Note that blob types can be compared by using the is operator:
 
@@ -115,8 +115,7 @@ class BlobDataTyp(Typ):
     _cache = {}
 
     def __new__(cls, size, alignment):
-        """ Create instance of blob type for the given size and alignment.
-        """
+        """Create instance of blob type for the given size and alignment."""
         key = (size, alignment)
         if key in cls._cache:
             obj = cls._cache[key]
@@ -154,13 +153,13 @@ type_name_map = {t.name.lower(): t for t in value_types}
 
 
 def get_ty(name):
-    """ Get an ir type by name """
+    """Get an ir type by name"""
     return type_name_map[name.lower()]
 
 
 # Program structure:
 class Module:
-    """ Container unit for variables and functions. """
+    """Container unit for variables and functions."""
 
     def __init__(self, name: str, debug_db=None):
         self.name = name
@@ -183,44 +182,44 @@ class Module:
             raise IndexError("A Module can only be indexed by str")
 
     def add_external(self, external):
-        """ Add an externally located thing """
+        """Add an externally located thing"""
         self.externals.append(external)
 
     def add_function(self, function):
-        """ Add a function to this module """
+        """Add a function to this module"""
         assert isinstance(function, SubRoutine)
         self._functions.append(function)
         function.module = self
 
     def add_variable(self, variable):
-        """ Add a variable to this module """
+        """Add a variable to this module"""
         assert isinstance(variable, Variable)
         self._variables.append(variable)
         variable.module = self
 
     def display(self):
-        """ Display this module """
+        """Display this module"""
         from .irutils import print_module
 
         print_module(self, verify=False)
 
     @property
     def variables(self):
-        """ Get all variables of this module """
+        """Get all variables of this module"""
         return self._variables
 
     @property
     def functions(self):
-        """ Get all functions of this module """
+        """Get all functions of this module"""
         return self._functions
 
     def get_function(self, name: str):
-        """ Get a function with the given name """
+        """Get a function with the given name"""
         functions = {f.name: f for f in self.functions}
         return functions[name]
 
     def stats(self):
-        """ Returns a string with statistic information such as block count """
+        """Returns a string with statistic information such as block count"""
         num_functions = len(self.functions)
         num_blocks = sum(len(f.blocks) for f in self.functions)
         num_instructions = sum(f.num_instructions() for f in self.functions)
@@ -230,9 +229,9 @@ class Module:
 
 
 class Value:
-    """ Base of all values """
+    """Base of all values"""
 
-    __slots__ = ('name', 'ty', 'used_by')
+    __slots__ = ("name", "ty", "used_by")
 
     def __init__(self, name: str, ty: Typ):
         # Has a name and a type?
@@ -246,47 +245,48 @@ class Value:
         self.used_by = OrderedSet()
 
     def add_user(self, i):
-        """ Add a usage for this value """
+        """Add a usage for this value"""
         assert isinstance(i, Instruction)
         self.used_by.add(i)
 
     def del_user(self, i):
-        """ Add a usage for this value """
+        """Add a usage for this value"""
         assert isinstance(i, Instruction)
         self.used_by.remove(i)
 
     @property
     def is_used(self):
-        """ Determine whether this value is used anywhere """
+        """Determine whether this value is used anywhere"""
         return bool(self.use_count)
 
     @property
     def use_count(self):
-        """ Determine how often this values is used """
+        """Determine how often this values is used"""
         return len(self.used_by)
 
     def replace_by(self, value):
-        """ Replace all uses of this value by another value """
+        """Replace all uses of this value by another value"""
         for use in list(self.used_by):
             use.replace_use(self, value)
 
 
 class Binding:
-    """ Enum for public / private-ness of global values.
+    """Enum for public / private-ness of global values.
 
     This can be used to keep value local to the module. This can
     be useful when you compile two modules with symbols
     with the same name. If the symbols are defined as local,
     this will not cause a name clash during linking.
     """
-    GLOBAL = 'global'
-    LOCAL = 'local'
+
+    GLOBAL = "global"
+    LOCAL = "local"
 
 
 class GlobalValue(Value):
-    """ A global value (with a name and an address) """
+    """A global value (with a name and an address)"""
 
-    __slots__ = ('binding',)
+    __slots__ = ("binding",)
 
     def __init__(self, name, binding):
         super().__init__(name, ptr)
@@ -294,7 +294,7 @@ class GlobalValue(Value):
 
 
 class External(GlobalValue):
-    """ External object """
+    """External object"""
 
     def __init__(self, name):
         super().__init__(name, Binding.GLOBAL)
@@ -304,7 +304,7 @@ class External(GlobalValue):
 
 
 class ExternalSubRoutine(External):
-    """ External subroutine base class """
+    """External subroutine base class"""
 
     def __init__(self, name, argument_types):
         super().__init__(name)
@@ -312,7 +312,7 @@ class ExternalSubRoutine(External):
 
 
 class ExternalProcedure(ExternalSubRoutine):
-    """ External procedure """
+    """External procedure"""
 
     def __repr__(self):
         args = ", ".join(map(str, self.argument_types))
@@ -320,7 +320,7 @@ class ExternalProcedure(ExternalSubRoutine):
 
 
 class ExternalFunction(ExternalSubRoutine):
-    """ External function """
+    """External function"""
 
     def __init__(self, name, argument_types, return_ty):
         super().__init__(name, argument_types)
@@ -334,13 +334,14 @@ class ExternalFunction(ExternalSubRoutine):
 
 
 class ExternalVariable(External):
-    """ External global variable. """
+    """External global variable."""
+
     def __str__(self):
         return "external variable {}".format(self.name)
 
 
 class SubRoutine(GlobalValue):
-    """ Base class of function and procedure. These two differ in that
+    """Base class of function and procedure. These two differ in that
     a function returns a value, where as a procedure does not.
 
     A subroutine contains basic blocks which refer to each other,
@@ -368,9 +369,9 @@ class SubRoutine(GlobalValue):
         self.arguments = []
 
     def make_unique_name(self, dut):
-        """ Check if the name of the given dut is unique
-            and if not make it so.
-            Also add it to the used names """
+        """Check if the name of the given dut is unique
+        and if not make it so.
+        Also add it to the used names"""
         name = dut.name
         while dut.name in self.defined_names:
             dut.name = "{}_{}".format(name, self.unique_counter)
@@ -378,40 +379,40 @@ class SubRoutine(GlobalValue):
         self.defined_names.add(dut.name)
 
     def dump(self):
-        """ Print this function """
+        """Print this function"""
         print(self)
         for block in self:
             block.dump()
 
     def __iter__(self):
-        """ Iterate over all blocks in this function """
+        """Iterate over all blocks in this function"""
         for block in self.blocks:
             yield block
 
     @property
     def block_names(self):
-        """ Get the names of all the blocks in this function """
+        """Get the names of all the blocks in this function"""
         return (b.name for b in self.blocks)
 
     @property
     def is_procedure(self):
-        """ Test if this routine is a procedure. """
+        """Test if this routine is a procedure."""
         return isinstance(self, Procedure)
 
     @property
     def is_function(self):
-        """ Test if this routine is a function. """
+        """Test if this routine is a function."""
         return isinstance(self, Function)
 
     def is_leaf(self):
-        """ Test if this procedure is a leaf function.
+        """Test if this procedure is a leaf function.
 
         A leaf function calls no other functions.
         """
         return not bool(self.get_out_calls())
 
     def get_out_calls(self):
-        """ Return the calls that leave this function. """
+        """Return the calls that leave this function."""
         return list(
             self.get_instructions_of_type((ProcedureCall, FunctionCall))
         )
@@ -422,13 +423,13 @@ class SubRoutine(GlobalValue):
                 yield instruction
 
     def get_instructions(self):
-        """ Get all instructions in this routine. """
+        """Get all instructions in this routine."""
         for block in self:
             for instruction in block:
                 yield instruction
 
     def calc_reachable_blocks(self):
-        """ Determine all blocks that can be reached """
+        """Determine all blocks that can be reached"""
         blocks = {self.entry}
         worklist = [self.entry]
         while worklist:
@@ -440,7 +441,7 @@ class SubRoutine(GlobalValue):
         return blocks
 
     def delete_unreachable(self):
-        """ Calculate all reachable blocks from entry and delete all others """
+        """Calculate all reachable blocks from entry and delete all others"""
         reachable = self.calc_reachable_blocks()
         unreachable = {b for b in self if b not in reachable}
 
@@ -466,7 +467,7 @@ class SubRoutine(GlobalValue):
             block.delete()
 
     def add_block(self, block):
-        """ Add a block to this function.
+        """Add a block to this function.
 
         Args:
             block (:class:`Block`): the basic block to add.
@@ -480,24 +481,24 @@ class SubRoutine(GlobalValue):
         return block
 
     def remove_block(self, block):
-        """ Remove a block from this function """
+        """Remove a block from this function"""
         block.function = None
         self.blocks.remove(block)
 
     def add_parameter(self, parameter):
-        """ Add an argument to this function """
+        """Add an argument to this function"""
         assert isinstance(parameter, Parameter)
         parameter.num = len(self.arguments)
         self.arguments.append(parameter)
         # p.parent = self.entry
 
     def num_instructions(self):
-        """ Count the number of instructions contained in this function """
+        """Count the number of instructions contained in this function"""
         return sum(len(block) for block in self.blocks)
 
 
 class Procedure(SubRoutine):
-    """ A procedure definition that does not return a value.
+    """A procedure definition that does not return a value.
 
     Args:
         name (str): the name of the procedure
@@ -511,7 +512,7 @@ class Procedure(SubRoutine):
 
 
 class Function(SubRoutine):
-    """ Represents a function.
+    """Represents a function.
 
     A function always returns a value.
 
@@ -530,11 +531,13 @@ class Function(SubRoutine):
     def __str__(self):
         args = ", ".join("{} {}".format(a.ty, a.name) for a in self.arguments)
         ret_typ = self.return_ty
-        return "{} function {} {}({})".format(self.binding, ret_typ, self.name, args)
+        return "{} function {} {}({})".format(
+            self.binding, ret_typ, self.name, args
+        )
 
 
 class Block:
-    """ Uninterrupted sequence of instructions.
+    """Uninterrupted sequence of instructions.
 
     A block is properly terminated if its last instruction is a
     :class:`FinalInstruction`.
@@ -568,7 +571,7 @@ class Block:
         return self.instructions.__getitem__(key)
 
     def insert_instruction(self, instruction, before_instruction=None):
-        """ Insert an instruction at the front of the block """
+        """Insert an instruction at the front of the block"""
         if before_instruction is not None:
             assert self == before_instruction.block
             pos = before_instruction.position
@@ -581,7 +584,7 @@ class Block:
             self.function.make_unique_name(instruction)
 
     def add_instruction(self, instruction):
-        """ Add an instruction to the end of this block """
+        """Add an instruction to the end of this block"""
         assert isinstance(instruction, Instruction)
         assert not self.is_closed
         instruction.block = self
@@ -590,45 +593,45 @@ class Block:
             self.function.make_unique_name(instruction)
 
     def remove_instruction(self, instruction):
-        """ Remove instruction from block """
+        """Remove instruction from block"""
         instruction.block = None
         self.instructions.remove(instruction)
         return instruction
 
     @property
     def last_instruction(self):
-        """ Gets the last instruction from the block """
+        """Gets the last instruction from the block"""
         if not self.is_empty:
             return self.instructions[-1]
 
     @property
     def is_empty(self):
-        """ Determines whether the block is empty or not """
+        """Determines whether the block is empty or not"""
         return len(self) == 0
 
     @property
     def is_closed(self):
-        """ Determine whether this block is propert terminated """
+        """Determine whether this block is propert terminated"""
         return isinstance(self.last_instruction, FinalInstruction)
 
     @property
     def is_entry(self):
-        """ Check if this block is the entry block of a function """
+        """Check if this block is the entry block of a function"""
         return self.function.entry is self
 
     @property
     def first_instruction(self):
-        """ Return this blocks first instruction """
+        """Return this blocks first instruction"""
         return self.instructions[0]
 
     @property
     def phis(self):
-        """ Return all :class:`Phi` instructions of this block """
+        """Return all :class:`Phi` instructions of this block"""
         return [i for i in self.instructions if i.is_phi]
 
     @property
     def successors(self):
-        """ Get the direct successors of this block """
+        """Get the direct successors of this block"""
         if self.last_instruction:
             return self.last_instruction.targets
         else:
@@ -636,28 +639,28 @@ class Block:
 
     @property
     def predecessors(self):
-        """ Return all predecessing blocks """
+        """Return all predecessing blocks"""
         return [i.block for i in self.references]
 
     @property
     def is_used(self):
-        """ True if this block is referenced by an instruction """
+        """True if this block is referenced by an instruction"""
         return len(self.references) > 0
 
     def change_target(self, old, new):
-        """ Change the target of this block from old to new """
+        """Change the target of this block from old to new"""
         self.last_instruction.change_target(old, new)
 
     def delete(self):
-        """ Delete all instructions in this block, so it can be removed """
+        """Delete all instructions in this block, so it can be removed"""
         assert not self.is_used
         for instruction in self:
             instruction.delete()
 
     def replace_incoming(self, block, new_blocks):
         """
-            For each phi node in the block, change the incoming branch of
-            block into new block with the same variable.
+        For each phi node in the block, change the incoming branch of
+        block into new block with the same variable.
         """
         for phi in self.phis:
             value = phi.get_value(block)
@@ -671,17 +674,17 @@ class Block:
 
 
 def value_use(name):
-    """ Creates a property that also keeps track of usage """
+    """Creates a property that also keeps track of usage"""
 
     def getter(self):
-        """ Gets the value """
+        """Gets the value"""
         if name in self._var_map:
             return self._var_map[name]
         else:  # pragma: no cover
             raise KeyError(name)
 
     def setter(self, value):
-        """ Sets the value """
+        """Sets the value"""
         if not isinstance(value, Value):
             raise TypeError(
                 "Expecting a Value instance, but got {}".format(value)
@@ -700,7 +703,7 @@ def value_use(name):
 
 
 class Instruction:
-    """ Base class for all instructions that go into a basic block """
+    """Base class for all instructions that go into a basic block"""
 
     def __init__(self):
         # Create a collection to store the values this value uses.
@@ -711,11 +714,11 @@ class Instruction:
 
     @property
     def function(self):
-        """ Return the function this instruction is part of """
+        """Return the function this instruction is part of"""
         return self.block.function
 
     def add_use(self, value):
-        """ Add v to the list of values used by this instruction """
+        """Add v to the list of values used by this instruction"""
         if not isinstance(value, Value):
             raise TypeError("Expected Value, but got {}".format(value))
         self.uses.add(value)
@@ -738,8 +741,8 @@ class Instruction:
             )
 
     def replace_use(self, old, new):
-        """ replace value usage 'old' with new value, updating the def-use
-            information.
+        """replace value usage 'old' with new value, updating the def-use
+        information.
         """
         # TODO: update reference
         # assert old in self._var_map.values()
@@ -756,29 +759,29 @@ class Instruction:
 
     @property
     def position(self):
-        """ Return numerical position in block """
+        """Return numerical position in block"""
         return self.block.instructions.index(self)
 
     @property
     def is_terminator(self):
-        """ Check if this instruction is a block terminating instruction """
+        """Check if this instruction is a block terminating instruction"""
         return isinstance(self, FinalInstruction)
 
     @property
     def is_phi(self):
-        """ Test if this instruction is a phi instruction. """
+        """Test if this instruction is a phi instruction."""
         return isinstance(self, Phi)
 
 
 # TODO: hmm, multiple inheritance used..
 class LocalValue(Value, Instruction):
-    """ An instruction that results in a value has a type and a name """
+    """An instruction that results in a value has a type and a name"""
 
     def __init__(self, name: str, ty: Typ):
         super().__init__(name, ty)
 
     def __add__(self, other):
-        """ Add this value to another one """
+        """Add this value to another one"""
         if not isinstance(other, Value):
             raise TypeError(
                 "Expected other to be of Value type, not {}".format(
@@ -789,24 +792,24 @@ class LocalValue(Value, Instruction):
         return Binop(self, "+", other, "add", self.ty)
 
     def __sub__(self, other):
-        """ Substract other value from this one """
+        """Substract other value from this one"""
         assert isinstance(other, Value)
         assert self.ty is other.ty
         return Binop(self, "-", other, "sub", self.ty)
 
     def __mul__(self, other):
-        """ Multiply this value with another one """
+        """Multiply this value with another one"""
         assert isinstance(other, Value)
         assert self.ty is other.ty
         return Binop(self, "*", other, "mul", self.ty)
 
     def used_in_blocks(self):
-        """ Returns a set of blocks where this value is used """
+        """Returns a set of blocks where this value is used"""
         return OrderedSet(i.block for i in self.used_by)
 
 
 class AddressOf(LocalValue):
-    """ This instruction takes the address of a block of data """
+    """This instruction takes the address of a block of data"""
 
     src = value_use("src")
 
@@ -823,7 +826,7 @@ class AddressOf(LocalValue):
 
 
 class Cast(LocalValue):
-    """ Base type conversion instruction """
+    """Base type conversion instruction"""
 
     src = value_use("src")
 
@@ -836,14 +839,14 @@ class Cast(LocalValue):
 
 
 class Undefined(LocalValue):
-    """ Undefined value, this value must never be used. """
+    """Undefined value, this value must never be used."""
 
     def __str__(self):
         return "{} = undefined".format(self.name)
 
 
 class Const(LocalValue):
-    """ Represents a constant value """
+    """Represents a constant value"""
 
     def __init__(self, value, name, ty):
         super().__init__(name, ty)
@@ -855,8 +858,8 @@ class Const(LocalValue):
 
 
 class LiteralData(LocalValue):
-    """ Instruction that contains labeled data. When generating code for this
-        instruction, a label and its data is emitted in the literal area
+    """Instruction that contains labeled data. When generating code for this
+    instruction, a label and its data is emitted in the literal area
     """
 
     def __init__(self, data, name):
@@ -865,12 +868,12 @@ class LiteralData(LocalValue):
         assert isinstance(data, bytes), str(data)
 
     def __str__(self):
-        data = hexlify(self.data).decode('ascii')
+        data = hexlify(self.data).decode("ascii")
         return "{} {} = literal '{}'".format(self.ty, self.name, data)
 
 
 class FunctionCall(LocalValue):
-    """ Call a function with some arguments and a return value """
+    """Call a function with some arguments and a return value"""
 
     callee = value_use("callee")
 
@@ -907,7 +910,7 @@ class FunctionCall(LocalValue):
 
 
 class ProcedureCall(Instruction):
-    """ Call a procedure with some arguments """
+    """Call a procedure with some arguments"""
 
     callee = value_use("callee")
 
@@ -940,7 +943,7 @@ class ProcedureCall(Instruction):
 
 
 class Unop(LocalValue):
-    """ Generic unary operation """
+    """Generic unary operation"""
 
     ops = ["-", "~"]  # someday perhaps: 'floor', 'sqrt'
     a = value_use("a")
@@ -963,7 +966,7 @@ class Unop(LocalValue):
 
 
 class Binop(LocalValue):
-    """ Generic binary operation """
+    """Generic binary operation"""
 
     ops = ["+", "-", "*", "/", "%", "|", "&", "^", "<<", ">>", "rol", "ror"]
     a = value_use("a")
@@ -991,22 +994,22 @@ class Binop(LocalValue):
 
 
 def add(a, b, name, ty):
-    """ Substract b from a """
+    """Substract b from a"""
     return Binop(a, "+", b, name, ty)
 
 
 def sub(a, b, name, ty):
-    """ Substract b from a """
+    """Substract b from a"""
     return Binop(a, "-", b, name, ty)
 
 
 def mul(a, b, name, ty):
-    """ Multiply a by b """
+    """Multiply a by b"""
     return Binop(a, "*", b, name, ty)
 
 
 class Phi(LocalValue):
-    """ Imaginary phi instruction to make SSA possible.
+    """Imaginary phi instruction to make SSA possible.
 
     The phi instruction takes a value input for each basic block
     which can reach the basic block in which this phi instruction
@@ -1033,7 +1036,7 @@ class Phi(LocalValue):
         return "{} {} = phi {}".format(self.ty, self.name, inputs)
 
     def replace_use(self, old, new):
-        """ Replace old value reference by new value reference """
+        """Replace old value reference by new value reference"""
         assert old in self.inputs.values()
         for inp in self.inputs:
             if self.inputs[inp] == old:
@@ -1042,7 +1045,7 @@ class Phi(LocalValue):
                 self.add_use(new)
 
     def set_incoming(self, block, value):
-        """ Set the value for the phi node when entering through block """
+        """Set the value for the phi node when entering through block"""
         if value.ty != self.ty:
             raise ValueError(
                 "Type mismatch {} where {} was expected".format(
@@ -1055,17 +1058,17 @@ class Phi(LocalValue):
         self.add_use(value)
 
     def get_value(self, block):
-        """ Get the value for the incoming branch """
+        """Get the value for the incoming branch"""
         return self.inputs[block]
 
     def del_incoming(self, block):
-        """ Remove incoming branch from this phi node and delete the usage """
+        """Remove incoming branch from this phi node and delete the usage"""
         value = self.inputs.pop(block)
         self.del_use(value)
 
 
 class Alloc(LocalValue):
-    """ Allocates space on the stack. The type of this value is a ptr """
+    """Allocates space on the stack. The type of this value is a ptr"""
 
     def __init__(self, name: str, amount: int, alignment: int):
         super().__init__(name, BlobDataTyp(amount, alignment))
@@ -1094,7 +1097,7 @@ class Alloc(LocalValue):
 
 
 class CopyBlob(Instruction):
-    """ Sort of memcpy operation. """
+    """Sort of memcpy operation."""
 
     dst = value_use("dst")
     src = value_use("src")
@@ -1114,12 +1117,12 @@ class CopyBlob(Instruction):
 
 
 class Variable(GlobalValue):
-    """ Global variable, reserves room in the data area. Has name and size """
+    """Global variable, reserves room in the data area. Has name and size"""
 
     def __init__(self, name, binding, amount, alignment, value=None):
         super().__init__(name, binding)
         if not isinstance(amount, int):
-            raise TypeError('amount must be int')
+            raise TypeError("amount must be int")
         self.amount = amount
 
         if not isinstance(alignment, int):
@@ -1148,7 +1151,7 @@ class Variable(GlobalValue):
 
 
 class Parameter(LocalValue):
-    """ Parameter of a :class:`SubRoutine`. """
+    """Parameter of a :class:`SubRoutine`."""
 
     def __init__(self, name, ty):
         super().__init__(name, ty)
@@ -1158,7 +1161,7 @@ class Parameter(LocalValue):
 
 
 class Load(LocalValue):
-    """ Load a value from memory.
+    """Load a value from memory.
 
     Args:
         address: The address to load the value from.
@@ -1182,7 +1185,7 @@ class Load(LocalValue):
 
 
 class Store(Instruction):
-    """ Store a value into memory """
+    """Store a value into memory"""
 
     address = value_use("address")
     value = value_use("value")
@@ -1212,16 +1215,17 @@ class Store(Instruction):
 
 
 class InlineAsm(Instruction):
-    """ Inline assembly code. """
+    """Inline assembly code."""
+
     def __init__(self, template, clobbers):
         super().__init__()
         self.template = template
         self.clobbers = clobbers
         self.input_values = []
         self.output_values = []
-    
+
     def add_input_variable(self, value):
-        """ Add an value as input to this assembly stuff. """
+        """Add an value as input to this assembly stuff."""
         self.input_values.append(value)
         self.add_use(value)
 
@@ -1238,11 +1242,11 @@ class InlineAsm(Instruction):
             self.add_use(new)
 
     def __str__(self):
-        return 'asm ({})'.format(self.template)
+        return "asm ({})".format(self.template)
 
 
 class FinalInstruction(Instruction):
-    """ Final instruction in a basic block.
+    """Final instruction in a basic block.
 
     This instruction terminates the basic block.
     No more instruction may appear after this
@@ -1253,7 +1257,7 @@ class FinalInstruction(Instruction):
 
 
 class Exit(FinalInstruction):
-    """ Instruction that exits the procedure.
+    """Instruction that exits the procedure.
 
     Note that this instruction can only be used
     in a :class:`Procedure`.
@@ -1268,7 +1272,7 @@ class Exit(FinalInstruction):
 
 
 class Return(FinalInstruction):
-    """ This instruction returns a value and exits the function.
+    """This instruction returns a value and exits the function.
 
     This instruction is only legal in a :class:`Function`.
     """
@@ -1285,17 +1289,17 @@ class Return(FinalInstruction):
 
 
 def block_use(name):
-    """ Creates a property that can be set and changed """
+    """Creates a property that can be set and changed"""
 
     def getter(self):
-        """ Gets the block reference """
+        """Gets the block reference"""
         if name in self._block_map:
             return self._block_map[name]
         else:  # pragma: no cover
             raise KeyError("No such block!")
 
     def setter(self, block):
-        """ Sets the block reference """
+        """Sets the block reference"""
         assert isinstance(block, Block)
         self.set_target_block(name, block)
 
@@ -1303,15 +1307,15 @@ def block_use(name):
 
 
 class JumpBase(FinalInstruction):
-    """ Base of all jumping instructions """
+    """Base of all jumping instructions"""
 
     def __init__(self):
         super().__init__()
         self._block_map = {}
 
     def set_target_block(self, name, block):
-        """ Set the target 'name' to block. Take into account that a block
-            may already be pointed, so remove this reference!
+        """Set the target 'name' to block. Take into account that a block
+        may already be pointed, so remove this reference!
         """
         # If block was present, remove this instruction from the block preds:
         if name in self._block_map:
@@ -1325,25 +1329,25 @@ class JumpBase(FinalInstruction):
         self._block_map[name].references.add(self)
 
     def delete(self):
-        """ Clear references """
+        """Clear references"""
         while self._block_map:
             _, block = self._block_map.popitem()
             block.references.remove(self)
 
     @property
     def targets(self):
-        """ Gets a list of targets that this instruction jumps to """
+        """Gets a list of targets that this instruction jumps to"""
         return list(self._block_map.values())
 
     def change_target(self, old, new):
-        """ Change the target old into new """
+        """Change the target old into new"""
         for name in self._block_map:
             if self._block_map[name] is old:
                 self.set_target_block(name, new)
 
 
 class Jump(JumpBase):
-    """ Jump statement to another :class:`Block` within the same function """
+    """Jump statement to another :class:`Block` within the same function"""
 
     target = block_use("target")
 
@@ -1356,7 +1360,7 @@ class Jump(JumpBase):
 
 
 class CJump(JumpBase):
-    """ Conditional jump to true or false labels. """
+    """Conditional jump to true or false labels."""
 
     conditions = ["==", "<", ">", ">=", "<=", "!="]
     a = value_use("a")
@@ -1385,7 +1389,7 @@ class CJump(JumpBase):
 
 
 class JumpTable(JumpBase):
-    """ Jump table.
+    """Jump table.
 
     In the worst case, this is expanded to a whole bunch of CJump statements.
     """

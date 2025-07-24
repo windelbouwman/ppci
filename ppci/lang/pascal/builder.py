@@ -15,7 +15,7 @@ def pascal_to_ir(sources, march):
 
 
 class PascalBuilder:
-    """ Generates IR-code from pascal source. """
+    """Generates IR-code from pascal source."""
 
     logger = logging.getLogger("pascal-builder")
 
@@ -55,6 +55,6 @@ class PascalBuilder:
         return ir_modules
 
     def do_parse(self, src, context):
-        """ Lexing and parsing stage (phase 1) """
+        """Lexing and parsing stage (phase 1)"""
         tokens = self.lexer.lex(src)
         self.parser.parse_source(tokens, context)

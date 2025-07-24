@@ -1,6 +1,4 @@
-""" This module assists with reading and writing wasm to binary.
-"""
-
+"""This module assists with reading and writing wasm to binary."""
 
 LANG_TYPES = {
     "i32": b"\x7f",

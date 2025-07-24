@@ -1,11 +1,11 @@
-""" Description of avr registers """
+"""Description of avr registers"""
 
 from ..registers import Register, RegisterClass
 from ... import ir
 
 
 class AvrRegister(Register):
-    """ An 8-bit avr register """
+    """An 8-bit avr register"""
 
     bitsize = 8
 
@@ -19,7 +19,7 @@ class HighAvrRegister(AvrRegister):
 
 
 class AvrWordRegister(Register):
-    """ Register covering two 8 bit registers """
+    """Register covering two 8 bit registers"""
 
     bitsize = 16
 

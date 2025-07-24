@@ -1,4 +1,4 @@
-""" Uboot image file format """
+"""Uboot image file format"""
 
 import time
 import zlib
@@ -10,7 +10,7 @@ IH_MAGIC = 0x27051956
 
 
 class Compression(enum.Enum):
-    """ Compression types """
+    """Compression types"""
 
     NONE = 0
     GZIP = 1
@@ -21,7 +21,7 @@ class Compression(enum.Enum):
 
 
 class OperatingSystem(enum.Enum):
-    """ Operating system """
+    """Operating system"""
 
     INVALID = 0
     OPENBSD = 1
@@ -32,7 +32,7 @@ class OperatingSystem(enum.Enum):
 
 
 class Architecture(enum.Enum):
-    """ Computer architecture """
+    """Computer architecture"""
 
     INVALID = 0
     ALPHA = 1
@@ -63,7 +63,7 @@ class Architecture(enum.Enum):
 
 
 class ApplicationType(enum.Enum):
-    """ Application type """
+    """Application type"""
 
     INVALID = 0
     STANDALONE = 1
@@ -101,7 +101,7 @@ def write_uboot_image(
     os=OperatingSystem.INVALID,
     arch=Architecture.OPENRISC,
 ):
-    """ Write uboot image to file """
+    """Write uboot image to file"""
     header = ImageHeader()
     header.ih_magic = IH_MAGIC
     header.ih_hcrc = 0  # Will be patched later!

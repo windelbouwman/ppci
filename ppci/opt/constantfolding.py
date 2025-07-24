@@ -4,7 +4,7 @@ from .. import ir
 
 
 def cast(value, ty):
-    """ Cast a value to the given type """
+    """Cast a value to the given type"""
     if isinstance(ty, ir.PointerTyp):
         return int(value)
     elif ty.is_integer:
@@ -15,7 +15,7 @@ def cast(value, ty):
 
 
 def correct(value, ty):
-    """ Correct a value to the given bits """
+    """Correct a value to the given bits"""
     bits = ty.bits
     signed = ty.signed
     base = 1 << bits
@@ -24,12 +24,12 @@ def correct(value, ty):
 
 
 def enhance(f):
-    """ Create a new enhanced method that corrects for the given type """
+    """Create a new enhanced method that corrects for the given type"""
     return lambda ty, a, b: correct(f(a, b), ty)
 
 
 class ConstantFolder(BlockPass):
-    """ Try to fold common constant expressions """
+    """Try to fold common constant expressions"""
 
     def __init__(self):
         super().__init__()
@@ -43,7 +43,7 @@ class ConstantFolder(BlockPass):
         }
 
     def is_const(self, value):
-        """ Determine if a value can be evaluated as a constant value """
+        """Determine if a value can be evaluated as a constant value"""
         if isinstance(value, ir.Const):
             return True
         elif isinstance(value, ir.Cast):
@@ -59,7 +59,7 @@ class ConstantFolder(BlockPass):
             return False
 
     def eval_const(self, value):
-        """ Evaluate expression, and return a new const instance """
+        """Evaluate expression, and return a new const instance"""
         if isinstance(value, ir.Const):
             return value
         elif isinstance(value, ir.Binop):

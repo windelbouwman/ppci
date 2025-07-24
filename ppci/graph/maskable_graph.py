@@ -1,7 +1,8 @@
-""" Graph type that supports temporary removal of nodes.
+"""Graph type that supports temporary removal of nodes.
 
 Edge information is retained, and restored when the node is placed back.
 """
+
 from itertools import chain
 from collections import defaultdict
 from .graph import Graph
@@ -9,7 +10,7 @@ from ..utils.collections import OrderedSet
 
 
 class MaskableGraph(Graph):
-    """ A graph that allows masking nodes temporarily """
+    """A graph that allows masking nodes temporarily"""
 
     __slots__ = ("_masked_nodes", "_masked_adj")
 
@@ -19,7 +20,7 @@ class MaskableGraph(Graph):
         self._masked_adj = defaultdict(OrderedSet)
 
     def mask_node(self, node):
-        """ Add the node into the masked set """
+        """Add the node into the masked set"""
         assert not self.is_masked(node)
         self._masked_nodes.add(node)
 
@@ -31,7 +32,7 @@ class MaskableGraph(Graph):
         self.nodes.remove(node)
 
     def unmask_node(self, node):
-        """ Unmask a node (put it back into the graph """
+        """Unmask a node (put it back into the graph"""
         assert self.is_masked(node)
         self._masked_nodes.remove(node)
         self.nodes.add(node)
@@ -42,11 +43,11 @@ class MaskableGraph(Graph):
             self._masked_adj[neighbour].remove(node)
 
     def is_masked(self, node):
-        """ Test if a node is masked """
+        """Test if a node is masked"""
         return node in self._masked_nodes
 
     def combine(self, n, m):
-        """ Merge nodes n and m into node n """
+        """Merge nodes n and m into node n"""
         assert n != m
         # assert not self.has_edge(n, m)
         # if self.has_edge(n, m):

@@ -1,8 +1,7 @@
-""" Static web assembly compiler.
+"""Static web assembly compiler.
 
 This command line tool takes web assembly to native code.
 """
-
 
 import argparse
 from .base import base_parser, march_parser
@@ -23,7 +22,7 @@ parser.add_argument(
 
 
 def wasmcompile(args=None):
-    """ Compile wasm to native code """
+    """Compile wasm to native code"""
     args = parser.parse_args(args)
     with LogSetup(args) as log_setup:
         march = get_arch_from_args(args)

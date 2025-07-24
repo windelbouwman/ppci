@@ -1,4 +1,4 @@
-""" X86-64 architecture description.
+"""X86-64 architecture description.
 
 X86 specific frame for functions.
 
@@ -48,7 +48,7 @@ from . import instructions, registers
 
 # TODO: Use something like the below?
 class WindowsCallingConvention(CallingConvention):
-    """ Windows calling convention """
+    """Windows calling convention"""
 
     name = "wincc"
     int_regs = [registers.rcx, registers.rdx, registers.r8, registers.r9]
@@ -113,7 +113,7 @@ class LinuxCallingConvention(CallingConvention):
 
 
 class X86_64Arch(Architecture):
-    """ x86_64 architecture """
+    """x86_64 architecture"""
 
     name = "x86_64"
     option_names = ("sse2", "sse3", "x87", "wincc")
@@ -175,7 +175,7 @@ class X86_64Arch(Architecture):
             self._caller_save = registers.caller_save_linux
 
     def move(self, dst, src):
-        """ Generate a move from src to dst """
+        """Generate a move from src to dst"""
         if isinstance(dst, registers.Register8) and isinstance(
             src, registers.Register8
         ):
@@ -221,7 +221,7 @@ class X86_64Arch(Architecture):
             raise NotImplementedError(str(type(dst)) + str(type(src)))
 
     def gen_memcpy(self, dst, src, count):
-        """ Generate a memcpy action """
+        """Generate a memcpy action"""
         # Destination pointer:
         yield instructions.Lea(rdi, dst)
 
@@ -378,7 +378,7 @@ class X86_64Arch(Architecture):
         return arg_locs
 
     def determine_rv_location(self, ret_type):
-        """ return value in rax or xmm0 """
+        """return value in rax or xmm0"""
         if ret_type in [ir.i64, ir.u64, ir.ptr]:
             rv = registers.rax
         elif ret_type in [ir.i32, ir.u32]:
@@ -396,7 +396,7 @@ class X86_64Arch(Architecture):
         return rv
 
     def gen_function_enter(self, args):
-        """ Copy arguments into local temporaries and mark registers live """
+        """Copy arguments into local temporaries and mark registers live"""
         arg_types = [a[0] for a in args]
         arg_locs = self.determine_arg_locations(arg_types)
         arg_regs = set(
@@ -480,7 +480,7 @@ class X86_64Arch(Architecture):
         yield RegisterUseDef(uses=live_out)
 
     def gen_call(self, frame, label, args, rv):
-        """ This function moves arguments in the proper locations. """
+        """This function moves arguments in the proper locations."""
 
         # Setup parameters:
         arg_types = [a[0] for a in args]
@@ -595,7 +595,7 @@ class X86_64Arch(Architecture):
             yield AddImm(rsp, stack_size)
 
     def gen_prologue(self, frame):
-        """ Returns prologue instruction sequence """
+        """Returns prologue instruction sequence"""
         # Label indication function:
         yield Label(frame.name)
 
@@ -665,7 +665,7 @@ class X86_64Arch(Architecture):
         return saved_registers
 
     def get_reloc_type(self, reloc_type, symbol):
-        """ Get the reloc type for ELF format. """
+        """Get the reloc type for ELF format."""
         if symbol.is_function and symbol.undefined and reloc_type == "rel32":
             # TODO: can we always use PLT32 here?
             r_type = elf_support.R_X86_64_PLT32

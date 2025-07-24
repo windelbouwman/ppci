@@ -31,7 +31,7 @@ from .isa import Isa
 
 
 def get_current_arch():
-    """ Try to get the architecture for the current platform """
+    """Try to get the architecture for the current platform"""
     if sys.platform.startswith("win"):
         machine = platform.machine()
         if machine == "AMD64":

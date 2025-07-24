@@ -1,4 +1,4 @@
-""" Entry point when building c3 sources. """
+"""Entry point when building c3 sources."""
 
 import logging
 import itertools
@@ -18,7 +18,7 @@ from .context import Context
 
 
 def c3_to_ir(sources, includes, march, reporter=None):
-    """ Compile c3 sources to ir-code for the given architecture. """
+    """Compile c3 sources to ir-code for the given architecture."""
     logger = logging.getLogger("c3c")
     march = get_arch(march)
     if not reporter:  # pragma: no cover
@@ -104,7 +104,7 @@ class C3Builder:
         return context, ir_module
 
     def do_parse(self, src, context):
-        """ Lexing and parsing stage (phase 1) """
+        """Lexing and parsing stage (phase 1)"""
         tokens = self.lexer.lex(src)
         self.parser.parse_source(tokens, context)
 
@@ -124,7 +124,7 @@ class C3ExprParser:
         self.parser = Parser(diag)
 
     def parse(self, src, context):
-        """ Parse an expression """
+        """Parse an expression"""
         self.parser.current_scope = context.scope
         tokens = self.lexer.lex(io.StringIO(src))
         self.parser.init_lexer(tokens)

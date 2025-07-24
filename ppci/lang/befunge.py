@@ -1,4 +1,4 @@
-""" Befunge support.
+"""Befunge support.
 
 Epic esotheric language in 2D!
 
@@ -25,7 +25,7 @@ def run_befunge(src):
 
 
 class BefungeInterpreter:
-    """ Befunge machine. """
+    """Befunge machine."""
 
     def __init__(self, code):
         self.verbose = False
@@ -38,7 +38,7 @@ class BefungeInterpreter:
         self.y_max = len(code) - 1
 
     def reset(self):
-        """ Reset machine state """
+        """Reset machine state"""
         self.stack = []
         self.x = 0
         self.y = 0
@@ -49,12 +49,12 @@ class BefungeInterpreter:
         self.running = True
 
     def run(self):
-        """ Run until finished. """
+        """Run until finished."""
         while self.running:
             self.single_step()
 
     def single_step(self):
-        """ Execute a single opcode. """
+        """Execute a single opcode."""
         op = self.fetch()
         if self.verbose:
             print("at", self.y, self.x, "execute", op)
@@ -88,7 +88,7 @@ class BefungeInterpreter:
         return self.get(self.y, self.x)
 
     def get(self, row, column):
-        """ Get character at position """
+        """Get character at position"""
         line = self.code[row]
         if column < len(line):
             return line[column]
@@ -96,11 +96,11 @@ class BefungeInterpreter:
             return " "
 
     def put(self, row, column, value):
-        """ Enable self modifying code! """
+        """Enable self modifying code!"""
         raise NotImplementedError()
 
     def dispatch(self, op):
-        """ Execute a single opcode. """
+        """Execute a single opcode."""
         if op in "0123456789":
             self.push(int(op))
         elif op == "+":

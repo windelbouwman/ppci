@@ -1,6 +1,6 @@
 """
- The output stream is a stream of instructions that can be output
- to a file or binary or hexfile.
+The output stream is a stream of instructions that can be output
+to a file or binary or hexfile.
 """
 
 import logging
@@ -24,7 +24,7 @@ class OutputStream(abc.ABC):
     """
 
     def emit(self, item):  # pragma: no cover
-        """ Encode instruction and add symbol and relocation information """
+        """Encode instruction and add symbol and relocation information"""
         if isinstance(item, ArtificialInstruction):
             for relocation in item.relocations():
                 self.emit(RelocationHolder(relocation))
@@ -35,21 +35,21 @@ class OutputStream(abc.ABC):
 
     @abc.abstractmethod
     def do_emit(self, item):
-        """ Actual emit implementation """
+        """Actual emit implementation"""
         raise NotImplementedError("Abstract base class")
 
     def emit_all(self, items):
-        """ Emit all items from an iterable """
+        """Emit all items from an iterable"""
         for item in items:
             self.emit(item)
 
     def select_section(self, name):
-        """ Switch output to certain section """
+        """Switch output to certain section"""
         self.emit(SectionInstruction(name))
 
 
 class TextOutputStream(OutputStream):
-    """ Output stream that writes instruction as text. """
+    """Output stream that writes instruction as text."""
 
     def __init__(self, printer=None, f=None, add_binary=False):
         self.output_file = f
@@ -60,7 +60,7 @@ class TextOutputStream(OutputStream):
             self.printer = AsmPrinter()
 
     def do_emit(self, item):
-        """ Emit the given item """
+        """Emit the given item"""
         assert isinstance(item, Instruction), str(item) + str(type(item))
         txt = self.printer.print_instruction(item)
         if isinstance(item, Label):
@@ -78,7 +78,7 @@ class TextOutputStream(OutputStream):
 
 
 class BinaryOutputStream(OutputStream):
-    """ Output stream that writes to object file """
+    """Output stream that writes to object file"""
 
     def __init__(self, obj_file):
         super().__init__()
@@ -149,7 +149,7 @@ class BinaryOutputStream(OutputStream):
             self._symbols[name].binding = "global"
 
     def emit_debug(self, data):
-        """ Emit debug information. """
+        """Emit debug information."""
 
         def fx(x):
             if isinstance(x, str):
@@ -170,7 +170,7 @@ class BinaryOutputStream(OutputStream):
         self.obj_file.debug_info.add(data)
 
     def _get_symbol(self, name):
-        """ Get symbol or create undefined one. """
+        """Get symbol or create undefined one."""
         if name in self._symbols:
             symbol = self._symbols[name]
         else:
@@ -191,14 +191,14 @@ class BinaryOutputStream(OutputStream):
 
 
 class DummyOutputStream(OutputStream):
-    """ Stream that does nothing """
+    """Stream that does nothing"""
 
     def do_emit(self, item):
         pass
 
 
 class FunctionOutputStream(OutputStream):
-    """ Stream that emits a string to the given function """
+    """Stream that emits a string to the given function"""
 
     def __init__(self, function):
         self.function = function
@@ -208,7 +208,7 @@ class FunctionOutputStream(OutputStream):
 
 
 class LoggerOutputStream(FunctionOutputStream):
-    """ Stream that emits instructions as text in the log """
+    """Stream that emits instructions as text in the log"""
 
     def __init__(self):
         self.logger = logging.getLogger("LoggerOutputStream")
@@ -216,7 +216,7 @@ class LoggerOutputStream(FunctionOutputStream):
 
 
 class MasterOutputStream(OutputStream):
-    """ Stream that emits to multiple sub streams """
+    """Stream that emits to multiple sub streams"""
 
     def __init__(self, substreams=()):
         self.substreams = list(substreams)  # Use copy constructor!!!
@@ -227,7 +227,7 @@ class MasterOutputStream(OutputStream):
 
 
 def binary_and_logging_stream(output):
-    """ Create a stream object that both logs and writes to an object file """
+    """Create a stream object that both logs and writes to an object file"""
     stream1 = BinaryOutputStream(output)
     stream2 = LoggerOutputStream()
     ostream = MasterOutputStream([stream1, stream2])

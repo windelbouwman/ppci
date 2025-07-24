@@ -10,7 +10,7 @@ from .utils import print_ast
 
 
 class CBuilder:
-    """ C builder that converts C code into ir-code """
+    """C builder that converts C code into ir-code"""
 
     logger = logging.getLogger("cbuilder")
 
@@ -45,7 +45,7 @@ class CBuilder:
 
 
 def parse_text(text, arch="x86_64"):
-    """ Parse given C sourcecode into an AST """
+    """Parse given C sourcecode into an AST"""
     from ...api import get_arch
 
     f = io.StringIO(text)
@@ -56,7 +56,7 @@ def parse_text(text, arch="x86_64"):
 
 
 def create_ast(src, arch_info, filename="<snippet>", coptions=None):
-    """ Create a C ast from the given source """
+    """Create a C ast from the given source"""
     if coptions is None:
         coptions = COptions()
     context = CContext(coptions, arch_info)

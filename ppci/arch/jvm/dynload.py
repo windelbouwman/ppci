@@ -1,5 +1,4 @@
-""" Code to load a class file compiled to native code in python memory space.
-"""
+"""Code to load a class file compiled to native code in python memory space."""
 
 import logging
 

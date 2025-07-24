@@ -4,6 +4,7 @@ The tree is build by the parser.
 Then it is checked
 Finally code is generated from it.
 """
+
 from ..generic.nodes import Node
 
 
@@ -22,7 +23,7 @@ class Symbol(Node):
 
 # Modules
 class Module(Symbol):
-    """ A module contains functions, types, consts and global variables """
+    """A module contains functions, types, consts and global variables"""
 
     def __init__(self, name, inner_scope, loc):
         super().__init__(name, True)
@@ -32,22 +33,22 @@ class Module(Symbol):
 
     @property
     def types(self):
-        """ Get the types in this module """
+        """Get the types in this module"""
         return self.inner_scope.types
 
     @property
     def constants(self):
-        """ Get the constants in this module """
+        """Get the constants in this module"""
         return self.inner_scope.constants
 
     @property
     def variables(self):
-        """ Get the variables in this module """
+        """Get the variables in this module"""
         return self.inner_scope.variables
 
     @property
     def functions(self):
-        """ Get all the functions that are defined in this module """
+        """Get all the functions that are defined in this module"""
         return self.inner_scope.functions
 
     def __repr__(self):
@@ -55,7 +56,7 @@ class Module(Symbol):
 
 
 class Type(Node):
-    """ Base class of all types """
+    """Base class of all types"""
 
     pass
 
@@ -70,7 +71,7 @@ class NamedType(Type, Symbol):
 
 
 class BaseType(NamedType):
-    """ Built in type """
+    """Built in type"""
 
     def __init__(self, name, byte_size):
         super().__init__(name, True)
@@ -81,7 +82,7 @@ class BaseType(NamedType):
 
 
 class IntegerType(BaseType):
-    """ Integer base type """
+    """Integer base type"""
 
     def __init__(self, name, byte_size):
         super().__init__(name, byte_size)
@@ -97,7 +98,7 @@ class SignedIntegerType(IntegerType):
 
 
 class FloatType(BaseType):
-    """ Floating point base type """
+    """Floating point base type"""
 
     def __init__(self, name, byte_size, fraction_bits):
         super().__init__(name, byte_size)
@@ -111,7 +112,7 @@ class EnumType:
 
 
 class FunctionType(Type):
-    """ Function blueprint, defines argument types and return type """
+    """Function blueprint, defines argument types and return type"""
 
     def __init__(self, parametertypes, returntype):
         self.parametertypes = parametertypes
@@ -123,7 +124,7 @@ class FunctionType(Type):
 
 
 class PointerType(Type):
-    """ A type that points to data of some other type """
+    """A type that points to data of some other type"""
 
     def __init__(self, ptype):
         assert isinstance(ptype, Type) or isinstance(ptype, Expression)
@@ -134,7 +135,7 @@ class PointerType(Type):
 
 
 class StructField:
-    """ Field of a struct type """
+    """Field of a struct type"""
 
     def __init__(self, name, typ):
         assert isinstance(name, str)
@@ -146,29 +147,29 @@ class StructField:
 
 
 class StructureType(Type):
-    """ Struct type consisting of several named members """
+    """Struct type consisting of several named members"""
 
     def __init__(self, fields):
         self.fields = fields
         assert all(isinstance(mem, StructField) for mem in fields)
 
     def has_field(self, name):
-        """ Check if the struct type has a member with name """
+        """Check if the struct type has a member with name"""
         for mem in self.fields:
             if name == mem.name:
                 return True
         return False
 
     def field_type(self, name):
-        """ Get the field type of field name """
+        """Get the field type of field name"""
         return self.find_field(name).typ
 
     def field_offset(self, name):
-        """ Determine the offset of the field in the struct """
+        """Determine the offset of the field in the struct"""
         return self.find_field(name).offset
 
     def find_field(self, name):
-        """ Looks up a field in the struct type """
+        """Looks up a field in the struct type"""
         for mem in self.fields:
             if name == mem.name:
                 return mem
@@ -179,7 +180,7 @@ class StructureType(Type):
 
 
 class ArrayType(Type):
-    """ Array type """
+    """Array type"""
 
     def __init__(self, element_type, size):
         self.element_type = element_type
@@ -190,7 +191,7 @@ class ArrayType(Type):
 
 
 class DefinedType(NamedType):
-    """ A named type indicating another type """
+    """A named type indicating another type"""
 
     def __init__(self, name, typ, public, loc):
         assert isinstance(name, str)
@@ -203,7 +204,7 @@ class DefinedType(NamedType):
 
 
 class Constant(Symbol):
-    """ Constant definition """
+    """Constant definition"""
 
     def __init__(self, name, typ, value, loc):
         super().__init__(name, True)
@@ -216,7 +217,7 @@ class Constant(Symbol):
 
 
 class Variable(Symbol):
-    """ A variable, either global or local """
+    """A variable, either global or local"""
 
     def __init__(self, name, typ, public, loc):
         super().__init__(name, public)
@@ -238,7 +239,7 @@ class FormalParameter(Variable):
 
 # Procedure types
 class Function(Symbol):
-    """ Actual implementation of a function """
+    """Actual implementation of a function"""
 
     def __init__(self, name, public, loc):
         super().__init__(name, public)
@@ -250,7 +251,7 @@ class Function(Symbol):
 
 # Operations / Expressions:
 class Expression(Node):
-    """ Expression base class """
+    """Expression base class"""
 
     is_bool = False
 
@@ -259,7 +260,7 @@ class Expression(Node):
 
 
 class Sizeof(Expression):
-    """ Sizeof built-in contraption """
+    """Sizeof built-in contraption"""
 
     def __init__(self, typ, loc):
         super().__init__(loc)
@@ -267,7 +268,7 @@ class Sizeof(Expression):
 
 
 class Deref(Expression):
-    """ Data pointer dereference """
+    """Data pointer dereference"""
 
     def __init__(self, ptr, loc):
         super().__init__(loc)
@@ -279,7 +280,7 @@ class Deref(Expression):
 
 
 class TypeCast(Expression):
-    """ Type cast expression to another type """
+    """Type cast expression to another type"""
 
     def __init__(self, to_type, x, loc):
         super().__init__(loc)
@@ -291,7 +292,7 @@ class TypeCast(Expression):
 
 
 class Member(Expression):
-    """ Field reference of some object, can also be package selection """
+    """Field reference of some object, can also be package selection"""
 
     def __init__(self, base, field, loc):
         super().__init__(loc)
@@ -305,7 +306,7 @@ class Member(Expression):
 
 
 class Index(Expression):
-    """ Index something, for example an array """
+    """Index something, for example an array"""
 
     def __init__(self, base, i, loc):
         super().__init__(loc)
@@ -317,7 +318,7 @@ class Index(Expression):
 
 
 class Unop(Expression):
-    """ Operation on one operand, typically 'op' 'expr' """
+    """Operation on one operand, typically 'op' 'expr'"""
 
     arithmatic_ops = ("+", "-")
     logical_ops = ("not",)
@@ -338,12 +339,12 @@ class Unop(Expression):
 
     @property
     def is_bool(self):
-        """ Test if this binop is a boolean """
+        """Test if this binop is a boolean"""
         return self.op in self.cond_ops
 
 
 class Binop(Expression):
-    """ Expression taking two operands and one operator """
+    """Expression taking two operands and one operator"""
 
     arithmatic_ops = ("+", "-", "*", "/", "%", ">>", "<<", "&", "|", "^")
     logical_ops = ("and", "or")
@@ -366,7 +367,7 @@ class Binop(Expression):
 
     @property
     def is_bool(self):
-        """ Test if this binop is a boolean """
+        """Test if this binop is a boolean"""
         return self.op in self.cond_ops
 
 
@@ -384,7 +385,7 @@ class Identifier(Expression):
 
 
 class Literal(Expression):
-    """ Constant value or string """
+    """Constant value or string"""
 
     def __init__(self, val, loc):
         super().__init__(loc)
@@ -395,7 +396,7 @@ class Literal(Expression):
 
 
 class ExpressionList(Expression):
-    """ List of expressions """
+    """List of expressions"""
 
     def __init__(self, expressions, loc):
         super().__init__(loc)
@@ -406,7 +407,7 @@ class ExpressionList(Expression):
 
 
 class NamedExpressionList(Expression):
-    """ List of named expressions """
+    """List of named expressions"""
 
     def __init__(self, expressions, loc):
         super().__init__(loc)
@@ -417,7 +418,7 @@ class NamedExpressionList(Expression):
 
 
 class FunctionCall(Expression):
-    """ Call to a some function """
+    """Call to a some function"""
 
     def __init__(self, proc, args, loc):
         super().__init__(loc)
@@ -430,14 +431,14 @@ class FunctionCall(Expression):
 
 # Statements
 class Statement(Node):
-    """ Base class of all statements """
+    """Base class of all statements"""
 
     def __init__(self, location):
         self.location = location
 
 
 class Compound(Statement):
-    """ Statement consisting of a sequence of other statements """
+    """Statement consisting of a sequence of other statements"""
 
     def __init__(self, statements, location):
         super().__init__(location)
@@ -449,7 +450,7 @@ class Compound(Statement):
 
 
 class Empty(Statement):
-    """ Empty statement which does nothing! """
+    """Empty statement which does nothing!"""
 
     def __init__(self):
         super().__init__(None)
@@ -459,7 +460,7 @@ class Empty(Statement):
 
 
 class Return(Statement):
-    """ Return statement """
+    """Return statement"""
 
     def __init__(self, expr, loc):
         super().__init__(loc)
@@ -470,7 +471,7 @@ class Return(Statement):
 
 
 class Assignment(Statement):
-    """ Assignment statement with a left hand side and right hand side """
+    """Assignment statement with a left hand side and right hand side"""
 
     operators = ("=", "|=", "&=", "+=", "-=", "*=")
 
@@ -488,17 +489,17 @@ class Assignment(Statement):
 
     @property
     def is_shorthand(self):
-        """ Determine whether this assignment is a short hand like '+=' """
+        """Determine whether this assignment is a short hand like '+='"""
         return len(self.operator) > 1
 
     @property
     def shorthand_operator(self):
-        """ Get the operator from '-=' to '-' """
+        """Get the operator from '-=' to '-'"""
         return self.operator[:-1]
 
 
 class VariableDeclaration(Statement):
-    """ A declaration of a local variable """
+    """A declaration of a local variable"""
 
     def __init__(self, var, loc):
         super().__init__(loc)
@@ -506,7 +507,7 @@ class VariableDeclaration(Statement):
 
 
 class ExpressionStatement(Statement):
-    """ When an expression is used as a statement """
+    """When an expression is used as a statement"""
 
     def __init__(self, ex, loc):
         super().__init__(loc)
@@ -517,7 +518,7 @@ class ExpressionStatement(Statement):
 
 
 class If(Statement):
-    """ If statement """
+    """If statement"""
 
     def __init__(self, condition, truestatement, falsestatement, loc):
         super().__init__(loc)
@@ -530,7 +531,7 @@ class If(Statement):
 
 
 class Switch(Statement):
-    """ Switch statement """
+    """Switch statement"""
 
     def __init__(self, expression, options, loc):
         super().__init__(loc)
@@ -542,7 +543,7 @@ class Switch(Statement):
 
 
 class While(Statement):
-    """ While statement """
+    """While statement"""
 
     def __init__(self, condition, statement, loc):
         super().__init__(loc)
@@ -554,7 +555,7 @@ class While(Statement):
 
 
 class For(Statement):
-    """ For statement with a start, condition and final statement """
+    """For statement with a start, condition and final statement"""
 
     def __init__(self, init, condition, final, statement, loc):
         super().__init__(loc)

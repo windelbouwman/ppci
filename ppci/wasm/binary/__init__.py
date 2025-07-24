@@ -1,2 +1,1 @@
-""" Logic to handle the binary format of wasm.
-"""
+"""Logic to handle the binary format of wasm."""

@@ -1,11 +1,12 @@
-""" Debug driver interface. """
+"""Debug driver interface."""
+
 import abc
 import enum
 from .event import Events
 
 
 class DebugState(enum.Enum):
-    """ Debug states """
+    """Debug states"""
 
     STOPPED = 0
     RUNNING = 1
@@ -49,5 +50,5 @@ class DebugDriver(abc.ABC):  # pragma: no cover
         raise NotImplementedError()
 
     def get_registers(self, registers):
-        """ Get the values for a range of registers """
+        """Get the values for a range of registers"""
         raise NotImplementedError()

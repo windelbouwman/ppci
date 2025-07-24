@@ -6,7 +6,7 @@ logger = logging.getLogger("instantiate")
 
 
 class ModuleInstance(abc.ABC):
-    """ Web assembly module instance """
+    """Web assembly module instance"""
 
     """ Instantiated module """
 
@@ -19,7 +19,7 @@ class ModuleInstance(abc.ABC):
         raise NotImplementedError()
 
     def memory_size(self) -> int:
-        """ return memory size in pages """
+        """return memory size in pages"""
         # TODO: idea is to have multiple memories and query the memory:
         memory_index = 0
         memory = self._memories[memory_index]
@@ -62,7 +62,7 @@ class ModuleInstance(abc.ABC):
         raise NotImplementedError()
 
     def populate_exports(self, module):
-        """ Export all exported items """
+        """Export all exported items"""
         for definition in module:
             if isinstance(definition, components.Export):
                 if definition.kind == "func":
@@ -83,7 +83,7 @@ class ModuleInstance(abc.ABC):
 
 
 class WasmMemory(abc.ABC):
-    """ Base class for exported wasm memory. """
+    """Base class for exported wasm memory."""
 
     def __init__(self, min_size, max_size):
         self.min_size = min_size
@@ -124,14 +124,14 @@ class WasmMemory(abc.ABC):
 
 
 class WasmGlobal(abc.ABC):
-    """ Base class for an exported wasm global. """
+    """Base class for an exported wasm global."""
 
     def __init__(self, name):
         self.name = name
 
     @property
     def value(self):
-        """ The value of the global variable """
+        """The value of the global variable"""
         return self.read()
 
     @abc.abstractmethod

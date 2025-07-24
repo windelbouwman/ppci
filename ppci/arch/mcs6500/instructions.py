@@ -1,8 +1,7 @@
-""" 6502 instructions
+"""6502 instructions
 
 See for example: http://www.6502.org/tutorials/6502opcodes.html
 """
-
 
 from ..isa import Isa
 from ..encoding import Instruction, Syntax, Operand, Constructor, Relocation
@@ -53,7 +52,7 @@ class Accumulator(Constructor):
 
 
 class Immediate(Constructor):
-    """ Immediate value operand """
+    """Immediate value operand"""
 
     imm = Operand("imm", int)
     syntax = Syntax(["#", imm])
@@ -83,7 +82,7 @@ class ZeropageY(Constructor):
 
 
 class AbsoluteLabel(Constructor):
-    """ Absolute label """
+    """Absolute label"""
 
     target = Operand("target", str)
     syntax = Syntax([target])
@@ -94,7 +93,7 @@ class AbsoluteLabel(Constructor):
 
 
 class Absolute(Constructor):
-    """ Absolute 16-bit address """
+    """Absolute 16-bit address"""
 
     imm = Operand("imm", int)
     syntax = Syntax([imm])
@@ -127,7 +126,7 @@ class IndirectY(Constructor):
 
 
 class Relative(Constructor):
-    """ Relative """
+    """Relative"""
 
     target = Operand("target", int)
     syntax = Syntax([target])
@@ -146,7 +145,7 @@ class RelativeRelocation(Relocation):
 
 
 class RelativeLabel(Constructor):
-    """ Relative label """
+    """Relative label"""
 
     target = Operand("target", str)
     syntax = Syntax([target])
@@ -157,7 +156,7 @@ class RelativeLabel(Constructor):
 
 
 class Adc(Mcs6500Instruction):
-    """ Add with carry """
+    """Add with carry"""
 
     tokens = [OpcodeToken]
     op = Operand(
@@ -178,7 +177,7 @@ class Adc(Mcs6500Instruction):
 
 
 class And(Mcs6500Instruction):
-    """ Bitwise and """
+    """Bitwise and"""
 
     tokens = [OpcodeToken]
     op = Operand(
@@ -199,7 +198,7 @@ class And(Mcs6500Instruction):
 
 
 class Asl(Mcs6500Instruction):
-    """ Arithmatic shift left """
+    """Arithmatic shift left"""
 
     tokens = [OpcodeToken]
     op = Operand(
@@ -217,7 +216,7 @@ class Asl(Mcs6500Instruction):
 
 
 class Bcc(Mcs6500Instruction):
-    """ Branch if carry clear """
+    """Branch if carry clear"""
 
     tokens = [OpcodeToken]
     label = Operand("label", (Relative, RelativeLabel))
@@ -226,7 +225,7 @@ class Bcc(Mcs6500Instruction):
 
 
 class Bcs(Mcs6500Instruction):
-    """ Branch if carry set """
+    """Branch if carry set"""
 
     tokens = [OpcodeToken]
     label = Operand("label", (Relative, RelativeLabel))
@@ -235,7 +234,7 @@ class Bcs(Mcs6500Instruction):
 
 
 class Beq(Mcs6500Instruction):
-    """ Branch on equal """
+    """Branch on equal"""
 
     tokens = [OpcodeToken]
     label = Operand("label", (Relative, RelativeLabel))
@@ -244,7 +243,7 @@ class Beq(Mcs6500Instruction):
 
 
 class Bit(Mcs6500Instruction):
-    """ Test bits """
+    """Test bits"""
 
     tokens = [OpcodeToken]
     op = Operand("op", {Zeropage: 0x24, Absolute: 0x2C})
@@ -253,7 +252,7 @@ class Bit(Mcs6500Instruction):
 
 
 class Bmi(Mcs6500Instruction):
-    """ Branch on minus """
+    """Branch on minus"""
 
     tokens = [OpcodeToken]
     label = Operand("label", (Relative, RelativeLabel))
@@ -262,7 +261,7 @@ class Bmi(Mcs6500Instruction):
 
 
 class Bne(Mcs6500Instruction):
-    """ Branch on not equal """
+    """Branch on not equal"""
 
     tokens = [OpcodeToken]
     label = Operand("label", (Relative, RelativeLabel))
@@ -271,7 +270,7 @@ class Bne(Mcs6500Instruction):
 
 
 class Bpl(Mcs6500Instruction):
-    """ Branch on plus """
+    """Branch on plus"""
 
     tokens = [OpcodeToken]
     label = Operand("label", (Relative, RelativeLabel))
@@ -280,7 +279,7 @@ class Bpl(Mcs6500Instruction):
 
 
 class Brk(Mcs6500Instruction):
-    """ Force break """
+    """Force break"""
 
     tokens = [OpcodeToken]
     syntax = Syntax(["brk"])
@@ -288,7 +287,7 @@ class Brk(Mcs6500Instruction):
 
 
 class Clc(Mcs6500Instruction):
-    """ Clear carry flag """
+    """Clear carry flag"""
 
     tokens = [OpcodeToken]
     syntax = Syntax(["clc"])
@@ -296,7 +295,7 @@ class Clc(Mcs6500Instruction):
 
 
 class Cld(Mcs6500Instruction):
-    """ Clear decimal mode """
+    """Clear decimal mode"""
 
     tokens = [OpcodeToken]
     syntax = Syntax(["cld"])
@@ -304,7 +303,7 @@ class Cld(Mcs6500Instruction):
 
 
 class Cli(Mcs6500Instruction):
-    """ Clear interrupt disable flag """
+    """Clear interrupt disable flag"""
 
     tokens = [OpcodeToken]
     syntax = Syntax(["cli"])
@@ -312,7 +311,7 @@ class Cli(Mcs6500Instruction):
 
 
 class Clv(Mcs6500Instruction):
-    """ Clear overflow flag """
+    """Clear overflow flag"""
 
     tokens = [OpcodeToken]
     syntax = Syntax(["clv"])
@@ -320,7 +319,7 @@ class Clv(Mcs6500Instruction):
 
 
 class Cmp(Mcs6500Instruction):
-    """ Compare accumulator """
+    """Compare accumulator"""
 
     tokens = [OpcodeToken]
     op = Operand(
@@ -341,7 +340,7 @@ class Cmp(Mcs6500Instruction):
 
 
 class Cpx(Mcs6500Instruction):
-    """ Compare X register """
+    """Compare X register"""
 
     tokens = [OpcodeToken]
     op = Operand("op", {Immediate: 0xE0, Zeropage: 0xE4, Absolute: 0xEC})
@@ -350,7 +349,7 @@ class Cpx(Mcs6500Instruction):
 
 
 class Cpy(Mcs6500Instruction):
-    """ Compare Y register """
+    """Compare Y register"""
 
     tokens = [OpcodeToken]
     op = Operand("op", {Immediate: 0xC0, Zeropage: 0xC4, Absolute: 0xCC})
@@ -359,7 +358,7 @@ class Cpy(Mcs6500Instruction):
 
 
 class Dec(Mcs6500Instruction):
-    """ Decrement memory """
+    """Decrement memory"""
 
     tokens = [OpcodeToken]
     op = Operand(
@@ -371,7 +370,7 @@ class Dec(Mcs6500Instruction):
 
 
 class Dex(Mcs6500Instruction):
-    """ Decrement index X by 1 """
+    """Decrement index X by 1"""
 
     tokens = [OpcodeToken]
     syntax = Syntax(["dex"])
@@ -379,7 +378,7 @@ class Dex(Mcs6500Instruction):
 
 
 class Dey(Mcs6500Instruction):
-    """ Decrement index Y by 1 """
+    """Decrement index Y by 1"""
 
     tokens = [OpcodeToken]
     syntax = Syntax(["dey"])
@@ -387,7 +386,7 @@ class Dey(Mcs6500Instruction):
 
 
 class Eor(Mcs6500Instruction):
-    """ Bitwise exclusive or """
+    """Bitwise exclusive or"""
 
     tokens = [OpcodeToken]
     op = Operand(
@@ -408,7 +407,7 @@ class Eor(Mcs6500Instruction):
 
 
 class Inc(Mcs6500Instruction):
-    """ Increment memory """
+    """Increment memory"""
 
     tokens = [OpcodeToken]
     op = Operand(
@@ -420,7 +419,7 @@ class Inc(Mcs6500Instruction):
 
 
 class Inx(Mcs6500Instruction):
-    """ Increment index X by 1 """
+    """Increment index X by 1"""
 
     tokens = [OpcodeToken]
     syntax = Syntax(["inx"])
@@ -428,7 +427,7 @@ class Inx(Mcs6500Instruction):
 
 
 class Iny(Mcs6500Instruction):
-    """ Increment index Y by 1 """
+    """Increment index Y by 1"""
 
     tokens = [OpcodeToken]
     syntax = Syntax(["iny"])
@@ -436,7 +435,7 @@ class Iny(Mcs6500Instruction):
 
 
 class Jmp(Mcs6500Instruction):
-    """ Jump """
+    """Jump"""
 
     tokens = [OpcodeToken]
     label = Operand(
@@ -452,7 +451,7 @@ class Jmp(Mcs6500Instruction):
 
 
 class Jsr(Mcs6500Instruction):
-    """ Jump to subroutine """
+    """Jump to subroutine"""
 
     tokens = [OpcodeToken]
     label = Operand("label", (Absolute, AbsoluteLabel))
@@ -461,7 +460,7 @@ class Jsr(Mcs6500Instruction):
 
 
 class Lda(Mcs6500Instruction):
-    """ Load accumulator """
+    """Load accumulator"""
 
     tokens = [OpcodeToken]
     op = Operand(
@@ -482,7 +481,7 @@ class Lda(Mcs6500Instruction):
 
 
 class Ldx(Mcs6500Instruction):
-    """ Load X register """
+    """Load X register"""
 
     tokens = [OpcodeToken]
     op = Operand(
@@ -500,7 +499,7 @@ class Ldx(Mcs6500Instruction):
 
 
 class Ldy(Mcs6500Instruction):
-    """ Load Y register """
+    """Load Y register"""
 
     tokens = [OpcodeToken]
     op = Operand(
@@ -518,7 +517,7 @@ class Ldy(Mcs6500Instruction):
 
 
 class Lsr(Mcs6500Instruction):
-    """ Logical shift right """
+    """Logical shift right"""
 
     tokens = [OpcodeToken]
     op = Operand(
@@ -536,7 +535,7 @@ class Lsr(Mcs6500Instruction):
 
 
 class Ora(Mcs6500Instruction):
-    """ Bitwise or with accumulator """
+    """Bitwise or with accumulator"""
 
     tokens = [OpcodeToken]
     op = Operand(
@@ -557,7 +556,7 @@ class Ora(Mcs6500Instruction):
 
 
 class Nop(Mcs6500Instruction):
-    """ No operation """
+    """No operation"""
 
     tokens = [OpcodeToken]
     syntax = Syntax(["nop"])
@@ -565,7 +564,7 @@ class Nop(Mcs6500Instruction):
 
 
 class Pha(Mcs6500Instruction):
-    """ Push accumulator on stack """
+    """Push accumulator on stack"""
 
     tokens = [OpcodeToken]
     syntax = Syntax(["pha"])
@@ -573,7 +572,7 @@ class Pha(Mcs6500Instruction):
 
 
 class Php(Mcs6500Instruction):
-    """ Push processor status on stack """
+    """Push processor status on stack"""
 
     tokens = [OpcodeToken]
     syntax = Syntax(["php"])
@@ -581,7 +580,7 @@ class Php(Mcs6500Instruction):
 
 
 class Pla(Mcs6500Instruction):
-    """ Pull accumulator from stack """
+    """Pull accumulator from stack"""
 
     tokens = [OpcodeToken]
     syntax = Syntax(["pla"])
@@ -589,7 +588,7 @@ class Pla(Mcs6500Instruction):
 
 
 class Plp(Mcs6500Instruction):
-    """ Pull processor status from stack """
+    """Pull processor status from stack"""
 
     tokens = [OpcodeToken]
     syntax = Syntax(["plp"])
@@ -597,7 +596,7 @@ class Plp(Mcs6500Instruction):
 
 
 class Rol(Mcs6500Instruction):
-    """ Rotate left """
+    """Rotate left"""
 
     tokens = [OpcodeToken]
     op = Operand(
@@ -615,7 +614,7 @@ class Rol(Mcs6500Instruction):
 
 
 class Ror(Mcs6500Instruction):
-    """ Rotate right """
+    """Rotate right"""
 
     tokens = [OpcodeToken]
     op = Operand(
@@ -633,7 +632,7 @@ class Ror(Mcs6500Instruction):
 
 
 class Rti(Mcs6500Instruction):
-    """ Return from interrupt """
+    """Return from interrupt"""
 
     tokens = [OpcodeToken]
     syntax = Syntax(["rti"])
@@ -641,7 +640,7 @@ class Rti(Mcs6500Instruction):
 
 
 class Rts(Mcs6500Instruction):
-    """ Return from subroutine """
+    """Return from subroutine"""
 
     tokens = [OpcodeToken]
     syntax = Syntax(["rts"])
@@ -649,7 +648,7 @@ class Rts(Mcs6500Instruction):
 
 
 class Sbc(Mcs6500Instruction):
-    """ Substract with carry """
+    """Substract with carry"""
 
     tokens = [OpcodeToken]
     op = Operand(
@@ -670,7 +669,7 @@ class Sbc(Mcs6500Instruction):
 
 
 class Sec(Mcs6500Instruction):
-    """ Set carry flag """
+    """Set carry flag"""
 
     tokens = [OpcodeToken]
     syntax = Syntax(["sec"])
@@ -678,7 +677,7 @@ class Sec(Mcs6500Instruction):
 
 
 class Sed(Mcs6500Instruction):
-    """ Set decimal flag """
+    """Set decimal flag"""
 
     tokens = [OpcodeToken]
     syntax = Syntax(["sed"])
@@ -686,7 +685,7 @@ class Sed(Mcs6500Instruction):
 
 
 class Sei(Mcs6500Instruction):
-    """ Set interrupt disable status """
+    """Set interrupt disable status"""
 
     tokens = [OpcodeToken]
     syntax = Syntax(["sei"])
@@ -694,7 +693,7 @@ class Sei(Mcs6500Instruction):
 
 
 class Sta(Mcs6500Instruction):
-    """ Store accumulator """
+    """Store accumulator"""
 
     tokens = [OpcodeToken]
     op = Operand(
@@ -714,7 +713,7 @@ class Sta(Mcs6500Instruction):
 
 
 class Stx(Mcs6500Instruction):
-    """ Store X register """
+    """Store X register"""
 
     tokens = [OpcodeToken]
     op = Operand("op", {Zeropage: 0x86, ZeropageY: 0x96, Absolute: 0x8E})
@@ -723,7 +722,7 @@ class Stx(Mcs6500Instruction):
 
 
 class Sty(Mcs6500Instruction):
-    """ Store Y register """
+    """Store Y register"""
 
     tokens = [OpcodeToken]
     op = Operand("op", {Zeropage: 0x84, ZeropageX: 0x94, Absolute: 0x8C})
@@ -732,7 +731,7 @@ class Sty(Mcs6500Instruction):
 
 
 class Tax(Mcs6500Instruction):
-    """ Transfer accumulator to index X """
+    """Transfer accumulator to index X"""
 
     tokens = [OpcodeToken]
     syntax = Syntax(["tax"])
@@ -740,7 +739,7 @@ class Tax(Mcs6500Instruction):
 
 
 class Tay(Mcs6500Instruction):
-    """ Transfer accumulator to index Y """
+    """Transfer accumulator to index Y"""
 
     tokens = [OpcodeToken]
     syntax = Syntax(["tay"])
@@ -748,7 +747,7 @@ class Tay(Mcs6500Instruction):
 
 
 class Tsx(Mcs6500Instruction):
-    """ Transfer stack pointer to index X """
+    """Transfer stack pointer to index X"""
 
     tokens = [OpcodeToken]
     syntax = Syntax(["tsx"])
@@ -756,7 +755,7 @@ class Tsx(Mcs6500Instruction):
 
 
 class Txa(Mcs6500Instruction):
-    """ Transfer index X to accumulator """
+    """Transfer index X to accumulator"""
 
     tokens = [OpcodeToken]
     syntax = Syntax(["txa"])
@@ -764,7 +763,7 @@ class Txa(Mcs6500Instruction):
 
 
 class Txs(Mcs6500Instruction):
-    """ Transfer index X to stack register """
+    """Transfer index X to stack register"""
 
     tokens = [OpcodeToken]
     syntax = Syntax(["txs"])
@@ -772,7 +771,7 @@ class Txs(Mcs6500Instruction):
 
 
 class Tya(Mcs6500Instruction):
-    """ Transfer index Y to accumulator """
+    """Transfer index Y to accumulator"""
 
     tokens = [OpcodeToken]
     syntax = Syntax(["tya"])

@@ -1,5 +1,5 @@
-""" Text writer to create text representation of wasm.
-"""
+"""Text writer to create text representation of wasm."""
+
 import io
 from .. import components
 from .util import default_alignment, bytes2datastring
@@ -192,7 +192,7 @@ class TextWriter:
                 args.append("offset=%i" % offset)
 
             if align != default_alignment(opcode):
-                args.append("align=%i" % 2 ** align)
+                args.append("align=%i" % 2**align)
 
             args = tuple(args)
 
@@ -269,7 +269,7 @@ class TextWriter:
             self.emit(str(id))
 
     def comment(self, txt):
-        """ Emit commented text. """
+        """Emit commented text."""
         self.emit("(;" + txt + ";)")
 
     def emit(self, *txts):
@@ -290,5 +290,5 @@ class TextWriter:
             self._last = txt
 
     def finish(self):
-        """ Wrap up and return emitted text. """
+        """Wrap up and return emitted text."""
         return self._f.getvalue()

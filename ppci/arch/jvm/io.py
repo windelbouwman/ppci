@@ -1,4 +1,4 @@
-""" Module to load class/jar files.
+"""Module to load class/jar files.
 
 Another really good python java package:
 https://github.com/TkTech/Jawa
@@ -22,7 +22,7 @@ logger = logging.getLogger("jvm.io")
 
 
 def read_jar(filename):
-    """ Take a stroll through a java jar file. """
+    """Take a stroll through a java jar file."""
     logger.info("Reading jar: %s", filename)
     with zipfile.ZipFile(filename) as f:
         with f.open("META-INF/MANIFEST.MF") as manifest_file:
@@ -39,7 +39,7 @@ def read_jar(filename):
 
 
 def read_manifest(f):
-    """ Read a jarfile manifest. """
+    """Read a jarfile manifest."""
     logger.debug("Reading manifest")
     properties = {}
     for line in f:
@@ -61,7 +61,7 @@ class JavaFileReader(BaseIoReader):
         self.verbose = verbose
 
     def read_class_file(self):
-        """ Read a class file. """
+        """Read a class file."""
         magic = self.read_u32()
         logger.debug("Read magic header value 0x%X", magic)
         if magic != 0xCAFEBABE:
@@ -96,7 +96,7 @@ class JavaFileReader(BaseIoReader):
         return class_file
 
     def read_constant_pool(self):
-        """ Read the constant pool. """
+        """Read the constant pool."""
         constant_pool_count = self.read_u16()
         constant_pool = ConstantPool()
         if constant_pool_count > 0:
@@ -114,7 +114,7 @@ class JavaFileReader(BaseIoReader):
         return constant_pool
 
     def read_constant_pool_info(self):
-        """ Read a single tag from the constant pool. """
+        """Read a single tag from the constant pool."""
         tag = ConstantTag(self.read_u8())
         skip_next = False
         if tag == ConstantTag.Class:
@@ -168,7 +168,7 @@ class JavaFileReader(BaseIoReader):
         return info, skip_next
 
     def read_flags(self):
-        """ Process flag field. """
+        """Process flag field."""
         flag_value = self.read_u16()
         flags = set()
         for bit in range(16):
@@ -178,7 +178,7 @@ class JavaFileReader(BaseIoReader):
         return flags
 
     def read_interfaces(self):
-        """ Read all interfaces from a class file. """
+        """Read all interfaces from a class file."""
         interfaces_count = self.read_u16()
         interfaces = []
         for _ in range(interfaces_count):
@@ -188,7 +188,7 @@ class JavaFileReader(BaseIoReader):
         return interfaces
 
     def read_fields(self):
-        """ Read the fields of a class file. """
+        """Read the fields of a class file."""
         fields_count = self.read_u16()
         fields = []
         for _ in range(fields_count):
@@ -198,7 +198,7 @@ class JavaFileReader(BaseIoReader):
         return fields
 
     def read_field_info(self):
-        """ Read field info structure. """
+        """Read field info structure."""
         access_flags = self.read_flags()
         name_index = self.read_u16()
         name = self.get_utf8(name_index)
@@ -208,7 +208,7 @@ class JavaFileReader(BaseIoReader):
         return (access_flags, name, descriptor, attributes)
 
     def read_methods(self):
-        """ Read the methods from a classfile. """
+        """Read the methods from a classfile."""
         methods_count = self.read_u16()
         methods = []
         for _ in range(methods_count):
@@ -218,7 +218,7 @@ class JavaFileReader(BaseIoReader):
         return methods
 
     def read_method_info(self):
-        """ Read method info structure """
+        """Read method info structure"""
         access_flags = self.read_flags()
         name_index = self.read_u16()
         name = self.get_utf8(name_index)
@@ -229,7 +229,7 @@ class JavaFileReader(BaseIoReader):
         return Method(access_flags, name, descriptor, attributes)
 
     def read_attributes(self):
-        """ Read a series of attributes. """
+        """Read a series of attributes."""
         attributes_count = self.read_u16()
         attributes = []
         for _ in range(attributes_count):
@@ -238,7 +238,7 @@ class JavaFileReader(BaseIoReader):
         return attributes
 
     def read_attribute_info(self):
-        """ Read a single attribute. """
+        """Read a single attribute."""
         attribute_name_index = self.read_u16()
         name = self.get_utf8(attribute_name_index)
         attribute_length = self.read_u32()
@@ -277,7 +277,7 @@ class JavaFileReader(BaseIoReader):
 
 
 class JavaFileWriter:
-    """ Enables writing of java class files. """
+    """Enables writing of java class files."""
 
     def write_class_file(self, class_file):
         self.write_u32(0xCAFEBABE)
@@ -305,7 +305,7 @@ def read_class_file(f, verbose=False):
 
 
 def disassemble(bytecode):
-    """ Process a bytecode slab into instructions. """
+    """Process a bytecode slab into instructions."""
     reader = JavaFileReader(io.BytesIO(bytecode))
     offset = 0
     instructions = []
@@ -349,7 +349,7 @@ def parse_method_descriptor(text):
 
 
 class DescriptorParser:
-    """ Descriptor string parser. """
+    """Descriptor string parser."""
 
     def __init__(self, text):
         self.text = text

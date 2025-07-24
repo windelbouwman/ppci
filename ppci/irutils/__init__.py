@@ -1,5 +1,4 @@
-""" Various utilities to operate on IR-code.
-"""
+"""Various utilities to operate on IR-code."""
 
 from .verify import verify_module, Verifier
 from .writer import Writer, print_module

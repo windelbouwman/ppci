@@ -3,7 +3,7 @@ from .. import header
 
 
 class DosHeader(Header):
-    """ Representation of the dos header """
+    """Representation of the dos header"""
 
     _fields = (
         ("e_magic", "H"),  # magic id 'MZ' (Mark Zbikowski)
@@ -67,7 +67,7 @@ class DosHeader(Header):
 
 
 class PeHeader(Header):
-    """ PE signature """
+    """PE signature"""
 
     def serialize(self):
         return "PE\x00\x00".encode("ascii")
@@ -88,7 +88,7 @@ _CoffHeader = header.mk_header(
 
 
 class CoffHeader(_CoffHeader):
-    """ Coff header """
+    """Coff header"""
 
     IMAGE_FILE_RELOCS_STRIPPED = 0x0001
     IMAGE_FILE_EXECUTABLE_IMAGE = 0x0002
@@ -103,7 +103,7 @@ class CoffHeader(_CoffHeader):
 
 
 class PeOptionalHeader64(Header):
-    """ Required optional header (64 bit variant) """
+    """Required optional header (64 bit variant)"""
 
     _fields = (
         ("e_signature", "H"),
@@ -146,7 +146,7 @@ class PeOptionalHeader64(Header):
 
 
 class DataDirectoryHeader(Header):
-    """ Single entry in the table after the optional header """
+    """Single entry in the table after the optional header"""
 
     _fields = (("e_virtual_address", "I"), ("e_size", "I"))
 

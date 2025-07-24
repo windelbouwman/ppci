@@ -41,23 +41,23 @@ class Isa:
         return isa3
 
     def add_instruction(self, instruction):
-        """ Register an instruction into this ISA """
+        """Register an instruction into this ISA"""
         self.instructions.append(instruction)
         return instruction
 
     def register_relocation(self, relocation):
-        """ Register a relocation into this isa """
+        """Register a relocation into this isa"""
         assert issubclass(relocation, Relocation)
         assert relocation.name is not None
         self.relocation_map[relocation.name] = relocation
         return relocation
 
     def register_pattern(self, pattern):
-        """ Add a pattern to this isa """
+        """Add a pattern to this isa"""
         self.patterns.append(pattern)
 
     def peephole(self, function):
-        """ Add a peephole optimization function """
+        """Add a peephole optimization function"""
         self.peepholes.append(function)
         return function
 
@@ -74,7 +74,7 @@ class Isa:
         assert isinstance(size, int)
 
         def wrapper(function):
-            """ Wrapper that add the function with the paramaters """
+            """Wrapper that add the function with the paramaters"""
             pat = Pattern(
                 non_term, tree, size, cycles, energy, condition, function
             )

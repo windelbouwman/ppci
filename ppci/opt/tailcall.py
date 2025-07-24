@@ -94,7 +94,7 @@ class TailCallOptimization(FunctionPass):
         return old_entry, arg_phis
 
     def rewrite_tailcalls(self, function, tail_calls):
-        """ Change all recursive tail calls into jumps. """
+        """Change all recursive tail calls into jumps."""
         old_entry, arg_phis = self._replace_entry(function)
 
         # Replace tail calls by call to new block

@@ -13,7 +13,7 @@ from ..arch.registers import Register
 
 
 class InterferenceGraphNode(Node):
-    """ Node in an interference graph. Represents a single register """
+    """Node in an interference graph. Represents a single register"""
 
     def __init__(self, graph, vreg):
         super().__init__(graph)
@@ -33,10 +33,10 @@ class InterferenceGraphNode(Node):
 
 
 class InterferenceGraph(MaskableGraph):
-    """ Interference graph. """
+    """Interference graph."""
 
     def __init__(self):
-        """ Create a new interference graph from a flowgraph """
+        """Create a new interference graph from a flowgraph"""
         super().__init__()
         self.logger = logging.getLogger("interferencegraph")
         self.temp_map = {}
@@ -50,7 +50,7 @@ class InterferenceGraph(MaskableGraph):
         return self._use_map[tmp]
 
     def calculate_interference(self, flowgraph):
-        """ Construct interference graph """
+        """Construct interference graph"""
         for n in flowgraph:
             for ins in n.instructions:
                 # ins.live_out |= ins.
@@ -79,12 +79,12 @@ class InterferenceGraph(MaskableGraph):
                     self._use_map[reg].append(ins)
 
     def has_node(self, tmp):
-        """ Check if there exists a node for this temp register """
+        """Check if there exists a node for this temp register"""
         assert isinstance(tmp, Register)
         return tmp in self.temp_map
 
     def get_node(self, tmp, create=True):
-        """ Get the node for a register """
+        """Get the node for a register"""
         assert isinstance(tmp, Register)
         if tmp in self.temp_map:
             node = self.temp_map[tmp]
@@ -97,7 +97,7 @@ class InterferenceGraph(MaskableGraph):
         return node
 
     def interfere(self, tmp1, tmp2):
-        """ Checks if tmp1 and tmp2 interfere """
+        """Checks if tmp1 and tmp2 interfere"""
         assert isinstance(tmp1, Register)
         assert isinstance(tmp2, Register)
         node1 = self.get_node(tmp1)
@@ -105,7 +105,7 @@ class InterferenceGraph(MaskableGraph):
         return self.has_edge(node1, node2)
 
     def combine(self, n, m):
-        """ Combine n and m into n and return n """
+        """Combine n and m into n and return n"""
         # Copy associated moves and temporaries into n:
         n.temps |= m.temps
         n.moves.update(m.moves)

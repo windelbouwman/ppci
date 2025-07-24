@@ -1,7 +1,4 @@
-""" A context where other parts share global state.
-
-
-"""
+"""A context where other parts share global state."""
 
 import logging
 import struct
@@ -15,7 +12,7 @@ from .eval import ConstantExpressionEvaluator
 
 
 class CContext:
-    """ A context as a substitute for global data """
+    """A context as a substitute for global data"""
 
     logger = logging.getLogger("ccontext")
 
@@ -89,7 +86,7 @@ class CContext:
         self.ctypes_names = {t: byte_order + v for t, v in ctypes.items()}
 
     def limit_max(self, typ: types.CType) -> int:
-        """ Retrieve the maximum value for the given integer type. """
+        """Retrieve the maximum value for the given integer type."""
         if not typ.is_integer:
             raise ValueError("Can only get max value of integer types")
 
@@ -101,7 +98,7 @@ class CContext:
         return max_value
 
     def sizeof(self, typ: types.CType):
-        """ Given a type, determine its size in whole bytes """
+        """Given a type, determine its size in whole bytes"""
         if not isinstance(typ, types.CType):
             raise TypeError("typ should be CType: {}".format(typ))
 
@@ -138,7 +135,7 @@ class CContext:
         return size
 
     def alignment(self, typ: types.CType):
-        """ Given a type, determine its alignment in bytes """
+        """Given a type, determine its alignment in bytes"""
         assert isinstance(typ, types.CType)
         if isinstance(typ, types.ArrayType):
             if typ.size is None:
@@ -224,14 +221,14 @@ class CContext:
         return byte_size, bit_offsets
 
     def get_field_offsets(self, typ):
-        """ Get a dictionary with offset of fields """
+        """Get a dictionary with offset of fields"""
         if typ not in self._field_offsets:
             size, offsets = self.layout_struct(typ)
             self._field_offsets[typ] = size, offsets
         return self._field_offsets[typ]
 
     def offsetof(self, typ, field):
-        """ Returns the offset of a field in a struct/union in bytes """
+        """Returns the offset of a field in a struct/union in bytes"""
         field_offset = self.get_field_offsets(typ)[1][field]
         # Note that below assert will not always hold.
         # It is also used to create debug types.
@@ -239,14 +236,14 @@ class CContext:
         return field_offset // 8
 
     def has_field(self, typ, field_name):
-        """ Check if the given type has the given field. """
+        """Check if the given type has the given field."""
         if not typ.is_struct_or_union:
             raise TypeError("typ must be union or struct type")
 
         return typ.has_field(field_name)
 
     def get_field(self, typ, field_name):
-        """ Get the given field. """
+        """Get the given field."""
         if not typ.is_struct_or_union:
             raise TypeError("typ must be union or struct type")
 
@@ -260,7 +257,7 @@ class CContext:
         return self._enum_values[enum_constant]
 
     def _calculate_enum_values(self, ctyp):
-        """ Determine enum values """
+        """Determine enum values"""
         value = 0
         for constant in ctyp.constants:
             if constant.value:
@@ -271,7 +268,7 @@ class CContext:
             value += 1
 
     def pack(self, typ, value):
-        """ Pack a type into proper memory format """
+        """Pack a type into proper memory format"""
         if isinstance(typ, types.PointerType):
             tid = "ptr"
         elif isinstance(typ, types.EnumType):
@@ -285,7 +282,7 @@ class CContext:
         return struct.pack(fmt, value)
 
     def _make_ival(self, typ, ival):
-        """ Try to make ival a proper initializer """
+        """Try to make ival a proper initializer"""
         if isinstance(ival, list):
             if isinstance(typ, types.ArrayType):
                 elements = [self._make_ival(typ.element_type, i) for i in ival]
@@ -305,15 +302,15 @@ class CContext:
 
     @staticmethod
     def error(message, location, hints=None):
-        """ Trigger an error at the given location """
+        """Trigger an error at the given location"""
         raise CompilerError(message, loc=location, hints=hints)
 
     def warning(self, message, location, hints=None):
-        """ Trigger a warning at the given location """
+        """Trigger a warning at the given location"""
         # TODO: figure a nice way to gather warnings.
         self.logger.warning(message)
         self.logger.info("At: %s, hints: %s", location, hints)
 
     def eval_expr(self, expr):
-        """ Evaluate an expression right now! (=at compile time) """
+        """Evaluate an expression right now! (=at compile time)"""
         return self._expression_evaluator.eval_expr(expr)

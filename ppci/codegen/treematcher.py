@@ -1,5 +1,5 @@
 class State:
-    """ State used to label tree nodes """
+    """State used to label tree nodes"""
 
     __slots__ = ("labels",)
 
@@ -27,7 +27,7 @@ class State:
 
 
 class BaseMatcher:
-    """ Base class for matcher objects. """
+    """Base class for matcher objects."""
 
     def kids(self, tree, rule):
         return self.kid_functions[rule](tree)
@@ -36,7 +36,7 @@ class BaseMatcher:
         return self.nts_map[rule]
 
     def burm_label(self, tree):
-        """ Label all nodes in the tree bottom up """
+        """Label all nodes in the tree bottom up"""
         for c in tree.children:
             self.burm_label(c)
         self.burm_state(tree)

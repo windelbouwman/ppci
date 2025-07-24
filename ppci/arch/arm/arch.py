@@ -1,4 +1,5 @@
-""" ARM architecture definition. """
+"""ARM architecture definition."""
+
 import io
 from ... import ir
 from ...binutils.assembler import BaseAssembler
@@ -23,7 +24,7 @@ class ArmCallingConvention:
 
 
 class ArmArch(Architecture):
-    """ Arm machine class. """
+    """Arm machine class."""
 
     name = "arm"
     option_names = ("thumb", "jazelle", "neon", "vfpv1", "vfpv2")
@@ -90,7 +91,7 @@ class ArmArch(Architecture):
         )
 
     def get_runtime(self):
-        """ Implement compiler runtime functions """
+        """Implement compiler runtime functions"""
         from ...api import asm
 
         if self.has_option("thumb"):
@@ -100,7 +101,7 @@ class ArmArch(Architecture):
         return asm(io.StringIO(asm_src), self)
 
     def move(self, dst, src):
-        """ Generate a move from src to dst """
+        """Generate a move from src to dst"""
         if self.has_option("thumb"):
             return thumb_instructions.Mov2(dst, src, ismove=True)
         else:
@@ -139,7 +140,6 @@ class ArmArch(Architecture):
         if frame.stacksize:
             ssize = round_up(frame.stacksize)
             if self.has_option("thumb"):
-
                 # Reserve stack space:
                 # subSp cannot handle large numbers:
                 while ssize > 0:
@@ -335,7 +335,7 @@ class ArmArch(Architecture):
         yield RegisterUseDef(uses=live_out)
 
     def litpool(self, frame):
-        """ Generate instruction for the current literals """
+        """Generate instruction for the current literals"""
         # Align at 4 bytes
         if frame.constants:
             yield Alignment(4)
@@ -395,7 +395,7 @@ class ArmArch(Architecture):
 
 
 class ArmAssembler(BaseAssembler):
-    """ Assembler for the arm instruction set """
+    """Assembler for the arm instruction set"""
 
     def __init__(self):
         super().__init__()
@@ -448,7 +448,7 @@ class ArmAssembler(BaseAssembler):
             self.emit(i)
 
     def add_literal(self, v):
-        """ For use in the pseudo instruction LDR r0, =SOMESYM """
+        """For use in the pseudo instruction LDR r0, =SOMESYM"""
         # Invent some label for the literal and store it.
         assert isinstance(v, str)
         self.lit_counter += 1

@@ -1,5 +1,4 @@
-""" Jar file handling.
-"""
+"""Jar file handling."""
 
 import argparse
 import logging

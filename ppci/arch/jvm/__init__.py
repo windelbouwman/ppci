@@ -1,4 +1,4 @@
-""" Java virtual machine (JVM).
+"""Java virtual machine (JVM).
 
 This module supports loading and saving of java bytecode.
 

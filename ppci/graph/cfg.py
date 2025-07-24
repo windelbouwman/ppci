@@ -1,4 +1,4 @@
-""" Control flow graph algorithms.
+"""Control flow graph algorithms.
 
 Functions present:
 
@@ -52,7 +52,7 @@ logger = logging.getLogger("cfg")
 
 
 def ir_function_to_graph(ir_function):
-    """ Take an ir function and create a cfg of it """
+    """Take an ir function and create a cfg of it"""
     block_map = {}
     cfg = ControlFlowGraph()
     cfg.exit_node = ControlFlowNode(cfg, name=None)
@@ -130,7 +130,7 @@ class ControlFlowGraph(DiGraph):
         self.root_tree = None
 
     def validate(self):
-        """ Run some sanity checks on the control flow graph """
+        """Run some sanity checks on the control flow graph"""
         assert self.entry_node
         assert self.exit_node
 
@@ -146,25 +146,25 @@ class ControlFlowGraph(DiGraph):
         return self.tree_map[other].below_or_same(self.tree_map[one])
 
     def strictly_dominates(self, one, other):
-        """ Test whether a node strictly dominates another node """
+        """Test whether a node strictly dominates another node"""
         if self._idom is None:
             self._calculate_dominator_info()
         return self.tree_map[other].below(self.tree_map[one])
 
     def post_dominates(self, one, other):
-        """ Test whether a node post dominates another node """
+        """Test whether a node post dominates another node"""
         if self._pdom is None:
             self._calculate_post_dominator_info()
         return one in self._pdom[other]
 
     def get_immediate_dominator(self, node):
-        """ Retrieve a nodes immediate dominator """
+        """Retrieve a nodes immediate dominator"""
         if self._idom is None:
             self._calculate_dominator_info()
         return self._idom.get(node, None)
 
     def get_immediate_post_dominator(self, node):
-        """ Retrieve a nodes immediate post dominator """
+        """Retrieve a nodes immediate post dominator"""
         if self._ipdom is None:
             self._calculate_post_dominator_info()
         return self._ipdom[node]
@@ -175,7 +175,7 @@ class ControlFlowGraph(DiGraph):
         return other in self._reach[one]
 
     def _calculate_dominator_info(self):
-        """ Calculate dominator information """
+        """Calculate dominator information"""
         self.validate()
 
         # First calculate the dominator tree:
@@ -210,7 +210,7 @@ class ControlFlowGraph(DiGraph):
         logger.debug("calculate sdom --> DONE")
 
     def _calculate_dominator_tree(self):
-        """ Create a dominator tree. """
+        """Create a dominator tree."""
 
         self.tree_map = {}
         for node in self.nodes:
@@ -281,7 +281,7 @@ class ControlFlowGraph(DiGraph):
         )
 
     def calculate_reach(self):
-        """ Calculate which nodes can reach what other nodes """
+        """Calculate which nodes can reach what other nodes"""
         self.validate()
 
         # Initialize reach map:
@@ -294,7 +294,6 @@ class ControlFlowGraph(DiGraph):
         while change:
             change = False
             for node in self.nodes:
-
                 # Fill reachable condition:
                 new_reach = set(self._reach[node])  # Take the old reach
                 for m in node.successors:
@@ -305,7 +304,7 @@ class ControlFlowGraph(DiGraph):
                     self._reach[node] = new_reach
 
     def calculate_loops(self):
-        """ Calculate loops by use of the dominator info """
+        """Calculate loops by use of the dominator info"""
         if self._reach is None:
             self.calculate_reach()
 
@@ -356,19 +355,19 @@ class ControlFlowGraph(DiGraph):
                         self.df[x].add(y)
 
     def bottom_up(self, tree):
-        """ Generator that yields all nodes in bottom up way """
+        """Generator that yields all nodes in bottom up way"""
         for t in bottom_up(tree):
             yield t.node
 
     def children(self, n):
-        """ Return all children for node n """
+        """Return all children for node n"""
         tree = self.tree_map[n]
         for c in tree.children:
             yield c.node
 
 
 def bottom_up_recursive(tree):
-    """ Generator that yields all nodes in bottom up way """
+    """Generator that yields all nodes in bottom up way"""
     for c in tree.children:
         for cc in bottom_up_recursive(c):
             yield cc
@@ -376,7 +375,7 @@ def bottom_up_recursive(tree):
 
 
 def bottom_up(tree):
-    """ Generator that yields all nodes in bottom up way """
+    """Generator that yields all nodes in bottom up way"""
     worklist = [tree]
     visited = set()
     while worklist:
@@ -391,7 +390,7 @@ def bottom_up(tree):
 
 
 def pre_order(tree):
-    """ Traverse tree in pre-order """
+    """Traverse tree in pre-order"""
     worklist = [(None, tree)]
     while worklist:
         parent, node = worklist.pop(0)
@@ -406,19 +405,19 @@ class ControlFlowNode(DiNode):
         self.name = name
 
     def dominates(self, other):
-        """ Test whether this node dominates the other node """
+        """Test whether this node dominates the other node"""
         return self.graph.dominates(self, other)
 
     def post_dominates(self, other):
-        """ Test whether this node post-dominates the other node """
+        """Test whether this node post-dominates the other node"""
         return self.graph.post_dominates(self, other)
 
     def can_reach(self, other):
-        """ Test if this node can reach the another node """
+        """Test if this node can reach the another node"""
         return self.graph.can_reach(self, other)
 
     def reached(self):
-        """ Test if this node is reached """
+        """Test if this node is reached"""
         return self.graph._reach[self]
 
     def __repr__(self):

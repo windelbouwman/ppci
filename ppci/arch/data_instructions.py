@@ -1,4 +1,4 @@
-""" Contains instruction set for creating binary data.
+"""Contains instruction set for creating binary data.
 
 For example:
 
@@ -78,7 +78,7 @@ class DByte(DataInstruction):
 
 
 class DZero(DataInstruction):
-    """ Reserve an amount of space """
+    """Reserve an amount of space"""
 
     tokens = []
     v = Operand("v", int)
@@ -166,7 +166,7 @@ class Dq2(DataInstruction):
 
 
 class Ds(DataInstruction):
-    """ Reserve an amount of space """
+    """Reserve an amount of space"""
 
     tokens = []
     v = Operand("v", int)

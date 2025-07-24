@@ -1,4 +1,4 @@
-""" Directed graph.
+"""Directed graph.
 
 In a directed graph, the edges have a direction.
 """
@@ -8,7 +8,7 @@ from .graph import BaseGraph, Node
 
 
 class DiGraph(BaseGraph):
-    """ Directed graph. """
+    """Directed graph."""
 
     __slots__ = ("suc_map", "pre_map")
 
@@ -18,7 +18,7 @@ class DiGraph(BaseGraph):
         self.pre_map = defaultdict(set)
 
     def del_node(self, node):
-        """ Remove a node from the graph """
+        """Remove a node from the graph"""
         s = list(self.successors(node))
         for m in s:
             self.del_edge(node, m)
@@ -29,7 +29,7 @@ class DiGraph(BaseGraph):
         self.nodes.remove(node)
 
     def add_edge(self, n, m):
-        """ Add a directed edge from n to m """
+        """Add a directed edge from n to m"""
         assert n in self.nodes
         assert m in self.nodes
         if not self.has_edge(n, m):
@@ -39,7 +39,7 @@ class DiGraph(BaseGraph):
             self.adj_map[m].add(n)
 
     def del_edge(self, n, m):
-        """ Delete a directed edge """
+        """Delete a directed edge"""
         assert n != m
         assert n in self.nodes
         assert m in self.nodes
@@ -50,34 +50,34 @@ class DiGraph(BaseGraph):
             self.adj_map[n].remove(m)
 
     def has_edge(self, n, m):
-        """ Test if there exist and edge between n and m """
+        """Test if there exist and edge between n and m"""
         return m in self.suc_map[n]
 
     def get_number_of_edges(self):
-        """ Get the number of edges in this graph """
+        """Get the number of edges in this graph"""
         n_edges = sum(len(self.adj_map[n]) for n in self.nodes)
         return n_edges
 
     def successors(self, node):
-        """ Get the successors of the node """
+        """Get the successors of the node"""
         return self.suc_map[node]
 
     def predecessors(self, node):
-        """ Get the predecessors of the node """
+        """Get the predecessors of the node"""
         return self.pre_map[node]
 
 
 class DiNode(Node):
-    """ Node in a directed graph """
+    """Node in a directed graph"""
 
     @property
     def successors(self):
-        """ Get the successors of this node """
+        """Get the successors of this node"""
         return self.graph.successors(self)
 
     @property
     def predecessors(self):
-        """ Get the predecessors of this node """
+        """Get the predecessors of this node"""
         return self.graph.predecessors(self)
 
 

@@ -1,6 +1,4 @@
-""" M68k instruction descriptions.
-
-"""
+"""M68k instruction descriptions."""
 
 # pylint: disable=invalid-name
 from ..isa import Isa
@@ -70,7 +68,7 @@ class Rel16Relocation(Relocation):
 
 # Helpers:
 class DataRegEa(Constructor):
-    """ Data register access """
+    """Data register access"""
 
     reg = Operand("reg", DataRegister, read=True)
     syntax = Syntax([reg])
@@ -78,7 +76,7 @@ class DataRegEa(Constructor):
 
 
 class AddressRegEa(Constructor):
-    """ Address register access """
+    """Address register access"""
 
     reg = Operand("reg", AddressRegister, read=True)
     syntax = Syntax([reg])
@@ -86,7 +84,7 @@ class AddressRegEa(Constructor):
 
 
 class AddressEa(Constructor):
-    """ Access location pointed to by address register """
+    """Access location pointed to by address register"""
 
     reg = Operand("reg", AddressRegister, read=True)
     syntax = Syntax(["(", reg, ")"])
@@ -94,7 +92,7 @@ class AddressEa(Constructor):
 
 
 class AddressOffsetEa(Constructor):
-    """ Access location pointed to by address register """
+    """Access location pointed to by address register"""
 
     imm = Operand("imm", int)
     reg = Operand("reg", AddressRegister, read=True)
@@ -104,7 +102,7 @@ class AddressOffsetEa(Constructor):
 
 
 class ImmediateEa(Constructor):
-    """ Access an immediate value """
+    """Access an immediate value"""
 
     imm = Operand("imm", int)
     syntax = Syntax(["#", imm])
@@ -113,7 +111,7 @@ class ImmediateEa(Constructor):
 
 
 class PcRelEa(Constructor):
-    """ PC relative location """
+    """PC relative location"""
 
     label = Operand("label", str)
     # Use priority here to solve ambiguity with register:
@@ -126,7 +124,7 @@ class PcRelEa(Constructor):
 
 
 class AbsNearEa(Constructor):
-    """ Access an absolute near address """
+    """Access an absolute near address"""
 
     imm = Operand("imm", int)
     syntax = Syntax(["(", imm, ")", ".", "w"])
@@ -147,7 +145,7 @@ ea_modes = (
 
 # Sub constructs used as destination operands:
 class DataRegDstEa(Constructor):
-    """ Data register access """
+    """Data register access"""
 
     reg = Operand("reg", DataRegister, read=True)
     syntax = Syntax([reg])
@@ -155,7 +153,7 @@ class DataRegDstEa(Constructor):
 
 
 class AddressDstEa(Constructor):
-    """ Store to location pointed to by address register """
+    """Store to location pointed to by address register"""
 
     reg = Operand("reg", AddressRegister, read=True)
     syntax = Syntax(["(", reg, ")"])
@@ -163,7 +161,7 @@ class AddressDstEa(Constructor):
 
 
 class AddressOffsetDstEa(Constructor):
-    """ Store to location pointed to by address register """
+    """Store to location pointed to by address register"""
 
     imm = Operand("imm", int)
     reg = Operand("reg", AddressRegister, read=True)
@@ -289,7 +287,7 @@ Eorl = make_dn_ea("eorl", 0b1011, opmode=0b110)
 
 
 class Lea(M68kInstruction):
-    """ Load effective address """
+    """Load effective address"""
 
     dst = Operand("dst", AddressRegister, write=True)
     ea = Operand("ea", ea_modes)
@@ -299,7 +297,7 @@ class Lea(M68kInstruction):
 
 
 class Moveaw(M68kInstruction):
-    """ 16 bit movea """
+    """16 bit movea"""
 
     dst = Operand("dst", AddressRegister, write=True)
     ea = Operand("ea", ea_modes)
@@ -309,7 +307,7 @@ class Moveaw(M68kInstruction):
 
 
 class Moveal(M68kInstruction):
-    """ 32 bit movea """
+    """32 bit movea"""
 
     dst = Operand("dst", AddressRegister, write=True)
     ea = Operand("ea", ea_modes)
@@ -327,7 +325,7 @@ class Moveb(M68kInstruction):
 
 
 class Movew(M68kInstruction):
-    """ 16 bit move """
+    """16 bit move"""
 
     dst_ea = Operand("dst_ea", dst_ea_modes)
     ea = Operand("ea", ea_modes)
@@ -337,7 +335,7 @@ class Movew(M68kInstruction):
 
 
 class Movel(M68kInstruction):
-    """ 32 bit move """
+    """32 bit move"""
 
     dst_ea = Operand("dst_ea", dst_ea_modes)
     ea = Operand("ea", ea_modes)
@@ -347,7 +345,7 @@ class Movel(M68kInstruction):
 
 
 class Moveq(M68kInstruction):
-    """ 32 bit move quick. Sign extend an 8 bit operand into a 32 bit reg. """
+    """32 bit move quick. Sign extend an 8 bit operand into a 32 bit reg."""
 
     dst = Operand("dst", DataRegister, write=True)
     imm = Operand("imm", int)
@@ -371,7 +369,7 @@ Negl = make_ea("negl", 0x44, 2)
 
 
 class Nop(M68kInstruction):
-    """ Does nothing """
+    """Does nothing"""
 
     syntax = Syntax(["nop"])
     patterns = {"w": 0x4E71}
@@ -384,7 +382,7 @@ Notl = make_ea("notl", 0x46, 2)
 
 
 class Rts(M68kInstruction):
-    """ Return from subroutine """
+    """Return from subroutine"""
 
     syntax = Syntax(["rts"])
     patterns = {"w": 0x4E75}

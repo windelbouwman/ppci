@@ -1,5 +1,4 @@
-""" Grouping of multiple object files into a single archive.
-"""
+"""Grouping of multiple object files into a single archive."""
 
 import json
 import logging
@@ -7,12 +6,12 @@ from . import objectfile
 
 
 def archive(objs):
-    """ Create an archive from multiple object files. """
+    """Create an archive from multiple object files."""
     return Archive(objs)
 
 
 def get_archive(filename):
-    """ Load an archive from file. """
+    """Load an archive from file."""
     if isinstance(filename, Archive):
         return filename
 
@@ -31,7 +30,7 @@ class Archive:
         return iter(self.objs)
 
     def save(self, output_file):
-        """ Save archive to file. """
+        """Save archive to file."""
         self.logger.debug("Saving archive")
         # Create funky json.
         objs = [obj.serialize() for obj in self.objs]
@@ -44,7 +43,7 @@ class Archive:
 
     @classmethod
     def load(cls, f):
-        """ Load archive from disk. """
+        """Load archive from disk."""
         cls.logger.debug("Loading archive")
         d = json.load(f)
         objs = list(map(objectfile.deserialize, d["objects"]))

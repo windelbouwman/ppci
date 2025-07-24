@@ -1,4 +1,4 @@
-""" This module contains the parsing parts for the c3 language. """
+"""This module contains the parsing parts for the c3 language."""
 
 import logging
 from ...common import CompilerError
@@ -8,7 +8,7 @@ from .scope import Scope
 
 
 class Parser(RecursiveDescentParser):
-    """ Parses sourcecode into an abstract syntax tree (AST) """
+    """Parses sourcecode into an abstract syntax tree (AST)"""
 
     logger = logging.getLogger("c3")
 
@@ -19,7 +19,7 @@ class Parser(RecursiveDescentParser):
         self.mod = None
 
     def parse_source(self, tokens, context):
-        """ Parse a module from tokens """
+        """Parse a module from tokens"""
         self.logger.debug("Parsing source")
         self.init_lexer(tokens)
         try:
@@ -31,14 +31,14 @@ class Parser(RecursiveDescentParser):
         return module
 
     def add_symbol(self, sym):
-        """ Add a symbol to the current scope """
+        """Add a symbol to the current scope"""
         if self.current_scope.has_symbol(sym.name, include_parent=False):
             self.error("Redefinition of {0}".format(sym.name), loc=sym.loc)
         else:
             self.current_scope.add_symbol(sym)
 
     def parse_module(self, context):
-        """ Parse a module definition """
+        """Parse a module definition"""
         self.consume("module")
         name = self.consume("ID")
         self.consume(";")
@@ -51,7 +51,7 @@ class Parser(RecursiveDescentParser):
         return self.mod
 
     def parse_top_level(self):
-        """ Parse toplevel declaration """
+        """Parse toplevel declaration"""
         # Handle public specifier:
         public = self.has_consumed("public")
 
@@ -70,19 +70,19 @@ class Parser(RecursiveDescentParser):
             self.error("Expected function, var, const or type")
 
     def parse_import(self):
-        """ Parse import construct """
+        """Parse import construct"""
         self.consume("import")
         name = self.consume("ID").val
         self.mod.imports.append(name)
         self.consume(";")
 
     def parse_designator(self):
-        """ A designator designates an object with a name. """
+        """A designator designates an object with a name."""
         name = self.consume("ID")
         return ast.Identifier(name.val, self.current_scope, name.loc)
 
     def parse_id_sequence(self):
-        """ Parse a sequence of id's """
+        """Parse a sequence of id's"""
         ids = [self.consume("ID")]
         while self.has_consumed(","):
             ids.append(self.consume("ID"))
@@ -139,7 +139,7 @@ class Parser(RecursiveDescentParser):
         return the_type
 
     def parse_type_def(self, public=True):
-        """ Parse a type definition """
+        """Parse a type definition"""
         self.consume("type")
         newtype = self.parse_type_spec()
         typename = self.consume("ID")
@@ -148,7 +148,7 @@ class Parser(RecursiveDescentParser):
         self.add_symbol(typedef)
 
     def parse_variable_def(self, public=True):
-        """ Parse variable declaration, optionally with initialization. """
+        """Parse variable declaration, optionally with initialization."""
         self.consume("var")
         var_type = self.parse_type_spec()
         variables = []
@@ -167,7 +167,7 @@ class Parser(RecursiveDescentParser):
         return variables
 
     def parse_const_def(self):
-        """ Parse a constant definition """
+        """Parse a constant definition"""
         self.consume("const")
         typ = self.parse_type_spec()
         while True:
@@ -181,7 +181,7 @@ class Parser(RecursiveDescentParser):
         self.consume(";")
 
     def parse_function_def(self, public=True):
-        """ Parse function definition """
+        """Parse function definition"""
         loc = self.consume("function").loc
         returntype = self.parse_type_spec()
         fname = self.consume("ID").val
@@ -213,7 +213,7 @@ class Parser(RecursiveDescentParser):
         self.current_scope = self.current_scope.parent
 
     def parse_if(self):
-        """ Parse if statement """
+        """Parse if statement"""
         loc = self.consume("if").loc
         self.consume("(")
         condition = self.parse_expression()
@@ -226,7 +226,7 @@ class Parser(RecursiveDescentParser):
         return ast.If(condition, true_code, false_code, loc)
 
     def parse_switch(self) -> ast.Switch:
-        """ Parse switch statement """
+        """Parse switch statement"""
         loc = self.consume("switch").loc
         self.consume("(")
         expression = self.parse_expression()
@@ -246,7 +246,7 @@ class Parser(RecursiveDescentParser):
         return ast.Switch(expression, options, loc)
 
     def parse_while(self) -> ast.While:
-        """ Parses a while statement """
+        """Parses a while statement"""
         loc = self.consume("while").loc
         self.consume("(")
         condition = self.parse_expression()
@@ -255,7 +255,7 @@ class Parser(RecursiveDescentParser):
         return ast.While(condition, statements, loc)
 
     def parse_for(self) -> ast.For:
-        """ Parse a for statement """
+        """Parse a for statement"""
         loc = self.consume("for").loc
         self.consume("(")
         init = self.parse_statement()
@@ -268,7 +268,7 @@ class Parser(RecursiveDescentParser):
         return ast.For(init, condition, final, statements, loc)
 
     def parse_return(self) -> ast.Return:
-        """ Parse a return statement """
+        """Parse a return statement"""
         loc = self.consume("return").loc
         if self.has_consumed(";"):
             return ast.Return(None, loc)
@@ -278,7 +278,7 @@ class Parser(RecursiveDescentParser):
             return ast.Return(expr, loc)
 
     def parse_compound(self):
-        """ Parse a compound statement, which is bounded by '{' and '}' """
+        """Parse a compound statement, which is bounded by '{' and '}'"""
         loc = self.consume("{").loc
         statements = []
         while self.peek != "}":
@@ -292,7 +292,7 @@ class Parser(RecursiveDescentParser):
         return ast.Compound(statements, loc)
 
     def parse_statement(self) -> ast.Statement:
-        """ Determine statement type based on the pending token """
+        """Determine statement type based on the pending token"""
         mapping = {
             "if": self.parse_if,
             "while": self.parse_while,
@@ -345,7 +345,7 @@ class Parser(RecursiveDescentParser):
     }
 
     def parse_const_expression(self):
-        """ Parse array initializers and other constant values """
+        """Parse array initializers and other constant values"""
         if self.peek == "{":
             loc = self.consume("{").loc
             elements = []
@@ -423,7 +423,7 @@ class Parser(RecursiveDescentParser):
             return self.parse_unary_expression()
 
     def parse_unary_expression(self):
-        """ Handle unary plus, minus and pointer magic """
+        """Handle unary plus, minus and pointer magic"""
         if self.peek in ["&", "*", "-", "+", "not"]:
             operation = self.consume()
             inner_expression = self.parse_cast_expression()
@@ -435,7 +435,7 @@ class Parser(RecursiveDescentParser):
             return self.parse_postfix_expression()
 
     def parse_postfix_expression(self) -> ast.Expression:
-        """ Parse postfix expression """
+        """Parse postfix expression"""
         pfe = self.parse_primary_expression()
         while self.peek in ["[", ".", "->", "("]:
             if self.has_consumed("["):
@@ -463,7 +463,7 @@ class Parser(RecursiveDescentParser):
         return pfe
 
     def parse_primary_expression(self) -> ast.Expression:
-        """ Literal and parenthesis expression parsing """
+        """Literal and parenthesis expression parsing"""
         if self.peek == "(":
             self.consume("(")
             expr = self.parse_expression()

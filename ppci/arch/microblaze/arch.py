@@ -1,4 +1,4 @@
-""" The microblaze architecture """
+"""The microblaze architecture"""
 
 from ... import ir
 from ..arch import Architecture
@@ -12,7 +12,7 @@ from . import registers
 
 
 class MicroBlazeArch(Architecture):
-    """ Microblaze architecture """
+    """Microblaze architecture"""
 
     name = "microblaze"
 
@@ -119,7 +119,7 @@ class MicroBlazeArch(Architecture):
         return saved_registers
 
     def gen_litpool(self, frame):
-        """ Generate instructions for literals """
+        """Generate instructions for literals"""
         if frame.constants:
             # Align at 4 bytes
             yield Alignment(4)
@@ -165,7 +165,7 @@ class MicroBlazeArch(Architecture):
         yield RegisterUseDef(uses=live_out)
 
     def gen_call(self, frame, label, args, rv):
-        """ Generate proper calling sequence """
+        """Generate proper calling sequence"""
         # Copy arguments to proper locations:
         arg_types = [a[0] for a in args]
         arg_locs = self.determine_arg_locations(arg_types)
@@ -197,7 +197,7 @@ class MicroBlazeArch(Architecture):
             yield self.move(rv[1], retval_loc)
 
     def determine_arg_locations(self, arg_types):
-        """ Use registers R5-R10 to pass arguments """
+        """Use registers R5-R10 to pass arguments"""
         locations = []
         regs = [
             registers.R5,
@@ -223,7 +223,7 @@ class MicroBlazeArch(Architecture):
         return locations
 
     def determine_rv_location(self, ret_type):
-        """ Return values in R3-R4 """
+        """Return values in R3-R4"""
         return registers.R3
 
     def get_runtime(self):

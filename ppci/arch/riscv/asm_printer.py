@@ -3,7 +3,7 @@ from ..asm_printer import AsmPrinter
 
 
 class RiscvAsmPrinter(AsmPrinter):
-    """ Riscv specific assembly printer """
+    """Riscv specific assembly printer"""
 
     def print_instruction(self, instruction):
         if isinstance(instruction, SectionInstruction):

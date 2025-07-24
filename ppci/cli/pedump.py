@@ -1,4 +1,4 @@
-""" Dump windows exe/dll file contents """
+"""Dump windows exe/dll file contents"""
 
 import argparse
 from .base import base_parser

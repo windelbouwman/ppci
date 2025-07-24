@@ -1,5 +1,4 @@
-""" Debugger command line utility. """
-
+"""Debugger command line utility."""
 
 import argparse
 import importlib
@@ -19,7 +18,7 @@ parser.add_argument(
 
 
 def dbg(args=None):
-    """ Run dbg from command line """
+    """Run dbg from command line"""
     args = parser.parse_args(args)
     with LogSetup(args):
         march = get_arch_from_args(args)

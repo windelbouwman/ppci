@@ -1,5 +1,4 @@
-
-""" Module with all kind of nice runtimes for various platforms! """
+"""Module with all kind of nice runtimes for various platforms!"""
 
 import io
 from .binutils.objectfile import ObjectFile
@@ -7,11 +6,11 @@ from . import ir
 
 
 def make_trampoline(func_name):
-    """ Create a main function that calls another function """
-    mod = ir.Module('main')
-    main = ir.Procedure('main')
+    """Create a main function that calls another function"""
+    mod = ir.Module("main")
+    main = ir.Procedure("main")
     mod.add_function(main)
-    entry = ir.Block('entry')
+    entry = ir.Block("entry")
     main.add_block(entry)
     main.entry = entry
     entry.add_instruction(ir.ProcedureCall(func_name, []))
@@ -20,7 +19,7 @@ def make_trampoline(func_name):
 
 
 def create_linux_exe(function_name: str, name, obj: ObjectFile):
-    """ Create an executable for the given system """
+    """Create an executable for the given system"""
     from .api import c3c, asm, link, objcopy, ir_to_object
 
     march = obj.arch
@@ -30,7 +29,7 @@ def create_linux_exe(function_name: str, name, obj: ObjectFile):
     trampoline = make_trampoline(function_name)
     obj3 = ir_to_object([trampoline], march)
     obj = link([obj, obj1, obj2, obj3], layout=io.StringIO(LINUX_MMAP))
-    objcopy(obj, None, 'elf', name)
+    objcopy(obj, None, "elf", name)
     print(obj)
 
 

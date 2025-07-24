@@ -1,4 +1,3 @@
-
 class StringTable:
     def __init__(self):
         self.strtab = bytes([0])
@@ -12,7 +11,7 @@ class StringTable:
 
 
 def elf_hash(name):
-    """ ELF hashing function.
+    """ELF hashing function.
 
     See figure 2-15 in the ELF format PDF document.
     """

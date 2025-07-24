@@ -4,7 +4,7 @@ from .utils import LineInfo
 
 
 class CToken(Token):
-    """ C token (including optional preceeding spaces) """
+    """C token (including optional preceeding spaces)"""
 
     def __init__(self, typ, val, space, first, loc):
         super().__init__(typ, val, loc)
@@ -21,7 +21,7 @@ class CToken(Token):
         return self.space + self.val
 
     def copy(self, space=None, first=None):
-        """ Return a new token which is a mildly modified copy """
+        """Return a new token which is a mildly modified copy"""
         if space is None:
             space = self.space
         if first is None:
@@ -38,7 +38,7 @@ class TokenType(enum.Enum):
 
 
 class CTokenPrinter:
-    """ Printer that can turn a stream of token-lines into text """
+    """Printer that can turn a stream of token-lines into text"""
 
     def dump(self, tokens, file=None):
         first_line = True

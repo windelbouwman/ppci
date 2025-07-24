@@ -1,4 +1,4 @@
-""" Semantics handling for the C programming language.
+"""Semantics handling for the C programming language.
 
 This class is called whenever the parser has found something. So the interface
 between parser and semantics is via a set of function calls.
@@ -26,7 +26,7 @@ from .printer import expr_to_str, type_to_str
 
 
 class CSemantics:
-    """ This class handles the C semantics """
+    """This class handles the C semantics"""
 
     logger = logging.getLogger("semantics")
 
@@ -55,11 +55,11 @@ class CSemantics:
         self.switch_stack = []  # switch case levels
 
     def begin(self):
-        """ Enter a new file / compilation unit. """
+        """Enter a new file / compilation unit."""
         self.scope = Scope()
 
     def finish_compilation_unit(self):
-        """ Called at the end of a file / compilation unit. """
+        """Called at the end of a file / compilation unit."""
         assert self.scope.parent is None  # Must be the topscope now.
         declarations = self.scope.get_declarations()
         compilation_unit = nodes.CompilationUnit(declarations)
@@ -85,7 +85,7 @@ class CSemantics:
                 self.scope.insert(argument)
 
     def end_function(self, body):
-        """ Called at the end of a function """
+        """Called at the end of a function"""
         # Pop scope and function
         self.leave_scope()
         function = self.current_function
@@ -97,7 +97,7 @@ class CSemantics:
         assert not self.switch_stack
 
     def apply_type_modifiers(self, type_modifiers, typ):
-        """ Apply the set of type modifiers to the given type """
+        """Apply the set of type modifiers to the given type"""
         # Apply type modifiers in reversed order, starting outwards, going
         # from the outer type to the inside name.
         assert isinstance(typ, types.CType), str(typ)
@@ -134,7 +134,7 @@ class CSemantics:
         return typ
 
     def on_function_argument(self, typ, name, modifiers, location):
-        """ Process a function argument into the proper class """
+        """Process a function argument into the proper class"""
         typ = self.apply_type_modifiers(modifiers, typ)
 
         # Change 'int a[]' into the equivalent int* a
@@ -150,7 +150,7 @@ class CSemantics:
     def on_variable_declaration(
         self, storage_class, typ, name, modifiers, location
     ):
-        """ Given a declaration, and a declarator, create the proper object """
+        """Given a declaration, and a declarator, create the proper object"""
         typ = self.apply_type_modifiers(modifiers, typ)
         if isinstance(typ, types.FunctionType):
             declaration = self.on_function_declaration(
@@ -165,7 +165,7 @@ class CSemantics:
 
     # Variable initialization!
     def on_variable_initialization(self, variable, expression):
-        """ Handle a variable initialized to some value """
+        """Handle a variable initialized to some value"""
         # This is a good point to determine array size and check
         # initial values
         assert isinstance(variable, declarations.VariableDeclaration)
@@ -178,7 +178,7 @@ class CSemantics:
         variable.initial_value = expression
 
     def patch_size_from_initializer(self, typ, initializer):
-        """ Fill array size from elements! """
+        """Fill array size from elements!"""
 
         if typ.is_array and typ.size is None:
             if isinstance(initializer, expressions.ArrayInitializer):
@@ -199,7 +199,7 @@ class CSemantics:
         return init_cursor
 
     def init_store(self, init_cursor, value):
-        """ Store an initial value at position pointed by cursor. """
+        """Store an initial value at position pointed by cursor."""
 
         if init_cursor.at_end():
             self.warning("Excess elements!", value.location)
@@ -228,7 +228,7 @@ class CSemantics:
         init_cursor.set_value(value)
 
     def on_array_designator(self, init_cursor, index, location):
-        """ Handle array designator. """
+        """Handle array designator."""
         # TODO: Handle things like [4..30] = 23
         # Calculate position:
         pos = self.context.eval_expr(index)
@@ -246,7 +246,7 @@ class CSemantics:
         init_cursor.level.go_to_pos(pos)
 
     def on_field_designator(self, init_cursor, field_name, location):
-        """ Check field designator. """
+        """Check field designator."""
         typ = init_cursor.level.typ
 
         if not typ.is_struct_or_union:
@@ -261,7 +261,7 @@ class CSemantics:
 
     # Declarations:
     def on_typedef(self, typ, name, modifiers, location):
-        """ Handle typedef declaration """
+        """Handle typedef declaration"""
         typ = self.apply_type_modifiers(modifiers, typ)
         declaration = declarations.Typedef(typ, name, location)
         if self.scope.is_defined(name, all_scopes=False):
@@ -278,7 +278,7 @@ class CSemantics:
     def on_function_declaration(
         self, storage_class, typ, name, modifiers, location
     ):
-        """ Handle function declaration """
+        """Handle function declaration"""
         typ = self.apply_type_modifiers(modifiers, typ)
         declaration = declarations.FunctionDeclaration(
             storage_class, typ, name, location
@@ -288,7 +288,7 @@ class CSemantics:
 
     # declaration insertion into symbol table.
     def register_declaration(self, declaration):
-        """ Register declaration into the scope. """
+        """Register declaration into the scope."""
         # Check if the declared name is already defined:
         if self.scope.is_defined(declaration.name, all_scopes=False):
             # Get the already declared name and figure out what now!
@@ -326,7 +326,7 @@ class CSemantics:
             self.invalid_redeclaration(sym, declaration)
 
     def check_redeclaration_storage_class(self, sym, declaration):
-        """ Test if we specified an invalid combo of storage class. """
+        """Test if we specified an invalid combo of storage class."""
         prev_storage_class = sym.declaration.storage_class
         new_storage_class = declaration.storage_class
         # None == automatic storage class.
@@ -353,14 +353,14 @@ class CSemantics:
     def invalid_redeclaration(
         self, sym, declaration, message="Invalid redefinition"
     ):
-        """ Raise an invalid redeclaration error. """
+        """Raise an invalid redeclaration error."""
         hint = "First defined here %s" % sym.location
         self.logger.info(hint)
         self.error(message, declaration.location, hints=[hint])
 
     # Types!
     def on_basic_type(self, type_specifiers, location):
-        """ Handle basic type """
+        """Handle basic type"""
         if self._root_scope.is_valid(type_specifiers):
             ctyp = self._root_scope.get_type(type_specifiers)
         else:
@@ -368,7 +368,7 @@ class CSemantics:
         return ctyp
 
     def on_typename(self, name, location):
-        """ Handle the case when a typedef is referred """
+        """Handle the case when a typedef is referred"""
         # Lookup typedef
         typedef = self.scope.get_identifier(name).declaration
         assert isinstance(typedef, declarations.Typedef)
@@ -376,7 +376,7 @@ class CSemantics:
         return ctyp  # types.IdentifierType(name, ctyp)
 
     def on_type(self, typ, modifiers, location):
-        """ Called when a type itself is described """
+        """Called when a type itself is described"""
         return self.apply_type_modifiers(modifiers, typ)
 
     def on_struct_or_union(self, kind, tag, is_definition, fields, location):
@@ -418,7 +418,7 @@ class CSemantics:
     def on_field_def(
         self, storage_class, ctyp, name, modifiers, bitsize, location
     ):
-        """ Handle a struct/union field declaration """
+        """Handle a struct/union field declaration"""
         ctyp = self.apply_type_modifiers(modifiers, ctyp)
         if bitsize is None:
             pass
@@ -436,7 +436,7 @@ class CSemantics:
         return field
 
     def on_enum(self, tag, is_definition, location):
-        """ Handle enum declaration """
+        """Handle enum declaration"""
         if is_definition:
             if tag:
                 ctyp = self.define_tag_type(tag, types.EnumType, location)
@@ -454,7 +454,7 @@ class CSemantics:
         return ctyp
 
     def on_enum_value(self, ctyp, name, value, location):
-        """ Handle a single enum value definition """
+        """Handle a single enum value definition"""
         if value:
             if not self._root_scope.is_const_expr(value):
                 self.error("Enum value must be constant value", value.location)
@@ -479,7 +479,7 @@ class CSemantics:
         # TODO: determine storage type!
 
     def define_tag_type(self, tag: str, klass: types.TaggedType, location):
-        """ Get or create a tagged type with the given tag kind. """
+        """Get or create a tagged type with the given tag kind."""
         if self.scope.has_tag(tag, all_scopes=False):
             ctyp = self.scope.get_tag(tag, all_scopes=False)
             if not isinstance(ctyp, klass):
@@ -495,7 +495,7 @@ class CSemantics:
 
     @staticmethod
     def on_type_qualifiers(type_qualifiers, ctyp):
-        """ Handle type qualifiers """
+        """Handle type qualifiers"""
         if type_qualifiers:
             ctyp.qualifiers = type_qualifiers
         return ctyp
@@ -510,11 +510,11 @@ class CSemantics:
         return statements.Label(name, statement, location)
 
     def enter_scope(self):
-        """ Enter a new symbol scope. """
+        """Enter a new symbol scope."""
         self.scope = Scope(self.scope)
 
     def leave_scope(self):
-        """ Leave a symbol scope. """
+        """Leave a symbol scope."""
         self.scope = self.scope.parent
 
     def enter_compound_statement(self, location):
@@ -527,7 +527,7 @@ class CSemantics:
         return statements.Compound(inner_statements, location)
 
     def add_statement(self, statement):
-        """ Helper to emit a statement into the current block. """
+        """Helper to emit a statement into the current block."""
         self.compounds[-1].append(statement)
 
     def check_condition(self, condition):
@@ -537,7 +537,7 @@ class CSemantics:
         return condition
 
     def on_if(self, condition, then_statement, no, location):
-        """ Check if statement """
+        """Check if statement"""
         condition = self.check_condition(condition)
         return statements.If(condition, then_statement, no, location)
 
@@ -545,12 +545,12 @@ class CSemantics:
         self.switch_stack.append(expression.typ)
 
     def on_switch_exit(self, expression, statement, location):
-        """ Handle switch statement """
+        """Handle switch statement"""
         self.switch_stack.pop(-1)
         return statements.Switch(expression, statement, location)
 
     def on_case(self, value, statement, location):
-        """ Handle a case statement """
+        """Handle a case statement"""
         if not self.switch_stack:
             self.error("Case statement outside of a switch!", location)
 
@@ -564,30 +564,30 @@ class CSemantics:
             return statements.Case(value, statement, location)
 
     def on_default(self, statement, location):
-        """ Handle a default label """
+        """Handle a default label"""
         if not self.switch_stack:
             self.error("Default statement outside of a switch!", location)
 
         return statements.Default(statement, location)
 
     def on_while(self, condition, body, location):
-        """ Handle the while statement """
+        """Handle the while statement"""
         condition = self.check_condition(condition)
         return statements.While(condition, body, location)
 
     def on_do(self, body, condition, location):
-        """ The almost extinct dodo! """
+        """The almost extinct dodo!"""
         condition = self.check_condition(condition)
         return statements.DoWhile(body, condition, location)
 
     def on_for(self, initial, condition, post, body, location):
-        """ Check for loop construction """
+        """Check for loop construction"""
         if condition:
             condition = self.check_condition(condition)
         return statements.For(initial, condition, post, body, location)
 
     def on_return(self, value, location):
-        """ Check return statement """
+        """Check return statement"""
         return_type = self.current_function.typ.return_type
         if value:
             if return_type.is_void:
@@ -650,12 +650,12 @@ class CSemantics:
 
     # Expressions!
     def on_string(self, value, location):
-        """ React on string literal """
+        """React on string literal"""
         cstr_type = types.ArrayType(self.char_type, len(value) + 1)
         return expressions.StringLiteral(value, cstr_type, location)
 
     def on_number(self, value, location):
-        """ React on integer numeric literal """
+        """React on integer numeric literal"""
         # Get value from string:
         value, type_specifiers = utils.cnum(value)
 
@@ -696,20 +696,20 @@ class CSemantics:
         return expressions.NumericLiteral(value, typ, location)
 
     def on_float(self, value, location):
-        """ Process floating point literal. """
+        """Process floating point literal."""
         value, type_specifiers = utils.float_num(value)
         typ = self.get_type(type_specifiers)
         return expressions.NumericLiteral(value, typ, location)
 
     def on_char(self, value, location):
-        """ Process a character literal """
+        """Process a character literal"""
         # Get value from string:
         char_value, kind = utils.charval(value)
         typ = self.get_type(kind)
         return expressions.CharLiteral(char_value, typ, location)
 
     def on_ternop(self, lhs, op, mid, rhs, location):
-        """ Handle ternary operator 'a ? b : c' """
+        """Handle ternary operator 'a ? b : c'"""
         lhs = self.pointer(lhs)
         lhs = self.coerce(lhs, self.int_type)
         # TODO: For now, we use the common type of b and c as the result
@@ -724,7 +724,7 @@ class CSemantics:
         )
 
     def on_binop(self, lhs, op, rhs, location):
-        """ Check binary operator """
+        """Check binary operator"""
         lhs = self.pointer(lhs)
         rhs = self.pointer(rhs)
 
@@ -865,7 +865,7 @@ class CSemantics:
         )
 
     def on_unop(self, op, a, location):
-        """ Check unary operator semantics """
+        """Check unary operator semantics"""
         if op in ["x++", "x--", "--x", "++x"]:
             # Increment and decrement in pre and post form
             if not a.lvalue:
@@ -920,22 +920,22 @@ class CSemantics:
         return expr
 
     def on_sizeof(self, typ, location):
-        """ Handle sizeof contraption """
+        """Handle sizeof contraption"""
         expr = expressions.Sizeof(typ, self.size_t_type, False, location)
         return expr
 
     def on_cast(self, to_typ, casted_expr, location):
-        """ Check explicit casting """
+        """Check explicit casting"""
         return expressions.Cast(casted_expr, to_typ, False, location)
 
     def on_compound_literal(self, typ, init, location):
-        """ Check the consistency of compound literals. """
+        """Check the consistency of compound literals."""
         self.patch_size_from_initializer(typ, init)
         expr = expressions.CompoundLiteral(typ, init, location)
         return expr
 
     def on_array_index(self, base, index, location):
-        """ Check array indexing """
+        """Check array indexing"""
         index = self.coerce(index, self.int_type)
 
         if not base.lvalue:
@@ -952,7 +952,7 @@ class CSemantics:
         return expressions.ArrayIndex(base, index, typ, True, location)
 
     def on_field_select(self, base, field_name, location):
-        """ Check field select expression """
+        """Check field select expression"""
         if not base.typ.is_struct_or_union:
             # Maybe we have a pointer to a struct?
             # If so, give a hint about this.
@@ -993,7 +993,7 @@ class CSemantics:
         return expr
 
     def on_builtin_va_start(self, arg_pointer, location):
-        """ Check va_start builtin function """
+        """Check va_start builtin function"""
         if not self.equal_types(arg_pointer.typ, self.intptr_type):
             self.error("Invalid type for va_start", arg_pointer.location)
         if not arg_pointer.lvalue:
@@ -1001,7 +1001,7 @@ class CSemantics:
         return expressions.BuiltInVaStart(arg_pointer, location)
 
     def on_builtin_va_arg(self, arg_pointer, typ, location):
-        """ Check va_arg builtin function """
+        """Check va_arg builtin function"""
         if not self.equal_types(arg_pointer.typ, self.intptr_type):
             self.error("Invalid type for va_arg", arg_pointer.location)
         if not arg_pointer.lvalue:
@@ -1009,7 +1009,7 @@ class CSemantics:
         return expressions.BuiltInVaArg(arg_pointer, typ, location)
 
     def on_builtin_va_copy(self, dest, src, location):
-        """ Check va_copy builtin function """
+        """Check va_copy builtin function"""
         if not self.equal_types(dest.typ, self.intptr_type):
             self.error("Invalid type for va_copy", dest.location)
         if not dest.lvalue:
@@ -1019,7 +1019,7 @@ class CSemantics:
         return expressions.BuiltInVaCopy(dest, src, location)
 
     def on_builtin_offsetof(self, typ, member_name, location):
-        """ Check offsetof builtin function """
+        """Check offsetof builtin function"""
         if not isinstance(typ, types.StructOrUnionType):
             self.error(
                 "Can only apply offsetof on structs and unions", location
@@ -1044,7 +1044,7 @@ class CSemantics:
         )
 
     def on_call(self, callee, arguments, location):
-        """ Check function call for validity """
+        """Check function call for validity"""
         callee = self.pointer(callee)
         if callee.typ.is_pointer and isinstance(
             callee.typ.element_type, types.FunctionType
@@ -1104,7 +1104,7 @@ class CSemantics:
         return expr
 
     def on_variable_access(self, name, location):
-        """ Handle variable access """
+        """Handle variable access"""
         if not self.scope.is_defined(name):
             defined_names = self.scope.get_defined_names()
             suggestions = difflib.get_close_matches(name, defined_names)
@@ -1215,15 +1215,15 @@ class CSemantics:
         return expr
 
     def equal_types(self, typ1, typ2):
-        """ Compare two types for equality. """
+        """Compare two types for equality."""
         return self._root_scope.equal_types(typ1, typ2)
 
     def get_type(self, type_specifiers):
-        """ Retrieve a type by type specifiers """
+        """Retrieve a type by type specifiers"""
         return self._root_scope.get_type(type_specifiers)
 
     def ensure_integer(self, expr: expressions.CExpression):
-        """ Ensure typ is of any integer type. """
+        """Ensure typ is of any integer type."""
         if not expr.typ.is_integer_or_enum:
             self.error(
                 "integer or enum type expected but got {}".format(
@@ -1298,14 +1298,14 @@ class CSemantics:
             )
 
     def error(self, message, location, hints=None):
-        """ Trigger an error at the given location """
+        """Trigger an error at the given location"""
         self.context.error(message, location, hints=hints)
 
     def warning(self, message, location, hints=None):
-        """ Trigger a warning at the given location """
+        """Trigger a warning at the given location"""
         self.context.warning(message, location, hints=hints)
 
     def not_impl(self, message, location):  # pragma: no cover
-        """ Call this function to mark unimplemented code """
+        """Call this function to mark unimplemented code"""
         self.error(message, location)
         raise NotImplementedError(message)

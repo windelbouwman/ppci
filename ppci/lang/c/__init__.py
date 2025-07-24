@@ -1,4 +1,4 @@
-""" C front end. """
+"""C front end."""
 
 from .context import CContext
 from .builder import CBuilder, create_ast, parse_text, parse_type

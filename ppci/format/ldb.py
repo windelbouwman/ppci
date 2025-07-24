@@ -2,7 +2,7 @@ from ..binutils.debuginfo import DebugAddress
 
 
 def write_ldb(obj, output_file):
-    """ Export debug info from object to ldb format.
+    """Export debug info from object to ldb format.
 
     See for example:
     - https://github.com/embedded-systems/qr/blob/master/in4073_xufo/

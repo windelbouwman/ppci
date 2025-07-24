@@ -1,8 +1,7 @@
-""" Build utility.
+"""Build utility.
 
 Use this to execute build files.
 """
-
 
 import argparse
 from .base import base_parser, LogSetup
@@ -21,7 +20,7 @@ parser.add_argument("targets", metavar="target", nargs="*")
 
 
 def build(args=None):
-    """ Run the build command from command line. Used by ppci-build.py """
+    """Run the build command from command line. Used by ppci-build.py"""
     args = parser.parse_args(args)
     with LogSetup(args):
         api.construct(args.buildfile, args.targets)

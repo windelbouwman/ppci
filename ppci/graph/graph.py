@@ -1,6 +1,4 @@
-""" Graph package.
-
-"""
+"""Graph package."""
 
 import abc
 from collections import defaultdict
@@ -36,7 +34,7 @@ def topological_sort(nodes):
 
 
 class BaseGraph(abc.ABC):
-    """ Base graph class """
+    """Base graph class"""
 
     __slots__ = ("nodes", "adj_map")
 
@@ -54,12 +52,12 @@ class BaseGraph(abc.ABC):
         return len(self.nodes)
 
     def add_node(self, node):
-        """ Add a node to the graph """
+        """Add a node to the graph"""
         self.nodes.add(node)
 
     @abc.abstractmethod
     def del_node(self, node):  # pragma: no cover
-        """ Remove a node from the graph """
+        """Remove a node from the graph"""
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -72,20 +70,20 @@ class BaseGraph(abc.ABC):
 
     @abc.abstractmethod
     def has_edge(self, n, m):
-        """ Test if there exist and edge between n and m """
+        """Test if there exist and edge between n and m"""
         raise NotImplementedError()
 
     @abc.abstractmethod
     def get_number_of_edges(self):
-        """ Get the number of edges in this graph """
+        """Get the number of edges in this graph"""
         raise NotImplementedError()
 
     def get_degree(self, node):
-        """ Get the degree of a certain node """
+        """Get the degree of a certain node"""
         return len(self.adj_map[node])
 
     def adjecent(self, n):
-        """ Return all unmasked nodes with edges to n """
+        """Return all unmasked nodes with edges to n"""
         return self.adj_map[n]
 
 
@@ -96,14 +94,14 @@ class Graph(BaseGraph):
     """
 
     def del_node(self, node):
-        """ Remove a node from the graph """
+        """Remove a node from the graph"""
         # Delete edges:
         for neighbour in list(self.adj_map[node]):
             self.del_edge(node, neighbour)
         self.nodes.remove(node)
 
     def add_edge(self, n, m):
-        """ Add an edge between n and m """
+        """Add an edge between n and m"""
         if n == m:
             return
         assert n in self.nodes
@@ -113,7 +111,7 @@ class Graph(BaseGraph):
             self.adj_map[m].add(n)
 
     def del_edge(self, n, m):
-        """ Delete edge between n and m """
+        """Delete edge between n and m"""
         assert n != m
         assert n in self.nodes
         assert m in self.nodes
@@ -122,13 +120,13 @@ class Graph(BaseGraph):
             self.adj_map[n].remove(m)
 
     def has_edge(self, n, m):
-        """ Test if there exist and edge between n and m """
+        """Test if there exist and edge between n and m"""
         assert n in self.nodes
         assert m in self.nodes
         return m in self.adj_map[n]
 
     def get_number_of_edges(self):
-        """ Get the number of edges in this graph """
+        """Get the number of edges in this graph"""
         n_edges = sum(len(self.adj_map[n]) for n in self.nodes)
         # Since this is an undirected graph, we will now have
         # twice the amount of edges, since adj_map contains neighbour
@@ -136,7 +134,7 @@ class Graph(BaseGraph):
         return n_edges // 2
 
     def combine(self, n, m):
-        """ Merge nodes n and m into node n """
+        """Merge nodes n and m into node n"""
         assert n != m
         # assert not self.has_edge(n, m)
         # if self.has_edge(n, m):
@@ -155,12 +153,12 @@ class Graph(BaseGraph):
         self.del_node(m)
 
     def to_dot(self):
-        """ Render current graph to dot format """
+        """Render current graph to dot format"""
         pass
 
 
 class Node:
-    """ Node in a graph. """
+    """Node in a graph."""
 
     __slots__ = ("graph",)
 
@@ -170,14 +168,14 @@ class Node:
 
     @property
     def adjecent(self):
-        """ Get adjecent nodes in the graph """
+        """Get adjecent nodes in the graph"""
         return self.graph.adjecent(self)
 
     @property
     def degree(self):
-        """ Get the degree of this node (the number of neighbours) """
+        """Get the degree of this node (the number of neighbours)"""
         return self.graph.get_degree(self)
 
     def add_edge(self, other):
-        """ Create an edge to the other node """
+        """Create an edge to the other node"""
         self.graph.add_edge(self, other)

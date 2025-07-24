@@ -1,4 +1,4 @@
-""" Generic file header helper.
+"""Generic file header helper.
 
 This can be seen as a follow up of the struct module [1] or the
 construct module [2].
@@ -9,13 +9,12 @@ construct module [2].
 
 """
 
-
 import struct
 
 
 # TODO: deprecate this header!
 class Header:
-    """ Base header structure.
+    """Base header structure.
 
     Inherit this class to define a file header.
     """
@@ -56,11 +55,11 @@ class Header:
         return self.s.pack(*values)
 
     def is_null(self):
-        """ Check if all fields are zero """
+        """Check if all fields are zero"""
         return sum(self.serialize()) == 0
 
     def print(self):
-        """ Print all fields in this header """
+        """Print all fields in this header"""
         for field in self._fields:
             name = field[0]
             if name:
@@ -88,7 +87,7 @@ class Header:
 
 
 def mk_header(name, fields):
-    """ Create a type which can parse this kind of header """
+    """Create a type which can parse this kind of header"""
     members = {"_fields": fields}
     size = 0
     for field in fields:
@@ -101,7 +100,7 @@ def mk_header(name, fields):
 
 
 class BaseHeader:
-    """ Base header """
+    """Base header"""
 
     def __init__(self):
         self._field_values = {}
@@ -123,7 +122,7 @@ class BaseHeader:
         return cls.deserialize(data)
 
     def print(self):
-        """ Print all fields in this header """
+        """Print all fields in this header"""
         for field in self._fields:
             if field.name:
                 value = getattr(self, field.name)
@@ -155,7 +154,7 @@ class BaseHeader:
 
 
 class HeaderField(property):
-    """ A optionally named field in a header """
+    """A optionally named field in a header"""
 
     def __init__(self, name=None, size=None):
         self.name = name
@@ -191,43 +190,43 @@ Byte = Uint8
 
 
 def Int16(name=None):
-    """ 16 bits signed integer value """
+    """16 bits signed integer value"""
     return FormatField(name, "h")
 
 
 def Uint16(name=None):
-    """ 16 bits unsigned integer value """
+    """16 bits unsigned integer value"""
     return FormatField(name, "H")
 
 
 class Int24(HeaderField):
-    """ 24 bits signed integer value """
+    """24 bits signed integer value"""
 
     pass
 
 
 def Int32(name=None):
-    """ 32 bits signed integer value """
+    """32 bits signed integer value"""
     return FormatField(name, "i")
 
 
 def Uint32(name=None):
-    """ 32 bits unsigned integer value """
+    """32 bits unsigned integer value"""
     return FormatField(name, "I")
 
 
 def Int64(name=None):
-    """ 64 bits signed integer value """
+    """64 bits signed integer value"""
     return FormatField(name, "q")
 
 
 def Uint64(name=None):
-    """ 64 bits unsigned integer value """
+    """64 bits unsigned integer value"""
     return FormatField(name, "Q")
 
 
 class FormatField(HeaderField):
-    """ Field which uses ``struct`` to pack and unpack data """
+    """Field which uses ``struct`` to pack and unpack data"""
 
     def __init__(self, name, fmt):
         self.packer = struct.Struct(fmt)
@@ -241,5 +240,5 @@ class FormatField(HeaderField):
 
 
 def Padding(amount):
-    """ Add `amount` bytes of padding """
+    """Add `amount` bytes of padding"""
     pass

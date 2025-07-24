@@ -1,4 +1,3 @@
-
 from .base import IntermediateProgram
 
 from ..arch.arch_info import TypeInfo
@@ -6,7 +5,7 @@ from ..wasm import wasm_to_ir
 
 
 class WasmProgram(IntermediateProgram):
-    """ WASM (a.k.a. Web Assembly) is an open standard to represent
+    """WASM (a.k.a. Web Assembly) is an open standard to represent
     code in a compact, low level format that can be easily converterted
     to machine code, and run fast as well as safe.
 
@@ -19,15 +18,18 @@ class WasmProgram(IntermediateProgram):
         return items
 
     def _copy(self):
-        return WasmProgram(*[item.copy() for item in self.items],
-                           previous=self.previous, debugdb=self.debugdb)
+        return WasmProgram(
+            *[item.copy() for item in self.items],
+            previous=self.previous,
+            debugdb=self.debugdb,
+        )
 
     def _get_report(self, html):
         pieces = [m.to_string() for m in self.items]
-        return '\n\n==========\n\n'.join(pieces)
+        return "\n\n==========\n\n".join(pieces)
 
     def as_hex(self):
-        """ Turn into a hex representation (using either the byte representation
+        """Turn into a hex representation (using either the byte representation
         or the text representation).
         Raises NotImplementedError if this program does not have a binary
         nor textual representation.
@@ -37,20 +39,19 @@ class WasmProgram(IntermediateProgram):
         line = 0
         lines = []
         while i < len(bb):
-            ints = [hex(j)[2:].rjust(2, '0') for j in bb[i:i+16]]
-            lines.append(str(line).rjust(8, '0') + ' '.join(ints))
+            ints = [hex(j)[2:].rjust(2, "0") for j in bb[i : i + 16]]
+            lines.append(str(line).rjust(8, "0") + " ".join(ints))
             i += 16
             line += 1
-        return '\n'.join(lines)
+        return "\n".join(lines)
 
     def as_bytes(self):
-        """ Convert to WASM binary representation.
-        """
+        """Convert to WASM binary representation."""
         pieces = [m.to_bytes() for m in self.items]
-        return b'\n\n==========\n\n'.join(pieces)
+        return b"\n\n==========\n\n".join(pieces)
 
     def to_ir(self, **options):
-        """ Compile WASM to IR.
+        """Compile WASM to IR.
 
         Status: very basic.
         """
@@ -58,4 +59,4 @@ class WasmProgram(IntermediateProgram):
         # todo: cannot pass the debugdb here
         # TODO: It is lame to pass platform dependence information into ir-code.
         ptr_info = TypeInfo(4, 4)
-        return self._new('ir', [wasm_to_ir(c, ptr_info) for c in self.items])
+        return self._new("ir", [wasm_to_ir(c, ptr_info) for c in self.items])

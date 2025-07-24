@@ -1,4 +1,5 @@
-""" Collection of data structures to handle elf files """
+"""Collection of data structures to handle elf files"""
+
 import enum
 
 from .. import header
@@ -30,7 +31,7 @@ class OsAbi(enum.IntEnum):
 
 
 def get_os_name(value):
-    """ Given an integer value, try to get some name for an OS. """
+    """Given an integer value, try to get some name for an OS."""
     if OsAbi.has_value(value):
         name = OsAbi(value).name
     else:
@@ -123,7 +124,7 @@ class ElfMachine(enum.IntEnum):
 
 
 def get_machine_name(value):
-    """ Given an integer value, try to get some name for a machine. """
+    """Given an integer value, try to get some name for a machine."""
     if ElfMachine.has_value(value):
         name = ElfMachine(value).name
     else:
@@ -192,7 +193,7 @@ def get_symbol_table_type_name(value):
 
 
 class HeaderTypes:
-    """ ELF header types for a given bitsize and endianity """
+    """ELF header types for a given bitsize and endianity"""
 
     def __init__(self, bits=64, endianness=Endianness.LITTLE):
         self.bits = bits
@@ -356,12 +357,18 @@ class HeaderTypes:
         if bits == 64:
             self.DynamicEntry = header.mk_header(
                 "DynamicEntry",
-                [header.Int64("d_tag"), header.Uint64("d_val"),],
+                [
+                    header.Int64("d_tag"),
+                    header.Uint64("d_val"),
+                ],
             )
             assert self.DynamicEntry.size == 16
         else:
             self.DynamicEntry = header.mk_header(
                 "DynamicEntry",
-                [header.Int32("d_tag"), header.Uint32("d_val"),],
+                [
+                    header.Int32("d_tag"),
+                    header.Uint32("d_val"),
+                ],
             )
             assert self.DynamicEntry.size == 8

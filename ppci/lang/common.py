@@ -21,7 +21,7 @@ class Token:
 
 
 class SourceLocation:
-    """ A location that refers to a position in a source file """
+    """A location that refers to a position in a source file"""
 
     __slots__ = ["filename", "row", "col", "length", "source"]
 
@@ -36,7 +36,7 @@ class SourceLocation:
         return "({}, {}, {})".format(self.filename, self.row, self.col)
 
     def get_source_line(self):
-        """ Return the source line indicated by this location """
+        """Return the source line indicated by this location"""
         if not self.source and self.filename:
             if os.path.exists(self.filename):
                 with open(self.filename, "r") as f:
@@ -49,7 +49,7 @@ class SourceLocation:
             return "Could not load source"
 
     def print_message(self, message, lines=None, filename=None, file=None):
-        """ Print a message at this location in the given source lines """
+        """Print a message at this location in the given source lines"""
         if lines is None:
             with open(self.filename, "r") as f:
                 src = f.read()
@@ -84,7 +84,7 @@ class SourceLocation:
 
 
 def print_line(row, lines, file=None):
-    """ Print a single source line """
+    """Print a single source line"""
     if row in range(len(lines)):
         txt = lines[row - 1]
         print("{:5}:{}".format(row, txt), file=file)

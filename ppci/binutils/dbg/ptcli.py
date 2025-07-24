@@ -1,4 +1,4 @@
-""" Command line interface using prompt_toolkit. """
+"""Command line interface using prompt_toolkit."""
 
 import logging
 from asyncio import get_event_loop
@@ -52,7 +52,7 @@ class CurrentAddressMargin(Margin):
 
 
 class MyHandler(logging.Handler):
-    """ Handle log messages by putting them into a buffer """
+    """Handle log messages by putting them into a buffer"""
 
     def __init__(self, buf):
         super().__init__()
@@ -64,7 +64,7 @@ class MyHandler(logging.Handler):
 
 
 class DisplayVariablesProcessor(Processor):
-    """ Display values of local variables inline """
+    """Display values of local variables inline"""
 
     def __init__(self):
         self.variables = {}
@@ -80,7 +80,7 @@ class DisplayVariablesProcessor(Processor):
 
 
 class PtDebugCli:
-    """ Command line interface using prompt_toolkit. """
+    """Command line interface using prompt_toolkit."""
 
     def __init__(self, debugger):
         self._filename = None
@@ -228,7 +228,7 @@ class PtDebugCli:
         return tokens
 
     def on_stop(self):
-        """ Handle stopped event. """
+        """Handle stopped event."""
 
         def callback():
             self.display_registers()
@@ -268,7 +268,7 @@ class PtDebugCli:
                 self.current_address_margin.current_line = None
 
     def display_registers(self):
-        """ Update register buffer """
+        """Update register buffer"""
         registers = self.debugger.get_registers()
         register_values = self.debugger.get_register_values(registers)
         lines = ["Register values:"]

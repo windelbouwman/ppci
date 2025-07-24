@@ -8,20 +8,18 @@ _program_subclasses = {}
 
 
 def get_program_classes():
-    """ Get all known Program subclasses as a dictionary: language -> class.
-    """
+    """Get all known Program subclasses as a dictionary: language -> class."""
     return _program_subclasses
 
 
 class ProgramMeta(type):
-    """ Meta class to track all subclasses, no matter where they are defined.
-    """
+    """Meta class to track all subclasses, no matter where they are defined."""
 
     def __init__(cls, name, bases, nmspc):
         super().__init__(name, bases, nmspc)
         n = cls.__name__
         if n:
-            if not n.endswith('Program'):
+            if not n.endswith("Program"):
                 raise RuntimeError()
             assert n not in _program_subclasses
             # Register subclass
@@ -57,15 +55,14 @@ class Program(object, metaclass=ProgramMeta):
 
     def __init__(self, *items, previous=None, debugdb=None):
         if not (previous is None or isinstance(previous, Program)):
-            raise TypeError(
-                'previous must be None or Program instance.')
+            raise TypeError("previous must be None or Program instance.")
         self._previous = previous
         self._items = self._check_items(items)
         # todo: there might be better ways to pass this on
-        self.debugdb = debugdb or getattr(previous, 'debugdb', None)
+        self.debugdb = debugdb or getattr(previous, "debugdb", None)
 
     def _new(self, language, items):
-        """ Instatiate a new Program object, with a class specified via its
+        """Instatiate a new Program object, with a class specified via its
         corresponding language. This allows ``to_xx()`` methods to function
         without a ref to the target Program class, avoiding circular imports.
         """
@@ -73,18 +70,19 @@ class Program(object, metaclass=ProgramMeta):
         return Cls(*items, previous=self, debugdb=self.debugdb)
 
     def __repr__(self):
-        return '<{} with {} items at 0x{}>'.format(
-            self.__class__, len(self.items), hex(id(self)))
+        return "<{} with {} items at 0x{}>".format(
+            self.__class__, len(self.items), hex(id(self))
+        )
 
     @property
     def items(self):
-        """ The list of items, representing components such as
+        """The list of items, representing components such as
         files or modules.
         """
         return self._items
 
     def previous(self, which=1):
-        """ Get a previous Program instance, or None.
+        """Get a previous Program instance, or None.
 
         Args:
             which:
@@ -96,8 +94,11 @@ class Program(object, metaclass=ProgramMeta):
                   that represents the given Program class.
         """
         # Normalize which arg
-        if isinstance(which, Program) or \
-                isinstance(which, type) and issubclass(which, Program):
+        if (
+            isinstance(which, Program)
+            or isinstance(which, type)
+            and issubclass(which, Program)
+        ):
             which = which.language
 
         # Handle
@@ -115,12 +116,13 @@ class Program(object, metaclass=ProgramMeta):
             return x
         else:
             raise TypeError(
-                'Program.previous(which) expects int, str'
-                ' or Program instance/subclass.')
+                "Program.previous(which) expects int, str"
+                " or Program instance/subclass."
+            )
 
     @property
     def source(self):
-        """ The toplevel Program instance that is the source
+        """The toplevel Program instance that is the source
         of the compile chain.
         """
         x = self
@@ -130,7 +132,7 @@ class Program(object, metaclass=ProgramMeta):
 
     @property
     def chain(self):
-        """ A tuple with the names of the languages that the current object
+        """A tuple with the names of the languages that the current object
         originated from.
         """
         chain = []
@@ -144,34 +146,36 @@ class Program(object, metaclass=ProgramMeta):
     # TODO: force specifying in between steps and only compile if path is
     # unique
     def to(self, language, **options):
-        """ Compile this program into another representation. The tree is
+        """Compile this program into another representation. The tree is
         traversed to find the lowest cost (i.e. shortest) chain of
         compilers to the target language.
 
         Experimental; use with care.
         """
         from .graph import mcp
+
         language = language.lower()
         chain = mcp(self, language)[0]
         if chain is None:
             raise ValueError(
-                'No compile chain possible from {} to {}.'.format(
-                    self.language, language))
+                "No compile chain possible from {} to {}.".format(
+                    self.language, language
+                )
+            )
         program = self
         for name in chain[1:-1]:  # skip ourselves
-            program = getattr(program, 'to_' + name)()
-        program = getattr(program, 'to_' + language)(**options)
+            program = getattr(program, "to_" + name)()
+        program = getattr(program, "to_" + language)(**options)
         assert isinstance(program, _program_subclasses[language])
         assert program.previous() is not None
         return program
 
     def copy(self):
-        """ Make a (deep) copy of the program.
-        """
+        """Make a (deep) copy of the program."""
         return self._copy()
 
     def get_report(self, html=False):
-        """ Get a textual representation of the program for introspection
+        """Get a textual representation of the program for introspection
         and debugging purposes. If ``html`` the report may be html-formatted.
         """
         text = self._get_report(html)
@@ -192,14 +196,15 @@ class Program(object, metaclass=ProgramMeta):
 
 # Classes below mainly serve to categorize languages
 
+
 class SourceCodeProgram(Program):
-    """ Base class for source code.
+    """Base class for source code.
 
     (i.e. intended to be read and written by humans).
     """
 
     def get_tokens(self):
-        """ Get the program in the form of a series of (standardized) tokens,
+        """Get the program in the form of a series of (standardized) tokens,
         for the purpose of syntax highlighting.
         """
         # We can couple this to tools that allow writing code for your next
@@ -211,7 +216,7 @@ class SourceCodeProgram(Program):
 
 
 class IntermediateProgram(Program):
-    """ Base class for intermediate code representations.
+    """Base class for intermediate code representations.
 
     These are programs that are not human readable nor machine
     executable.
@@ -219,14 +224,14 @@ class IntermediateProgram(Program):
 
 
 class MachineProgram(Program):
-    """ Base class for executable machine code.
-    """
+    """Base class for executable machine code."""
 
     def run_in_process(self):
-        """ If the architecture of the code matches the current machine,
+        """If the architecture of the code matches the current machine,
         execute the code in this Python process.
         """
         from ppci.utils import codepage
+
         # todo: check if arch matches, or does codepage do that?
         native_module = codepage.load_obj(self._items[0])
         return native_module.main()

@@ -1,4 +1,4 @@
-""" Base reader and writer classes.
+"""Base reader and writer classes.
 
 Reading file formats is often more of the same. This module contains commonly
 required logic to process binary files.

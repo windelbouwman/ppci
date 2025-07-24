@@ -2,7 +2,7 @@ from . import nodes
 
 
 class Visitor:
-    """ Visit ast nodes """
+    """Visit ast nodes"""
 
     def visit(self, node):
         if isinstance(node, nodes.Program):
@@ -45,7 +45,7 @@ class Printer(Visitor):
         self.indent = 0
 
     def print(self, node):
-        """ Print the AST """
+        """Print the AST"""
         self.indent = 0
         self.visit(node)
 

@@ -1,4 +1,4 @@
-""" Calculate the cyclomatic complexity.
+"""Calculate the cyclomatic complexity.
 
 Cyclomatic complexity is defined as:
 
@@ -19,7 +19,7 @@ C = E - N + 2
 
 
 def cyclomatic_complexity(cfg):
-    """ Determine the cyclomatic complexity of a CFG (control-flow-graph) """
+    """Determine the cyclomatic complexity of a CFG (control-flow-graph)"""
     N = len(cfg.nodes)
     E = cfg.get_number_of_edges()
     P = 1  # For subroutines P = 1

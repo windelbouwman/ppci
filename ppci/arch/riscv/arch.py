@@ -1,4 +1,4 @@
-""" RISC-V architecture. """
+"""RISC-V architecture."""
 
 import io
 from ..arch import Architecture
@@ -53,7 +53,7 @@ class RiscvAssembler(BaseAssembler):
             self.emit(i)
 
     def add_literal(self, v):
-        """ For use in the pseudo instruction LDR r0, =SOMESYM """
+        """For use in the pseudo instruction LDR r0, =SOMESYM"""
         # Invent some label for the literal and store it.
         assert type(v) is str
         self.lit_counter += 1
@@ -147,7 +147,7 @@ class RiscvArch(Architecture):
                 return Bl(reg, lab, clobbers=self.caller_save)
 
     def get_runtime(self):
-        """ Implement compiler runtime functions """
+        """Implement compiler runtime functions"""
         from ...api import asm
 
         asm_src = """
@@ -183,7 +183,7 @@ class RiscvArch(Architecture):
         return asm(io.StringIO(asm_src), self)
 
     def move(self, dst, src):
-        """ Generate a move from src to dst """
+        """Generate a move from src to dst"""
         if self.has_option("rvc"):
             return CMovr(dst, src, ismove=True)
         else:
@@ -212,7 +212,7 @@ class RiscvArch(Architecture):
         return newinstructions
 
     def gen_call(self, frame, label, args, rv):
-        """ Implement actual call and save / restore live registers """
+        """Implement actual call and save / restore live registers"""
 
         arg_types = [a[0] for a in args]
         arg_locs = self.determine_arg_locations(arg_types)
@@ -336,7 +336,7 @@ class RiscvArch(Architecture):
         return rv
 
     def gen_prologue(self, frame):
-        """ Returns prologue instruction sequence """
+        """Returns prologue instruction sequence"""
         # Label indication function:
         yield Label(frame.name)
         ssize = round_up(frame.stacksize + 8)
@@ -385,7 +385,7 @@ class RiscvArch(Architecture):
                 yield Addi(SP, SP, -ssize)  # Reserve stack space
 
     def litpool(self, frame):
-        """ Generate instruction for the current literals """
+        """Generate instruction for the current literals"""
         yield Section("data")
         # Align at 4 byte
         if frame.constants:

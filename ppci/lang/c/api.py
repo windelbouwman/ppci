@@ -7,7 +7,7 @@ from ...utils.reporting import DummyReportGenerator
 
 
 def preprocess(f, output_file, coptions=None):
-    """ Pre-process a file into the other file. """
+    """Pre-process a file into the other file."""
     if coptions is None:
         coptions = COptions()
     preprocessor = CPreProcessor(coptions)

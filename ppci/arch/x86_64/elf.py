@@ -1,5 +1,4 @@
-""" ELF format support code.
-"""
+"""ELF format support code."""
 
 # TODO: this must be placed in arch specific file.
 R_X86_64_NONE = 0

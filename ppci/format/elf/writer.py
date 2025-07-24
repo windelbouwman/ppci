@@ -1,5 +1,4 @@
-""" Logic to write ELF files.
-"""
+"""Logic to write ELF files."""
 
 import io
 import logging
@@ -18,7 +17,7 @@ logger = logging.getLogger("elf")
 
 
 def write_elf(obj, f, type="executable"):
-    """ Save object as an ELF file.
+    """Save object as an ELF file.
 
     You can specify the type of ELF file with
     the type argument:
@@ -95,8 +94,7 @@ machine_map = {
 
 
 class ElfWriter:
-    """ ELF file creator.
-    """
+    """ELF file creator."""
 
     def __init__(self, f, elf_file):
         self.f = f
@@ -107,7 +105,7 @@ class ElfWriter:
         self.e_ident_size = 16
 
     def export_object(self, obj, e_type):
-        """ Main invocation point to generate an ELF file. """
+        """Main invocation point to generate an ELF file."""
         logger.debug("Saving %s bits ELF file", self.header_types.bits)
         self.obj = obj
         self.e_type = e_type
@@ -143,7 +141,7 @@ class ElfWriter:
         self.write_program_headers()
 
     def write_identification(self):
-        """ Write ELF identification magic. """
+        """Write ELF identification magic."""
         bits = self.header_types.bits
         endianness = self.header_types.endianness
         bit_map = {32: 1, 64: 2}
@@ -158,8 +156,7 @@ class ElfWriter:
         self.f.write(e_ident)
 
     def write_elf_header(self):
-        """ Write ELF header.
-        """
+        """Write ELF header."""
         self.elf_header.e_type = self.e_type
         self.elf_header.e_machine = machine_map[self.obj.arch.name]
         self.elf_header.e_version = 1
@@ -189,13 +186,13 @@ class ElfWriter:
         self.elf_header.write(self.f)
 
     def write_program_headers(self):
-        """ Write program headers """
+        """Write program headers"""
         assert self.elf_header.e_phnum == len(self.program_headers)
         for program_header in self.program_headers:
             program_header.write(self.f)
 
     def write_images(self):
-        """ Write images (segments in ELF speak) to file. """
+        """Write images (segments in ELF speak) to file."""
 
         # Program header offset in file:
         self.elf_header.e_phoff = self.f.tell()
@@ -246,7 +243,7 @@ class ElfWriter:
             self.program_headers.append(program_header)
 
     def write_sections(self):
-        """ Write section which is not inside an image. """
+        """Write section which is not inside an image."""
         for section in self.obj.sections:
             if section.name not in self.section_numbers:
                 self.align_to(section.alignment)
@@ -255,7 +252,7 @@ class ElfWriter:
                 self.gen_section_header(section, file_offset)
 
     def gen_section_header(self, section, offset):
-        """ Create a section header for the given section.
+        """Create a section header for the given section.
 
         This header will be written to the section header table
         at the end of the file.
@@ -279,7 +276,7 @@ class ElfWriter:
         self.section_numbers[section.name] = len(self.section_headers)
 
     def write_symbol_table(self):
-        """ Create symbol table. """
+        """Create symbol table."""
         alignment = 8 if self.elf_file.bits == 64 else 4
         self.align_to(alignment)
         symtab_offset = self.f.tell()
@@ -344,7 +341,7 @@ class ElfWriter:
         self.section_numbers[".symtab"] = len(self.section_headers)
 
     def write_rela_table(self):
-        """ Create relocation (rela) table.
+        """Create relocation (rela) table.
 
         Since a rela table is related to a single
         other section, we might require several rela
@@ -399,7 +396,7 @@ class ElfWriter:
         return r_type
 
     def write_string_table(self):
-        """ Write string table (last section) """
+        """Write string table (last section)"""
         alignment = 1
         self.align_to(alignment)
 
@@ -420,7 +417,7 @@ class ElfWriter:
         self.section_numbers[".strtab"] = len(self.section_headers)
 
     def write_section_headers(self):
-        """ Write section header table into file. """
+        """Write section header table into file."""
         self.align_to(8)
 
         # section header offset:
@@ -446,7 +443,7 @@ class ElfWriter:
             section_header.write(self.f)
 
     def write_dynamic_section(self):
-        """ Create dynamic instruction table.
+        """Create dynamic instruction table.
 
         The dynamic table includes instruction for
         the runtime to execute.
@@ -514,7 +511,7 @@ class ElfWriter:
         self.section_numbers[".dynamic"] = len(self.section_headers)
 
     def create_hash_table(self):
-        """ Create hash table for fast symbol lookup.
+        """Create hash table for fast symbol lookup.
 
         This is used by the dynamic loader when looking
         up many symbols.
@@ -544,5 +541,5 @@ class ElfWriter:
         assert self.f.tell() % alignment == 0
 
     def get_string(self, txt: str) -> int:
-        """ Enter text in the string table and return the offset. """
+        """Enter text in the string table and return the offset."""
         return self.string_table.get_name(txt)

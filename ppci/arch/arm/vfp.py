@@ -1,4 +1,4 @@
-""" Vector floating point instructions """
+"""Vector floating point instructions"""
 
 from ..token import Token, bit_range
 from ..encoding import Instruction, Syntax, Operand

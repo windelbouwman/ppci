@@ -1,4 +1,4 @@
-""" SSE2 instructions """
+"""SSE2 instructions"""
 
 import struct
 from ..isa import Isa
@@ -37,7 +37,7 @@ class SseInstruction(Instruction):
         tokens.set_field("reg", self.r.num & 0x7)
 
     def encode(self):
-        """ Use a custom encode... """
+        """Use a custom encode..."""
         # TODO: find a better way for this!
         # 1. Set patterns:
         tokens = self.get_tokens()
@@ -85,19 +85,19 @@ class SseInstruction(Instruction):
 
 
 class Sse1Instruction(SseInstruction):
-    """ Sse1 instruction """
+    """Sse1 instruction"""
 
     isa = sse1_isa
 
 
 class Sse2Instruction(SseInstruction):
-    """ Sse2 instruction """
+    """Sse2 instruction"""
 
     isa = sse2_isa
 
 
 class RmXmmReg(Constructor):
-    """ Xmm register access """
+    """Xmm register access"""
 
     reg_rm = Operand("reg_rm", XmmRegisterDouble, read=True)
     syntax = Syntax([reg_rm])
@@ -113,7 +113,7 @@ RmXmmRegDouble = RmXmmReg
 
 
 class RmXmmRegSingle(Constructor):
-    """ Xmm register access """
+    """Xmm register access"""
 
     reg_rm = Operand("reg_rm", XmmRegisterSingle, read=True)
     syntax = Syntax([reg_rm])
@@ -141,7 +141,7 @@ xmm_single_rm_modes = (RmXmmRegSingle, RmMem, RmMemDisp, RmAbs)
 
 
 class Movss(Sse1Instruction):
-    """ Move scalar single-fp value """
+    """Move scalar single-fp value"""
 
     r = Operand("r", XmmRegisterSingle, write=True)
     rm = Operand("rm", xmm_single_rm_modes)
@@ -160,7 +160,7 @@ class Movss(Sse1Instruction):
 
 
 class Movsd(Sse2Instruction):
-    """ Move scalar f64 r/m into double-fp register """
+    """Move scalar f64 r/m into double-fp register"""
 
     r = Operand("r", XmmRegisterDouble, write=True)
     rm = Operand("rm", xmm_double_rm_modes)
@@ -169,7 +169,7 @@ class Movsd(Sse2Instruction):
 
 
 class Movss2(Sse1Instruction):
-    """ Move scalar single-fp value """
+    """Move scalar single-fp value"""
 
     rm = Operand("rm", xmm_single_rm_modes)
     r = Operand("r", XmmRegisterSingle, read=True)
@@ -178,7 +178,7 @@ class Movss2(Sse1Instruction):
 
 
 class Movsd2(Sse2Instruction):
-    """ Move scalar double-fp value """
+    """Move scalar double-fp value"""
 
     rm = Operand("rm", xmm_double_rm_modes)
     r = Operand("r", XmmRegisterDouble, read=True)
@@ -187,7 +187,7 @@ class Movsd2(Sse2Instruction):
 
 
 class Addss(Sse1Instruction):
-    """ Add scalar single-fp value """
+    """Add scalar single-fp value"""
 
     r = Operand("r", XmmRegisterSingle, write=True, read=True)
     rm = Operand("rm", xmm_single_rm_modes, read=True)
@@ -196,7 +196,7 @@ class Addss(Sse1Instruction):
 
 
 class Addsd(Sse2Instruction):
-    """ Add scalar double-fp value """
+    """Add scalar double-fp value"""
 
     r = Operand("r", XmmRegisterDouble, write=True, read=True)
     rm = Operand("rm", xmm_double_rm_modes, read=True)
@@ -205,7 +205,7 @@ class Addsd(Sse2Instruction):
 
 
 class Subss(Sse1Instruction):
-    """ Sub scalar single-fp value """
+    """Sub scalar single-fp value"""
 
     r = Operand("r", XmmRegisterSingle, write=True, read=True)
     rm = Operand("rm", xmm_single_rm_modes, read=True)
@@ -214,7 +214,7 @@ class Subss(Sse1Instruction):
 
 
 class Subsd(Sse2Instruction):
-    """ Sub scalar double-fp value """
+    """Sub scalar double-fp value"""
 
     r = Operand("r", XmmRegisterDouble, write=True, read=True)
     rm = Operand("rm", xmm_double_rm_modes, read=True)
@@ -223,7 +223,7 @@ class Subsd(Sse2Instruction):
 
 
 class Mulss(Sse1Instruction):
-    """ Multiply scalar single-fp value """
+    """Multiply scalar single-fp value"""
 
     r = Operand("r", XmmRegisterSingle, write=True, read=True)
     rm = Operand("rm", xmm_single_rm_modes, read=True)
@@ -232,7 +232,7 @@ class Mulss(Sse1Instruction):
 
 
 class Mulsd(Sse2Instruction):
-    """ Multiply scalar double-fp value """
+    """Multiply scalar double-fp value"""
 
     r = Operand("r", XmmRegisterDouble, write=True, read=True)
     rm = Operand("rm", xmm_double_rm_modes, read=True)
@@ -241,7 +241,7 @@ class Mulsd(Sse2Instruction):
 
 
 class Divss(Sse1Instruction):
-    """ Divide scalar single-fp value """
+    """Divide scalar single-fp value"""
 
     r = Operand("r", XmmRegisterSingle, write=True, read=True)
     rm = Operand("rm", xmm_single_rm_modes, read=True)
@@ -250,7 +250,7 @@ class Divss(Sse1Instruction):
 
 
 class Divsd(Sse2Instruction):
-    """ Divide scalar double-fp value """
+    """Divide scalar double-fp value"""
 
     r = Operand("r", XmmRegisterDouble, write=True, read=True)
     rm = Operand("rm", xmm_double_rm_modes, read=True)
@@ -259,7 +259,7 @@ class Divsd(Sse2Instruction):
 
 
 class Cvtss2si(Sse1Instruction):
-    """ Convert scalar single-fp to integer """
+    """Convert scalar single-fp to integer"""
 
     r = Operand("r", Register64, write=True)
     rm = Operand("rm", xmm_single_rm_modes, read=True)
@@ -268,7 +268,7 @@ class Cvtss2si(Sse1Instruction):
 
 
 class Cvtss2si_32(Sse1Instruction):
-    """ Convert scalar single-fp to integer """
+    """Convert scalar single-fp to integer"""
 
     r = Operand("r", Register32, write=True)
     rm = Operand("rm", xmm_single_rm_modes, read=True)
@@ -277,7 +277,7 @@ class Cvtss2si_32(Sse1Instruction):
 
 
 class Cvtsd2si(Sse2Instruction):
-    """ Convert scalar double-fp to integer """
+    """Convert scalar double-fp to integer"""
 
     r = Operand("r", Register64, write=True)
     rm = Operand("rm", xmm_double_rm_modes, read=True)
@@ -286,7 +286,7 @@ class Cvtsd2si(Sse2Instruction):
 
 
 class Cvtsd2si_32(Sse2Instruction):
-    """ Convert scalar double-fp to integer """
+    """Convert scalar double-fp to integer"""
 
     r = Operand("r", Register32, write=True)
     rm = Operand("rm", xmm_double_rm_modes, read=True)
@@ -295,7 +295,7 @@ class Cvtsd2si_32(Sse2Instruction):
 
 
 class Cvtsi2ss(Sse1Instruction):
-    """ Convert integer to scalar single-fp """
+    """Convert integer to scalar single-fp"""
 
     r = Operand("r", XmmRegisterSingle, write=True)
     rm = Operand("rm", rm64_modes, read=True)
@@ -304,7 +304,7 @@ class Cvtsi2ss(Sse1Instruction):
 
 
 class Cvtsi2ss_32(Sse1Instruction):
-    """ Convert integer to scalar single-fp """
+    """Convert integer to scalar single-fp"""
 
     r = Operand("r", XmmRegisterSingle, write=True)
     rm = Operand("rm", rm32_modes, read=True)
@@ -313,7 +313,7 @@ class Cvtsi2ss_32(Sse1Instruction):
 
 
 class Cvtsi2sd(Sse2Instruction):
-    """ Convert integer to scalar double-fp """
+    """Convert integer to scalar double-fp"""
 
     r = Operand("r", XmmRegisterDouble, write=True)
     rm = Operand("rm", rm64_modes, read=True)
@@ -322,7 +322,7 @@ class Cvtsi2sd(Sse2Instruction):
 
 
 class Cvtsi2sd_32(Sse2Instruction):
-    """ Convert integer to scalar double-fp """
+    """Convert integer to scalar double-fp"""
 
     r = Operand("r", XmmRegisterDouble, write=True)
     rm = Operand("rm", rm32_modes, read=True)
@@ -331,7 +331,7 @@ class Cvtsi2sd_32(Sse2Instruction):
 
 
 class Cvtss2sd(Sse2Instruction):
-    """ Convert scalar single-fp to scalar double-fp """
+    """Convert scalar single-fp to scalar double-fp"""
 
     r = Operand("r", XmmRegisterDouble, write=True)
     rm = Operand("rm", xmm_single_rm_modes, read=True)
@@ -340,7 +340,7 @@ class Cvtss2sd(Sse2Instruction):
 
 
 class Cvtsd2ss(Sse2Instruction):
-    """ Convert scalar double-fp to scalar single-fp """
+    """Convert scalar double-fp to scalar single-fp"""
 
     r = Operand("r", XmmRegisterSingle, write=True)
     rm = Operand("rm", xmm_double_rm_modes, read=True)
@@ -349,7 +349,7 @@ class Cvtsd2ss(Sse2Instruction):
 
 
 class Comiss(Sse1Instruction):
-    """ Scalar compare single-fp values """
+    """Scalar compare single-fp values"""
 
     r = Operand("r", XmmRegisterSingle, read=True)
     rm = Operand("rm", xmm_single_rm_modes, read=True)
@@ -358,7 +358,7 @@ class Comiss(Sse1Instruction):
 
 
 class Ucomiss(Sse1Instruction):
-    """ Unordered scalar compare single-fp values """
+    """Unordered scalar compare single-fp values"""
 
     r = Operand("r", XmmRegisterSingle, read=True)
     rm = Operand("rm", xmm_single_rm_modes, read=True)
@@ -367,7 +367,7 @@ class Ucomiss(Sse1Instruction):
 
 
 class Ucomisd(Sse2Instruction):
-    """ Unordered scalar compare double-fp values """
+    """Unordered scalar compare double-fp values"""
 
     r = Operand("r", XmmRegisterDouble, read=True)
     rm = Operand("rm", xmm_double_rm_modes, read=True)
@@ -615,7 +615,7 @@ def pattern_const_f64(context, tree):
 
 @sse2_isa.pattern("regfp64", "NEGF64(rmf64)", size=8, cycles=9, energy=4)
 def pattern_neg_f64(context, tree, c0):
-    """ Multiply by -1 """
+    """Multiply by -1"""
     float_const = struct.pack("d", -1)
     const_label = context.frame.add_constant(float_const)
     label_addr = context.new_reg(Register64)
@@ -628,7 +628,7 @@ def pattern_neg_f64(context, tree, c0):
 
 @sse1_isa.pattern("regfp32", "NEGF32(rmf32)", size=8, cycles=9, energy=4)
 def pattern_neg_f32(context, tree, c0):
-    """ Multiply by -1 """
+    """Multiply by -1"""
     float_const = struct.pack("f", -1)
     const_label = context.frame.add_constant(float_const)
     label_addr = context.new_reg(Register64)
@@ -721,25 +721,25 @@ def pattern_div_f64(context, tree, c0, c1):
 
 @sse1_isa.pattern("stm", "MOVF32(regfp32)", size=3, cycles=2, energy=2)
 def pattern_mov_f32(context, tree, c0):
-    """ Generate a f32 register - f32 register move. """
+    """Generate a f32 register - f32 register move."""
     context.move(tree.value, c0)
 
 
 @sse1_isa.pattern("stm", "MOVF32(rmf32)", size=3, cycles=2, energy=2)
 def pattern_mov_rmf32(context, tree, c0):
-    """ Move any r/m source into a f32 register. """
+    """Move any r/m source into a f32 register."""
     context.emit(Movss(tree.value, c0))
 
 
 @sse2_isa.pattern("stm", "MOVF64(regfp64)", size=3, cycles=3, energy=3)
 def pattern_mov_f64(context, tree, c0):
-    """ Generate a f64 register - f64 register move """
+    """Generate a f64 register - f64 register move"""
     context.move(tree.value, c0)
 
 
 @sse2_isa.pattern("stm", "MOVF64(rmf64)", size=3, cycles=3, energy=3)
 def pattern_mov_rmf64(context, tree, c0):
-    """ Move any r/m f64 source into a f64 register """
+    """Move any r/m f64 source into a f64 register"""
     context.emit(Movsd(tree.value, c0))
 
 

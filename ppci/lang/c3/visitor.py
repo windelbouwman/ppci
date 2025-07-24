@@ -1,5 +1,5 @@
 """
-    Visitor class.
+Visitor class.
 """
 
 from . import astnodes as ast
@@ -16,11 +16,11 @@ class Visitor:
         self.post = post
 
     def visit(self, node):
-        """ Visit a node and all its descendants """
+        """Visit a node and all its descendants"""
         self.do(node)
 
     def do(self, node):
-        """ Visit a single node """
+        """Visit a single node"""
         # Run pre function:
         if self.pre:
             self.pre(node)
@@ -125,7 +125,7 @@ class Visitor:
 
 
 class AstPrinter:
-    """ Prints an AST as text """
+    """Prints an AST as text"""
 
     def print_ast(self, pkg, f):
         self.indent = 2

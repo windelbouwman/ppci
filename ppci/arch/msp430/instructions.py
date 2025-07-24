@@ -1,4 +1,4 @@
-""" Definitions of msp430 instruction set. """
+"""Definitions of msp430 instruction set."""
 
 from ..encoding import Instruction, Operand, Syntax, Constructor, Transform
 from ..generic_instructions import ArtificialInstruction
@@ -53,7 +53,7 @@ class DstImmToken(Msp430Token):
 # Relocation functions:
 @isa.register_relocation
 class Rel10Relocation(Relocation):
-    """ Apply 10 bit signed relocation """
+    """Apply 10 bit signed relocation"""
 
     name = "rel10"
     token = Msp430JumpToken
@@ -68,7 +68,7 @@ class Rel10Relocation(Relocation):
 
 @isa.register_relocation
 class Abs16Relocation(Relocation):
-    """ Lookup address and assign to 16 bit """
+    """Lookup address and assign to 16 bit"""
 
     name = "abs16"
     token = SrcImmToken
@@ -94,7 +94,7 @@ class RegDst(Dst):
 
 
 class AddrDst(Dst):
-    """  absolute address """
+    """absolute address"""
 
     addr = Operand("addr", str)
     tokens = [DstImmToken]
@@ -107,7 +107,7 @@ class AddrDst(Dst):
 
 
 class MemDst(Dst):
-    """  register offset memory access, for example: 0x88(R8) """
+    """register offset memory access, for example: 0x88(R8)"""
 
     tokens = [DstImmToken]
     syntax = Syntax([Dst.imm, "(", Dst.reg, ")"])
@@ -126,7 +126,7 @@ class Src(Constructor):
 
 
 class ConstSrc(Src):
-    """ Equivalent to @PC+ """
+    """Equivalent to @PC+"""
 
     tokens = [SrcImmToken]
     syntax = Syntax(["#", Src.imm])
@@ -135,7 +135,7 @@ class ConstSrc(Src):
 
 
 class ConstLabelSrc(Src):
-    """ Equivalent to @PC+ """
+    """Equivalent to @PC+"""
 
     addr = Operand("addr", str)
     tokens = [SrcImmToken]
@@ -162,7 +162,7 @@ class RegConstTransform(Transform):
 
 
 class SmallConstSrc(Src):
-    """ A small integer constant special encoding """
+    """A small integer constant special encoding"""
 
     syntax = Syntax(["#", Src.imm], priority=2)
     is_special = True
@@ -176,7 +176,7 @@ small_const_src_values = (-1, 0, 1, 2, 4, 8)
 
 
 def small_const_src(x):
-    """ Helper to generate small integer constants """
+    """Helper to generate small integer constants"""
     assert x in small_const_src_values
     if x == -1:
         return SmallConstSrc(-1, reg=r3, As=3)
@@ -195,7 +195,7 @@ def small_const_src(x):
 
 
 class RegSrc(Src):
-    """ Simply refer to a register """
+    """Simply refer to a register"""
 
     is_reg_target = True
     syntax = Syntax([Src.reg])
@@ -203,7 +203,7 @@ class RegSrc(Src):
 
 
 class AdrSrc(Src):
-    """ absolute address """
+    """absolute address"""
 
     is_special = True
     addr = Operand("addr", str)
@@ -216,14 +216,14 @@ class AdrSrc(Src):
 
 
 class MemSrc(Src):
-    """ Memory content """
+    """Memory content"""
 
     syntax = Syntax(["@", Src.reg])
     patterns = {"As": 2, "source": Src.reg}
 
 
 class MemSrcInc(Src):
-    """ Memory content post increment """
+    """Memory content post increment"""
 
     syntax = Syntax(["@", Src.reg, "+"])
     patterns = {"As": 3, "source": Src.reg}
@@ -293,7 +293,7 @@ class OneOpArith(Msp430Instruction):
 
 
 def one_op_instruction(mne, opcode, b=0, src_write=True):
-    """ Helper function to define a one operand arithmetic instruction """
+    """Helper function to define a one operand arithmetic instruction"""
     src = Operand("src", src_modes)
     patterns = {"prefix": 0b000100, "opcode": opcode, "bw": b}
     if b:
@@ -312,7 +312,7 @@ def one_op_instruction(mne, opcode, b=0, src_write=True):
 
 
 class MemByReg(Instruction):
-    """ Memory content """
+    """Memory content"""
 
     reg = Operand("reg", Msp430Register, read=True)
     tokens = []
@@ -379,7 +379,7 @@ class TwoOpArithInstruction(Msp430Instruction):
 
 
 def two_op_ins(mne, opc, b=0, dst_read=True, dst_write=True):
-    """ Helper function to define a two operand arithmetic instruction """
+    """Helper function to define a two operand arithmetic instruction"""
     src = Operand("src", src_modes)
     dst = Operand("dst", dst_modes)
     if b:
@@ -429,13 +429,13 @@ Andb = two_op_ins("and", 15, b=1)
 
 
 class PseudoMsp430Instruction(ArtificialInstruction):
-    """ Base class for all pseudo instructions """
+    """Base class for all pseudo instructions"""
 
     isa = isa
 
 
 class Ret(PseudoMsp430Instruction):
-    """ Pop value from stack """
+    """Pop value from stack"""
 
     syntax = Syntax(["ret"])
 
@@ -444,7 +444,7 @@ class Ret(PseudoMsp430Instruction):
 
 
 class Pop(PseudoMsp430Instruction):
-    """ Pop value from stack """
+    """Pop value from stack"""
 
     dst = Operand("dst", Msp430Register, write=True)
     syntax = Syntax(["pop", " ", dst])
@@ -454,7 +454,7 @@ class Pop(PseudoMsp430Instruction):
 
 
 class Nop(PseudoMsp430Instruction):
-    """ no op implemented as mov #0, r3 """
+    """no op implemented as mov #0, r3"""
 
     syntax = Syntax(["nop"])
 
@@ -463,7 +463,7 @@ class Nop(PseudoMsp430Instruction):
 
 
 class Clrc(PseudoMsp430Instruction):
-    """ clear carry implemented as bic #1, sr """
+    """clear carry implemented as bic #1, sr"""
 
     syntax = Syntax(["clrc"])
 
@@ -472,7 +472,7 @@ class Clrc(PseudoMsp430Instruction):
 
 
 class Clrn(PseudoMsp430Instruction):
-    """ clear negative implemented as bic #4, sr """
+    """clear negative implemented as bic #4, sr"""
 
     syntax = Syntax(["clrn"])
 
@@ -481,7 +481,7 @@ class Clrn(PseudoMsp430Instruction):
 
 
 class Clrz(PseudoMsp430Instruction):
-    """ clear zero implemented as bic #2, sr """
+    """clear zero implemented as bic #2, sr"""
 
     syntax = Syntax(["clrz"])
 
@@ -490,12 +490,12 @@ class Clrz(PseudoMsp430Instruction):
 
 
 def push(reg):
-    """ Push register helper """
+    """Push register helper"""
     return Push(RegSrc(reg))
 
 
 def call(label, clobbers=()):
-    """ Helper function which creates a call instruction """
+    """Helper function which creates a call instruction"""
     if isinstance(label, str):
         return Call(ConstLabelSrc(label), clobbers=clobbers)
     elif isinstance(label, Msp430Register):
@@ -505,7 +505,7 @@ def call(label, clobbers=()):
 
 
 def mov(src, dst):
-    """ Register to register move """
+    """Register to register move"""
     return Mov(RegSrc(src), RegDst(dst), ismove=True)
 
 
@@ -628,7 +628,7 @@ def pattern_i16toi8(context, tree, c0):
 
 @isa.pattern("reg", "I8TOI16(reg)", size=0, cycles=0, energy=0)
 def pattern_i8toi16(context, tree, c0):
-    """ Sign extend signed byte to signed short """
+    """Sign extend signed byte to signed short"""
     d = context.new_reg(Msp430Register)
     context.emit(mov(c0, d))
     context.emit(Sxt(RegSrc(d)))
@@ -637,7 +637,7 @@ def pattern_i8toi16(context, tree, c0):
 
 @isa.pattern("reg", "U8TOI16(reg)", size=0, cycles=0, energy=0)
 def pattern_u8toi16(context, tree, c0):
-    """ byte to signed short """
+    """byte to signed short"""
     d = context.new_reg(Msp430Register)
     context.emit(mov(c0, d))
     context.emit(Andw(ConstSrc(0xFF), RegDst(d)))
@@ -645,7 +645,7 @@ def pattern_u8toi16(context, tree, c0):
 
 
 def call_intrinsic(context, label, args, clobbers=()):
-    """ Generate a call to an intrinsic function """
+    """Generate a call to an intrinsic function"""
     c0, c1 = args
     context.move(r12, c0)
     context.move(r13, c1)

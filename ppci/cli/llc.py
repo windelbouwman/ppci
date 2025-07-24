@@ -1,5 +1,4 @@
-""" LLVM static compiler. """
-
+"""LLVM static compiler."""
 
 import argparse
 from .base import base_parser, march_parser, LogSetup
@@ -15,7 +14,7 @@ parser.add_argument("source", help="source file", type=argparse.FileType("r"))
 
 
 def llc(args=None):
-    """ Compile llvm ir code into machine code """
+    """Compile llvm ir code into machine code"""
     args = parser.parse_args(args)
     with LogSetup(args) as log_setup:
         march = get_arch_from_args(args)

@@ -1,17 +1,17 @@
-""" Commodore 64 basic """
+"""Commodore 64 basic"""
 
 import struct
 
 
 class BasicLine:
-    """ A single line in a basic program """
+    """A single line in a basic program"""
 
     def __init__(self, label, command):
         self.label = label
         self.command = command
 
     def encode(self, address) -> bytes:
-        """ Encode the basic line into tokenized basic format """
+        """Encode the basic line into tokenized basic format"""
         next_address = address + 5 + len(self.command)
         header = struct.pack("<HH", next_address, self.label)
         end_marker = bytes([0])
@@ -19,7 +19,7 @@ class BasicLine:
 
 
 def write_basic_program(program, f) -> bytes:
-    """ Write a basic program to file """
+    """Write a basic program to file"""
     address = 0x0801
     f.write(struct.pack("<H", address))  # Load address
     for line in program:

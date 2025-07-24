@@ -1,6 +1,4 @@
-""" A callgraph is a graph of functions which call eachother.
-
-"""
+"""A callgraph is a graph of functions which call eachother."""
 
 from .digraph import DiGraph, DiNode
 from .. import ir
@@ -11,7 +9,7 @@ class CallGraph(DiGraph):
 
 
 def mod_to_call_graph(ir_module) -> CallGraph:
-    """ Create a call graph for an ir-module """
+    """Create a call graph for an ir-module"""
     cg = CallGraph()
 
     # Create call graph nodes:

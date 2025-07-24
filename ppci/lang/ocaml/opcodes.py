@@ -1,4 +1,4 @@
-""" Caml opcodes.
+"""Caml opcodes.
 
 See also: http://cadmium.x9c.fr/distrib/caml-instructions.pdf
 

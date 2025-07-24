@@ -1,6 +1,4 @@
-""" Link two ir-modules, such that external references are resolved.
-
-"""
+"""Link two ir-modules, such that external references are resolved."""
 
 from .. import ir
 from .verify import verify_module

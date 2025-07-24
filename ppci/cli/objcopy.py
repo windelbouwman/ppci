@@ -1,5 +1,4 @@
-""" Objcopy utility to manipulate object files. """
-
+"""Objcopy utility to manipulate object files."""
 
 import argparse
 from .base import base_parser, LogSetup
@@ -15,7 +14,7 @@ parser.add_argument("--output-format", "-O", help="output file format")
 
 
 def objcopy(args=None):
-    """ Copy from binary format 1 to binary format 2 """
+    """Copy from binary format 1 to binary format 2"""
     args = parser.parse_args(args)
     with LogSetup(args):
         # Read object from file:

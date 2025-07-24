@@ -1,4 +1,4 @@
-""" IR-code generation.
+"""IR-code generation.
 
 Walks over the AST of the C sourcecode and generates IR-code.
 
@@ -6,6 +6,7 @@ Most errors and warnings are already detected during the parsing / semantics
 phase.
 
 """
+
 import logging
 from ... import ir, irutils
 from ...common import CompilerError
@@ -19,7 +20,7 @@ from .eval import ConstantExpressionEvaluator
 
 
 class CCodeGenerator:
-    """ Converts parsed C code to ir-code """
+    """Converts parsed C code to ir-code"""
 
     logger = logging.getLogger("ccodegen")
 
@@ -57,7 +58,7 @@ class CCodeGenerator:
         self._constant_evaluator = LinkTimeExpressionEvaluator(self)
 
     def get_label_block(self, name):
-        """ Get the ir block for a given label, and create it if necessary """
+        """Get the ir block for a given label, and create it if necessary"""
         if name in self.labeled_blocks:
             block = self.labeled_blocks[name]
         else:
@@ -66,7 +67,7 @@ class CCodeGenerator:
         return block
 
     def gen_code(self, compile_unit):
-        """ Initial entry point for the code generator """
+        """Initial entry point for the code generator"""
         self.builder = irutils.Builder()
         self.ir_var_map = {}
         self.logger.debug("Generating IR-code")
@@ -106,11 +107,11 @@ class CCodeGenerator:
         return ir_mod
 
     def emit(self, instruction):
-        """ Helper function to emit a single instruction """
+        """Helper function to emit a single instruction"""
         return self.builder.emit(instruction)
 
     def emit_alloca(self, typ):
-        """ Helper function to reserve some room on the stack. """
+        """Helper function to reserve some room on the stack."""
         size, alignment = self.data_layout(typ)
         name = "alloca"
         # Store here, to place them all at the beginning of the function:
@@ -121,14 +122,14 @@ class CCodeGenerator:
         return ir_var
 
     def emit_global_variable(self, name, binding, typ, ivalue):
-        """ Helper to emit a global variable. """
+        """Helper to emit a global variable."""
         size, alignment = self.data_layout(typ)
         ir_var = ir.Variable(name, binding, size, alignment, value=ivalue)
         self.builder.module.add_variable(ir_var)
         return ir_var
 
     def emit_const(self, value, ctyp):
-        """ Small helper to emit a constant. """
+        """Small helper to emit a constant."""
         ir_typ = self.get_ir_type(ctyp)
         return self.builder.emit_const(value, ir_typ)
 
@@ -136,11 +137,11 @@ class CCodeGenerator:
         self.logger.warning(message)
 
     def error(self, message, location):
-        """ Trigger an error at the given node """
+        """Trigger an error at the given node"""
         raise CompilerError(message, loc=location)
 
     def gen_global_variable(self, var_decl):
-        """ Generate code for a global variable """
+        """Generate code for a global variable"""
         assert isinstance(var_decl, declarations.VariableDeclaration)
         if var_decl.storage_class == "extern" and not var_decl.is_definition():
             # create an external variable:
@@ -165,7 +166,7 @@ class CCodeGenerator:
             self.ir_var_map[var_decl] = ir_var
 
     def gen_global_ival(self, typ, ival):
-        """ Create memory image for initial value of global variable """
+        """Create memory image for initial value of global variable"""
         # Check initial value type:
         if not isinstance(ival, expressions.CExpression):
             raise TypeError("ival must be an Expression")
@@ -186,7 +187,7 @@ class CCodeGenerator:
         return mem
 
     def gen_global_initialize_expression(self, typ, expr):
-        """ Generate memory slab for global expression. """
+        """Generate memory slab for global expression."""
         cval = self._constant_evaluator.eval_expr(expr)
 
         if isinstance(cval, tuple):
@@ -197,7 +198,7 @@ class CCodeGenerator:
         return mem
 
     def gen_global_string_constant(self, expr):
-        """ Create a new global variable holding string literal data. """
+        """Create a new global variable holding string literal data."""
         value_data = expr.to_bytes()
         amount = len(value_data)
         alignment = 1
@@ -228,7 +229,7 @@ class CCodeGenerator:
         return compound_literal_variable
 
     def gen_global_initialize_array(self, typ, ival):
-        """ Properly fill an array with initial values """
+        """Properly fill an array with initial values"""
         assert isinstance(ival, expressions.ArrayInitializer)
         assert ival.typ is typ
 
@@ -255,7 +256,7 @@ class CCodeGenerator:
         return mem
 
     def gen_global_initialize_union(self, typ, ival):
-        """ Initialize a union type """
+        """Initialize a union type"""
         assert isinstance(ival, expressions.UnionInitializer)
         assert ival.typ is typ
         mem = tuple()
@@ -269,7 +270,7 @@ class CCodeGenerator:
         return mem
 
     def gen_global_initialize_struct(self, typ, ival):
-        """ Properly fill global struct variable with content """
+        """Properly fill global struct variable with content"""
         assert isinstance(ival, expressions.StructInitializer)
         assert ival.typ is typ
         mem = tuple()
@@ -315,7 +316,7 @@ class CCodeGenerator:
         return mem
 
     def mem_len(self, mem):
-        """ Determine the bytesize of a memory slab """
+        """Determine the bytesize of a memory slab"""
         size = 0
         for part in mem:
             if isinstance(part, bytes):
@@ -327,19 +328,19 @@ class CCodeGenerator:
         return size
 
     def gen_function(self, function):
-        """ Generate code for a function """
+        """Generate code for a function"""
         if function.body:
             self.gen_function_def(function)
 
     def create_function(self, function):
-        """ Create code for a function """
+        """Create code for a function"""
         if function.body:
             self.create_function_internal(function)
         else:
             self.create_function_external(function)
 
     def create_function_internal(self, function):
-        """ Create the function and put it into the var_map """
+        """Create the function and put it into the var_map"""
         if function.storage_class == "static":
             binding = ir.Binding.LOCAL
         else:
@@ -362,7 +363,7 @@ class CCodeGenerator:
         self.ir_var_map[function] = ir_function
 
     def create_function_external(self, function):
-        """ Create external function reference. """
+        """Create external function reference."""
         ftyp = function.typ
         argument_types = [self.get_ir_type(a.typ) for a in ftyp.arguments]
 
@@ -383,7 +384,7 @@ class CCodeGenerator:
         self.ir_var_map[function] = external_function
 
     def gen_function_def(self, function):
-        """ Generate code for a function definition """
+        """Generate code for a function definition"""
         self.logger.debug("Generating IR-code for %s", function.name)
         assert not self.break_block_stack
         assert not self.continue_block_stack
@@ -482,7 +483,7 @@ class CCodeGenerator:
         assert not self.continue_block_stack
 
     def gen_stmt(self, statement):
-        """ Generate code for the given statement """
+        """Generate code for the given statement"""
         fn_map = {
             statements.If: self.gen_if,
             statements.While: self.gen_while,
@@ -510,16 +511,16 @@ class CCodeGenerator:
             raise NotImplementedError(str(statement))
 
     def gen_empty_statement(self, statement) -> None:
-        """ Generate code for empty statement """
+        """Generate code for empty statement"""
         pass
 
     def gen_compound_statement(self, statement) -> None:
-        """ Generate code for a compound statement """
+        """Generate code for a compound statement"""
         for inner_statement in statement.statements:
             self.gen_stmt(inner_statement)
 
     def gen_declaration_statement(self, statement):
-        """ Generate code for a declaration statement """
+        """Generate code for a declaration statement"""
         declaration = statement.declaration
         if isinstance(declaration, declarations.VariableDeclaration):
             if declaration.storage_class == "static":
@@ -534,7 +535,7 @@ class CCodeGenerator:
             raise NotImplementedError(str(declaration))
 
     def gen_local_static_variable(self, var_decl):
-        """ Generate code for a local static variable. """
+        """Generate code for a local static variable."""
         if var_decl.initial_value:
             ivalue = self.gen_global_ival(var_decl.typ, var_decl.initial_value)
         else:
@@ -547,12 +548,12 @@ class CCodeGenerator:
         self.ir_var_map[var_decl] = ir_var
 
     def gen_expression_statement(self, statement):
-        """ Generate code for an expression statement """
+        """Generate code for an expression statement"""
         self.gen_expr(statement.expression, rvalue=True)
         # TODO: issue a warning when expression result is non void?
 
     def gen_if(self, stmt: statements.If) -> None:
-        """ Generate if-statement code """
+        """Generate if-statement code"""
         final_block = self.builder.new_block()
         yes_block = self.builder.new_block()
         if stmt.no:
@@ -620,7 +621,7 @@ class CCodeGenerator:
         self.switch_options = backup
 
     def gen_while(self, stmt: statements.While) -> None:
-        """ Generate while statement code """
+        """Generate while statement code"""
         condition_block = self.builder.new_block()
         body_block = self.builder.new_block()
         final_block = self.builder.new_block()
@@ -637,7 +638,7 @@ class CCodeGenerator:
         self.continue_block_stack.pop()
 
     def gen_do_while(self, stmt: statements.DoWhile) -> None:
-        """ Generate do-while-statement code """
+        """Generate do-while-statement code"""
         body_block = self.builder.new_block()
         final_block = self.builder.new_block()
         self.break_block_stack.append(final_block)
@@ -651,7 +652,7 @@ class CCodeGenerator:
         self.continue_block_stack.pop()
 
     def gen_for(self, stmt: statements.For) -> None:
-        """ Generate code for for-statement """
+        """Generate code for for-statement"""
         condition_block = self.builder.new_block()
         body_block = self.builder.new_block()
         final_block = self.builder.new_block()
@@ -691,14 +692,14 @@ class CCodeGenerator:
         self.continue_block_stack.pop()
 
     def gen_label(self, stmt: statements.Label) -> None:
-        """ Generate code for a label """
+        """Generate code for a label"""
         block = self.get_label_block(stmt.name)
         self.builder.emit_jump(block)  # fall through
         self.builder.set_block(block)
         self.gen_stmt(stmt.statement)
 
     def gen_case(self, stmt: statements.Case) -> None:
-        """ Generate code for case label inside a switch statement """
+        """Generate code for case label inside a switch statement"""
         block = self.builder.new_block()
         assert self.switch_options is not None
         value = self.context.eval_expr(stmt.value)
@@ -710,7 +711,7 @@ class CCodeGenerator:
         self.gen_stmt(stmt.statement)
 
     def gen_range_case(self, stmt: statements.Case) -> None:
-        """ Generate code for range case label inside a switch statement """
+        """Generate code for range case label inside a switch statement"""
         block = self.builder.new_block()
         assert self.switch_options is not None
         # TODO: This could lead to a very big if-then-else chain?
@@ -726,7 +727,7 @@ class CCodeGenerator:
         self.gen_stmt(stmt.statement)
 
     def gen_default(self, stmt: statements.Default) -> None:
-        """ Generate code for case label inside a switch statement """
+        """Generate code for case label inside a switch statement"""
         block = self.builder.new_block()
         assert self.switch_options is not None
         self.switch_options["default"] = block
@@ -735,14 +736,14 @@ class CCodeGenerator:
         self.gen_stmt(stmt.statement)
 
     def gen_goto(self, stmt: statements.Goto) -> None:
-        """ Generate code for a goto statement """
+        """Generate code for a goto statement"""
         block = self.get_label_block(stmt.label)
         self.builder.emit_jump(block)
         new_block = self.builder.new_block()
         self.builder.set_block(new_block)
 
     def gen_continue(self, stmt: statements.Continue) -> None:
-        """ Generate code for the continue statement """
+        """Generate code for the continue statement"""
         # block = self.get_label_block(stmt.label)
         if self.continue_block_stack:
             block = self.continue_block_stack[-1]
@@ -753,7 +754,7 @@ class CCodeGenerator:
         self.builder.set_block(new_block)
 
     def gen_break(self, stmt: statements.Break) -> None:
-        """ Generate code to break out of something. """
+        """Generate code to break out of something."""
         # block = self.get_label_block(stmt.label)
         if self.break_block_stack:
             block = self.break_block_stack[-1]
@@ -764,7 +765,7 @@ class CCodeGenerator:
         self.builder.set_block(new_block)
 
     def gen_return(self, stmt: statements.Return) -> None:
-        """ Generate return statement code """
+        """Generate return statement code"""
         if stmt.value:
             if stmt.value.typ.is_struct:
                 # Complex types are copied to pointer passed as
@@ -785,7 +786,7 @@ class CCodeGenerator:
         self.builder.set_block(new_block)
 
     def gen_inline_assembly(self, stmt):
-        """ Generate code for inline assembly. """
+        """Generate code for inline assembly."""
         inline_asm = ir.InlineAsm(stmt.template, stmt.clobbers)
 
         # First load, all asm operands:
@@ -796,12 +797,12 @@ class CCodeGenerator:
         for _, asm_output_expr in stmt.output_operands:
             asm_output_ir = self.gen_expr(asm_output_expr)
             inline_asm.add_output_variable(asm_output_ir)
-        
+
         # Emit inline assembly:
         self.emit(inline_asm)
 
     def gen_condition(self, condition, yes_block, no_block):
-        """ Generate switch based on condition. """
+        """Generate switch based on condition."""
         if isinstance(condition, expressions.BinaryOperator):
             if condition.op == "||":
                 middle_block = self.builder.new_block()
@@ -838,13 +839,13 @@ class CCodeGenerator:
             self.check_non_zero(condition, yes_block, no_block)
 
     def check_non_zero(self, expr, yes_block, no_block):
-        """ Check an expression for being non-zero """
+        """Check an expression for being non-zero"""
         value = self.gen_expr(expr, rvalue=True)
         zero = self.emit_const(0, expr.typ)
         self.emit(ir.CJump(value, "==", zero, no_block, yes_block))
 
     def gen_local_variable(self, variable: declarations.VariableDeclaration):
-        """ Generate a local variable """
+        """Generate a local variable"""
         ir_addr = self.emit_alloca(variable.typ)
         self.ir_var_map[variable] = ir_addr
         if variable.initial_value:
@@ -852,7 +853,7 @@ class CCodeGenerator:
             self.gen_local_init(ir_addr, variable.typ, variable.initial_value)
 
     def gen_local_init(self, ptr, typ, expr):
-        """ Initialize a local slab of memory with an initial value """
+        """Initialize a local slab of memory with an initial value"""
         if isinstance(typ, (BasicType, types.PointerType, types.EnumType)):
             value = self.gen_expr(expr, rvalue=True)
             self._store_value(value, ptr)
@@ -869,7 +870,7 @@ class CCodeGenerator:
         return ptr, inc
 
     def gen_local_init_union(self, ptr, typ, expr):
-        """ Initialize a union type local variable """
+        """Initialize a union type local variable"""
         assert isinstance(expr, expressions.UnionInitializer)
         assert expr.typ is typ
 
@@ -901,7 +902,7 @@ class CCodeGenerator:
         return ptr, inc
 
     def gen_local_init_struct(self, ptr, typ, expr):
-        """ Fill structure with initializer (at runtime) """
+        """Fill structure with initializer (at runtime)"""
         if isinstance(expr, expressions.StructInitializer):
             # Initializing with initialization values
             assert expr.typ is typ
@@ -952,7 +953,7 @@ class CCodeGenerator:
         return ptr, inc
 
     def gen_condition_to_integer(self, expr):
-        """ Generate code that takes a boolean and convert it to integer """
+        """Generate code that takes a boolean and convert it to integer"""
         yes_block = self.builder.new_block()
         no_block = self.builder.new_block()
         end_block = self.builder.new_block()
@@ -1029,7 +1030,7 @@ class CCodeGenerator:
         return value
 
     def _load_value(self, lvalue, ctyp):
-        """ Load a value from given l-value """
+        """Load a value from given l-value"""
 
         if ctyp.is_array:
             value = lvalue
@@ -1057,14 +1058,14 @@ class CCodeGenerator:
         return value
 
     def _store_value(self, value, address):
-        """ Store a value at given lvalue location """
+        """Store a value at given lvalue location"""
         if isinstance(address, BitFieldAccess):
             self._store_bitfield(value, address)
         else:
             self.emit(ir.Store(value, address))
 
     def _load_bitfield(self, access, target_ir_typ):
-        """ Dark voo-doo code generated here """
+        """Dark voo-doo code generated here"""
         assert target_ir_typ.is_integer
 
         ir_typ = self._get_bitfield_ir_typ(access, True)
@@ -1100,7 +1101,7 @@ class CCodeGenerator:
         return value
 
     def _store_bitfield(self, value, access):
-        """ inject evil bitfield manipulation code """
+        """inject evil bitfield manipulation code"""
         ir_typ = self._get_bitfield_ir_typ(access, False)
         full_bitsize = ir_typ.bits
         assert access.bitshift + access.bitsize <= full_bitsize
@@ -1149,22 +1150,22 @@ class CCodeGenerator:
         raise NotImplementedError("Bitfields larger than 64 bits")
 
     def gen_char_literal(self, expr):
-        """ Generate code for a char literal. """
+        """Generate code for a char literal."""
         return self.emit_const(expr.value, expr.typ)
 
     def gen_string_literal(self, expr):
-        """ Generate code for a string literal. """
+        """Generate code for a string literal."""
         data = expr.to_bytes()
         value = self.emit(ir.LiteralData(data, "cstr"))
         value = self.emit(ir.AddressOf(value, "dptr"))
         return value
 
     def gen_numeric_literal(self, expr):
-        """ Compile a numeric literal. """
+        """Compile a numeric literal."""
         return self.emit_const(expr.value, expr.typ)
 
     def gen_unop(self, expr: expressions.UnaryOperator):
-        """ Generate code for unary operator """
+        """Generate code for unary operator"""
         if expr.op in ["x++", "x--", "--x", "++x"]:
             # Increment and decrement in pre and post form
             # Determine increment or decrement:
@@ -1188,7 +1189,7 @@ class CCodeGenerator:
         return value
 
     def gen_inplace_mutation(self, expr, op, pre):
-        """ Generate code for x++ or --y. """
+        """Generate code for x++ or --y."""
         ir_a = self.gen_expr(expr.a, rvalue=False)
         assert expr.a.lvalue
 
@@ -1208,7 +1209,7 @@ class CCodeGenerator:
         return value
 
     def gen_binop(self, expr: expressions.BinaryOperator):
-        """ Generate code for binary operation expression """
+        """Generate code for binary operation expression"""
         if expr.op in ["*", "/", "%", "^", "|", "&", ">>", "<<"]:
             lhs = self.gen_expr(expr.a, rvalue=True)
             rhs = self.gen_expr(expr.b, rvalue=True)
@@ -1316,11 +1317,11 @@ class CCodeGenerator:
         return value
 
     def gen_copy_struct(self, dst, src, amount):
-        """ Generate a copy struct action. """
+        """Generate a copy struct action."""
         self.emit(ir.CopyBlob(dst, src, amount))
 
     def gen_ternop(self, expr: expressions.TernaryOperator):
-        """ Generate code for ternary operator a ? b : c """
+        """Generate code for ternary operator a ? b : c"""
         if expr.op in ["?"]:
             # TODO: merge maybe with conditional logic?
             yes_block = self.builder.new_block()
@@ -1357,7 +1358,7 @@ class CCodeGenerator:
         return value
 
     def gen_variable_access(self, expr: expressions.VariableAccess):
-        """ Generate code for accessing a variable. """
+        """Generate code for accessing a variable."""
         declaration = expr.variable.declaration
         if isinstance(
             declaration,
@@ -1380,7 +1381,7 @@ class CCodeGenerator:
         return value
 
     def gen_call(self, expr: expressions.FunctionCall):
-        """ Generate code for a function call """
+        """Generate code for a function call"""
         assert expr.callee.typ.is_pointer
         ftyp = expr.callee.typ.element_type
         assert isinstance(ftyp, types.FunctionType)
@@ -1405,7 +1406,7 @@ class CCodeGenerator:
         return value
 
     def prepare_arguments(self, ftyp, args):
-        """ Generate code to evaluate arguments. """
+        """Generate code to evaluate arguments."""
         # Determine fixed and variable arguments:
         if ftyp.is_vararg:
             fixed_amount = len(ftyp.arguments)
@@ -1489,7 +1490,7 @@ class CCodeGenerator:
         return vararg_ptr
 
     def gen_compound_literal(self, expr: expressions.CompoundLiteral):
-        """ Generate code for a compound literal data """
+        """Generate code for a compound literal data"""
         # Alloc some room:
         ir_addr = self.emit_alloca(expr.typ)
         # ... and fill compound literal:
@@ -1497,7 +1498,7 @@ class CCodeGenerator:
         return ir_addr
 
     def gen_field_select(self, expr: expressions.FieldSelect):
-        """ Generate code for field select operation. """
+        """Generate code for field select operation."""
         base = self.gen_expr(expr.base, rvalue=False)
         field_offsets = self.context.get_field_offsets(expr.base.typ)[1]
         offset = field_offsets[expr.field]
@@ -1514,7 +1515,7 @@ class CCodeGenerator:
         return value
 
     def gen_array_index(self, expr: expressions.ArrayIndex):
-        """ Generate code for array indexing """
+        """Generate code for array indexing"""
         # Load base as an rvalue, to make sure we load pointers values.
         base = self.gen_expr(expr.base, rvalue=True)
         index = self.gen_expr(expr.index, rvalue=True)
@@ -1528,7 +1529,7 @@ class CCodeGenerator:
         return self.builder.emit_add(base, offset, ir.ptr)
 
     def gen_builtin(self, expr: expressions.BuiltIn):
-        """ Generate appropriate built-in functionality """
+        """Generate appropriate built-in functionality"""
         if isinstance(expr, expressions.BuiltInVaArg):
             value = self.gen_va_arg(expr)
         elif isinstance(expr, expressions.BuiltInVaStart):
@@ -1542,7 +1543,7 @@ class CCodeGenerator:
         return value
 
     def gen_va_start(self, expr: expressions.BuiltInVaStart):
-        """ Generate code for the va_start builtin """
+        """Generate code for the va_start builtin"""
         assert self._varargz_ptr
         # Save the arg pointer into the ap_list variable:
         va_ptr = self._varargz_ptr
@@ -1551,7 +1552,7 @@ class CCodeGenerator:
         return va_ptr
 
     def gen_va_arg(self, expr: expressions.BuiltInVaArg):
-        """ Generate code for a va_arg operation """
+        """Generate code for a va_arg operation"""
         # TODO: how to deal with proper alignment?
         valist_ptrptr = self.gen_expr(expr.arg_pointer, rvalue=False)
         va_ptr = self.emit(ir.Load(valist_ptrptr, "va_ptr", ir.ptr))
@@ -1564,7 +1565,7 @@ class CCodeGenerator:
         return value
 
     def gen_va_copy(self, expr: expressions.BuiltInVaCopy):
-        """ Generate code for the va_copy builtin """
+        """Generate code for the va_copy builtin"""
         # Fetch source va_list
         valist_ptrptr = self.gen_expr(expr.src, rvalue=False)
         va_ptr = self.emit(ir.Load(valist_ptrptr, "va_ptr", ir.ptr))
@@ -1574,7 +1575,7 @@ class CCodeGenerator:
         self.emit(ir.Store(va_ptr, valist_ptrptr))
 
     def gen_offsetof(self, expr: expressions.BuiltInOffsetOf):
-        """ Generate code for offsetof """
+        """Generate code for offsetof"""
         assert isinstance(expr.query_typ, types.StructOrUnionType)
         field = expr.query_typ.get_field(expr.member)
         offset = self.context.offsetof(expr.query_typ, field)
@@ -1582,7 +1583,7 @@ class CCodeGenerator:
         return value
 
     def gen_cast(self, expr: expressions.Cast):
-        """ Generate code for casting operation. """
+        """Generate code for casting operation."""
         if expr.is_array_decay():
             # Pointer decay!
             # assert expr.expr.lvalue
@@ -1605,7 +1606,7 @@ class CCodeGenerator:
         return value
 
     def gen_sizeof(self, expr: expressions.Sizeof):
-        """ Generate code for sizeof construction """
+        """Generate code for sizeof construction"""
         if isinstance(expr.sizeof_typ, types.CType):
             # Get size of the given type:
             type_size = self.sizeof(expr.sizeof_typ)
@@ -1616,7 +1617,7 @@ class CCodeGenerator:
         return self.emit_const(type_size, expr.typ)
 
     def get_ir_type(self, typ: types.CType):
-        """ Given a C type, get the fitting ir type """
+        """Given a C type, get the fitting ir type"""
         assert isinstance(typ, types.CType)
 
         if isinstance(typ, types.BasicType):
@@ -1633,17 +1634,17 @@ class CCodeGenerator:
             raise NotImplementedError(str(typ))
 
     def data_layout(self, typ: types.CType):
-        """ Get size and alignment of the given type. """
+        """Get size and alignment of the given type."""
         size = self.sizeof(typ)
         alignment = self.context.alignment(typ)
         return size, alignment
 
     def sizeof(self, typ):
-        """ Return the size of the given type. """
+        """Return the size of the given type."""
         return self.context.sizeof(typ)
 
     def get_debug_type(self, typ: types.CType):
-        """ Get or create debug type info in the debug information """
+        """Get or create debug type info in the debug information"""
         # Find cached values:
         if self.debug_db.contains(typ):
             return self.debug_db.get(typ)
@@ -1704,7 +1705,7 @@ class CCodeGenerator:
 
 
 class BitFieldAccess:
-    """ Container object which carries bitfield access details """
+    """Container object which carries bitfield access details"""
 
     def __init__(self, address, bitshift, bitsize, signed):
         self.address = address
@@ -1714,7 +1715,7 @@ class BitFieldAccess:
 
 
 class LinkTimeExpressionEvaluator(ConstantExpressionEvaluator):
-    """ Special purpose evaluator for link time constant expressions. """
+    """Special purpose evaluator for link time constant expressions."""
 
     def __init__(self, codegenerator):
         super().__init__(codegenerator.context)
@@ -1731,7 +1732,7 @@ class LinkTimeExpressionEvaluator(ConstantExpressionEvaluator):
         return cval
 
     def eval_compound_literal(self, expr: expressions.CompoundLiteral):
-        """ Evaluate a constant compound literal. """
+        """Evaluate a constant compound literal."""
         compound_literal_var = self.codegenerator.gen_global_compound_literal(
             expr
         )
@@ -1739,7 +1740,7 @@ class LinkTimeExpressionEvaluator(ConstantExpressionEvaluator):
         return cval
 
     def eval_take_address(self, expr):
-        """ Evaluate the '&' operator. """
+        """Evaluate the '&' operator."""
         if isinstance(expr, expressions.VariableAccess):
             declaration = expr.variable.declaration
             if isinstance(

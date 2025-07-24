@@ -1,5 +1,4 @@
-""" Objdump utility to display the contents of object files. """
-
+"""Objdump utility to display the contents of object files."""
 
 import argparse
 import io
@@ -20,7 +19,7 @@ parser.add_argument(
 
 
 def objdump(args=None):
-    """ Dump info of an object file """
+    """Dump info of an object file"""
     args = parser.parse_args(args)
     with LogSetup(args):
         obj = ObjectFile.load(args.obj)

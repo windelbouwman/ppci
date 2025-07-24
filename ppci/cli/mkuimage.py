@@ -1,8 +1,7 @@
-""" Uboot image creation utility.
+"""Uboot image creation utility.
 
 Use this utility to create uboot bootable images.
 """
-
 
 import argparse
 from .base import base_parser, LogSetup

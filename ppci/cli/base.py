@@ -1,4 +1,4 @@
-""" Base parser definitions shared between most cli utilities. """
+"""Base parser definitions shared between most cli utilities."""
 
 import argparse
 import logging
@@ -21,7 +21,7 @@ version_text = "ppci {} on {} {} on {}".format(
 
 
 def log_level(s):
-    """ Converts a string to a valid logging level """
+    """Converts a string to a valid logging level"""
     numeric_level = getattr(logging, s.upper(), None)
     if not isinstance(numeric_level, int):
         raise ValueError("Invalid log level: {}".format(s))
@@ -29,7 +29,7 @@ def log_level(s):
 
 
 class OnceAction(argparse.Action):
-    """ Use this action to enforce that an option is only given once """
+    """Use this action to enforce that an option is only given once"""
 
     def __call__(self, parser, namespace, values, option_string=None):
         if getattr(namespace, self.dest, None) is not None:
@@ -105,7 +105,7 @@ march_parser.add_argument(
 
 
 def get_arch_from_args(args):
-    """ Determine the intended machine target and select the proper options """
+    """Determine the intended machine target and select the proper options"""
     if args.machine:
         machine = args.machine
     else:
@@ -125,7 +125,7 @@ out_parser.add_argument(
 
 
 class ColoredFormatter(logging.Formatter):
-    """ Custom formatter that makes vt100 coloring to log messages """
+    """Custom formatter that makes vt100 coloring to log messages"""
 
     BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE = range(8)
     # Before changing colors, consider that they must be legible on
@@ -144,7 +144,7 @@ class ColoredFormatter(logging.Formatter):
 
 
 class LogSetup:
-    """ Context manager that attaches logging to a snippet """
+    """Context manager that attaches logging to a snippet"""
 
     def __init__(self, args):
         self.args = args

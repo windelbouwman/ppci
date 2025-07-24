@@ -1,1 +1,1 @@
-""" Contains the command line interface functions. """
+"""Contains the command line interface functions."""

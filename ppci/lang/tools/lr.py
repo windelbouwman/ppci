@@ -10,7 +10,7 @@ class Action:
 
 
 class Shift(Action):
-    """ Shift over the next token and go to the given state """
+    """Shift over the next token and go to the given state"""
 
     def __init__(self, to_state):
         self.to_state = to_state
@@ -20,7 +20,7 @@ class Shift(Action):
 
 
 class Reduce(Action):
-    """ Reduce according to the given rule """
+    """Reduce according to the given rule"""
 
     def __init__(self, rule):
         self.rule = rule
@@ -66,20 +66,20 @@ class Item:
 
     @property
     def is_reduce(self):
-        """ Check if this item has the dot at the end """
+        """Check if this item has the dot at the end"""
         return not self.is_shift
 
     def can_shift_over(self, symbol):
-        """ Determines if this item can shift over the given symbol """
+        """Determines if this item can shift over the given symbol"""
         return self.is_shift and self.Next == symbol
 
     def shifted(self):
-        """ Creates a new item that is shifted one position """
+        """Creates a new item that is shifted one position"""
         return Item(self.production, self.dotpos + 1, self.look_ahead)
 
     @property
     def NextNext(self):
-        """ Gets the symbol after the next symbol, or EPS if at the end """
+        """Gets the symbol after the next symbol, or EPS if at the end"""
         if self.dotpos + 1 >= len(self.production.symbols):
             return EPS
         else:
@@ -114,7 +114,7 @@ class LrParser:
         self.grammar = grammar
 
     def parse(self, lexer):
-        """ Parse an iterable with tokens """
+        """Parse an iterable with tokens"""
         assert hasattr(lexer, "next_token")
         stack = [0]
         r_data_stack = []
@@ -238,7 +238,7 @@ class LrParserBuilder:
         return self._first
 
     def closure(self, itemset):
-        """ Expand itemset by using epsilon moves """
+        """Expand itemset by using epsilon moves"""
         worklist = list(itemset)
 
         def addIt(itm):
@@ -269,7 +269,7 @@ class LrParserBuilder:
         return frozenset(itemset)
 
     def initial_item_set(self):
-        """ Calculates the initial item set """
+        """Calculates the initial item set"""
         iis = set()
         for p in self.grammar.productions_for_name(self.grammar.start_symbol):
             iis.add(Item(p, 0, EOF))
@@ -287,7 +287,7 @@ class LrParserBuilder:
         return self.closure(next_set)
 
     def generate_parser(self):
-        """ Generates a parser from the grammar """
+        """Generates a parser from the grammar"""
         self.logger.debug("Generating parser from {}".format(self.grammar))
         self.generate_tables()
         p = LrParser(self.grammar, self.action_table, self.goto_table)
@@ -295,7 +295,7 @@ class LrParserBuilder:
         return p
 
     def gen_canonical_set(self, iis):
-        """ Create all LR1 states """
+        """Create all LR1 states"""
         states = set()
         worklist = []
         transitions = {}
@@ -347,7 +347,7 @@ class LrParserBuilder:
             self.action_table[key] = action
 
     def generate_tables(self):
-        """ Generate parsing tables """
+        """Generate parsing tables"""
 
         # If no start symbol set, pick the first one!
         if not self.grammar.start_symbol:

@@ -70,7 +70,7 @@ def get_ctypes_type(debug_type):
 
 
 class Mod:
-    """ Container for machine code """
+    """Container for machine code"""
 
     def __init__(self, obj, imports=None):
         code_size = obj.get_section("code").size
@@ -187,12 +187,12 @@ class Mod:
         self._obj = obj
 
     def get_symbol_offset(self, name):
-        """ Get the memory address of a symbol """
+        """Get the memory address of a symbol"""
         return self._obj.get_symbol(name).value
 
 
 def load_code_as_module(source_file, reporter=None):
-    """ Load c3 code as a module """
+    """Load c3 code as a module"""
 
     from ..api import c3c
 

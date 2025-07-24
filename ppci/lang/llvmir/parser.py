@@ -21,7 +21,7 @@ class LlvmIrParser(RecursiveDescentParser):
         self.numbered_vals = []
 
     def parse_module(self):
-        """ Parse a module """
+        """Parse a module"""
         self.logger.debug("Parsing module")
         self.module = nodes.Module(self.context)
         self.forward_refs = {}
@@ -50,7 +50,7 @@ class LlvmIrParser(RecursiveDescentParser):
         return self.module
 
     def parse_unnamed_type(self):
-        """ Parse LocalVarID '=' 'type' type """
+        """Parse LocalVarID '=' 'type' type"""
         name = self.consume("LID")
         print(name)
         self.consume("=")
@@ -58,13 +58,13 @@ class LlvmIrParser(RecursiveDescentParser):
         self.parse_struct_definition()
 
     def parse_named_type(self):
-        """ Parse LocalVar '=' 'type' type """
+        """Parse LocalVar '=' 'type' type"""
         self.consume("=")
         self.consume("type")
         self.parse_struct()
 
     def parse_define(self):
-        """ Parse a function """
+        """Parse a function"""
         self.consume("define")
         function = self.parse_function_header()
         self.parse_function_body(function)
@@ -98,7 +98,7 @@ class LlvmIrParser(RecursiveDescentParser):
         self._pfs = None
 
     def parse_declare(self):
-        """ Parse a function declaration """
+        """Parse a function declaration"""
         self.consume("declare")
         function = self.parse_function_header()
         print(function)
@@ -125,7 +125,7 @@ class LlvmIrParser(RecursiveDescentParser):
         return function
 
     def parse_target_definition(self):
-        """ Parse a target top level entity """
+        """Parse a target top level entity"""
         self.consume("target")
         if self.peek == "triple":
             self.consume("triple")
@@ -172,7 +172,7 @@ class LlvmIrParser(RecursiveDescentParser):
             return nodes.GlobalVariable(pty.el_type, name, module=module)
 
     def get_global_val(self, name, ty):
-        """ Get a global with the given id """
+        """Get a global with the given id"""
         if not isinstance(ty, nodes.PointerType):
             self.error("global variable reference must have pointer type")
 
@@ -187,7 +187,7 @@ class LlvmIrParser(RecursiveDescentParser):
         return val
 
     def parse_named_metadata(self):
-        """ Parse meta data starting with '!my.var'  """
+        """Parse meta data starting with '!my.var'"""
         self.consume("MDVAR")
         self.consume("=")
         self.consume("!")
@@ -197,7 +197,7 @@ class LlvmIrParser(RecursiveDescentParser):
         self.consume("}")
 
     def parse_standalone_metadata(self):
-        """ Parse meta data starting with '!' 'num' """
+        """Parse meta data starting with '!' 'num'"""
         self.consume("!")
         self.parse_number()
         self.consume("=")
@@ -258,7 +258,7 @@ class LlvmIrParser(RecursiveDescentParser):
         return bb
 
     def parse_argument_list(self):
-        """ Parse '(' ... ')' """
+        """Parse '(' ... ')'"""
         self.consume("(")
         args = []
         if self.peek == ")":
@@ -387,13 +387,13 @@ class LlvmIrParser(RecursiveDescentParser):
         return v2
 
     def parse_value(self, ty):
-        """ Parse a value with a certain type """
+        """Parse a value with a certain type"""
         v = self.parse_val_id()
         v2 = self.convert_val_id_to_value(ty, v)
         return v2
 
     def parse_val_id(self):
-        """ Some more abstract value parsing """
+        """Some more abstract value parsing"""
         if self.peek == "zeroinitializer":
             self.consume("zeroinitializer")
             v = ValId("zero", None)
@@ -492,7 +492,7 @@ class LlvmIrParser(RecursiveDescentParser):
 
     # Instructions
     def parse_instruction(self):
-        """ Parse a single instruction """
+        """Parse a single instruction"""
         if self.peek == "store":
             instruction = self.parse_store()
         elif self.peek == "call":
@@ -638,7 +638,7 @@ class LlvmIrParser(RecursiveDescentParser):
         return nodes.InsertElementInst(op1, op2, op3)
 
     def parse_shuffle_vector(self):
-        """ Parse the shuffle vector """
+        """Parse the shuffle vector"""
         self.consume("shufflevector")
         op1 = self.parse_type_and_value()
         self.consume(",")
@@ -665,7 +665,7 @@ class LlvmIrParser(RecursiveDescentParser):
         return nodes.LoadInst(ty, val)
 
     def parse_store(self):
-        """ Parse store instruction """
+        """Parse store instruction"""
         self.consume("store")
         val = self.parse_type_and_value()
         self.consume(",")
@@ -676,7 +676,7 @@ class LlvmIrParser(RecursiveDescentParser):
         return nodes.StoreInst(val, ptr)
 
     def parse_getelementptr(self):
-        """ parse the get element ptr (GEP) """
+        """parse the get element ptr (GEP)"""
         self.consume("getelementptr")
         inbounds = self.has_consumed("inbounds")
         ty = self.parse_type()
@@ -710,7 +710,7 @@ class LlvmIrParser(RecursiveDescentParser):
         return args
 
     def parse_ret(self):
-        """ Parse return instruction """
+        """Parse return instruction"""
         self.consume("ret")
         ty = self.parse_type()
         if ty.is_void:
@@ -720,7 +720,7 @@ class LlvmIrParser(RecursiveDescentParser):
             return nodes.ReturnInst(ty, val)
 
     def parse_br(self):
-        """ Parse a branch instruction """
+        """Parse a branch instruction"""
         self.consume("br")
         op0 = self.parse_type_and_value()
         if isinstance(op0, nodes.BasicBlock):
@@ -752,7 +752,7 @@ class LlvmIrParser(RecursiveDescentParser):
 
 
 class PerFunctionState:
-    """ Keep track of parsing stuff in a function """
+    """Keep track of parsing stuff in a function"""
 
     def __init__(self, parser, function):
         self.parser = parser
@@ -760,7 +760,7 @@ class PerFunctionState:
         self.forward = {}
 
     def get_val(self, name, ty):
-        """ Get a value with a name and a given type """
+        """Get a value with a name and a given type"""
         # Lookup the name:
         if name in self.function.vmap:
             val = self.function.vmap[name]

@@ -1,4 +1,4 @@
-""" Linker.
+"""Linker.
 
 Use the linker to combine several object files and a memory layout
 to produce another resulting object file with images.
@@ -53,7 +53,7 @@ parser.add_argument(
 
 
 def link(args=None):
-    """ Run linker from command line """
+    """Run linker from command line"""
     args = parser.parse_args(args)
     relocatable = args.relocatable
     with LogSetup(args):
@@ -73,7 +73,7 @@ def link(args=None):
 
 
 def create_platform_executable(obj, output_filename):
-    """ Produce platform binary by spitting out exe/elf file. """
+    """Produce platform binary by spitting out exe/elf file."""
     if sys.platform == "linux":
         executable_filename = output_filename
         api.objcopy(obj, None, "elf", executable_filename)

@@ -1,5 +1,5 @@
 """
-    Communication channel for debug client.
+Communication channel for debug client.
 """
 
 import abc
@@ -24,7 +24,7 @@ class Transport(abc.ABC):
 
     @abc.abstractmethod
     def send(self, data):  # pragma: no cover
-        """ Send data """
+        """Send data"""
         raise NotImplementedError()
 
 
@@ -40,7 +40,7 @@ class TCP(ThreadedTransport):
         self._rxthread = None
 
     def connect(self):
-        """ Connect to socket and start thread """
+        """Connect to socket and start thread"""
         host = "localhost"
         self.logger.info("Connecting to %s:%s", host, self._port)
         self.sock.connect((host, self._port))
@@ -49,7 +49,7 @@ class TCP(ThreadedTransport):
         self._rxthread.start()
 
     def disconnect(self):
-        """ Stop thread gracefully """
+        """Stop thread gracefully"""
         self.logger.info("Disconnecting")
         self._running = False
         self._rxthread.join()
@@ -65,15 +65,15 @@ class TCP(ThreadedTransport):
         return readable
 
     def recv(self):
-        """ Receive a single byte """
+        """Receive a single byte"""
         return self.sock.recv(1)
 
     def send(self, data):
-        """ Send data """
+        """Send data"""
         self.sock.send(data)
 
     def recv_thread(self):
-        """ Receive either a packet, or an ack """
+        """Receive either a packet, or an ack"""
         self.logger.info("Receiver thread started")
         try:
             while self._running:

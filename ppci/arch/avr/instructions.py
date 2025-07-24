@@ -108,7 +108,7 @@ class Patch0r(Transform):
 
 
 class Adiw(AvrInstruction):
-    """ Add immediate to word (W, X, Y or Z) """
+    """Add immediate to word (W, X, Y or Z)"""
 
     tokens = [AdiwToken]
     rd = Operand("rd", SuperHighAvrWordRegister, read=True, write=True)
@@ -118,7 +118,7 @@ class Adiw(AvrInstruction):
 
 
 class Sbiw(AvrInstruction):
-    """ Substract immediate to word (W, X, Y or Z) """
+    """Substract immediate to word (W, X, Y or Z)"""
 
     tokens = [AdiwToken]
     rd = Operand("rd", SuperHighAvrWordRegister, read=True, write=True)
@@ -136,7 +136,7 @@ class Adc(AvrInstruction):
 
 
 class Cp(AvrInstruction):
-    """ Compare """
+    """Compare"""
 
     tokens = [AvrArithmaticToken]
     rd = Operand("rd", AvrRegister, read=True)
@@ -146,7 +146,7 @@ class Cp(AvrInstruction):
 
 
 class Cpc(AvrInstruction):
-    """ Compare with carry """
+    """Compare with carry"""
 
     tokens = [AvrArithmaticToken]
     rd = Operand("rd", AvrRegister, read=True)
@@ -156,7 +156,7 @@ class Cpc(AvrInstruction):
 
 
 class Neg(AvrInstruction):
-    """ Compute two's complement """
+    """Compute two's complement"""
 
     tokens = [AvrToken2]
     rd = Operand("rd", AvrRegister, read=True, write=True)
@@ -165,7 +165,7 @@ class Neg(AvrInstruction):
 
 
 class Com(AvrInstruction):
-    """ Compute one's complement """
+    """Compute one's complement"""
 
     tokens = [AvrToken2]
     rd = Operand("rd", AvrRegister, read=True, write=True)
@@ -174,7 +174,7 @@ class Com(AvrInstruction):
 
 
 class Sub(AvrInstruction):
-    """ Substract """
+    """Substract"""
 
     tokens = [AvrArithmaticToken]
     rd = Operand("rd", AvrRegister, read=True, write=True)
@@ -184,7 +184,7 @@ class Sub(AvrInstruction):
 
 
 class Sbc(AvrInstruction):
-    """ Substract with carry """
+    """Substract with carry"""
 
     tokens = [AvrArithmaticToken]
     rd = Operand("rd", AvrRegister, read=True, write=True)
@@ -194,7 +194,7 @@ class Sbc(AvrInstruction):
 
 
 class And(AvrInstruction):
-    """ Logical and """
+    """Logical and"""
 
     tokens = [AvrArithmaticToken]
     rd = Operand("rd", AvrRegister, read=True, write=True)
@@ -280,7 +280,7 @@ class Call(AvrInstruction):
 
 
 class Icall(AvrInstruction):
-    """ Indirect call. Call function at register Z """
+    """Indirect call. Call function at register Z"""
 
     tokens = [AvrToken]
     syntax = Syntax(["icall"])
@@ -289,7 +289,7 @@ class Icall(AvrInstruction):
 
 @avr_isa.register_relocation
 class SevenBitAvrRelocation(Relocation):
-    """ 7 bit signed relocation """
+    """7 bit signed relocation"""
 
     name = "7bit"
     number = 1
@@ -313,7 +313,7 @@ class AvrConditionalJumpInstruction(AvrInstruction):
 
 
 class Brne(AvrConditionalJumpInstruction):
-    """ Branch when not equal (Z flag is cleared) """
+    """Branch when not equal (Z flag is cleared)"""
 
     syntax = Syntax(["brne", " ", AvrConditionalJumpInstruction.lab])
     patterns = {"op": 0b11110, "b": 0b1001}
@@ -325,14 +325,14 @@ class Breq(AvrConditionalJumpInstruction):
 
 
 class Brlt(AvrConditionalJumpInstruction):
-    """ Branch if less than (signed) """
+    """Branch if less than (signed)"""
 
     syntax = Syntax(["brlt", " ", AvrConditionalJumpInstruction.lab])
     patterns = {"op": 0b11110, "b": 0b0100}
 
 
 class Brge(AvrConditionalJumpInstruction):
-    """ Branch if greater or equal (signed) """
+    """Branch if greater or equal (signed)"""
 
     syntax = Syntax(["brge", " ", AvrConditionalJumpInstruction.lab])
     patterns = {"op": 0b11110, "b": 0b1100}
@@ -382,7 +382,7 @@ class Ld(AvrInstruction):
 
 
 class Ldd_y(AvrInstruction):
-    """ Load with offset """
+    """Load with offset"""
 
     tokens = [AvrToken99]
     rd = Operand("rd", AvrRegister, write=True)
@@ -393,7 +393,7 @@ class Ldd_y(AvrInstruction):
 
 
 class Std_y(AvrInstruction):
-    """ Store with offset """
+    """Store with offset"""
 
     tokens = [AvrToken99]
     rd = Operand("rd", AvrRegister, read=True)
@@ -404,7 +404,7 @@ class Std_y(AvrInstruction):
 
 
 class Ldd_z(AvrInstruction):
-    """ Load with offset """
+    """Load with offset"""
 
     tokens = [AvrToken99]
     rd = Operand("rd", AvrRegister, write=True)
@@ -415,7 +415,7 @@ class Ldd_z(AvrInstruction):
 
 
 class Std_z(AvrInstruction):
-    """ Store with offset """
+    """Store with offset"""
 
     tokens = [AvrToken99]
     rd = Operand("rd", AvrRegister, read=True)
@@ -440,7 +440,7 @@ class LdPreDec(AvrInstruction):
 
 
 class LpmPostInc(AvrInstruction):
-    """ Load from program memory """
+    """Load from program memory"""
 
     tokens = [AvrToken2]
     rd = Operand("rd", AvrRegister, write=True)
@@ -449,7 +449,7 @@ class LpmPostInc(AvrInstruction):
 
 
 class St(AvrInstruction):
-    """ Store register a X pointer location """
+    """Store register a X pointer location"""
 
     tokens = [AvrToken2]
     rd = Operand("rd", AvrRegister, read=True)
@@ -458,7 +458,7 @@ class St(AvrInstruction):
 
 
 class StPostInc(AvrInstruction):
-    """ Store register value at memory X location and post increment X """
+    """Store register value at memory X location and post increment X"""
 
     tokens = [AvrToken2]
     rd = Operand("rd", AvrRegister, read=True)
@@ -630,7 +630,7 @@ class Subw(PseudoAvrInstruction):
 
 
 class Negw(PseudoAvrInstruction):
-    """ Perform a 16 bit two's complement """
+    """Perform a 16 bit two's complement"""
 
     rd = Operand("rd", AvrWordRegister, read=True, write=True)
     syntax = Syntax(["negw", " ", rd])
@@ -686,7 +686,7 @@ class LdiwAddr(PseudoAvrInstruction):
 
 
 class StWord(PseudoAvrInstruction):
-    """ Store a word by using st X+ and st X """
+    """Store a word by using st X+ and st X"""
 
     rd = Operand("rd", AvrWordRegister, read=True)
     syntax = Syntax(["stw", " ", "x", "+", ",", " ", rd])
@@ -697,7 +697,7 @@ class StWord(PseudoAvrInstruction):
 
 
 class LddWord_z(PseudoAvrInstruction):
-    """ Pseudo instruction for loading a word from z + offset """
+    """Pseudo instruction for loading a word from z + offset"""
 
     rd = Operand("rd", AvrWordRegister, write=True)
     z = Operand("z", AvrZRegister, read=True)
@@ -710,7 +710,7 @@ class LddWord_z(PseudoAvrInstruction):
 
 
 class StdWord_z(PseudoAvrInstruction):
-    """ Pseudo instruction for storing a word at z + offset """
+    """Pseudo instruction for storing a word at z + offset"""
 
     z = Operand("z", AvrZRegister, read=True)
     imm = Operand("imm", int)
@@ -723,7 +723,7 @@ class StdWord_z(PseudoAvrInstruction):
 
 
 class LddWord_y(PseudoAvrInstruction):
-    """ Pseudo instruction for loading a word from y + offset """
+    """Pseudo instruction for loading a word from y + offset"""
 
     rd = Operand("rd", AvrWordRegister, write=True)
     y = Operand("y", AvrYRegister, read=True)
@@ -736,7 +736,7 @@ class LddWord_y(PseudoAvrInstruction):
 
 
 class StdWord_y(PseudoAvrInstruction):
-    """ Pseudo instruction for storing a word at y + offset """
+    """Pseudo instruction for storing a word at y + offset"""
 
     y = Operand("y", AvrYRegister, read=True)
     imm = Operand("imm", int)
@@ -1013,7 +1013,7 @@ def pattern_mul_u16(context, tree, c0, c1):
 
 
 def call_function(context, label, args, clobbers=()):
-    """ Helper to emit calling sequence """
+    """Helper to emit calling sequence"""
     c0, c1 = args
     context.move(W, c0)
     context.move(r23r22, c1)
@@ -1027,7 +1027,7 @@ def call_function(context, label, args, clobbers=()):
 
 
 def call_function8(context, label, args, clobbers=()):
-    """ Helper to emit calling sequence with signature 'u8 func(u8, u8)' """
+    """Helper to emit calling sequence with signature 'u8 func(u8, u8)'"""
     c0, c1 = args
     context.move(r24, c0)
     context.move(r22, c1)
@@ -1043,28 +1043,28 @@ def call_function8(context, label, args, clobbers=()):
 @avr_isa.pattern("reg", "SHRU8(reg, reg)", size=50)
 @avr_isa.pattern("reg", "SHRI8(reg, reg)", size=50)
 def pattern_shr8(context, tree, c0, c1):
-    """ invoke runtime """
+    """invoke runtime"""
     return call_function8(context, "__shr8", (c0, c1))
 
 
 @avr_isa.pattern("reg16", "SHRU16(reg16, reg16)", size=50)
 @avr_isa.pattern("reg16", "SHRI16(reg16, reg16)", size=50)
 def pattern_shr16(context, tree, c0, c1):
-    """ invoke runtime """
+    """invoke runtime"""
     return call_function(context, "__shr16", (c0, c1))
 
 
 @avr_isa.pattern("reg", "SHLU8(reg, reg)", size=50)
 @avr_isa.pattern("reg", "SHLI8(reg, reg)", size=50)
 def pattern_shl8(context, tree, c0, c1):
-    """ invoke runtime """
+    """invoke runtime"""
     return call_function8(context, "__shl8", (c0, c1))
 
 
 @avr_isa.pattern("reg16", "SHLU16(reg16, reg16)", size=50)
 @avr_isa.pattern("reg16", "SHLI16(reg16, reg16)", size=50)
 def pattern_shl16(context, tree, c0, c1):
-    """ invoke runtime """
+    """invoke runtime"""
     return call_function(context, "__shl16", (c0, c1))
 
 
@@ -1256,7 +1256,7 @@ def pattern_const16(context, tree):
 
 @avr_isa.pattern("reg16", "LABEL", size=4)
 def pattern_label(context, tree):
-    """ Determine the label address and yield its result """
+    """Determine the label address and yield its result"""
     d = context.new_reg(HighAvrWordRegister)
     context.emit(LdiwAddr(d, tree.value))
     return d

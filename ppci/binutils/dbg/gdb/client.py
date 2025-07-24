@@ -1,5 +1,5 @@
 """
-    Gdb debug client implementation for the debugger driver.
+Gdb debug client implementation for the debugger driver.
 """
 
 import abc
@@ -17,14 +17,14 @@ BRKPOINT = 5
 
 
 class GdbCommHandler(metaclass=abc.ABCMeta):
-    """ This class deals with the logic of communication """
+    """This class deals with the logic of communication"""
 
     def shake(self, message):
         pass
 
 
 class ThreadedCommHandler(GdbCommHandler):
-    """ A comm handler that uses a thread """
+    """A comm handler that uses a thread"""
 
     def __init__(self):
         self.rxqueue = queue.Queue()
@@ -93,14 +93,14 @@ class GdbDebugDriver(DebugDriver):
         return "Gdb debug driver via {}".format(self.transport)
 
     def connect(self):
-        """ Connect to the target """
+        """Connect to the target"""
         self._message_handler = Thread(target=self._handle_stop_queue)
         self._message_handler.start()
         self.transport.connect()
         # self.send('?')
 
     def disconnect(self):
-        """ Disconnect the client """
+        """Disconnect the client"""
         self.transport.disconnect()
         self._stop_msg_queue.put(1337)
         self._message_handler.join()
@@ -114,7 +114,7 @@ class GdbDebugDriver(DebugDriver):
         self.logger.debug("stop thread finished")
 
     def run(self):
-        """ start the device """
+        """start the device"""
         if self.status == DebugState.STOPPED:
             self._prepare_continue()
         else:
@@ -124,7 +124,7 @@ class GdbDebugDriver(DebugDriver):
         self._start()
 
     def restart(self):
-        """ restart the device """
+        """restart the device"""
         if self.status == DebugState.STOPPED:
             self.set_pc(self.pcresval)
             self.run()
@@ -132,7 +132,7 @@ class GdbDebugDriver(DebugDriver):
             self.logger.warning("Cannot restart, still running!")
 
     def step(self):
-        """ Single step the device """
+        """Single step the device"""
         if self.status == DebugState.STOPPED:
             self._prepare_continue()
             self._send_message("s")
@@ -141,7 +141,7 @@ class GdbDebugDriver(DebugDriver):
             self.logger.warning("Cannot step, still running!")
 
     def nstep(self, count):
-        """ Single step `count` times """
+        """Single step `count` times"""
         if self.status == DebugState.STOPPED:
             self._prepare_continue()
             self._send_message("n %x" % count)
@@ -150,7 +150,7 @@ class GdbDebugDriver(DebugDriver):
             self.logger.warning("Cannot step, still running!")
 
     def _prepare_continue(self):
-        """ Set program counter somewhat back to continue """
+        """Set program counter somewhat back to continue"""
         if self.swbrkpt and self.stopreason is BRKPOINT:
             pc = self.get_pc()
             self.clear_breakpoint(pc - 4)
@@ -164,12 +164,12 @@ class GdbDebugDriver(DebugDriver):
             self.logger.warning("Cannot stop if not running")
 
     def _sendbrk(self):
-        """ sends break command to the device """
+        """sends break command to the device"""
         self.logger.debug("Sending RAW stop 0x3")
         self.transport.send(bytes([0x03]))
 
     def _start(self):
-        """ Update state to started """
+        """Update state to started"""
         self.status = DebugState.RUNNING
         self._register_value_cache.clear()
         self.events.on_start()
@@ -224,19 +224,19 @@ class GdbDebugDriver(DebugDriver):
         return self.status
 
     def get_pc(self):
-        """ read the PC of the device """
+        """read the PC of the device"""
         if self.status == DebugState.STOPPED:
             return self._get_register(self.arch.gdb_pc)
         else:
             return 0
 
     def set_pc(self, value):
-        """ set the PC of the device """
+        """set the PC of the device"""
         self._set_register(self.arch.gdb_pc, value)
         self.logger.debug("PC value set:%x", value)
 
     def get_fp(self):
-        """ read the frame pointer """
+        """read the frame pointer"""
         return 0x100
         fp = self._get_register(self.arch.fp)
         self.logger.debug("FP value read:%x", fp)
@@ -251,7 +251,7 @@ class GdbDebugDriver(DebugDriver):
         return regs
 
     def _get_general_registers(self):
-        """ Execute the gdb `g` command """
+        """Execute the gdb `g` command"""
         data = self._send_command("g")
         data = binascii.a2b_hex(data.encode("ascii"))
         res = {}
@@ -291,7 +291,7 @@ class GdbDebugDriver(DebugDriver):
                 self.logger.warning("Registers writing failed: %s", res)
 
     def _get_register(self, register):
-        """ Get a single register """
+        """Get a single register"""
         if self.status == DebugState.STOPPED:
             if register in self._register_value_cache:
                 value = self._register_value_cache[register]
@@ -309,7 +309,7 @@ class GdbDebugDriver(DebugDriver):
             return 0
 
     def _set_register(self, register, value):
-        """ Set a single register """
+        """Set a single register"""
         if self.status == DebugState.STOPPED:
             idx = self.arch.gdb_registers.index(register)
             value = self._pack_register(register, value)
@@ -321,7 +321,7 @@ class GdbDebugDriver(DebugDriver):
                 self.logger.warning("Register write failed: %s", res)
 
     def _unpack_register(self, register, data):
-        """ Fetch a register from some data """
+        """Fetch a register from some data"""
         from ....arch.arch_info import Endianness
 
         if self.arch.info.endianness == Endianness.BIG:
@@ -350,14 +350,14 @@ class GdbDebugDriver(DebugDriver):
 
     @staticmethod
     def _pack_register(register, value):
-        """ Put some data in a register """
+        """Put some data in a register"""
         fmts = {8: "<Q", 4: "<I", 2: "<H", 1: "<B"}
         size = register.bitsize // 8
         data = struct.pack(fmts[size], value)
         return data
 
     def set_breakpoint(self, address: int):
-        """ Set a breakpoint """
+        """Set a breakpoint"""
         if self.status == DebugState.STOPPED:
             res = self._send_command("Z0,%x,4" % address)
             if res == "OK":
@@ -368,7 +368,7 @@ class GdbDebugDriver(DebugDriver):
             self.logger.warning("Cannot set breakpoint, target not stopped!")
 
     def clear_breakpoint(self, address: int):
-        """ Clear a breakpoint """
+        """Clear a breakpoint"""
         if self.status == DebugState.STOPPED:
             res = self._send_command("z0,%x,4" % address)
             if res == "OK":
@@ -379,7 +379,7 @@ class GdbDebugDriver(DebugDriver):
             self.logger.warning("Cannot clear breakpoint, target not stopped!")
 
     def read_mem(self, address: int, size: int):
-        """ Read memory from address """
+        """Read memory from address"""
         if self.status == DebugState.STOPPED:
             res = self._send_command("m %x,%x" % (address, size))
             ret = binascii.a2b_hex(res.encode("ascii"))
@@ -389,7 +389,7 @@ class GdbDebugDriver(DebugDriver):
             return bytes()
 
     def write_mem(self, address: int, data):
-        """ Write memory """
+        """Write memory"""
         if self.status == DebugState.STOPPED:
             length = len(data)
             data = binascii.b2a_hex(data).decode("ascii")
@@ -409,12 +409,12 @@ class GdbDebugDriver(DebugDriver):
             self._msg_queue.put(message)
 
     def _send_command(self, command):
-        """ Send a gdb command a receive a response """
+        """Send a gdb command a receive a response"""
         self._send_message(command)
         return self._recv_message()
 
     def _recv_message(self, timeout=3):
-        """ Block until a packet is received """
+        """Block until a packet is received"""
         return self._msg_queue.get(timeout=timeout)
 
     def _send_message(self, message):
@@ -422,5 +422,5 @@ class GdbDebugDriver(DebugDriver):
 
 
 def is_hex(text: str) -> bool:
-    """ Check if the given text is hexadecimal """
+    """Check if the given text is hexadecimal"""
     return all(c in string.hexdigits for c in text)

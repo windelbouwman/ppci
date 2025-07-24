@@ -1,4 +1,4 @@
-""" Module with additional collection types.
+"""Module with additional collection types.
 
 - OrderedSet: A set like type which retains ordering.
 
@@ -14,7 +14,7 @@ from collections import OrderedDict
 
 
 class OrderedSet(MutableSet):
-    """ Set which retains order of elements """
+    """Set which retains order of elements"""
 
     def __init__(self, iterable=None):
         end = []
@@ -37,14 +37,14 @@ class OrderedSet(MutableSet):
             curr[2] = end[1] = self._map[value] = [value, curr, end]
 
     def discard(self, value):
-        """ Remove element from set """
+        """Remove element from set"""
         if value in self._map:
             value, prev_item, next_item = self._map.pop(value)
             prev_item[2] = next_item
             next_item[1] = prev_item
 
     def __getitem__(self, index):
-        """ O(n) implementation for lookups """
+        """O(n) implementation for lookups"""
         for i, key in enumerate(self):
             if i == index:
                 return key

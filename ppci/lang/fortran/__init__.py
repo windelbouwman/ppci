@@ -1,4 +1,4 @@
-""" This is the fortran frontend.
+"""This is the fortran frontend.
 
 Currently this front-end is a work in progress.
 
@@ -20,7 +20,7 @@ class FortranBuilder:
 
 
 def fortran_to_ir(source):
-    """ Translate fortran source into IR-code """
+    """Translate fortran source into IR-code"""
     builder = FortranBuilder()
     ir_modules = builder.build(source)
     return ir_modules

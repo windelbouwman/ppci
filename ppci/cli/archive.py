@@ -1,4 +1,4 @@
-""" Archive manager.
+"""Archive manager.
 
 Create or update an archive. Or extract object files from the archive.
 """
@@ -32,7 +32,7 @@ display_parser.add_argument(
 
 
 def archive(args=None):
-    """ Run archive from command line """
+    """Run archive from command line"""
     args = parser.parse_args(args)
     with LogSetup(args):
         if args.command == "create":

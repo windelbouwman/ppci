@@ -1,5 +1,4 @@
-""" Writing IR-code into a textual format.
-"""
+"""Writing IR-code into a textual format."""
 
 from .verify import verify_module
 from .. import ir
@@ -21,7 +20,7 @@ def print_module(module, file=None, verify=True):
 
 
 class Writer:
-    """ Write ir-code to file """
+    """Write ir-code to file"""
 
     def __init__(self, file=None, extra_indent=""):
         self.extra_indent = extra_indent
@@ -32,7 +31,7 @@ class Writer:
         print(indent + txt, file=self.file)
 
     def write(self, module: ir.Module, verify=True):
-        """ Write ir-code to file f """
+        """Write ir-code to file f"""
         assert isinstance(module, ir.Module)
         if verify:
             verify_module(module)

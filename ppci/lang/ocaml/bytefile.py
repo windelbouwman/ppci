@@ -1,4 +1,4 @@
-""" Handling of OCaml bytecode files ending with .byte extension. """
+"""Handling of OCaml bytecode files ending with .byte extension."""
 
 import logging
 from .code import load_code
@@ -44,7 +44,7 @@ class ByteCodeReader:
         return result
 
     def read_trailer(self):
-        """ Read magic header """
+        """Read magic header"""
         self.reader.f.seek(-16, 2)
         num_sections = self.reader.read_u32()
         magic_len = len(self.MAGIC_V023)

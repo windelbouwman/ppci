@@ -1,4 +1,4 @@
-""" Compile IR-code into Web Assembly (WASM).
+"""Compile IR-code into Web Assembly (WASM).
 
 IR-code is in SSA-form consisting of a soup of blocks. This means basic
 blocks connected by jumps. Wasm on the other hand requires a stack
@@ -49,7 +49,7 @@ def ir_to_wasm(ir_module: ir.Module, reporter=None) -> components.Module:
 
 
 class IrToWasmCompiler:
-    """ Translates ir-code into wasm """
+    """Translates ir-code into wasm"""
 
     logger = logging.getLogger("ir2wasm")
     STACKSIZE = 1000  # Virtual stack size
@@ -88,7 +88,7 @@ class IrToWasmCompiler:
         self.definitions[space].append(definition)
 
     def gather_definitions(self):
-        """ Take all definitions by section id order: """
+        """Take all definitions by section id order:"""
         definitions = []
         for name in components.SECTION_IDS:
             for definition in self.definitions[name]:
@@ -97,7 +97,7 @@ class IrToWasmCompiler:
         return definitions
 
     def compile(self, ir_module):
-        """ Compile an ir-module into a wasm module """
+        """Compile an ir-module into a wasm module"""
         self.logger.debug("Generating wasm for %s", ir_module)
 
         # Check external thingies:
@@ -182,7 +182,7 @@ class IrToWasmCompiler:
             self.do_function(ir_function, wasm_func)
 
     def create_wasm_module(self):
-        """ Finalize the wasm module and return it """
+        """Finalize the wasm module and return it"""
 
         self.add_definition(
             components.Memory(0, 10, None)
@@ -212,7 +212,7 @@ class IrToWasmCompiler:
         return module
 
     def get_type_id(self, arg_types, ret_types):
-        """ Get wasm type id and create a signature if required. """
+        """Get wasm type id and create a signature if required."""
         # Get type signature
         arg_types = tuple(self.get_ty(t) for t in arg_types)
         ret_types = tuple(self.get_ty(t) for t in ret_types)
@@ -239,7 +239,7 @@ class IrToWasmCompiler:
         return function_name in self.function_refs
 
     def do_function(self, ir_function, wasm_func):
-        """ Generate WASM for a single function """
+        """Generate WASM for a single function"""
         function_name = ir_function.name
         self.instructions = []
         self.local_var_map = {}
@@ -297,7 +297,7 @@ class IrToWasmCompiler:
         self.add_definition(wasm_func)
 
     def increment_stack_pointer(self):
-        """ Allocate stack if needed """
+        """Allocate stack if needed"""
         if self.fi.frame.stacksize > 0:
             self.emit("global.get", self.sp_ref)
             self.emit("i32.const", self.fi.frame.stacksize)
@@ -312,7 +312,7 @@ class IrToWasmCompiler:
             self.emit("global.set", self.sp_ref)
 
     def do_shape(self, shape):
-        """ Generate code for a given code shape """
+        """Generate code for a given code shape"""
         if isinstance(shape, relooper.BasicShape):
             ir_block = self.rmap[shape.content]
             self.do_block(ir_block)
@@ -366,7 +366,7 @@ class IrToWasmCompiler:
             raise NotImplementedError(str(shape))
 
     def do_block(self, ir_block):
-        """ Generate code for the given block """
+        """Generate code for the given block"""
         self.logger.debug("Generating %s", ir_block)
         block_trees = self.ds.split_group_into_trees(
             self.sdag, self.fi, ir_block
@@ -626,7 +626,7 @@ class IrToWasmCompiler:
     }
 
     def do_tree(self, tree):
-        """ Implement proper logic for an ir instruction """
+        """Implement proper logic for an ir instruction"""
         # TODO: we might have used codegen.treeselector class here...
         if tree.name in self.binop_map:
             self.do_tree(tree[0])
@@ -744,7 +744,7 @@ class IrToWasmCompiler:
             raise NotImplementedError(str(tree))
 
     def get_ty(self, ir_ty):
-        """ Get the right wasm type for an ir type """
+        """Get the right wasm type for an ir type"""
         ty_map = {
             ir.i8: "i32",
             ir.u8: "i32",
@@ -761,7 +761,7 @@ class IrToWasmCompiler:
         return ty_map[ir_ty]
 
     def get_value(self, value):
-        """ Create a local number for the given value """
+        """Create a local number for the given value"""
         if value not in self.local_var_map:
             self.local_var_map[value] = components.Ref(
                 "local", index=len(self.local_var_map)
@@ -777,7 +777,7 @@ class IrToWasmCompiler:
         return self.local_var_map[value]
 
     def emit(self, opcode, *args):
-        """ Emit a single wasm instruction """
+        """Emit a single wasm instruction"""
         instruction = components.Instruction(opcode, *args)
         # print(instruction.to_string())  # , instruction.to_bytes())
         self.instructions.append(instruction)
@@ -789,7 +789,7 @@ class IrToWasmCompiler:
         assert self._block_stack.pop(-1) == kind
 
     def _get_block_level(self):
-        """ Retrieve current block level for nearest break or continue """
+        """Retrieve current block level for nearest break or continue"""
         for i, kind in enumerate(reversed(self._block_stack)):
             if kind in ("loop",):
                 return i

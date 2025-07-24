@@ -1,4 +1,4 @@
-""" Rverse engineer the structured control flow of a program.
+"""Rverse engineer the structured control flow of a program.
 
 Possible algorithms:
 
@@ -84,7 +84,7 @@ class StructureDetector:
     logger = logging.getLogger("structure-detector")
 
     def detect(self, cfg):
-        """ Find structure in control flow graph """
+        """Find structure in control flow graph"""
         self.cfg = cfg
         # self.cfg.calculate_dominator_tree()
 
@@ -106,7 +106,7 @@ class StructureDetector:
         return shape
 
     def make_shape(self, entry):
-        """ Given a set of blocks and an entry block, determine the shape """
+        """Given a set of blocks and an entry block, determine the shape"""
 
         # Decide between loop, if-else or straight line code:
         if entry is self.cfg.exit_node:
@@ -165,7 +165,7 @@ class StructureDetector:
         return shape
 
     def test(self, node):
-        """ Check if a node is marked, or else shape it! """
+        """Check if a node is marked, or else shape it!"""
         if node in self.marked:
             # Break or continue!
             if node is self.loop_stack[-1][0].header:
@@ -185,7 +185,7 @@ class StructureDetector:
             return False
 
     def follows_loop(self, loop):
-        """ Determine the node that follows this loop """
+        """Determine the node that follows this loop"""
         reachable_outside_loop = set()
         all_loop_nodes = [loop.header] + loop.rest
         for node in all_loop_nodes:
@@ -206,14 +206,14 @@ class StructureDetector:
 
 
 class Relooper:
-    """ Implementation of the relooper algorithm """
+    """Implementation of the relooper algorithm"""
 
     # TODO: implement the relooper algorithm
     pass
 
 
 class Shape:
-    """ A control flow shape. """
+    """A control flow shape."""
 
     def __init__(self):
         pass
@@ -253,7 +253,7 @@ class SequenceShape(Shape):
 
 
 class LoopShape(Shape):
-    """ Loop shape """
+    """Loop shape"""
 
     def __init__(self, body):
         super().__init__()
@@ -264,7 +264,7 @@ class LoopShape(Shape):
 
 
 class IfShape(Shape):
-    """ If statement """
+    """If statement"""
 
     def __init__(self, content, yes_shape, no_shape):
         super().__init__()
@@ -274,6 +274,6 @@ class IfShape(Shape):
 
 
 class MultipleShape(Shape):
-    """ Can be a switch statement? """
+    """Can be a switch statement?"""
 
     pass

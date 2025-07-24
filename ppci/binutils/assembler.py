@@ -1,7 +1,7 @@
 """
-    This module contains the generic assembly language processor. The
-    Assembler class can be created and provided with one or more isa's.
-    These can then be assembled.
+This module contains the generic assembly language processor. The
+Assembler class can be created and provided with one or more isa's.
+These can then be assembled.
 """
 
 import re
@@ -20,7 +20,7 @@ id_matcher = re.compile(id_regex)
 
 
 class AsmLexer(BaseLexer):
-    """ Lexer capable of lexing a single line """
+    """Lexer capable of lexing a single line"""
 
     def __init__(self, kws=()):
         tok_spec = [
@@ -47,18 +47,18 @@ class AsmLexer(BaseLexer):
         return typ, val
 
     def add_keyword(self, keyword):
-        """ Add a keyword """
+        """Add a keyword"""
         self.kws.add(keyword)
 
     def handle_number(self, typ, val):
-        """ Handle a number during lexing """
+        """Handle a number during lexing"""
         val = make_num(val)
         typ = "NUMBER"
         return typ, val
 
 
 class AsmParser:
-    """ Base parser for assembler language """
+    """Base parser for assembler language"""
 
     def __init__(self):
         # Construct a parser given a grammar:
@@ -91,14 +91,14 @@ class AsmParser:
             self.emit(i2)
 
     def parse(self, lexer):
-        """ Entry function to parser """
+        """Entry function to parser"""
         if not hasattr(self, "p"):
             self.p = EarleyParser(self.g)
         self.p.parse(lexer)
 
 
 class BaseAssembler:
-    """ Assembler base class, inherited by assemblers specific for a target """
+    """Assembler base class, inherited by assemblers specific for a target"""
 
     str_id = "$str$"
     int_id = "$int$"
@@ -135,7 +135,7 @@ class BaseAssembler:
         self.add_keyword("endrepeat")
 
     def add_keyword(self, keyword):
-        """ Add a keyword to the grammar """
+        """Add a keyword to the grammar"""
         if keyword not in self.lexer.kws:
             self.parser.g.add_terminal(keyword)
             self.lexer.add_keyword(keyword)
@@ -147,12 +147,12 @@ class BaseAssembler:
                 self.add_rule(self.str_id, [keyword], lambda rhs: keyword)
 
     def add_instruction(self, rhs, f, priority=0):
-        """ Add an instruction to the grammar """
+        """Add an instruction to the grammar"""
         rhs2 = self.resolve_rhs(rhs)
         self.add_rule("instruction", rhs2, f, priority=priority)
 
     def add_rule(self, lhs, rhs, f, priority=0):
-        """ Helper function to add a rule, why this is required? """
+        """Helper function to add a rule, why this is required?"""
 
         def f_wrap(*args):
             return f(args)
@@ -161,7 +161,7 @@ class BaseAssembler:
 
     # Functions to automate the adding of instructions to asm syntax:
     def gen_asm_parser(self, isa):
-        """ Generate assembly rules from isa """
+        """Generate assembly rules from isa"""
         # Generate rules for instructions that have a syntax:
         for instruction in isa.instructions:
             if instruction.syntax:
@@ -195,7 +195,7 @@ class BaseAssembler:
         self.add_rule(nt, rhs, cs, stx.priority)
 
     def resolve_rhs(self, rhs):
-        """ Determine what parts of rhs are non-string and resolve """
+        """Determine what parts of rhs are non-string and resolve"""
         resolved_rhs = []
         for rhs_part in rhs:
             if isinstance(rhs_part, str):
@@ -212,7 +212,7 @@ class BaseAssembler:
         return resolved_rhs
 
     def get_parameter_nt(self, arg_cls):
-        """ Get parameter non terminal """
+        """Get parameter non terminal"""
         # Lookup in map:
         if arg_cls in self.typ2nt:
             return self.typ2nt[arg_cls]
@@ -246,7 +246,7 @@ class BaseAssembler:
             return nt
 
     def make_register_rule_function(self, nt, register):
-        """ Create a function that can be used for a register grammar rule """
+        """Create a function that can be used for a register grammar rule"""
 
         def cs(_):
             return register
@@ -258,7 +258,7 @@ class BaseAssembler:
             self.add_rule(nt, rhs, cs)
 
     def split_text(self, txt):
-        """ Split text into lexical tokens """
+        """Split text into lexical tokens"""
         return [t.val for t in self.lexer.tokenize(txt.lower())]
 
     # End of generating functions
@@ -274,7 +274,7 @@ class BaseAssembler:
 
     # Top level interface:
     def parse_line(self, line):
-        """ Parse line into assembly instructions """
+        """Parse line into assembly instructions"""
         try:
             self.lexer.feed(line)
             self.parser.parse(self.lexer)
@@ -283,7 +283,7 @@ class BaseAssembler:
             raise CompilerError("Unable to assemble: [{}]".format(line), loc)
 
     def assemble(self, asmsrc, stream, diag, debug=False):
-        """ Assemble the source snippet into the given output stream """
+        """Assemble the source snippet into the given output stream"""
         self.stream = stream
 
         self.filename = None
@@ -331,7 +331,7 @@ class BaseAssembler:
 
     # Macro language handlers:
     def begin_repeat(self, count):
-        """ Handle begin of repeat macro """
+        """Handle begin of repeat macro"""
         assert not self.in_macro
         self.in_macro = True
         self.rep_count = count

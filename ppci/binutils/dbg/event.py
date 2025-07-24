@@ -1,4 +1,4 @@
-""" Event system """
+"""Event system"""
 
 
 class Event:

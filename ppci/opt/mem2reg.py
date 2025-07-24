@@ -1,4 +1,4 @@
-""" This file implements memory to register promotion.
+"""This file implements memory to register promotion.
 
 When a memory location is only used by store and load, the stored value can
 also be stored into a register, to improve performance.
@@ -10,7 +10,7 @@ from ..graph.domtree import CfgInfo
 
 
 def is_alloc_promotable(alloc_inst: ir.Alloc):
-    """ Check if alloc value is only used by load and store operations. """
+    """Check if alloc value is only used by load and store operations."""
     assert isinstance(alloc_inst, ir.Alloc)
     if len(alloc_inst.used_by) != 1:
         return False

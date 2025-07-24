@@ -1,4 +1,4 @@
-""" Motorola s-record format.
+"""Motorola s-record format.
 
 https://en.wikipedia.org/wiki/SREC_(file_format)
 """
@@ -37,7 +37,7 @@ class SRecord:
 
 
 def write_srecord(obj, f):
-    """ Write object to srecord """
+    """Write object to srecord"""
     data = obj.get_section("code").data
     record = SRecord(1, 0, b"HDR")
     print(record.to_line(), file=f)

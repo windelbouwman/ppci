@@ -1,5 +1,4 @@
-""" Effect descriptions.
-"""
+"""Effect descriptions."""
 
 
 def Assign(lhs, rhs):

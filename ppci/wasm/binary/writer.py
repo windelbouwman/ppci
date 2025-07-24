@@ -1,6 +1,4 @@
-""" Functionality to write a wasm module to its binary format.
-"""
-
+"""Functionality to write a wasm module to its binary format."""
 
 import logging
 from io import BytesIO
@@ -16,16 +14,16 @@ logger = logging.getLogger("wasm")
 
 
 def write_module(m, f):
-    """ Write a wasm module as binary format. """
+    """Write a wasm module as binary format."""
     writer = BinaryFileWriter(f)
     writer.write_module(m)
 
 
 class BinaryFileWriter(BaseIoWriter):
-    """ Write a wasm module as binary format. """
+    """Write a wasm module as binary format."""
 
     def write_module(self, module):
-        """ Write the given module as binary format. """
+        """Write the given module as binary format."""
         self.write_header()
 
         # todo: allow custom section(s)
@@ -94,7 +92,7 @@ class BinaryFileWriter(BaseIoWriter):
             self.write(payload)
 
     def write_header(self):
-        """ Write WebAssembly header. """
+        """Write WebAssembly header."""
         self.write(b"\x00asm")
         self.write_u32(1)  # version, must be 1 for now
 
@@ -119,15 +117,15 @@ class BinaryFileWriter(BaseIoWriter):
         return self.f.write(bb)
 
     def write_f64(self, x):
-        """ Write 64-bit floating point value. """
+        """Write 64-bit floating point value."""
         self.write_fmt("<d", x)
 
     def write_f32(self, x):
-        """ Write 32-bit floating point value. """
+        """Write 32-bit floating point value."""
         self.write_fmt("<f", x)
 
     def write_u32(self, x):
-        """ Write unsigned 32-bit integer value. """
+        """Write unsigned 32-bit integer value."""
         self.write_fmt("<I", x)
 
     def write_str(self, x):
@@ -136,39 +134,39 @@ class BinaryFileWriter(BaseIoWriter):
         self.f.write(bb)
 
     def write_vs64(self, x):
-        """ Write signed integer value in LEB128 encoding. """
+        """Write signed integer value in LEB128 encoding."""
         bb = signed_leb128_encode(x)
         if not len(bb) <= 10:
             raise ValueError("Cannot pack {} into 10 bytes".format(x))
         self.f.write(bb)
 
     def write_vs32(self, x):
-        """ Write signed integer value in LEB128 encoding. """
+        """Write signed integer value in LEB128 encoding."""
         bb = signed_leb128_encode(x)
         if not len(bb) <= 5:  # 5 = ceil(32/7)
             raise ValueError("Cannot pack {} into 5 bytes".format(x))
         self.f.write(bb)
 
     def write_vu32(self, x):
-        """ Write unsigned integer value in LEB128 encoding. """
+        """Write unsigned integer value in LEB128 encoding."""
         bb = unsigned_leb128_encode(x)
         assert len(bb) <= 5
         self.f.write(bb)
 
     def write_vu7(self, x):
-        """ Write unsigned integer value in LEB128 encoding. """
+        """Write unsigned integer value in LEB128 encoding."""
         bb = unsigned_leb128_encode(x)
         assert len(bb) == 1
         self.f.write(bb)
 
     def write_vu1(self, x):
-        """ Write unsigned integer value in LEB128 encoding. """
+        """Write unsigned integer value in LEB128 encoding."""
         bb = unsigned_leb128_encode(x)
         assert len(bb) == 1
         self.f.write(bb)
 
     def write_type(self, typ: str):
-        """ Write type """
+        """Write type"""
         self.write(LANG_TYPES[typ])
 
     def write_ref(self, ref):
@@ -186,7 +184,7 @@ class BinaryFileWriter(BaseIoWriter):
             self.write_vu32(max)
 
     def write_expression(self, expression):
-        """ Write an expression (a list of instructions) """
+        """Write an expression (a list of instructions)"""
         for instruction in expression:
             self.write_instruction(instruction)
 
@@ -194,7 +192,7 @@ class BinaryFileWriter(BaseIoWriter):
         self.write_instruction(Instruction("end"))
 
     def write_instruction(self, instruction):
-        """ Write a single instruction as binary. """
+        """Write a single instruction as binary."""
         # Our instruction
         opcode = OPCODES[instruction.opcode]
         if isinstance(opcode, tuple):
@@ -226,7 +224,7 @@ class BinaryFileWriter(BaseIoWriter):
                 raise TypeError("Unknown instruction arg %r" % o)
 
     def write_type_definition(self, type_definition):
-        """ Write out a `type` definition entry. """
+        """Write out a `type` definition entry."""
         self.write(b"\x60")  # form
         self.write_vu32(len(type_definition.params))  # params
         for _, paramtype in type_definition.params:
@@ -236,7 +234,7 @@ class BinaryFileWriter(BaseIoWriter):
             self.write_type(rettype)
 
     def write_import_definition(self, import_definition):
-        """ Write an `import` definition entry. """
+        """Write an `import` definition entry."""
         self.write_str(import_definition.modname)
         self.write_str(import_definition.name)
         if import_definition.kind == "func":
@@ -261,7 +259,7 @@ class BinaryFileWriter(BaseIoWriter):
             raise NotImplementedError(import_definition.kind)
 
     def write_table_definition(self, table):
-        """ Write out a `table` definition. """
+        """Write out a `table` definition."""
         self.write_type(table.kind)  # always 0x70 funcref in v1
         self.write_limits(table.min, table.max)
 
@@ -269,7 +267,7 @@ class BinaryFileWriter(BaseIoWriter):
         self.write_limits(memory_definition.min, memory_definition.max)
 
     def write_global_definition(self, global_definition):
-        """ Write a global definition. """
+        """Write a global definition."""
         self.write_type(global_definition.typ)
         self.write(bytes([int(global_definition.mutable)]))
 
@@ -277,7 +275,7 @@ class BinaryFileWriter(BaseIoWriter):
         self.write_expression(global_definition.init)
 
     def write_export_definition(self, export):
-        """ Write out an export definition. """
+        """Write out an export definition."""
         self.write_str(export.name)
         type_id = {"func": 0, "table": 1, "memory": 2, "global": 3}[
             export.kind
@@ -287,12 +285,12 @@ class BinaryFileWriter(BaseIoWriter):
         self.write_ref(export.ref)
 
     def write_start_definition(self, start):
-        """ Write out a start definition. """
+        """Write out a start definition."""
         assert start.ref.space == "func"
         self.write_ref(start.ref)
 
     def write_elem_definition(self, elem):
-        """ Write out an `elem` definition. """
+        """Write out an `elem` definition."""
         assert elem.ref.space == "table"
         self.write_ref(elem.ref)
         # Encode offset as expression followed by end instruction
@@ -304,7 +302,7 @@ class BinaryFileWriter(BaseIoWriter):
             self.write_ref(ref)
 
     def write_func_definition(self, func):
-        """ Write out a function. """
+        """Write out a function."""
         # You would expect the ref to be used here, but the WASM spec has a
         # separate function section for that. Not sure why.
 
@@ -332,7 +330,7 @@ class BinaryFileWriter(BaseIoWriter):
         self.write(body)
 
     def write_data_definition(self, data_definition):
-        """ Write out a `data` definition. """
+        """Write out a `data` definition."""
         assert data_definition.ref.space == "memory"
         self.write_ref(data_definition.ref)
 

@@ -1,4 +1,4 @@
-""" Hand written lexer.
+"""Hand written lexer.
 
 The idea of lexers is to split the sourcecode into chunks.
 
@@ -34,7 +34,7 @@ class HandLexerBase:
         self._chunk_start = 0
 
     def tokenize(self, filename, chunks, start_state):
-        """ Return a sequence of tokens """
+        """Return a sequence of tokens"""
         self._filename = filename
         self._chunk_iter = iter(chunks)
         self._next_chunk()
@@ -58,13 +58,13 @@ class HandLexerBase:
         return char
 
     def backup_char(self, char):
-        """ go back one item """
+        """go back one item"""
         if char:
             assert self._chunk_index > 0
             self._chunk_index -= 1
 
     def get_chunk(self):
-        """ Retrieve the next chunk of text
+        """Retrieve the next chunk of text
 
         This function must be implemented by subclasses.
 
@@ -86,33 +86,32 @@ class HandLexerBase:
         return c
 
     def get_location(self):
-        """ Return current location.
-        """
+        """Return current location."""
         if self._chunk:
             row = self._chunk[0]
             column = self._chunk[1] + self._chunk_index
             return SourceLocation(self._filename, row, column, 1)
 
     def _next_chunk(self):
-        """ Enter next text chunk. """
+        """Enter next text chunk."""
         if self._chunk:
-            text = self._chunk[2][self._chunk_start:]
+            text = self._chunk[2][self._chunk_start :]
             self.current_text.append(text)
         self._chunk = self.get_chunk()
         self._chunk_index = 0
         self._chunk_start = 0
 
     def _mark_start(self):
-        """ Store location, and reset text buffer. """
+        """Store location, and reset text buffer."""
         self._start_loc = self.get_location()
         self.current_text.clear()
         self._chunk_start = self._chunk_index
 
     def emit(self, typ):
-        """ Emit the current text under scope as a token """
+        """Emit the current text under scope as a token"""
         # Check if we have some text in this chunk:
         if self._chunk_index > self._chunk_start:
-            text = self._chunk[2][self._chunk_start:self._chunk_index]
+            text = self._chunk[2][self._chunk_start : self._chunk_index]
             self.current_text.append(text)
         # Grab all pieces of text from start to here:
         val = "".join(self.current_text)
@@ -123,11 +122,11 @@ class HandLexerBase:
         self._mark_start()
 
     def ignore(self):
-        """ Ignore text under cursor """
+        """Ignore text under cursor"""
         self._mark_start()
 
     def accept(self, valid):
-        """ Accept a single character if it is in the valid set """
+        """Accept a single character if it is in the valid set"""
         char = self.next_char()
         if char and char in valid:
             return True

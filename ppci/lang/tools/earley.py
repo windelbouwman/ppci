@@ -1,4 +1,4 @@
-""" Implementation of the earley parser strategy.
+"""Implementation of the earley parser strategy.
 
 See also:
 - https://en.wikipedia.org/wiki/Earley_parser
@@ -11,7 +11,7 @@ from ...common import ParseError
 
 
 class Item:
-    """ Partially parsed grammar rule """
+    """Partially parsed grammar rule"""
 
     def __init__(self, rule, dot, origin):
         self.rule = rule
@@ -58,7 +58,7 @@ class Item:
 
 
 class Column:
-    """ A set of partially parsed items for a given token position """
+    """A set of partially parsed items for a given token position"""
 
     def __init__(self, i, token):
         self.i = i
@@ -113,7 +113,7 @@ class EarleyParser:
         self.states = []
 
     def predict(self, item, col):
-        """ Add all rules for a certain non-terminal """
+        """Add all rules for a certain non-terminal"""
         nx = item.nxt
         assert self.grammar.is_nonterminal(nx)
         for rule in self.grammar.productions_for_name(nx):
@@ -121,12 +121,12 @@ class EarleyParser:
             col.add(new_item)
 
     def scan(self, item, col):
-        """ Check if the item can be shifted into the next column """
+        """Check if the item can be shifted into the next column"""
         if item.nxt == col.token.typ:
             col.add(item.shifted())
 
     def complete(self, completed_item, start_col, current_column):
-        """ Complete a rule, check if any other rules can be shifted! """
+        """Complete a rule, check if any other rules can be shifted!"""
         assert completed_item.is_reduce
         worklist = list(start_col)
         while worklist:
@@ -138,7 +138,7 @@ class EarleyParser:
                     worklist.append(new_item)
 
     def parse(self, tokens, debug_dump=False):
-        """ Parse the given token string """
+        """Parse the given token string"""
 
         # Create the state stack:
         columns = [Column(i, tok) for i, tok in enumerate(make_tokens(tokens))]
@@ -182,14 +182,14 @@ class EarleyParser:
         return self.make_tree(columns, self.grammar.start_symbol)
 
     def make_tree(self, columns, nt):
-        """ Make a parse tree """
+        """Make a parse tree"""
         # print('Top tree item:', nt)
         tree, end = self.walk(columns, len(columns) - 1, nt)
         assert end == 0
         return tree
 
     def walk(self, columns, end, nt):
-        """ Process the parsed columns back to a parse tree """
+        """Process the parsed columns back to a parse tree"""
         items = columns[end]
         items = filter(lambda i: i.rule.name == nt and i.is_reduce, items)
         items = sorted(items, key=lambda i: i.rule.priority)

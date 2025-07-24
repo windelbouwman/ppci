@@ -2,8 +2,7 @@ from .base import MachineProgram
 
 
 class ArmProgram(MachineProgram):
-    """ Machine code for most mobile devices and e.g. the Raspberry Pi.
-    """
+    """Machine code for most mobile devices and e.g. the Raspberry Pi."""
 
     def _check_items(self, items):
         return items
@@ -21,11 +20,10 @@ class ArmProgram(MachineProgram):
             lines.append(repr(symbol))
         for reloc in obj.relocations:
             lines.append(repr(reloc))
-        return '\n'.join(lines)
+        return "\n".join(lines)
 
     # todo: does this make sense for arm?
     def as_object(self):
-        """ Export as binary code object (bytes)
-        """
+        """Export as binary code object (bytes)"""
         obj = self._items[0]
-        return bytes(obj.get_section('code').data)
+        return bytes(obj.get_section("code").data)

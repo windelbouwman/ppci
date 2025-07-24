@@ -1,8 +1,8 @@
 """
-    To create a nice report of what happened during compilation, this file
-    implements several reporting types.
+To create a nice report of what happened during compilation, this file
+implements several reporting types.
 
-    Reports can be written to plain text, or html.
+Reports can be written to plain text, or html.
 """
 
 import abc
@@ -23,14 +23,15 @@ from ..binutils.debuginfo import DebugLocation
 @contextmanager
 def html_reporter(filename):
     """Create a reporter that generates a HTML report."""
-    with open(filename, "w", encoding="utf8") as f, HtmlReportGenerator(
-        f
-    ) as reporter:
+    with (
+        open(filename, "w", encoding="utf8") as f,
+        HtmlReportGenerator(f) as reporter,
+    ):
         yield reporter
 
 
 class ReportGenerator(abc.ABC):
-    """ Implement all these function to create a custom reporting generator """
+    """Implement all these function to create a custom reporting generator"""
 
     def header(self):
         pass
@@ -73,7 +74,7 @@ class ReportGenerator(abc.ABC):
         pass
 
     def dump_wasm(self, wasm_module):
-        """ Report web assembly module """
+        """Report web assembly module"""
         self.dump_source("Web assembly module", wasm_module.to_string())
 
     def dump_sgraph(self, sgraph):
@@ -84,7 +85,7 @@ class ReportGenerator(abc.ABC):
 
     @abc.abstractmethod
     def dump_exception(self, einfo):
-        """ List the given exception in report """
+        """List the given exception in report"""
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -102,7 +103,7 @@ class ReportGenerator(abc.ABC):
 
     @abc.abstractmethod
     def dump_instructions(self, instructions, arch):
-        """ Print instructions """
+        """Print instructions"""
         raise NotImplementedError()
 
     def dump_compiler_error(self, compiler_error):
@@ -113,7 +114,7 @@ class ReportGenerator(abc.ABC):
 
 
 class DummyReportGenerator(ReportGenerator):
-    """ Report generator which reports into the void """
+    """Report generator which reports into the void"""
 
     def heading(self, level, title):
         pass
@@ -142,11 +143,11 @@ class TextWritingReporter(ReportGenerator):
         self.dump_file.close()
 
     def print(self, *args, end="\n"):
-        """ Convenience helper for printing to dumpfile """
+        """Convenience helper for printing to dumpfile"""
         print(*args, end=end, file=self.dump_file)
 
     def dump_instructions(self, instructions, arch):
-        """ Print instructions """
+        """Print instructions"""
         asm_printer = arch.asm_printer
         text_stream = TextOutputStream(
             asm_printer, f=self.dump_file, add_binary=True
@@ -186,7 +187,7 @@ class TextReportGenerator(TextWritingReporter):
         self.print(text)
 
     def dump_dag(self, dags):
-        """ Write selection dag to dumpfile """
+        """Write selection dag to dumpfile"""
         self.print("Selection dag:")
         for dag in dags:
             self.print("Dag:")
@@ -202,7 +203,7 @@ class TextReportGenerator(TextWritingReporter):
             self.print("  {}".format(tree))
 
     def dump_frame(self, frame):
-        """ Dump frame to file for debug purposes """
+        """Dump frame to file for debug purposes"""
         self.print(frame)
         for ins in frame.instructions:
             self.print("$ {}".format(ins))
@@ -413,12 +414,12 @@ class HtmlReportGenerator(TextWritingReporter):
             raise NotImplementedError()
 
     def dump_source(self, name, source_code):
-        """ Report web assembly module """
+        """Report web assembly module"""
         with collapseable(self, name):
             self.dump_raw_text(source_code)
 
     def dump_raw_text(self, text):
-        """ Spitout text not to be formatted """
+        """Spitout text not to be formatted"""
         self.print("<pre>")
         self.print(text)
         self.print("</pre>")
@@ -449,7 +450,7 @@ class HtmlReportGenerator(TextWritingReporter):
             self.print("<p><b>To be implemented</b></p>")
 
     def dump_dag(self, dags):
-        """ Write selection dag to dumpfile """
+        """Write selection dag to dumpfile"""
         for dag in dags:
             self.print("Dag:")
             for root in dag:
@@ -467,7 +468,7 @@ class HtmlReportGenerator(TextWritingReporter):
             self.print("</pre>")
 
     def dump_frame(self, frame):
-        """ Dump frame to file for debug purposes """
+        """Dump frame to file for debug purposes"""
         with collapseable(self, "Frame"):
             used_regs = list(sorted(frame.used_regs, key=lambda r: r.name))
             self.print('<p><div class="codeblock">')
@@ -540,7 +541,7 @@ class HtmlReportGenerator(TextWritingReporter):
         ig.to_dot()
 
     def annotate_source(self, src, mod):
-        """ Annotate source code. """
+        """Annotate source code."""
         self.print('<table border="1">')
         self.print("<tr><th>Line</th><th>source</th></tr>")
         lines = {}
@@ -582,7 +583,7 @@ class HtmlReportGenerator(TextWritingReporter):
             self.print("</table>")
 
     def tcell(self, txt, indent=0):
-        """ Inject a html table cell. """
+        """Inject a html table cell."""
         if indent:
             style = ' style="padding-left: {}px;"'.format(indent)
         else:

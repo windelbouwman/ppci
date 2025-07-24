@@ -1,10 +1,9 @@
-""" C3 compiler.
+"""C3 compiler.
 
 Use this compiler to produce object files from c3 sources and c3
 includes. C3 includes have the same format as c3 source files, but do not
 result in any code.
 """
-
 
 import argparse
 from .base import base_parser, march_parser
@@ -30,7 +29,7 @@ parser.add_argument("sources", metavar="source", help="source file", nargs="+")
 
 
 def c3c(args=None):
-    """ Run c3 compile task """
+    """Run c3 compile task"""
     args = parser.parse_args(args)
     with LogSetup(args) as log_setup:
         # Compile sources:

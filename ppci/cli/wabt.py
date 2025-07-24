@@ -1,7 +1,4 @@
-""" Wasm binary toolkit (WABT)
-
-"""
-
+"""Wasm binary toolkit (WABT)"""
 
 import argparse
 import sys
@@ -100,7 +97,7 @@ run_parser.add_argument(
 
 
 def wabt(args=None):
-    """ Compile wasm to native code """
+    """Compile wasm to native code"""
     args = parser.parse_args(args)
     with LogSetup(args) as log_setup:
         if args.command == "wat2wasm":

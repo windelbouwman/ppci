@@ -9,7 +9,7 @@ logger = logging.getLogger("mempage")
 
 
 class MemoryPage:
-    """ Allocate a memory slab in the current process. """
+    """Allocate a memory slab in the current process."""
 
     def __init__(self, size):
         self.size = size
@@ -27,7 +27,7 @@ class MemoryPage:
             self.addr = 0
 
     def write(self, data):
-        """ Fill page with the given data """
+        """Fill page with the given data"""
         if data:
             assert self._page
             self._page.write(data)

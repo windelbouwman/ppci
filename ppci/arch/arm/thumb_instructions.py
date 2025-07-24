@@ -1,4 +1,4 @@
-""" Thumb instruction definitions """
+"""Thumb instruction definitions"""
 
 from ..encoding import Instruction, Operand, Syntax
 from ..token import u16
@@ -36,7 +36,7 @@ class nop_ins(ThumbInstruction):
 
 
 class LS_imm5_base(ThumbInstruction):
-    """ ??? Rt, [Rn, imm5] """
+    """??? Rt, [Rn, imm5]"""
 
     rn = Operand("rn", LowArmRegister, read=True)
     imm5 = Operand("imm5", int)
@@ -96,7 +96,7 @@ class Ldr2(LS_imm5_base):
 
 
 class LS_byte_imm5_base(ThumbInstruction):
-    """ ??? Rt, [Rn, imm5] """
+    """??? Rt, [Rn, imm5]"""
 
     rn = Operand("rn", LowArmRegister, read=True)
     imm5 = Operand("imm5", int)
@@ -156,7 +156,7 @@ class Ldrb(LS_byte_imm5_base):
 
 
 class Strh(ThumbInstruction):
-    """ Strh Rt, [Rn, imm5] """
+    """Strh Rt, [Rn, imm5]"""
 
     rt = Operand("rt", LowArmRegister, read=True)
     rn = Operand("rn", LowArmRegister, read=True)
@@ -179,7 +179,7 @@ class Strh(ThumbInstruction):
 
 
 class Ldrh(ThumbInstruction):
-    """ Ldrh Rt, [Rn, imm5] """
+    """Ldrh Rt, [Rn, imm5]"""
 
     rt = Operand("rt", LowArmRegister, write=True)
     rn = Operand("rn", LowArmRegister, read=True)
@@ -214,7 +214,7 @@ class ls_sp_base_imm8(ThumbInstruction):
 
 
 class Ldr3(ThumbInstruction):
-    """ ldr Rt, LABEL, load value from pc relative position """
+    """ldr Rt, LABEL, load value from pc relative position"""
 
     rt = Operand("rt", LowArmRegister, write=True)
     label = Operand("label", str)
@@ -232,7 +232,7 @@ class Ldr3(ThumbInstruction):
 
 
 class Ldr1(ls_sp_base_imm8):
-    """ ldr Rt, [SP, imm8] """
+    """ldr Rt, [SP, imm8]"""
 
     rt = Operand("rt", LowArmRegister, write=True)
     opcode = 0x98
@@ -254,7 +254,7 @@ class Ldr1(ls_sp_base_imm8):
 
 
 class Str1(ls_sp_base_imm8):
-    """ str Rt, [SP, imm8] """
+    """str Rt, [SP, imm8]"""
 
     rt = Operand("rt", LowArmRegister, read=True)
     opcode = 0x90
@@ -292,7 +292,7 @@ class Adr(ThumbInstruction):
 
 
 class Mov3(ThumbInstruction):
-    """ mov Rd, imm8, move immediate value into register """
+    """mov Rd, imm8, move immediate value into register"""
 
     opcode = 4  # 00100 Rd(3) imm8
     rd = Operand("rd", LowArmRegister, write=True)
@@ -328,7 +328,7 @@ class regregimm3_base(ThumbInstruction):
 
 
 class AddImm(regregimm3_base):
-    """ add Rd, Rn, imm3 """
+    """add Rd, Rn, imm3"""
 
     syntax = Syntax(
         [
@@ -346,7 +346,7 @@ class AddImm(regregimm3_base):
 
 
 class SubImm(regregimm3_base):
-    """ sub Rd, Rn, imm3 """
+    """sub Rd, Rn, imm3"""
 
     syntax = Syntax(
         [
@@ -364,7 +364,7 @@ class SubImm(regregimm3_base):
 
 
 class regregreg_base(ThumbInstruction):
-    """ ??? Rd, Rn, Rm """
+    """??? Rd, Rn, Rm"""
 
     rd = Operand("rd", LowArmRegister, write=True)
     rn = Operand("rn", LowArmRegister, read=True)
@@ -416,7 +416,7 @@ class Sub3(regregreg_base):
 
 
 class Mov2(ThumbInstruction):
-    """ mov rd, rm (all registers, also > r7 """
+    """mov rd, rm (all registers, also > r7"""
 
     rd = Operand("rd", ArmRegister, write=True)
     rm = Operand("rm", ArmRegister, read=True)
@@ -479,7 +479,7 @@ class Sdiv(LongThumbInstruction):
 
 
 class regreg_base(ThumbInstruction):
-    """ ??? Rdn, Rm """
+    """??? Rdn, Rm"""
 
     def encode(self):
         tokens = self.get_tokens()
@@ -509,7 +509,7 @@ Rsb = make_regreg("rsb", 0b0100001001)
 
 
 class Cmp2(ThumbInstruction):
-    """ cmp Rn, imm8 """
+    """cmp Rn, imm8"""
 
     opcode = 5  # 00101
     rn = Operand("rn", LowArmRegister, read=True)
@@ -564,7 +564,7 @@ class Bw(LongThumbInstruction):
 
 
 class Bl(LongThumbInstruction):
-    """ Branch with link """
+    """Branch with link"""
 
     target = Operand("target", str)
     syntax = Syntax(["bl", " ", target])
@@ -586,7 +586,7 @@ class Bl(LongThumbInstruction):
 
 
 class Blx(ThumbInstruction):
-    """ Branch with link with target in a register """
+    """Branch with link with target in a register"""
 
     rm = Operand("rm", ArmRegister, read=True)
     syntax = Syntax(["blx", " ", rm])
@@ -626,7 +626,7 @@ Bge = make_cond_branch("bge", 0b1010)
 
 # Long conditional jumps:
 class cond_base_ins_long(LongThumbInstruction):
-    """ Encoding T3 """
+    """Encoding T3"""
 
     def encode(self):
         j1 = 0  # TODO: what do these mean?
@@ -719,7 +719,7 @@ class Yield(ThumbInstruction):
 
 
 class addspsp_base(ThumbInstruction):
-    """ add/sub SP with imm7 << 2 """
+    """add/sub SP with imm7 << 2"""
 
     imm7 = Operand("imm7", int)
 
@@ -930,7 +930,7 @@ def pattern_const32(context, tree):
     condition=lambda x: x.value in range(256),
 )
 def pattern_const32_imm(context, tree):
-    """ 8 bit constant loading """
+    """8 bit constant loading"""
     d = context.new_reg(LowArmRegister)
     context.emit(Mov3(d, tree.value))
     return d
@@ -962,7 +962,7 @@ def pattern_const8(context, tree):
     condition=lambda x: x.value in range(256),
 )
 def pattern_const8_imm(context, tree):
-    """ 8 bit constant loading """
+    """8 bit constant loading"""
     d = context.new_reg(LowArmRegister)
     context.emit(Mov3(d, tree.value))
     return d

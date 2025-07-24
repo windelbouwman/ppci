@@ -1,5 +1,5 @@
 """
-    Contains fortran langauge AST (abstract syntax tree) nodes.
+Contains fortran langauge AST (abstract syntax tree) nodes.
 """
 
 
@@ -9,7 +9,7 @@ class Node:
 
 
 class Program(Node):
-    """ A fortran program """
+    """A fortran program"""
 
     def __init__(self, name, variables, statements, loc):
         super().__init__(loc)
@@ -32,7 +32,7 @@ class Variable(Node):
 
 
 class Statement(Node):
-    """ A single fortran statement """
+    """A single fortran statement"""
 
     pass
 
@@ -48,14 +48,14 @@ class Assignment(Statement):
 
 
 class Continue(Statement):
-    """ Continue statement """
+    """Continue statement"""
 
     def __repr__(self):
         return "CONTINUE"
 
 
 class Data(Statement):
-    """ Data statement """
+    """Data statement"""
 
     def __init__(self, nlist, clist, loc):
         super().__init__(loc)
@@ -67,7 +67,7 @@ class Data(Statement):
 
 
 class Format(Statement):
-    """ Format statement """
+    """Format statement"""
 
     def __repr__(self):
         return "FORMAT (...)"
@@ -83,7 +83,7 @@ class GoTo(Statement):
 
 
 class IfArith(Statement):
-    """ Arithmatic if """
+    """Arithmatic if"""
 
     def __init__(self, expr, s1, s2, s3, loc):
         super().__init__(loc)
@@ -119,7 +119,7 @@ class Read(Statement):
 
 
 class Stop(Statement):
-    """ Stop statement """
+    """Stop statement"""
 
     def __init__(self, msg, loc):
         super().__init__(loc)
@@ -149,7 +149,7 @@ class Expression(Node):
 
 
 class Binop(Expression):
-    """ Binary operation """
+    """Binary operation"""
 
     def __init__(self, a, op, b, loc):
         super().__init__(loc)

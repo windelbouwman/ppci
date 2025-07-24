@@ -1,5 +1,4 @@
-""" Java handling utility.
-"""
+"""Java handling utility."""
 
 import argparse
 import sys
@@ -44,7 +43,7 @@ jar_parser.add_argument(
 
 
 def java(args=None):
-    """ Java command line utility. """
+    """Java command line utility."""
     args = parser.parse_args(args)
     with LogSetup(args) as log_setup:
         if args.command == "compile":

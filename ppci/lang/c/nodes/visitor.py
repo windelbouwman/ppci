@@ -2,10 +2,10 @@ from . import nodes, types, declarations, expressions, statements
 
 
 class Visitor:
-    """ Recursively visit all nodes """
+    """Recursively visit all nodes"""
 
     def visit(self, node):
-        """ Recursively visit node's child nodes. """
+        """Recursively visit node's child nodes."""
         if isinstance(node, nodes.CompilationUnit):
             for d in node.declarations:
                 self.visit(d)

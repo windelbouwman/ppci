@@ -1,11 +1,11 @@
 class Register:
-    """ Baseclass of all registers types """
+    """Baseclass of all registers types"""
 
     # TODO: __slots__ = ('name', '_num', '_color')
 
     @classmethod
     def all_registers(cls):
-        """ Return all possible instances for this class """
+        """Return all possible instances for this class"""
         if hasattr(cls, "registers"):
             return getattr(cls, "registers")
         else:  # pragma: no cover
@@ -63,7 +63,7 @@ class Register:
 
     @property
     def num(self):
-        """ When the register is colored, this property can be used """
+        """When the register is colored, this property can be used"""
         if self._num is None:
             assert self.is_colored
             return self._color
@@ -72,7 +72,7 @@ class Register:
 
     @property
     def color(self):
-        """ The coloring of this register """
+        """The coloring of this register"""
         return self._color
 
     def set_color(self, color):
@@ -80,7 +80,7 @@ class Register:
 
     @property
     def is_colored(self):
-        """ Determine whether the register is colored """
+        """Determine whether the register is colored"""
         return self._color is not None
 
 

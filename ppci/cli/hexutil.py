@@ -36,7 +36,7 @@ p.add_argument(
 
 
 def hexutil(args=None):
-    """ Hexfile manipulation command. """
+    """Hexfile manipulation command."""
     args = parser.parse_args(args)
     if not args.command:
         parser.print_usage()

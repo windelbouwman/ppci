@@ -1,5 +1,5 @@
 """
-    Module that can load a build definition from file.
+Module that can load a build definition from file.
 """
 
 import os
@@ -10,11 +10,12 @@ from .tasks import Project, Target
 
 
 class RecipeLoader:
-    """ Loads a recipe into a runner from a dictionary or file """
+    """Loads a recipe into a runner from a dictionary or file"""
+
     def load_file(self, recipe_file):
-        """ Loads a build configuration from file """
-        assert hasattr(recipe_file, 'read')
-        if hasattr(recipe_file, 'name'):
+        """Loads a build configuration from file"""
+        assert hasattr(recipe_file, "read")
+        if hasattr(recipe_file, "name"):
             recipe_filename = recipe_file.name
             recipe_dir = os.path.abspath(os.path.dirname(recipe_filename))
             # Allow loading of custom tasks:
@@ -27,36 +28,36 @@ class RecipeLoader:
         project = self.load_project(dom)
 
         if recipe_dir:
-            project.set_property('basedir', recipe_dir)
+            project.set_property("basedir", recipe_dir)
         return project
 
     def load_project(self, elem):
-        """ Load a project from xml """
+        """Load a project from xml"""
         elem = elem.getElementsByTagName("project")[0]
-        name = elem.getAttribute('name')
+        name = elem.getAttribute("name")
         project = Project(name)
-        if elem.hasAttribute('default'):
-            project.default = elem.getAttribute('default')
+        if elem.hasAttribute("default"):
+            project.default = elem.getAttribute("default")
         else:
             project.default = None
 
         # Load imports:
         for import_element in elem.getElementsByTagName("import"):
-            name = import_element.getAttribute('name')
+            name = import_element.getAttribute("name")
             __import__(name)
 
         # Load properties:
         for pe in elem.getElementsByTagName("property"):
-            name = pe.getAttribute('name')
-            value = pe.getAttribute('value')
+            name = pe.getAttribute("name")
+            value = pe.getAttribute("value")
             project.set_property(name, value)
 
         # Load targets:
         for te in elem.getElementsByTagName("target"):
-            name = te.getAttribute('name')
+            name = te.getAttribute("name")
             target = Target(name, project)
-            if te.hasAttribute('depends'):
-                dependencies = te.getAttribute('depends').split(',')
+            if te.hasAttribute("depends"):
+                dependencies = te.getAttribute("depends").split(",")
                 for dep in dependencies:
                     target.add_dependency(dep)
             # print(name)

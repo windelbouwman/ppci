@@ -82,7 +82,7 @@ def running(f):
 
 
 class Linux64DebugDriver(DebugDriver):
-    """ Implements a debugger backend """
+    """Implements a debugger backend"""
 
     def __init__(self):
         super().__init__()
@@ -122,13 +122,13 @@ class Linux64DebugDriver(DebugDriver):
         self.events.on_stop()
 
     def dec_pc(self):
-        """ Decrease pc by 1 """
+        """Decrease pc by 1"""
         regs = self.get_registers([x86_registers.rip])
         regs[x86_registers.rip] -= 1
         self.set_registers(regs)
 
     def step_over_bp(self):
-        """ Step over a 0xcc breakpoint """
+        """Step over a 0xcc breakpoint"""
         rip = self.get_pc()
         cc = self.read_mem(rip, 1)
         old_code = self.breakpoint_backup[rip]
@@ -196,13 +196,13 @@ class Linux64DebugDriver(DebugDriver):
             self.write_byte(address + offset, b)
 
     def read_byte(self, address):
-        """ Convenience wrapper """
+        """Convenience wrapper"""
         w = self.read_word(address)
         byte = w & 0xFF
         return byte
 
     def write_byte(self, address, byte):
-        """ Convenience function to write a single byte """
+        """Convenience function to write a single byte"""
         w = self.read_word(address)
         w = (w & 0xFFFFFFFFFFFFFF00) | byte
         self.write_word(address, w)
@@ -230,7 +230,7 @@ def wifstopped(status):
 
 
 def fork_spawn_stop(argz):
-    """ Spawn new process and stop it on first instruction """
+    """Spawn new process and stop it on first instruction"""
     pid = os.fork()
     if pid == 0:  # Child process
         # Allow the child process to be ptraced

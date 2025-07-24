@@ -1,4 +1,4 @@
-""" Architecture description for web assembly """
+"""Architecture description for web assembly"""
 
 from .. import ir
 from ..arch.arch import VirtualMachineArchitecture
@@ -39,7 +39,7 @@ register_classes = [
 
 
 class WasmArchitecture(VirtualMachineArchitecture):
-    """ Web assembly architecture description """
+    """Web assembly architecture description"""
 
     name = "wasm"
 

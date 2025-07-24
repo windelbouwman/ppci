@@ -1,4 +1,4 @@
-""" Hunk file constants.
+"""Hunk file constants.
 
 Some constants as can be found here:
 

@@ -20,7 +20,7 @@ class ArtificialInstruction(VirtualInstruction):
     called"""
 
     def render(self):  # pragma: no cover
-        """ Implement this by generating a sequence of actual instructions """
+        """Implement this by generating a sequence of actual instructions"""
         raise NotImplementedError()
 
 
@@ -40,7 +40,7 @@ class PseudoInstruction(Instruction):
 
 
 class RelocationHolder(Instruction):
-    """ This instruction encodes no data, but encodes a relocation """
+    """This instruction encodes no data, but encodes a relocation"""
 
     def __init__(self, reloc):
         super().__init__()
@@ -54,7 +54,7 @@ class RelocationHolder(Instruction):
 
 
 class Nop(Instruction):
-    """ Instruction that does nothing and has zero size """
+    """Instruction that does nothing and has zero size"""
 
     def encode(self):
         return bytes()
@@ -64,7 +64,7 @@ class Nop(Instruction):
 
 
 class RegisterUseDef(VirtualInstruction):
-    """ Magic instruction that can be used to define and use registers """
+    """Magic instruction that can be used to define and use registers"""
 
     def __init__(self, uses=(), defs=()):
         super().__init__()
@@ -107,7 +107,7 @@ class InlineAssembly(VirtualInstruction):
 
 
 class Comment(PseudoInstruction):
-    """ Assembly language comment """
+    """Assembly language comment"""
 
     def __init__(self, comment):
         super().__init__()
@@ -118,7 +118,7 @@ class Comment(PseudoInstruction):
 
 
 class Label(PseudoInstruction):
-    """ Assembly language label instruction """
+    """Assembly language label instruction"""
 
     def __init__(self, name):
         super().__init__()
@@ -135,7 +135,7 @@ class Label(PseudoInstruction):
 
 
 class Global(PseudoInstruction):
-    """ Global name declaration """
+    """Global name declaration"""
 
     def __init__(self, name):
         super().__init__()
@@ -146,7 +146,7 @@ class Global(PseudoInstruction):
 
 
 class SetSymbolType(PseudoInstruction):
-    """ Instruction to mark a symbol of a certain type. """
+    """Instruction to mark a symbol of a certain type."""
 
     def __init__(self, name, typ):
         self.name = name
@@ -176,7 +176,7 @@ class Alignment(PseudoInstruction):
 
 
 class SectionInstruction(PseudoInstruction):
-    """ Select a certain section to emit output into. """
+    """Select a certain section to emit output into."""
 
     def __init__(self, a, rep=None):
         super().__init__()
@@ -191,7 +191,7 @@ class SectionInstruction(PseudoInstruction):
 
 
 class DebugData(PseudoInstruction):
-    """ Carrier instruction of debug information. """
+    """Carrier instruction of debug information."""
 
     def __init__(self, data):
         super().__init__()

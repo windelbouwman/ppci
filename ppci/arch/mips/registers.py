@@ -1,4 +1,4 @@
-""" Description of mips registers """
+"""Description of mips registers"""
 
 from ..registers import Register, RegisterClass
 from ... import ir

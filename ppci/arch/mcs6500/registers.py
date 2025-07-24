@@ -8,7 +8,7 @@ class Accumulator(Register):
 
 # TODO: hack, this is no register but a stack position!
 class Temporary(Register):
-    """ On stack temporary """
+    """On stack temporary"""
 
     bitsize = 8
 

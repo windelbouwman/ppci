@@ -1,5 +1,4 @@
-""" Instatiate wasm module as python code.
-"""
+"""Instatiate wasm module as python code."""
 
 import logging
 import io
@@ -16,7 +15,7 @@ logger = logging.getLogger("instantiate")
 
 
 def python_instantiate(module, imports, reporter, cache_file):
-    """ Load wasm module as a PythonModuleInstance """
+    """Load wasm module as a PythonModuleInstance"""
     from ...api import ir_to_python
 
     logger.info("Instantiating wasm module as python")
@@ -37,7 +36,7 @@ def python_instantiate(module, imports, reporter, cache_file):
 
 
 class PythonModuleInstance(ModuleInstance):
-    """ Wasm module loaded a generated python module """
+    """Wasm module loaded a generated python module"""
 
     def __init__(self, py_module, imports):
         super().__init__()
@@ -66,7 +65,7 @@ class PythonModuleInstance(ModuleInstance):
         self._py_module._run_init()
 
     def memory_create(self, min_size, max_size):
-        """ Create memory. """
+        """Create memory."""
         assert max_size is not None
 
         # Allow only a single memory:
@@ -86,7 +85,7 @@ class PythonModuleInstance(ModuleInstance):
         self._memories.append(mem0)
 
     def memory_grow(self, amount):
-        """ Grow memory and return the old size """
+        """Grow memory and return the old size"""
         max_size = self._memories[0].max_size
         assert max_size is not None
         old_size = self.memory_size()
@@ -98,7 +97,7 @@ class PythonModuleInstance(ModuleInstance):
             return old_size
 
     def memory_size(self):
-        """ return memory size in pages """
+        """return memory size in pages"""
         size = (
             self._py_module._irpy_heap_top() - self.mem0_start
         ) // PAGE_SIZE
@@ -115,7 +114,7 @@ class PythonModuleInstance(ModuleInstance):
 
 
 class PythonWasmMemory(WasmMemory):
-    """ Python wasm memory emulation """
+    """Python wasm memory emulation"""
 
     def __init__(self, instance, min_size, max_size):
         super().__init__(min_size, max_size)

@@ -130,13 +130,13 @@ Stm8RegisterCC.registers = [CC]
 
 
 class Stm8Virt8Register(Register):
-    """ Virtual stm8 register of 8 bit """
+    """Virtual stm8 register of 8 bit"""
 
     bitsize = 8
 
 
 class Stm8Virt16Register(Register):
-    """ Virtual stm8 register of 16 bit """
+    """Virtual stm8 register of 16 bit"""
 
     bitsize = 16
 

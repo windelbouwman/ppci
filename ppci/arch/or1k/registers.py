@@ -1,11 +1,11 @@
-""" Description of registers """
+"""Description of registers"""
 
 from ..registers import Register, RegisterClass
 from ... import ir
 
 
 class Or1kRegister(Register):
-    """ An open risc register """
+    """An open risc register"""
 
     bitsize = 32
 
@@ -15,7 +15,7 @@ class Or1kRegister(Register):
 
 
 class Or1kPcRegister(Register):
-    """ The program counter """
+    """The program counter"""
 
     bitsize = 32
 

@@ -1,4 +1,4 @@
-""" This module contains all kind of classes to describe the stack """
+"""This module contains all kind of classes to describe the stack"""
 
 import enum
 from .encoding import Instruction
@@ -7,14 +7,14 @@ from .generic_instructions import Label
 
 
 class FramePointerLocation(enum.Enum):
-    """ Define where the frame pointer is pointing to """
+    """Define where the frame pointer is pointing to"""
 
     TOP = 1
     BOTTOM = 2
 
 
 class StackLocation:
-    """ A stack location can store data just like a register """
+    """A stack location can store data just like a register"""
 
     def __init__(self, offset: int, size: int):
         # self.frame = frame  # The frame in which this location lives
@@ -64,7 +64,7 @@ class Frame:
         return "Frame {}".format(self.name)
 
     def alloc(self, size: int, alignment: int):
-        """ Allocate space on the stack frame and return a stacklocation """
+        """Allocate space on the stack frame and return a stacklocation"""
         # determine alignment of whole stack frame as maximum alignment
         self.alignment = max(self.alignment, alignment)
 
@@ -100,13 +100,13 @@ class Frame:
         self.out_calls.append(size)
 
     def new_name(self, salt):
-        """ Generate a new unique name """
+        """Generate a new unique name"""
         name = "{}_{}_{}".format(self.name, salt, self.literal_number)
         self.literal_number += 1
         return name
 
     def add_constant(self, value):
-        """ Add constant literal to constant pool """
+        """Add constant literal to constant pool"""
         for lab_name, val in self.constants:
             if value == val:
                 return lab_name
@@ -121,34 +121,34 @@ class Frame:
         return any(r in self.used_regs for r in alias[register.get_real()])
 
     def live_ranges(self, vreg):
-        """ Determine the live range of some register """
+        """Determine the live range of some register"""
         return self.cfg._live_ranges[vreg]
 
     def new_reg(self, cls, twain=""):
-        """ Retrieve a new virtual register """
+        """Retrieve a new virtual register"""
         tmp_name = self.temps.__next__() + twain
         assert issubclass(cls, Register)
         tmp = cls(tmp_name)
         return tmp
 
     def new_label(self):
-        """ Generate a unique new label """
+        """Generate a unique new label"""
         return Label(self.new_name("label"))
 
     def emit(self, ins):
-        """ Append an abstract instruction to the end of this frame """
+        """Append an abstract instruction to the end of this frame"""
         assert isinstance(ins, Instruction)
         self.instructions.append(ins)
         return ins
 
     def insert_code_before(self, instruction, code):
-        """ Insert a code sequence before an instruction """
+        """Insert a code sequence before an instruction"""
         pt = self.instructions.index(instruction)
         for idx, ins in enumerate(code):
             self.instructions.insert(idx + pt, ins)
 
     def insert_code_after(self, instruction, code):
-        """ Insert a code sequence after an instruction """
+        """Insert a code sequence after an instruction"""
         pt = self.instructions.index(instruction) + 1
         for idx, ins in enumerate(code):
             self.instructions.insert(idx + pt, ins)

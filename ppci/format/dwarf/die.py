@@ -1,4 +1,4 @@
 class Die:
-    """ Base Debugging Information Entry (DIE) """
+    """Base Debugging Information Entry (DIE)"""
 
     pass

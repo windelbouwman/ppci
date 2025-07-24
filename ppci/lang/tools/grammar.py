@@ -2,7 +2,7 @@ from .common import ParserGenerationException
 
 
 class Grammar:
-    """ Defines a grammar of a language """
+    """Defines a grammar of a language"""
 
     def __init__(self):
         self.terminals = set()
@@ -16,12 +16,12 @@ class Grammar:
         )
 
     def add_terminals(self, terminals):
-        """ Add all terminals to terminals for this grammar """
+        """Add all terminals to terminals for this grammar"""
         for terminal in terminals:
             self.add_terminal(terminal)
 
     def add_terminal(self, name):
-        """ Add a terminal name """
+        """Add a terminal name"""
         if name in self.nonterminals:
             raise ParserGenerationException(
                 "Cannot redefine non-terminal {0} as terminal".format(name)
@@ -29,7 +29,7 @@ class Grammar:
         self.terminals.add(name)
 
     def add_production(self, name, symbols, semantics=None, priority=0):
-        """ Add a production rule to the grammar """
+        """Add a production rule to the grammar"""
         production = Production(name, symbols, semantics, priority=priority)
         self.productions.append(production)
         if name in self.terminals:
@@ -39,7 +39,7 @@ class Grammar:
         self.nonterminals.add(name)
 
     def dump(self):
-        """ Print this grammar """
+        """Print this grammar"""
         print_grammar(self)
 
     def add_one_or_more(self, element_nonterm, list_nonterm):
@@ -60,20 +60,20 @@ class Grammar:
         self.add_production(list_nonterm, [list_nonterm, element_nonterm], b)
 
     def productions_for_name(self, name):
-        """ Retrieve all productions for a non terminal """
+        """Retrieve all productions for a non terminal"""
         return [p for p in self.productions if p.name == name]
 
     @property
     def symbols(self):
-        """ Get all the symbols defined by this grammar """
+        """Get all the symbols defined by this grammar"""
         return self.nonterminals | self.terminals
 
     def is_terminal(self, name):
-        """ Check if a name is a terminal """
+        """Check if a name is a terminal"""
         return name in self.terminals
 
     def is_nonterminal(self, name):
-        """ Check if a name is a non-terminal """
+        """Check if a name is a non-terminal"""
         return name in self.nonterminals
 
     def rewrite_eps_productions(self):
@@ -136,7 +136,7 @@ class Grammar:
         return True
 
     def check_symbols(self):
-        """ Checks no symbols are undefined """
+        """Checks no symbols are undefined"""
         for production in self.productions:
             if production.is_epsilon:
                 # raise ParserGenerationException("Epsilon!")
@@ -166,12 +166,12 @@ class Production:
 
     @property
     def is_epsilon(self):
-        """ Checks if this rule is an epsilon rule """
+        """Checks if this rule is an epsilon rule"""
         return len(self.symbols) == 0
 
 
 def print_grammar(g):
-    """ Pretty print a grammar """
+    """Pretty print a grammar"""
     print(g)
     for production in g.productions:
         print(production)

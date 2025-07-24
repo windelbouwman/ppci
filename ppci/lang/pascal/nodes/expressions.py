@@ -1,12 +1,11 @@
-""" Expression AST nodes.
-"""
+"""Expression AST nodes."""
 
 from .symbols import Variable
 from .types import Type
 
 
 class Expression:
-    """ Expression base class """
+    """Expression base class"""
 
     is_bool = False
 
@@ -18,7 +17,7 @@ class Expression:
 
 
 class Sizeof(Expression):
-    """ Sizeof built-in contraption """
+    """Sizeof built-in contraption"""
 
     def __init__(self, typ: Type, location):
         super().__init__(None, location)
@@ -26,7 +25,7 @@ class Sizeof(Expression):
 
 
 class Deref(Expression):
-    """ Data pointer dereference """
+    """Data pointer dereference"""
 
     def __init__(self, ptr, typ, location):
         super().__init__(typ, location)
@@ -38,7 +37,7 @@ class Deref(Expression):
 
 
 class TypeCast(Expression):
-    """ Type cast expression to another type """
+    """Type cast expression to another type"""
 
     def __init__(self, to_type, x, location):
         super().__init__(to_type, location)
@@ -50,7 +49,7 @@ class TypeCast(Expression):
 
 
 class Member(Expression):
-    """ Field reference of some object, can also be package selection """
+    """Field reference of some object, can also be package selection"""
 
     def __init__(self, base, field, typ, location):
         super().__init__(typ, location)
@@ -64,7 +63,7 @@ class Member(Expression):
 
 
 class Index(Expression):
-    """ Index something, for example an array """
+    """Index something, for example an array"""
 
     def __init__(self, base, index, typ, location):
         super().__init__(typ, location)
@@ -76,7 +75,7 @@ class Index(Expression):
 
 
 class VariableAccess(Expression):
-    """ Access a variable """
+    """Access a variable"""
 
     def __init__(self, variable: Variable, location):
         super().__init__(variable.typ, location)
@@ -87,7 +86,7 @@ class VariableAccess(Expression):
 
 
 class Unop(Expression):
-    """ Operation on one operand, typically 'op' 'expr' """
+    """Operation on one operand, typically 'op' 'expr'"""
 
     arithmatic_ops = ("+", "-")
     logical_ops = ("not",)
@@ -108,12 +107,12 @@ class Unop(Expression):
 
     @property
     def is_bool(self):
-        """ Test if this binop is a boolean """
+        """Test if this binop is a boolean"""
         return self.op in self.cond_ops
 
 
 class Binop(Expression):
-    """ Expression taking two operands and one operator """
+    """Expression taking two operands and one operator"""
 
     arithmatic_ops = (
         "+",
@@ -149,12 +148,12 @@ class Binop(Expression):
 
     @property
     def is_bool(self):
-        """ Test if this binop is a boolean """
+        """Test if this binop is a boolean"""
         return self.op in self.cond_ops
 
 
 class Literal(Expression):
-    """ Constant value or string """
+    """Constant value or string"""
 
     def __init__(self, val, typ, location):
         super().__init__(typ, location)
@@ -165,7 +164,7 @@ class Literal(Expression):
 
 
 class ExpressionList(Expression):
-    """ List of expressions """
+    """List of expressions"""
 
     def __init__(self, expressions, loc):
         super().__init__(None, loc)
@@ -176,7 +175,7 @@ class ExpressionList(Expression):
 
 
 class NamedExpressionList(Expression):
-    """ List of named expressions """
+    """List of named expressions"""
 
     def __init__(self, expressions, loc):
         super().__init__(None, loc)
@@ -187,7 +186,7 @@ class NamedExpressionList(Expression):
 
 
 class FunctionCall(Expression):
-    """ Call to a some function """
+    """Call to a some function"""
 
     def __init__(self, callee, args, typ, location):
         super().__init__(typ, location)

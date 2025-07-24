@@ -9,7 +9,7 @@ from .base import MachineProgram, get_program_classes
 
 
 def get_targets(program):
-    """ Get the program names that the given Program instance/subclass
+    """Get the program names that the given Program instance/subclass
     can be compiled to.
     """
     subclasses = get_program_classes()
@@ -19,12 +19,13 @@ def get_targets(program):
     if not isinstance(cls, type):
         cls = type(program)
     if not issubclass(cls, Program):
-        raise TypeError('get_targets() needs Program instance or class.')
+        raise TypeError("get_targets() needs Program instance or class.")
 
     targets = set()
     for method_name in dir(cls):
-        if method_name.startswith('to_') and \
-                callable(getattr(cls, method_name)):
+        if method_name.startswith("to_") and callable(
+            getattr(cls, method_name)
+        ):
             prog_name = method_name[3:]
             if prog_name in subclasses:
                 targets.add(prog_name)
@@ -32,11 +33,12 @@ def get_targets(program):
 
 
 def get_program_graph():
-    """ Produce a networkx graph where the nodes are language names and the
+    """Produce a networkx graph where the nodes are language names and the
     (directed) edges represent compilers.
     """
     from ppci.utils import graph
-    IGNORE = '', 'sourcecode', 'intermediate', 'machine'
+
+    IGNORE = "", "sourcecode", "intermediate", "machine"
     subclasses = get_program_classes()
 
     g = graph.DiGraph()
@@ -50,7 +52,7 @@ def get_program_graph():
 
 
 def mcp(program, target_name):
-    """ Find the chain of representations to go from the given Program instance
+    """Find the chain of representations to go from the given Program instance
     to the target language. Returns None if no path was found.
 
     This is essentially the Minimum Cost Path algorithm, and we can
@@ -65,7 +67,6 @@ def mcp(program, target_name):
     visited.add(program.language)
 
     while True:
-
         # Are any chains finished?
         for i in reversed(range(len(front))):
             chain = front[i]
@@ -85,7 +86,7 @@ def mcp(program, target_name):
             program = subclasses[chain[-1]]
             for tgt in get_targets(program):  # For each target
                 if tgt not in visited:
-                    new_chain = (chain[0] + 1, ) + chain[1:] + (tgt, )
+                    new_chain = (chain[0] + 1,) + chain[1:] + (tgt,)
                     front.append(new_chain)
                     new_visited.add(tgt)
         visited.update(new_visited)
@@ -96,7 +97,7 @@ def mcp(program, target_name):
 
 
 def get_program_classes_by_group():
-    """ Return programs classes in three groups (source code, ir, machine code),
+    """Return programs classes in three groups (source code, ir, machine code),
     sorted by language name, and with base classes excluded.
     """
     program_classes = get_program_classes()
@@ -104,8 +105,11 @@ def get_program_classes_by_group():
 
     for program in sorted(program_classes.values(), key=lambda p: p.language):
         if program in (
-                Program, SourceCodeProgram, IntermediateProgram,
-                MachineProgram):
+            Program,
+            SourceCodeProgram,
+            IntermediateProgram,
+            MachineProgram,
+        ):
             pass
         elif issubclass(program, SourceCodeProgram):
             programs1.append(program)
@@ -118,34 +122,34 @@ def get_program_classes_by_group():
 
 
 def get_program_classes_html():
-    """ Generate html to show program classes in a graph.
-    """
+    """Generate html to show program classes in a graph."""
     program_classes = get_program_classes()
     programs1, programs2, programs3 = get_program_classes_by_group()
 
-    html = ''
+    html = ""
 
     # Create elements
     columns = []
     for column in range(3):
         progs = (programs1, programs2, programs3)[column]
-        text = ''
+        text = ""
         for program in progs:
-            id = 'ppci-program-{}'.format(program.language)
-            link = '#{}'.format(program.__name__)
+            id = "ppci-program-{}".format(program.language)
+            link = "#{}".format(program.__name__)
             t = "<a id='{}' href='{}' onmouseover='ppci_show_targets(\"{}\");'"
             t += " onmouseout='ppci_hide_targets();'>{}</a>"
             text += t.format(id, link, program.language, program.language)
-            text += '\n'
-        columns.append('<td>{}</td>'.format(text))
+            text += "\n"
+        columns.append("<td>{}</td>".format(text))
 
     table_html = (
-        "<table class='ppci-programs'>\n" +
-        "<tr><th><a href='#SourceCodeProgram'>Source code</a></th>" +
-        "<th><a href='#IntermediateProgram'>Intermediate</a></th>" +
-        "<th><a href='#MachineProgram'>Machine code</a></th></tr>\n" +
-        "<tr>{}</tr></tr>\n".format(''.join(columns)) +
-        "</table>")
+        "<table class='ppci-programs'>\n"
+        + "<tr><th><a href='#SourceCodeProgram'>Source code</a></th>"
+        + "<th><a href='#IntermediateProgram'>Intermediate</a></th>"
+        + "<th><a href='#MachineProgram'>Machine code</a></th></tr>\n"
+        + "<tr>{}</tr></tr>\n".format("".join(columns))
+        + "</table>"
+    )
 
     # Generate "graph"
     # - the references are sorted by group so that arrows dont cross
@@ -157,10 +161,11 @@ def get_program_classes_html():
             if target_program.language in targets:
                 sorted_targets.append(target_program.language)
 
-    html = HTML.replace('TABLE', table_html).replace('STYLE', STYLE)
-    html = html.replace('JS', JS).replace('GRAPHDICT', json.dumps(graphdict))
+    html = HTML.replace("TABLE", table_html).replace("STYLE", STYLE)
+    html = html.replace("JS", JS).replace("GRAPHDICT", json.dumps(graphdict))
 
     return html
+
 
 # Below is some html/css/js that is included in the rst
 

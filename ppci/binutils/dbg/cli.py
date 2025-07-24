@@ -1,4 +1,5 @@
-""" Command line interface for the debugger """
+"""Command line interface for the debugger"""
+
 import cmd
 import binascii
 from threading import Lock
@@ -106,7 +107,7 @@ class Proxy(object):
 
 
 class DebugCli(cmd.Cmd):
-    """ Implement a console-based debugger interface. """
+    """Implement a console-based debugger interface."""
 
     prompt = "DBG>"
     intro = "ppci interactive debugger"
@@ -134,7 +135,7 @@ class DebugCli(cmd.Cmd):
             self.debugger.events.on_start += self.updatestatus
 
     def do_quit(self, _):
-        """ Quit the debugger """
+        """Quit the debugger"""
         sys.stdout = self.stdout_ori
         raise SystemExit
         return True
@@ -142,7 +143,7 @@ class DebugCli(cmd.Cmd):
     do_q = do_quit
 
     def do_info(self, _):
-        """ Show some info about the debugger """
+        """Show some info about the debugger"""
         print("Architecture: ", self.debugger.arch)
         print("Debugger:     ", self.debugger)
         print("Debug driver: ", self.debugger.driver)
@@ -154,34 +155,34 @@ class DebugCli(cmd.Cmd):
         print("Status:       ", text_status[self.debugger.status])
 
     def do_run(self, _):
-        """ Continue the debugger """
+        """Continue the debugger"""
         self.debugger.run()
 
     def do_step(self, _):
-        """ Single step the debugger """
+        """Single step the debugger"""
         self.debugger.step()
 
     do_s = do_step
 
     def do_stepi(self, _):
-        """ Single instruction step the debugger """
+        """Single instruction step the debugger"""
         self.debugger.step()
 
     def do_nstep(self, count):
-        """ Single instruction step the debugger """
+        """Single instruction step the debugger"""
         count = str2int(count)
         self.debugger.nstep(count)
 
     def do_stop(self, _):
-        """ Stop the running program """
+        """Stop the running program"""
         self.debugger.stop()
 
     def do_restart(self, _):
-        """ Restart the running program """
+        """Restart the running program"""
         self.debugger.restart()
 
     def do_read(self, arg):
-        """ Read data from memory: read address,length"""
+        """Read data from memory: read address,length"""
         address, size = map(str2int, arg.split(","))
         data = self.debugger.read_mem(address, size)
         if data:
@@ -189,14 +190,14 @@ class DebugCli(cmd.Cmd):
             print("Data @ 0x{:016X}: {}".format(address, data))
 
     def do_write(self, arg):
-        """ Write data to memory: write address,hexdata """
+        """Write data to memory: write address,hexdata"""
         address, data = arg.split(",")
         address = str2int(address)
         data = bytes(binascii.unhexlify(data.strip().encode("ascii")))
         self.debugger.write_mem(address, data)
 
     def do_print(self, arg):
-        """ Print a variable """
+        """Print a variable"""
         # Evaluate the given expression:
         try:
             tmp = self.debugger.eval_c3_str(arg)
@@ -208,7 +209,7 @@ class DebugCli(cmd.Cmd):
     do_p = do_print
 
     def do_readregs(self, _):
-        """ Read registers """
+        """Read registers"""
         registers = self.debugger.get_registers()
         self.debugger.register_values = self.debugger.get_register_values(
             registers
@@ -223,11 +224,11 @@ class DebugCli(cmd.Cmd):
                 )
 
     def do_writeregs(self, _):
-        """ Write registers """
+        """Write registers"""
         self.debugger.set_register_values()
 
     def do_setreg(self, arg):
-        """ Set registervalue """
+        """Set registervalue"""
         regnum, val = map(str2int, arg.split(","))
         self.debugger.register_values[self.debugger.num2regmap[regnum]] = val
         for reg in self.debugger.registers:
@@ -239,7 +240,7 @@ class DebugCli(cmd.Cmd):
             )
 
     def do_setbrk(self, arg):
-        """ Set a breakpoint: setbrk filename, row """
+        """Set a breakpoint: setbrk filename, row"""
         filename, row = arg.split(",")
         row = str2int(row)
         self.debugger.set_breakpoint(filename, row)
@@ -254,13 +255,13 @@ class DebugCli(cmd.Cmd):
         self.debugger.clear_breakpoint(filename, row)
 
     def do_disasm(self, _):
-        """ Print disassembly around current location """
+        """Print disassembly around current location"""
         instructions = self.debugger.get_disasm()
         for instruction in instructions:
             print(instruction)
 
     def do_stepl(self, line):
-        """ step one line """
+        """step one line"""
         lastfunc = self.debugger.current_function()
         curfunc = lastfunc
         file, lastrow = self.debugger.find_pc()

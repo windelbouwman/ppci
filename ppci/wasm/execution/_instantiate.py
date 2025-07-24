@@ -1,4 +1,4 @@
-""" Provide function to load a wasm module into the current process.
+"""Provide function to load a wasm module into the current process.
 
 Note that for this to work, we require compiled wasm code and a runtime.
 
@@ -6,7 +6,6 @@ The wasm runtime contains the following:
 
 - Implement function like sqrt, floor, bit rotations etc..
 """
-
 
 from ...utils.reporting import DummyReportGenerator
 from .runtime import create_runtime

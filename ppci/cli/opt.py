@@ -1,5 +1,4 @@
-""" Optimizer """
-
+"""Optimizer"""
 
 import argparse
 from .base import base_parser, LogSetup
@@ -13,7 +12,7 @@ parser.add_argument("output", help="output file", type=argparse.FileType("w"))
 
 
 def opt(args=None):
-    """ Optimize a single IR-file """
+    """Optimize a single IR-file"""
     args = parser.parse_args(args)
     module = irutils.Reader().read(args.input)
     with LogSetup(args):

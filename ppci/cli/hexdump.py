@@ -1,4 +1,4 @@
-""" Display file contents in hexadecimal """
+"""Display file contents in hexadecimal"""
 
 import argparse
 from .base import base_parser, LogSetup
@@ -18,7 +18,7 @@ parser.add_argument(
 
 
 def hexdump(args=None):
-    """ Display file contents in hexadecimal """
+    """Display file contents in hexadecimal"""
     args = parser.parse_args(args)
     with LogSetup(args):
         contents = args.file.read()

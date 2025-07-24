@@ -2,8 +2,7 @@ from .base import MachineProgram
 
 
 class X86Program(MachineProgram):
-    """ Machine code for most common desktops and laptops.
-    """
+    """Machine code for most common desktops and laptops."""
 
     def _check_items(self, items):
         return items
@@ -21,20 +20,17 @@ class X86Program(MachineProgram):
             lines.append(repr(symbol))
         for reloc in obj.relocations:
             lines.append(repr(reloc))
-        return '\n'.join(lines)
+        return "\n".join(lines)
 
     def as_object(self):
-        """ Export as binary code object (bytes)
-        """
+        """Export as binary code object (bytes)"""
         obj = self._items[0]
-        return bytes(obj.get_section('code').data)
+        return bytes(obj.get_section("code").data)
 
     def as_elf(self, filename):
-        """ Export as elf file.
-        """
+        """Export as elf file."""
         raise NotImplementedError()
 
     def as_exe(self, filename):
-        """ Export as a system executable file.
-        """
+        """Export as a system executable file."""
         raise NotImplementedError()

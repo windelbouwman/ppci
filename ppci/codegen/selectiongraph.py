@@ -12,7 +12,7 @@ SGGroup = namedtuple("SGGroup", ["name"])
 
 
 class SelectionGraph:
-    """ Directed acyclic graph of to be selected instructions """
+    """Directed acyclic graph of to be selected instructions"""
 
     # TODO: can this derive from graph class?
     def __init__(self):
@@ -26,7 +26,7 @@ class SelectionGraph:
         return value.src()
 
     def add_node(self, node):
-        """ Add a node to the graph """
+        """Add a node to the graph"""
         self.nodes.add(node)
         if hasattr(node, "group"):
             group = getattr(node, "group")
@@ -35,7 +35,7 @@ class SelectionGraph:
             self.groups[group].add(node)
 
     def get_group(self, group):
-        """ Get all nodes of a group """
+        """Get all nodes of a group"""
         assert group in self.groups
         return self.groups[group]
 
@@ -48,7 +48,7 @@ class SelectionGraph:
                 yield SGEdge(inp.node, node, inp.name, inp.kind)
 
     def check(self):
-        """ Check if the graph is consistent """
+        """Check if the graph is consistent"""
         for edge in self.edges:
             assert edge.src in self.nodes
             assert edge.dst in self.nodes
@@ -82,11 +82,11 @@ class SGValue:
         self.wants_vreg = True  # Indicator if this value is expensive
 
     def src(self):
-        """ Gets the originating node for this value """
+        """Gets the originating node for this value"""
         pass
 
     def targets(self):
-        """ Gets the nodes that use this value """
+        """Gets the nodes that use this value"""
         pass
 
     def add_use(self, use):
@@ -94,7 +94,7 @@ class SGValue:
 
     @property
     def ty(self):
-        """ Get the ir-type of this value """
+        """Get the ir-type of this value"""
         return self.node.name.ty
 
     def __repr__(self):
@@ -125,7 +125,7 @@ class SGNode:
         return False
 
     def inputs_of_type(self, kind):
-        """ Return all inputs of a given type """
+        """Return all inputs of a given type"""
         return [inp for inp in self.inputs if inp.kind == kind]
 
     @property
@@ -152,18 +152,18 @@ class SGNode:
         return self.outputs_of_type(SGValue.DATA)
 
     def add_input(self, inp):
-        """ Add a single input to this node """
+        """Add a single input to this node"""
         assert isinstance(inp, SGValue)
         self.inputs.append(inp)
         inp.add_use(self)
 
     def add_inputs(self, *args):
-        """ Add a series of inputs """
+        """Add a series of inputs"""
         for inp in args:
             self.add_input(inp)
 
     def new_output(self, name, kind=SGValue.DATA):
-        """ Create a new output value with a name and the given kind """
+        """Create a new output value with a name and the given kind"""
         if self.name.ty is None and kind == SGValue.DATA:
             # self.name.op not in ['ENTRY', 'EXIT'] and \
             raise ValueError("{} cannot produce output".format(self))

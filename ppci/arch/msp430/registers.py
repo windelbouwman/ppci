@@ -1,4 +1,4 @@
-""" Description of msp430 registers """
+"""Description of msp430 registers"""
 
 from ..registers import Register, RegisterClass
 from ... import ir

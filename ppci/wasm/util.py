@@ -30,7 +30,7 @@ hex_nan_prog = re.compile(r"[-+]?nan:.+")
 
 
 def is_int(s):
-    """ Check if the given s is integer or can be converted to int """
+    """Check if the given s is integer or can be converted to int"""
     if isinstance(s, int):
         return True
     elif isinstance(s, str):
@@ -40,7 +40,7 @@ def is_int(s):
 
 
 def make_int(s, bits=None):
-    """ Try to make an integer """
+    """Try to make an integer"""
     if isinstance(s, int):
         v = s
     elif isinstance(s, float):
@@ -62,7 +62,7 @@ def make_int(s, bits=None):
 
 
 def make_float(s):
-    """ Try to make an integer """
+    """Try to make an integer"""
     if isinstance(s, float):
         return s
     elif isinstance(s, int):
@@ -101,7 +101,7 @@ class SlugTable:
 
 
 def sanitize_name(name: str):
-    """ Strip illegal characters from name, such as '.' and '-' """
+    """Strip illegal characters from name, such as '.' and '-'"""
     # First filtering on weird characters
     table = SlugTable()
     name = name.translate(table)
@@ -245,7 +245,7 @@ def run_wasm_in_notebook(wasm):
 
 @lru_cache(maxsize=None)
 def has_node() -> bool:
-    """ Check if nodejs is available """
+    """Check if nodejs is available"""
     return "WASMFUN_NODE_EXE" in os.environ
 
     # TODO: enable the code below.

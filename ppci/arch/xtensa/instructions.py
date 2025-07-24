@@ -1,4 +1,4 @@
-""" The xtensa instructions """
+"""The xtensa instructions"""
 
 # pylint: disable=invalid-name
 from ..token import Token, bit_range
@@ -19,7 +19,7 @@ integer_divide_isa = Isa()
 
 
 class RrrToken(Token):
-    """ RRR format """
+    """RRR format"""
 
     class Info:
         size = 24
@@ -109,7 +109,7 @@ class Bri12Token(Token):
 
 
 class RrrnToken(Token):
-    """ Narrow RRR format """
+    """Narrow RRR format"""
 
     class Info:
         size = 16
@@ -169,7 +169,7 @@ class XtensaBooleanInstruction(Instruction):
 
 
 class Abs(XtensaCoreInstruction):
-    """ Calculate absolute value """
+    """Calculate absolute value"""
 
     tokens = [RrrToken]
     r = Operand("r", AddressRegister, write=True)
@@ -179,7 +179,7 @@ class Abs(XtensaCoreInstruction):
 
 
 class Abss(XtensaFloatingPointInstruction):
-    """ Calculate absolute value single precision float """
+    """Calculate absolute value single precision float"""
 
     tokens = [RrrToken]
     fr = Operand("fr", FloatRegister, write=True)
@@ -189,7 +189,7 @@ class Abss(XtensaFloatingPointInstruction):
 
 
 class Add(XtensaCoreInstruction):
-    """ Add """
+    """Add"""
 
     tokens = [RrrToken]
     r = Operand("r", AddressRegister, write=True)
@@ -200,7 +200,7 @@ class Add(XtensaCoreInstruction):
 
 
 class Addn(XtensaNarrowInstruction):
-    """ Narrow add """
+    """Narrow add"""
 
     tokens = [RrrnToken]
     r = Operand("r", AddressRegister, write=True)
@@ -211,7 +211,7 @@ class Addn(XtensaNarrowInstruction):
 
 
 class Adds(XtensaFloatingPointInstruction):
-    """ Add.s """
+    """Add.s"""
 
     tokens = [RrrToken]
     fr = Operand("fr", FloatRegister, write=True)
@@ -222,7 +222,7 @@ class Adds(XtensaFloatingPointInstruction):
 
 
 class Addi(XtensaCoreInstruction):
-    """ Add immediate """
+    """Add immediate"""
 
     tokens = [Rri8Token]
     s = Operand("s", AddressRegister, read=True)
@@ -236,7 +236,7 @@ class Addi(XtensaCoreInstruction):
 
 
 class Addmi(XtensaCoreInstruction):
-    """ Add immediate with shift by 8 """
+    """Add immediate with shift by 8"""
 
     tokens = [Rri8Token]
     s = Operand("s", AddressRegister, read=True)
@@ -247,7 +247,7 @@ class Addmi(XtensaCoreInstruction):
 
 
 class Addx2(XtensaCoreInstruction):
-    """ Addx2 """
+    """Addx2"""
 
     tokens = [RrrToken]
     r = Operand("r", AddressRegister, write=True)
@@ -258,7 +258,7 @@ class Addx2(XtensaCoreInstruction):
 
 
 class Addx4(XtensaCoreInstruction):
-    """ Addx4 """
+    """Addx4"""
 
     tokens = [RrrToken]
     r = Operand("r", AddressRegister, write=True)
@@ -269,7 +269,7 @@ class Addx4(XtensaCoreInstruction):
 
 
 class Addx8(XtensaCoreInstruction):
-    """ Addx8 """
+    """Addx8"""
 
     tokens = [RrrToken]
     r = Operand("r", AddressRegister, write=True)
@@ -283,7 +283,7 @@ class Addx8(XtensaCoreInstruction):
 
 
 class And(XtensaCoreInstruction):
-    """ And """
+    """And"""
 
     tokens = [RrrToken]
     r = Operand("r", AddressRegister, write=True)
@@ -294,7 +294,7 @@ class And(XtensaCoreInstruction):
 
 
 class Andb(XtensaBooleanInstruction):
-    """ Boolean and """
+    """Boolean and"""
 
     tokens = [RrrToken]
     r = Operand("r", AddressRegister, write=True)
@@ -305,7 +305,7 @@ class Andb(XtensaBooleanInstruction):
 
 
 class Andbc(XtensaBooleanInstruction):
-    """ Boolean and with complement """
+    """Boolean and with complement"""
 
     tokens = [RrrToken]
     r = Operand("r", AddressRegister, write=True)
@@ -399,7 +399,7 @@ class Call0Relocation(Relocation):
 
 
 class Bany(XtensaCoreInstruction):
-    """ Branch if any bit set """
+    """Branch if any bit set"""
 
     tokens = [Rri8Token]
     s = Operand("s", AddressRegister, read=True)
@@ -413,7 +413,7 @@ class Bany(XtensaCoreInstruction):
 
 
 class Bbc(XtensaCoreInstruction):
-    """ Branch if bit clear """
+    """Branch if bit clear"""
 
     tokens = [Rri8Token]
     s = Operand("s", AddressRegister, read=True)
@@ -427,7 +427,7 @@ class Bbc(XtensaCoreInstruction):
 
 
 class Beq(XtensaCoreInstruction):
-    """ Branch if equal """
+    """Branch if equal"""
 
     tokens = [Rri8Token]
     s = Operand("s", AddressRegister, read=True)
@@ -441,7 +441,7 @@ class Beq(XtensaCoreInstruction):
 
 
 class Beqz(XtensaCoreInstruction):
-    """ Branch if equal to zero """
+    """Branch if equal to zero"""
 
     tokens = [Bri12Token]
     s = Operand("s", AddressRegister, read=True)
@@ -454,7 +454,7 @@ class Beqz(XtensaCoreInstruction):
 
 
 class Bge(XtensaCoreInstruction):
-    """ Branch if greater than or equal """
+    """Branch if greater than or equal"""
 
     tokens = [Rri8Token]
     s = Operand("s", AddressRegister, read=True)
@@ -468,7 +468,7 @@ class Bge(XtensaCoreInstruction):
 
 
 class Bgeu(XtensaCoreInstruction):
-    """ Branch if greater than or equal unsigned """
+    """Branch if greater than or equal unsigned"""
 
     tokens = [Rri8Token]
     s = Operand("s", AddressRegister, read=True)
@@ -482,7 +482,7 @@ class Bgeu(XtensaCoreInstruction):
 
 
 class Blt(XtensaCoreInstruction):
-    """ Branch if less than """
+    """Branch if less than"""
 
     tokens = [Rri8Token]
     s = Operand("s", AddressRegister, read=True)
@@ -496,7 +496,7 @@ class Blt(XtensaCoreInstruction):
 
 
 class Bltu(XtensaCoreInstruction):
-    """ Branch if less than unsigned """
+    """Branch if less than unsigned"""
 
     tokens = [Rri8Token]
     s = Operand("s", AddressRegister, read=True)
@@ -510,7 +510,7 @@ class Bltu(XtensaCoreInstruction):
 
 
 class Bne(XtensaCoreInstruction):
-    """ Branch if not equal """
+    """Branch if not equal"""
 
     tokens = [Rri8Token]
     s = Operand("s", AddressRegister, read=True)
@@ -524,7 +524,7 @@ class Bne(XtensaCoreInstruction):
 
 
 class Bnez(XtensaCoreInstruction):
-    """ Branch if not equal to zero """
+    """Branch if not equal to zero"""
 
     tokens = [Bri12Token]
     s = Operand("s", AddressRegister, read=True)
@@ -537,7 +537,7 @@ class Bnez(XtensaCoreInstruction):
 
 
 class Call0(XtensaCoreInstruction):
-    """ Non windowed call """
+    """Non windowed call"""
 
     tokens = [CallToken]
     label = Operand("label", str)
@@ -549,7 +549,7 @@ class Call0(XtensaCoreInstruction):
 
 
 class Callx0(XtensaCoreInstruction):
-    """ Non windowed call register """
+    """Non windowed call register"""
 
     tokens = [RrrToken]
     s = Operand("s", AddressRegister, read=True)
@@ -558,7 +558,7 @@ class Callx0(XtensaCoreInstruction):
 
 
 class J(XtensaCoreInstruction):
-    """ Unconditional jump """
+    """Unconditional jump"""
 
     tokens = [CallToken]
     label = Operand("label", str)
@@ -570,7 +570,7 @@ class J(XtensaCoreInstruction):
 
 
 class L8ui(XtensaCoreInstruction):
-    """ Load 8-bit unsigned """
+    """Load 8-bit unsigned"""
 
     tokens = [Rri8Token]
     s = Operand("s", AddressRegister, read=True)
@@ -581,7 +581,7 @@ class L8ui(XtensaCoreInstruction):
 
 
 class L16si(XtensaCoreInstruction):
-    """ Load 16-bit signed """
+    """Load 16-bit signed"""
 
     tokens = [Rri8Token]
     s = Operand("s", AddressRegister, read=True)
@@ -592,7 +592,7 @@ class L16si(XtensaCoreInstruction):
 
 
 class L16ui(XtensaCoreInstruction):
-    """ Load 16-bit unsigned """
+    """Load 16-bit unsigned"""
 
     tokens = [Rri8Token]
     s = Operand("s", AddressRegister, read=True)
@@ -603,7 +603,7 @@ class L16ui(XtensaCoreInstruction):
 
 
 class L32i(XtensaCoreInstruction):
-    """ Load 32-bit """
+    """Load 32-bit"""
 
     tokens = [Rri8Token]
     s = Operand("s", AddressRegister, read=True)
@@ -614,7 +614,7 @@ class L32i(XtensaCoreInstruction):
 
 
 class L32in(XtensaNarrowInstruction):
-    """ Narrow load 32-bit """
+    """Narrow load 32-bit"""
 
     tokens = [RrrnToken]
     s = Operand("s", AddressRegister, read=True)
@@ -625,7 +625,7 @@ class L32in(XtensaNarrowInstruction):
 
 
 class L32r(XtensaCoreInstruction):
-    """ Load 32-bit pc relative """
+    """Load 32-bit pc relative"""
 
     tokens = [Ri16Token]
     t = Operand("t", AddressRegister, write=True)
@@ -638,7 +638,7 @@ class L32r(XtensaCoreInstruction):
 
 
 class Mov(XtensaMacroInstruction):
-    """ Move (actually a macro) """
+    """Move (actually a macro)"""
 
     r = Operand("r", AddressRegister, write=True)
     s = Operand("s", AddressRegister, read=True)
@@ -649,7 +649,7 @@ class Mov(XtensaMacroInstruction):
 
 
 class Movi(XtensaCoreInstruction):
-    """ Move immediate """
+    """Move immediate"""
 
     tokens = [Rri8Token]
     t = Operand("t", AddressRegister, write=True)
@@ -659,7 +659,7 @@ class Movi(XtensaCoreInstruction):
 
 
 class Neg(XtensaCoreInstruction):
-    """ Negate """
+    """Negate"""
 
     tokens = [RrrToken]
     r = Operand("r", AddressRegister, write=True)
@@ -669,7 +669,7 @@ class Neg(XtensaCoreInstruction):
 
 
 class Nop(XtensaCoreInstruction):
-    """ No operation """
+    """No operation"""
 
     tokens = [RrrToken]
     patterns = {"op2": 0, "op1": 0, "r": 2, "s": 0, "t": 15, "op0": 0}
@@ -677,7 +677,7 @@ class Nop(XtensaCoreInstruction):
 
 
 class Or(XtensaCoreInstruction):
-    """ Bitwise logical or """
+    """Bitwise logical or"""
 
     tokens = [RrrToken]
     r = Operand("r", AddressRegister, write=True)
@@ -688,7 +688,7 @@ class Or(XtensaCoreInstruction):
 
 
 class Rems(XtensaIntegerDivideInstruction):
-    """ Remainder signed """
+    """Remainder signed"""
 
     tokens = [RrrToken]
     r = Operand("r", AddressRegister, write=True)
@@ -699,7 +699,7 @@ class Rems(XtensaIntegerDivideInstruction):
 
 
 class Remu(XtensaIntegerDivideInstruction):
-    """ Remainder unsigned """
+    """Remainder unsigned"""
 
     tokens = [RrrToken]
     r = Operand("r", AddressRegister, write=True)
@@ -710,7 +710,7 @@ class Remu(XtensaIntegerDivideInstruction):
 
 
 class Ret(XtensaCoreInstruction):
-    """ Non-windowed return """
+    """Non-windowed return"""
 
     tokens = [CallxToken]
     patterns = {"op2": 0, "op1": 0, "r": 0, "s": 0, "m": 2, "n": 0, "op0": 0}
@@ -718,7 +718,7 @@ class Ret(XtensaCoreInstruction):
 
 
 class S8i(XtensaCoreInstruction):
-    """ Store 8-bit """
+    """Store 8-bit"""
 
     tokens = [Rri8Token]
     s = Operand("s", AddressRegister, read=True)
@@ -729,7 +729,7 @@ class S8i(XtensaCoreInstruction):
 
 
 class S16i(XtensaCoreInstruction):
-    """ Store 16-bit """
+    """Store 16-bit"""
 
     tokens = [Rri8Token]
     s = Operand("s", AddressRegister, read=True)
@@ -740,7 +740,7 @@ class S16i(XtensaCoreInstruction):
 
 
 class S32i(XtensaCoreInstruction):
-    """ Store 32-bit """
+    """Store 32-bit"""
 
     tokens = [Rri8Token]
     s = Operand("s", AddressRegister, read=True)
@@ -751,7 +751,7 @@ class S32i(XtensaCoreInstruction):
 
 
 class Sext(XtensaCoreInstruction):
-    """ Sign extend. """
+    """Sign extend."""
 
     tokens = [RrrToken]
     r = Operand("r", AddressRegister, write=True)
@@ -769,7 +769,7 @@ class Sext(XtensaCoreInstruction):
 
 
 class Sll(XtensaCoreInstruction):
-    """ Shift left logical """
+    """Shift left logical"""
 
     tokens = [RrrToken]
     r = Operand("r", AddressRegister, write=True)
@@ -779,7 +779,7 @@ class Sll(XtensaCoreInstruction):
 
 
 class Sra(XtensaCoreInstruction):
-    """ Shift right arithmatic """
+    """Shift right arithmatic"""
 
     tokens = [RrrToken]
     r = Operand("r", AddressRegister, write=True)
@@ -789,7 +789,7 @@ class Sra(XtensaCoreInstruction):
 
 
 class Srl(XtensaCoreInstruction):
-    """ Shift right logical """
+    """Shift right logical"""
 
     tokens = [RrrToken]
     r = Operand("r", AddressRegister, write=True)
@@ -799,7 +799,7 @@ class Srl(XtensaCoreInstruction):
 
 
 class Srli(XtensaCoreInstruction):
-    """ Shift right logical immediate """
+    """Shift right logical immediate"""
 
     tokens = [RrrToken]
     r = Operand("r", AddressRegister, write=True)
@@ -810,7 +810,7 @@ class Srli(XtensaCoreInstruction):
 
 
 class Ssl(XtensaCoreInstruction):
-    """ Set shift amount for left shift """
+    """Set shift amount for left shift"""
 
     tokens = [RrrToken]
     s = Operand("s", AddressRegister, read=True)
@@ -819,7 +819,7 @@ class Ssl(XtensaCoreInstruction):
 
 
 class Ssr(XtensaCoreInstruction):
-    """ Set shift amount for right shift """
+    """Set shift amount for right shift"""
 
     tokens = [RrrToken]
     s = Operand("s", AddressRegister, read=True)
@@ -828,7 +828,7 @@ class Ssr(XtensaCoreInstruction):
 
 
 class Sub(XtensaCoreInstruction):
-    """ Substract """
+    """Substract"""
 
     tokens = [RrrToken]
     r = Operand("r", AddressRegister, write=True)
@@ -839,7 +839,7 @@ class Sub(XtensaCoreInstruction):
 
 
 class Subx2(XtensaCoreInstruction):
-    """ Substract with shift by 1 """
+    """Substract with shift by 1"""
 
     tokens = [RrrToken]
     r = Operand("r", AddressRegister, write=True)
@@ -850,7 +850,7 @@ class Subx2(XtensaCoreInstruction):
 
 
 class Subx4(XtensaCoreInstruction):
-    """ Substract with shift by 2 """
+    """Substract with shift by 2"""
 
     tokens = [RrrToken]
     r = Operand("r", AddressRegister, write=True)
@@ -861,7 +861,7 @@ class Subx4(XtensaCoreInstruction):
 
 
 class Subx8(XtensaCoreInstruction):
-    """ Substract with shift by 3 """
+    """Substract with shift by 3"""
 
     tokens = [RrrToken]
     r = Operand("r", AddressRegister, write=True)
@@ -872,7 +872,7 @@ class Subx8(XtensaCoreInstruction):
 
 
 class Xor(XtensaCoreInstruction):
-    """ Bitwise logical exclusive or """
+    """Bitwise logical exclusive or"""
 
     tokens = [RrrToken]
     r = Operand("r", AddressRegister, write=True)
@@ -884,7 +884,7 @@ class Xor(XtensaCoreInstruction):
 
 # Extra handy instructions:
 class Push(XtensaMacroInstruction):
-    """ Push a register on stack """
+    """Push a register on stack"""
 
     r = Operand("r", AddressRegister, read=True)
     syntax = Syntax(["push", " ", r])
@@ -895,7 +895,7 @@ class Push(XtensaMacroInstruction):
 
 
 class Pop(XtensaMacroInstruction):
-    """ Pop a register from the stack """
+    """Pop a register from the stack"""
 
     r = Operand("r", AddressRegister, write=True)
     syntax = Syntax(["pop", " ", r])
@@ -943,7 +943,7 @@ def pattern_label(context, tree):
 
 @core_isa.pattern("reg", "imm12", size=3, cycles=1, energy=1)
 def pattern_12bit_const(context, tree, c0, size=3, cycles=1, energy=1):
-    """ Load a 12 bit constant into a register. """
+    """Load a 12 bit constant into a register."""
     d = context.new_reg(AddressRegister)
     context.emit(Movi(d, c0))
     return d
@@ -979,7 +979,7 @@ def pattern_const_i32(context, tree):
     "imm8", "CONSTU8", condition=lambda t: t.value in range(-128, 128)
 )
 def pattern_imm8(context, tree):
-    """ A small constant between in range [-128, 127]. """
+    """A small constant between in range [-128, 127]."""
     return tree.value
 
 
@@ -1002,7 +1002,7 @@ def pattern_imm8(context, tree):
     "imm12", "CONSTU8", condition=lambda t: t.value in range(-2048, 2048)
 )
 def pattern_imm12(context, tree):
-    """ A small constant between in range [-2048, 2047]. """
+    """A small constant between in range [-2048, 2047]."""
     # blaat
     return tree.value
 
@@ -1113,7 +1113,7 @@ def pattern_neg(context, tree, c0):
 
 
 def call_internal(context, label, args):
-    """ Emit a call to a helper routine to perform this operation """
+    """Emit a call to a helper routine to perform this operation"""
     c0, c1 = args
     d = context.new_reg(AddressRegister)
     context.move(a2, c0)

@@ -21,7 +21,7 @@ logger = logging.getLogger("wat")
 
 
 def load_tuple(module, t):
-    """ Load contents of tuple t into module """
+    """Load contents of tuple t into module"""
     if not isinstance(t, tuple):
         raise TypeError("t must be tuple")
 
@@ -57,7 +57,7 @@ class WatTupleLoader(TupleParser):
         self.func_backlog = []
 
     def load_module(self, t):
-        """ Load a module from a tuple """
+        """Load a module from a tuple"""
         self._feed(t)
 
         self.expect(Token.LPAR)
@@ -143,7 +143,7 @@ class WatTupleLoader(TupleParser):
                 item.index = item.resolve(id_maps)
 
     def gather_definitions(self):
-        """ Take all definitions by section id order: """
+        """Take all definitions by section id order:"""
         definitions = []
         for name in components.SECTION_IDS:
             for definition in self.definitions[name]:
@@ -161,7 +161,7 @@ class WatTupleLoader(TupleParser):
 
     # Section types:
     def load_type(self):
-        """ Load a tuple starting with 'type' """
+        """Load a tuple starting with 'type'"""
         id = self._parse_optional_id(default=self.gen_id("type"))
         self.expect(Token.LPAR, "func")
         params, results = self._parse_function_signature()
@@ -178,7 +178,7 @@ class WatTupleLoader(TupleParser):
         return id
 
     def _parse_optional_ref(self, space, default=None):
-        """ Parse an optional reference, defaulting to 0 """
+        """Parse an optional reference, defaulting to 0"""
         if self._at_ref():
             value = self.take()
         else:
@@ -188,7 +188,7 @@ class WatTupleLoader(TupleParser):
         return value
 
     def _parse_ref(self, space):
-        """ Parse a reference (int or $ref) into the given space """
+        """Parse a reference (int or $ref) into the given space"""
         assert self._at_ref()
         value = self.take()
         return self._make_ref(space, value)
@@ -216,7 +216,7 @@ class WatTupleLoader(TupleParser):
         return ref
 
     def _parse_type_ref(self):
-        """ Parse a type reference. """
+        """Parse a type reference."""
         self.expect(Token.LPAR, "type")
         ref = self._parse_ref("type")
         self.expect(Token.RPAR)
@@ -238,11 +238,11 @@ class WatTupleLoader(TupleParser):
         return params, results
 
     def _parse_param_list(self):
-        """ Parse (param i32 i32) and friends. """
+        """Parse (param i32 i32) and friends."""
         return self._parse_type_bound_value_list("param")
 
     def _parse_type_bound_value_list(self, kind):
-        """ Parse thing like (locals i32) (locals $foo i32) """
+        """Parse thing like (locals i32) (locals $foo i32)"""
         params = []
         while self.munch(Token.LPAR, kind):
             if not self.match(Token.RPAR):
@@ -265,7 +265,7 @@ class WatTupleLoader(TupleParser):
         return result
 
     def load_import(self):
-        """ Parse top level import. """
+        """Parse top level import."""
         modname = self.take()
         name = self.take()
         self.expect(Token.LPAR)
@@ -292,7 +292,7 @@ class WatTupleLoader(TupleParser):
         self.add_definition(components.Import(modname, name, kind, id, info))
 
     def load_export(self):
-        """ Parse a toplevel export """
+        """Parse a toplevel export"""
         name = self.take()
         self.expect(Token.LPAR)
         kind = self.take()
@@ -301,12 +301,12 @@ class WatTupleLoader(TupleParser):
         self.add_definition(components.Export(name, kind, ref))
 
     def load_start(self):
-        """ Parse a toplevel start """
+        """Parse a toplevel start"""
         name = self._parse_ref("func")
         self.add_definition(components.Start(name))
 
     def load_table(self):
-        """ Parse a table """
+        """Parse a table"""
         id = self._parse_optional_id(default=self.gen_id("table"))
         self._parse_inline_export("table", id)
         if self.match(Token.LPAR, "import"):  # handle inline imports
@@ -334,7 +334,7 @@ class WatTupleLoader(TupleParser):
             self.add_definition(components.Table(id, kind, min, max))
 
     def load_elem(self):
-        """ Load an elem element """
+        """Load an elem element"""
         ref = self._parse_optional_ref("table", default=0)
         offset = self.parse_offset_expression()
         refs = self.parse_ref_list()
@@ -343,7 +343,7 @@ class WatTupleLoader(TupleParser):
         self.add_definition(components.Elem(ref, offset, refs))
 
     def parse_ref_list(self):
-        """ Parse $1 $2 $foo $bar """
+        """Parse $1 $2 $foo $bar"""
         refs = []
         while self._at_ref():
             ref = self._parse_ref("func")
@@ -351,7 +351,7 @@ class WatTupleLoader(TupleParser):
         return refs
 
     def _make_ref(self, space, value):
-        """ Create a reference in a space given a value """
+        """Create a reference in a space given a value"""
         if is_dollar(value):
             ref = components.Ref(space, name=value)
             if space == "local":
@@ -369,7 +369,7 @@ class WatTupleLoader(TupleParser):
         return ref
 
     def load_memory(self):
-        """ Load a memory definition """
+        """Load a memory definition"""
         id = self._parse_optional_id(default=self.gen_id("memory"))
         self._parse_inline_export("memory", id)
         if self.match(Token.LPAR, "import"):  # handle inline imports
@@ -416,7 +416,7 @@ class WatTupleLoader(TupleParser):
         return (typ, mutable)
 
     def load_global(self):
-        """ Load a global definition """
+        """Load a global definition"""
         id = self._parse_optional_id(default=self.gen_id("global"))
         self._parse_inline_export("global", id)
         if self.match(Token.LPAR, "import"):  # handle inline imports
@@ -432,7 +432,7 @@ class WatTupleLoader(TupleParser):
             self.add_definition(components.Global(id, typ, mutable, init))
 
     def load_data(self):
-        """ Load data """
+        """Load data"""
         ref = self._parse_optional_ref("memory", default=0)
         offset = self.parse_offset_expression()
         data = self.parse_data_blobs()
@@ -460,7 +460,7 @@ class WatTupleLoader(TupleParser):
         return offset
 
     def load_func(self):
-        """ Load a single function definition. """
+        """Load a single function definition."""
         id = self._parse_optional_id(default=self.gen_id("func"))
         self._parse_inline_export("func", id)
 
@@ -484,7 +484,7 @@ class WatTupleLoader(TupleParser):
         return self._parse_type_bound_value_list("local")
 
     def _load_instruction_list(self):
-        """ Load a list of instructions """
+        """Load a list of instructions"""
         instructions = []
         while self.at_instruction():
             instructions.extend(self._load_instruction())
@@ -589,7 +589,7 @@ class WatTupleLoader(TupleParser):
         return instructions
 
     def _load_block_type(self):
-        """ Get the block type. """
+        """Get the block type."""
         if self.munch("emptyblock"):
             # TODO: is this legit?
             block_type = "emptyblock"
@@ -609,7 +609,7 @@ class WatTupleLoader(TupleParser):
         return block_type
 
     def _gather_opcode_arguments(self, opcode):
-        """ Gather the arguments to a specific opcode. """
+        """Gather the arguments to a specific opcode."""
         # Process any special case arguments:
         if ".load" in opcode or ".store" in opcode:
             args = self._parse_load_store_arguments(opcode)
@@ -686,7 +686,7 @@ class WatTupleLoader(TupleParser):
         return args
 
     def _parse_keyword_arguments(self):
-        """ Parse some arguments of shape key=value. """
+        """Parse some arguments of shape key=value."""
         attributes = {}
         while is_kwarg(self._lookahead(1)[0]):
             arg = self.take()
@@ -734,7 +734,7 @@ def is_id(x):
 
 
 def is_ref(x):
-    """ Is the given value a reference """
+    """Is the given value a reference"""
     return is_dollar(x) or is_int(x)
 
 
@@ -743,7 +743,7 @@ def is_dollar(x):
 
 
 def is_kwarg(x):
-    """ return if x is something like 'offset=12' """
+    """return if x is something like 'offset=12'"""
     return isinstance(x, str) and "=" in x
 
 

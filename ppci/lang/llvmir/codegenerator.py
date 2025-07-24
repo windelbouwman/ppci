@@ -19,7 +19,7 @@ class CodeGenerator:
         self.forward = {}
 
     def generate(self, ll_module):
-        """ Convert LLVM IR-module to ppci IR-module """
+        """Convert LLVM IR-module to ppci IR-module"""
         assert isinstance(ll_module, nodes.Module)
         self.logger.debug("generating ir-code from llvm ir-code")
         self.logger.warning("ir code generation not functional yet")
@@ -31,7 +31,7 @@ class CodeGenerator:
         return self.builder.module
 
     def gen_function(self, function):
-        """ Generate code for an llvm function """
+        """Generate code for an llvm function"""
         self.logger.debug("generating ir-code for %s", function)
         name = "b"
         ir_function = self.builder.new_procedure(name)
@@ -49,7 +49,7 @@ class CodeGenerator:
                 self.gen_instruction(instruction)
 
     def gen_instruction(self, instruction):
-        """ Transform an llvm instruction into the right ppci ir part """
+        """Transform an llvm instruction into the right ppci ir part"""
         if isinstance(instruction, nodes.BinaryOperator):
             lhs = self.get_val(instruction.lhs)
             op_map = {"mul": "*", "add": "+"}

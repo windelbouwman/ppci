@@ -1,5 +1,4 @@
-""" Read / write cmo files.
-"""
+"""Read / write cmo files."""
 
 import logging
 from .io import FileReader
@@ -85,7 +84,7 @@ class CmoReader:
         return load_code(code_data)
 
     def read_magic(self):
-        """ Read magic header """
+        """Read magic header"""
         magic_len = len(self.MAGIC_V023)
         magic = self.reader.read_bytes(magic_len)
         magic = magic.decode("ascii")

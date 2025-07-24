@@ -1,8 +1,7 @@
-""" Pascal compiler.
+"""Pascal compiler.
 
 Compile pascal programs.
 """
-
 
 import argparse
 import platform
@@ -20,7 +19,7 @@ parser.add_argument("sources", metavar="source", help="source file", nargs="+")
 
 
 def pascal(args=None):
-    """ Pascal compiler """
+    """Pascal compiler"""
     args = parser.parse_args(args)
     with LogSetup(args) as log_setup:
         # Compile sources:

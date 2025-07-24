@@ -1,5 +1,5 @@
 class Type:
-    """ Base class of all types """
+    """Base class of all types"""
 
     # def __init__(self, location):
     #
@@ -50,7 +50,7 @@ class Type:
 
 
 class BaseType(Type):
-    """ Built in type """
+    """Built in type"""
 
     def __init__(self, byte_size):
         super().__init__()
@@ -61,7 +61,7 @@ class BaseType(Type):
 
 
 class IntegerType(BaseType):
-    """ Integer base type """
+    """Integer base type"""
 
     def __init__(self, byte_size):
         super().__init__(byte_size)
@@ -77,7 +77,7 @@ class SignedIntegerType(IntegerType):
 
 
 class SubRange(IntegerType):
-    """ integer that can fit values in the given range. """
+    """integer that can fit values in the given range."""
 
     def __init__(self, lower, upper, location):
         super().__init__(4)
@@ -90,7 +90,7 @@ class SubRange(IntegerType):
 
 
 class FloatType(BaseType):
-    """ Floating point base type """
+    """Floating point base type"""
 
     def __init__(self, name, byte_size, fraction_bits):
         super().__init__(name, byte_size)
@@ -110,7 +110,7 @@ class EnumType(Type):
 
 
 class FunctionType(Type):
-    """ Function blueprint, defines argument types and return type """
+    """Function blueprint, defines argument types and return type"""
 
     def __init__(self, parameter_types, return_type):
         super().__init__()
@@ -143,7 +143,7 @@ class ProcedureType(Type):
 
 
 class PointerType(Type):
-    """ A type that points to data of some other type """
+    """A type that points to data of some other type"""
 
     def __init__(self, ptype):
         super().__init__()
@@ -156,7 +156,7 @@ class PointerType(Type):
 
 
 class RecordField:
-    """ Field of a record type """
+    """Field of a record type"""
 
     def __init__(self, name, typ, location):
         assert isinstance(name, str)
@@ -192,7 +192,7 @@ class RecordVariant:
 
 
 class RecordType(Type):
-    """ Struct type consisting of several named members """
+    """Struct type consisting of several named members"""
 
     def __init__(self, fields, location):
         super().__init__()
@@ -201,7 +201,7 @@ class RecordType(Type):
         # assert all(isinstance(field, RecordField) for field in fields)
 
     def has_field(self, name):
-        """ Check if the struct type has a member with name """
+        """Check if the struct type has a member with name"""
         for field in self.fields:
             if name == field.name:
                 return True
@@ -211,15 +211,15 @@ class RecordType(Type):
         return False
 
     def field_type(self, name):
-        """ Get the field type of field name """
+        """Get the field type of field name"""
         return self.find_field(name).typ
 
     def field_offset(self, name):
-        """ Determine the offset of the field in the record """
+        """Determine the offset of the field in the record"""
         return self.find_field(name).offset
 
     def find_field(self, name):
-        """ Looks up a field in the record type """
+        """Looks up a field in the record type"""
         for field in self.fields:
             if name == field.name:
                 return field
@@ -234,7 +234,7 @@ class RecordType(Type):
 
 
 class ArrayType(Type):
-    """ Array type """
+    """Array type"""
 
     def __init__(self, element_type, dimensions, packed, location):
         super().__init__()
@@ -265,7 +265,7 @@ class ArrayType(Type):
 
 
 class SetType(Type):
-    """ Set type. """
+    """Set type."""
 
     def __init__(self, element_type, location):
         super().__init__()

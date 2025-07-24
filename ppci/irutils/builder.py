@@ -1,6 +1,4 @@
-""" Constructing IR.
-
-"""
+"""Constructing IR."""
 
 import contextlib
 from .. import ir
@@ -72,21 +70,21 @@ class Builder:
         self.module = module
 
     def new_function(self, name, binding, return_ty):
-        """ Create a new function. """
+        """Create a new function."""
         assert self.module is not None
         function = ir.Function(name, binding, return_ty)
         self.module.add_function(function)
         return function
 
     def new_procedure(self, name, binding):
-        """ Create a new procedure. """
+        """Create a new procedure."""
         assert self.module is not None
         procedure = ir.Procedure(name, binding)
         self.module.add_function(procedure)
         return procedure
 
     def new_block(self, name=None):
-        """ Create a new block and add it to the current function """
+        """Create a new block and add it to the current function"""
         assert self.function is not None
         if name is None:
             name = "{}_block{}".format(self.function.name, self.block_number)
@@ -104,7 +102,7 @@ class Builder:
         self.block = block
 
     def emit(self, instruction: ir.Instruction) -> ir.Instruction:
-        """ Append an instruction to the current block """
+        """Append an instruction to the current block"""
         assert isinstance(instruction, ir.Instruction), str(instruction)
         assert self.block is not None
         self.block.add_instruction(instruction)
@@ -119,19 +117,19 @@ class Builder:
 
     # Instruction helpers:
     def emit_jump(self, block):
-        """ Emit a jump instruction to the given block. """
+        """Emit a jump instruction to the given block."""
         self.emit(ir.Jump(block))
 
     def emit_return(self, value):
-        """ Emit a return instruction. """
+        """Emit a return instruction."""
         self.emit(ir.Return(value))
 
     def emit_exit(self):
-        """ Emit exit instruction. """
+        """Emit exit instruction."""
         self.emit(ir.Exit())
 
     def emit_load(self, address, ty, volatile=False):
-        """ Emit a load instruction. """
+        """Emit a load instruction."""
         # TBD: rename all temporaries to tmp001 etc...
         return self.emit(ir.Load(address, "tmp_load", ty, volatile=volatile))
 
@@ -154,23 +152,23 @@ class Builder:
         return self.emit(ir.Binop(a, op, b, "tmp", ty))
 
     def emit_add(self, a, b, ty):
-        """ Emit addition operation. """
+        """Emit addition operation."""
         return self.emit_binop(a, "+", b, ty)
 
     def emit_mul(self, a, b, ty):
-        """ Emit multiplication operation. """
+        """Emit multiplication operation."""
         return self.emit_binop(a, "*", b, ty)
 
     def emit_sub(self, a, b, ty):
-        """ Emit subtract operation. """
+        """Emit subtract operation."""
         return self.emit_binop(a, "-", b, ty)
 
     def emit_const(self, value, ty):
-        """ Emit a constant. """
+        """Emit a constant."""
         return self.emit(ir.Const(value, "num", ty))
 
     def emit_cast(self, value, ty):
-        """ Emit a type cast instruction. """
+        """Emit a type cast instruction."""
         return self.emit(ir.Cast(value, "typecast", ty))
 
     # Debug helpers:

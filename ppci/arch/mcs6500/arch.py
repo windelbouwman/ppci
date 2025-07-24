@@ -9,7 +9,7 @@ from . import registers, instructions
 
 
 class Mcs6500Arch(Architecture):
-    """ 6502 architectur """
+    """6502 architectur"""
 
     name = "mcs6500"
 

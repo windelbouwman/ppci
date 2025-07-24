@@ -1,4 +1,4 @@
-""" Calling conventions """
+"""Calling conventions"""
 
 
 class CallingConvention:

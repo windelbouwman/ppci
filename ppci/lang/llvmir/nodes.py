@@ -1,8 +1,8 @@
-""" LLVM-ir nodes """
+"""LLVM-ir nodes"""
 
 
 class Module:
-    """ Holds all information related to a module """
+    """Holds all information related to a module"""
 
     def __init__(self, context):
         self.context = context
@@ -17,7 +17,7 @@ class Module:
 
 
 class Value:
-    """ Root of most nodes """
+    """Root of most nodes"""
 
     def __init__(self, ty):
         self.ty = ty
@@ -27,7 +27,7 @@ class Value:
         return self.ty.context
 
     def set_name(self, name):
-        """ Set name and update symbol table """
+        """Set name and update symbol table"""
         sym_tab = self.symbol_table
         sym_tab[name] = self
         self.name = name
@@ -46,7 +46,7 @@ class Value:
 
 
 class OwnedList(list):
-    """ Special list that sets the parent attribute upon append """
+    """Special list that sets the parent attribute upon append"""
 
     def __init__(self, owner):
         super().__init__()
@@ -58,7 +58,7 @@ class OwnedList(list):
 
 
 class BasicBlock(Value):
-    """ A sequence of non-interrupted instructions """
+    """A sequence of non-interrupted instructions"""
 
     def __init__(self, context, label, function):
         super().__init__(context.label_ty)
@@ -76,7 +76,7 @@ class Argument(Value):
 
 
 class UndefValue(Value):
-    """ An undefined value """
+    """An undefined value"""
 
     @classmethod
     def get(cls, ty):
@@ -109,7 +109,7 @@ class ConstantInt(Constant):
 
     @classmethod
     def get_true(cls, context):
-        """ Get the constant value for true """
+        """Get the constant value for true"""
         return cls.get(context.int1_ty, 1)
 
     @classmethod
@@ -261,14 +261,14 @@ class GetElementPtrInst(Instruction):
 
     @staticmethod
     def get_indexed_type(agg, idx_list):
-        """ Return the type after all indexing magic """
+        """Return the type after all indexing magic"""
         for index in idx_list:
             agg = agg.get_type_at_index(index)
         return agg
 
     @classmethod
     def get_gep_return_type(cls, ptr, idx_list):
-        """ Get the pointer type returned by the GEP """
+        """Get the pointer type returned by the GEP"""
         ty2 = cls.get_indexed_type(ptr.ty, idx_list)
         ptr_ty = PointerType.get(ty2, 0)
         return ptr_ty
@@ -389,7 +389,7 @@ vector_ty_id = 16
 
 
 class Type:
-    """ The type class """
+    """The type class"""
 
     def __init__(self, context, type_id):
         self.context = context
@@ -439,7 +439,7 @@ class IntegerType(Type):
 
     @staticmethod
     def get(context, num_bits):
-        """ Get the integer type with the given number of bits """
+        """Get the integer type with the given number of bits"""
         if num_bits not in context.integer_types:
             context.integer_types[num_bits] = IntegerType(context, num_bits)
         return context.integer_types[num_bits]
@@ -450,7 +450,7 @@ class CompositeType(Type):
 
 
 class StructType(CompositeType):
-    """ Structure type """
+    """Structure type"""
 
     def __init__(self, context):
         super().__init__(context, struct_ty_id)
@@ -460,7 +460,7 @@ class StructType(CompositeType):
 
     @classmethod
     def get(cls, context, e_types, is_packed):
-        """ Get struct type with certain elements """
+        """Get struct type with certain elements"""
         key = (tuple(e_types), is_packed)
         if key in context.struct_types:
             st = context.struct_types[key]
@@ -526,7 +526,7 @@ class VectorType(SequentialType):
 
 
 class Context:
-    """ LLVM context """
+    """LLVM context"""
 
     def __init__(self):
         self.void_ty = Type(self, void_ty_id)

@@ -1,5 +1,5 @@
-""" Small helper to convert binary data into text and vice-versa.
-"""
+"""Small helper to convert binary data into text and vice-versa."""
+
 import binascii
 from .chunk import chunks
 
@@ -18,7 +18,7 @@ def bin2asc(data: bytes):
 
 
 def asc2bin(data) -> bytes:
-    """ Decode ascii into binary """
+    """Decode ascii into binary"""
     if isinstance(data, str):
         return bytes(binascii.unhexlify(data.encode("ascii")))
     elif isinstance(data, list):

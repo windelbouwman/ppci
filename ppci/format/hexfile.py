@@ -1,4 +1,4 @@
-""" Module to work with intel hex files.
+"""Module to work with intel hex files.
 
 This module can be used to work with intel hexfiles.
 
@@ -16,13 +16,13 @@ STARTADDR = 5
 
 
 class HexFileException(Exception):
-    """ Exception raised when hexfile handling fails """
+    """Exception raised when hexfile handling fails"""
 
     pass
 
 
 class HexLine:
-    """ A single line in a hexfile """
+    """A single line in a hexfile"""
 
     def __init__(self, address, typ, data=bytes()):
         self.address = address
@@ -31,7 +31,7 @@ class HexLine:
 
     @classmethod
     def from_line(cls, line: str):
-        """ Parses a hexfile line into three parts """
+        """Parses a hexfile line into three parts"""
         # Remove ':'
         if line[0] != ":":
             raise ValueError("Expect hexline to start with :")
@@ -50,7 +50,7 @@ class HexLine:
         return cls(address, typ, data)
 
     def to_line(self) -> str:
-        """ Create an ascii hex line """
+        """Create an ascii hex line"""
         bytecount = len(self.data)
         nums = bytearray()
         nums.append(bytecount)
@@ -80,7 +80,7 @@ def hexfields(f):
 
 
 class HexFile:
-    """ Represents an intel hexfile """
+    """Represents an intel hexfile"""
 
     def __init__(self):
         self.regions = []
@@ -88,7 +88,7 @@ class HexFile:
 
     @staticmethod
     def load(open_file):
-        """ Load a hexfile from file """
+        """Load a hexfile from file"""
         self = HexFile()
         end_of_file = False
         ext = 0
@@ -117,7 +117,7 @@ class HexFile:
         return "Hexfile containing {} bytes".format(size)
 
     def dump(self, contents=False):
-        """ Print info about this hexfile """
+        """Print info about this hexfile"""
         print(self)
         for region in self.regions:
             print(region)
@@ -131,7 +131,7 @@ class HexFile:
         return all(rs == ro for rs, ro in zip(regions, oregions))
 
     def add_region(self, address, data):
-        """ Add a chunk of data at the given address """
+        """Add a chunk of data at the given address"""
         region = HexFileRegion(address, data)
         self.regions.append(region)
         self.check()
@@ -154,11 +154,11 @@ class HexFile:
             self.add_region(region.address, region.data)
 
     def write_hex_line(self, line):
-        """ Write a single hexfile line """
+        """Write a single hexfile line"""
         print(line.to_line(), file=self.f)
 
     def save(self, f):
-        """ Save hexfile to file-like object """
+        """Save hexfile to file-like object"""
         self.f = f
         for region in self.regions:
             ext = region.address & 0xFFFF0000
@@ -179,7 +179,7 @@ class HexFile:
 
 
 class HexFileRegion:
-    """ A continuous region of data starting at some address """
+    """A continuous region of data starting at some address"""
 
     def __init__(self, address, data=bytes()):
         self.address = address
@@ -194,15 +194,15 @@ class HexFileRegion:
         return (self.address, self.data) == (other.address, other.data)
 
     def add_data(self, data):
-        """ Add data to this region """
+        """Add data to this region"""
         self.data = self.data + data
 
     @property
     def size(self):
-        """ The size of this region """
+        """The size of this region"""
         return len(self.data)
 
     @property
     def end_address(self):
-        """ End address for this region """
+        """End address for this region"""
         return self.address + len(self.data)

@@ -2,7 +2,7 @@ from argparse import ArgumentParser
 
 
 class COptions:
-    """ A collection of settings regarding the C language """
+    """A collection of settings regarding the C language"""
 
     def __init__(self):
         self.settings = {}
@@ -22,11 +22,11 @@ class COptions:
         #    '/usr/lib/gcc/x86_64-pc-linux-gnu/6.3.1/include/')
 
     def add_include_path(self, path):
-        """ Add a path to the list of include paths """
+        """Add a path to the list of include paths"""
         self.include_directories.append(path)
 
     def add_include_paths(self, paths):
-        """ Add all the given include paths """
+        """Add all the given include paths"""
         for path in paths:
             self.add_include_path(path)
 
@@ -43,7 +43,7 @@ class COptions:
         return self.settings[index]
 
     def process_args(self, args):
-        """ Given a set of parsed arguments, apply those """
+        """Given a set of parsed arguments, apply those"""
         self.set("trigraphs", args.trigraphs)
         self.set("std", args.std)
         self.set("freestanding", args.freestanding)
@@ -65,7 +65,7 @@ class COptions:
 
     @classmethod
     def from_args(cls, args):
-        """ Create a new options object from parsed arguments. """
+        """Create a new options object from parsed arguments."""
         o = cls()
         o.process_args(args)
         return o

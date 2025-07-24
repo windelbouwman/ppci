@@ -20,7 +20,7 @@ def calculate_idom(graph, entry, reverse=False):
 
 
 class LengauerTarjan:
-    """ The lengauer Tarjan algorithm for calculating dominators """
+    """The lengauer Tarjan algorithm for calculating dominators"""
 
     def __init__(self, reverse):
         self._reverse = reverse
@@ -88,7 +88,7 @@ class LengauerTarjan:
         return idom
 
     def dfs(self, start_node):
-        """ Depth first search nodes """
+        """Depth first search nodes"""
         for dfnum, pair in enumerate(dfs(start_node)):
             parent, node = pair
             assert node not in self.dfnum
@@ -98,7 +98,7 @@ class LengauerTarjan:
             self.vertex.append(node)
 
     def link(self, p, n):
-        """ Mark p as parent from n """
+        """Mark p as parent from n"""
         assert n not in self.ancestor
         self.ancestor[n] = p
         self.best[n] = n

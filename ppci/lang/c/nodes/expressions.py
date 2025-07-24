@@ -1,4 +1,4 @@
-""" Expression nodes """
+"""Expression nodes"""
 
 # pylint: disable=R0903
 
@@ -7,7 +7,7 @@ from . import types
 
 
 class CExpression:
-    """ Base C expression with a type and location """
+    """Base C expression with a type and location"""
 
     __slots__ = ("location", "typ", "lvalue")
 
@@ -19,7 +19,7 @@ class CExpression:
 
 
 class FunctionCall(CExpression):
-    """ Function call """
+    """Function call"""
 
     __slots__ = ("callee", "args")
 
@@ -33,7 +33,7 @@ class FunctionCall(CExpression):
 
 
 class TernaryOperator(CExpression):
-    """ Ternary operator """
+    """Ternary operator"""
 
     __slots__ = ("a", "op", "b", "c")
 
@@ -53,19 +53,19 @@ class TernaryOperator(CExpression):
 
 
 class Initializer(CExpression):
-    """ Initial value base class. """
+    """Initial value base class."""
 
     pass
 
 
 class InitializerList(Initializer):
-    """ Base initializer list. """
+    """Base initializer list."""
 
     pass
 
 
 class StructInitializer(InitializerList):
-    """ Struct initializer """
+    """Struct initializer"""
 
     def __init__(self, typ, location):
         super().__init__(typ, False, location)
@@ -79,7 +79,7 @@ class StructInitializer(InitializerList):
 
 
 class UnionInitializer(InitializerList):
-    """ Initial value for a union """
+    """Initial value for a union"""
 
     def __init__(self, typ, location):
         super().__init__(typ, False, location)
@@ -91,7 +91,7 @@ class UnionInitializer(InitializerList):
 
 
 class ArrayInitializer(InitializerList):
-    """ Initial value for array's """
+    """Initial value for array's"""
 
     def __init__(self, typ, values, location):
         super().__init__(typ, False, location)
@@ -105,13 +105,13 @@ class ArrayInitializer(InitializerList):
 
 
 class ImplicitInitialValue(Initializer):
-    """ Uninitialized value. """
+    """Uninitialized value."""
 
     pass
 
 
 class BinaryOperator(CExpression):
-    """ Binary operator """
+    """Binary operator"""
 
     __slots__ = ("a", "op", "b")
 
@@ -128,7 +128,7 @@ class BinaryOperator(CExpression):
 
 
 class UnaryOperator(CExpression):
-    """ Unary operator """
+    """Unary operator"""
 
     __slots__ = ("a", "op")
 
@@ -143,7 +143,7 @@ class UnaryOperator(CExpression):
 
 
 class Cast(CExpression):
-    """ A cast operation """
+    """A cast operation"""
 
     __slots__ = ("to_typ", "expr")
 
@@ -156,18 +156,18 @@ class Cast(CExpression):
         return "Cast {}".format(self.to_typ)
 
     def is_array_decay(self):
-        """ Test if this cast is a pointer decay. """
+        """Test if this cast is a pointer decay."""
         return self.to_typ.is_pointer and self.expr.typ.is_array
 
 
 class ImplicitCast(Cast):
-    """ An implicit cast """
+    """An implicit cast"""
 
     pass
 
 
 class Sizeof(CExpression):
-    """ Sizeof operator """
+    """Sizeof operator"""
 
     def __init__(self, sizeof_typ, typ, lvalue, location):
         super().__init__(typ, lvalue, location)
@@ -178,7 +178,7 @@ class Sizeof(CExpression):
 
 
 class ArrayIndex(CExpression):
-    """ Array indexing """
+    """Array indexing"""
 
     __slots__ = ("base", "index")
 
@@ -192,7 +192,7 @@ class ArrayIndex(CExpression):
 
 
 class FieldSelect(CExpression):
-    """ Select a field in a struct """
+    """Select a field in a struct"""
 
     __slots__ = ("base", "field")
 
@@ -206,7 +206,7 @@ class FieldSelect(CExpression):
 
 
 class VariableAccess(CExpression):
-    """ Access to a variable """
+    """Access to a variable"""
 
     def __init__(self, variable, typ, lvalue, location):
         super().__init__(typ, lvalue, location)
@@ -218,7 +218,7 @@ class VariableAccess(CExpression):
 
 
 class Literal(CExpression):
-    """ Literal value such as 'h' or 1.22 """
+    """Literal value such as 'h' or 1.22"""
 
     __slots__ = ("value",)
 
@@ -231,7 +231,7 @@ class Literal(CExpression):
 
 
 class CharLiteral(Literal):
-    """ A character literal """
+    """A character literal"""
 
     def __init__(self, value, typ, location):
         super().__init__(value, typ, False, location)
@@ -241,7 +241,7 @@ class CharLiteral(Literal):
 
 
 class NumericLiteral(Literal):
-    """ A numeric literal """
+    """A numeric literal"""
 
     def __init__(self, value, typ, location):
         super().__init__(value, typ, False, location)
@@ -251,7 +251,7 @@ class NumericLiteral(Literal):
 
 
 class StringLiteral(Literal):
-    """ A string literal """
+    """A string literal"""
 
     def __init__(self, value, typ, location):
         super().__init__(value, typ, True, location)
@@ -260,7 +260,7 @@ class StringLiteral(Literal):
         return 'String literal "{}"'.format(self.value)
 
     def to_bytes(self):
-        """ Convert this string literal to zero terminated byte string. """
+        """Convert this string literal to zero terminated byte string."""
         encoding = "latin1"
         data = self.value.encode(encoding) + bytes([0])
         return data
@@ -282,13 +282,13 @@ class CompoundLiteral(CExpression):
 
 
 class BuiltIn(CExpression):
-    """ Build in function """
+    """Build in function"""
 
     pass
 
 
 class BuiltInVaStart(BuiltIn):
-    """ Built-in function va_start """
+    """Built-in function va_start"""
 
     def __init__(self, arg_pointer, location):
         super().__init__(arg_pointer.typ, False, location)
@@ -296,7 +296,7 @@ class BuiltInVaStart(BuiltIn):
 
 
 class BuiltInVaArg(BuiltIn):
-    """ Built-in function va_arg """
+    """Built-in function va_arg"""
 
     def __init__(self, arg_pointer, typ, location):
         super().__init__(typ, False, location)
@@ -304,7 +304,7 @@ class BuiltInVaArg(BuiltIn):
 
 
 class BuiltInVaCopy(BuiltIn):
-    """ Built-in function va_copy """
+    """Built-in function va_copy"""
 
     def __init__(self, dest, src, location):
         super().__init__(dest.typ, False, location)
@@ -313,7 +313,7 @@ class BuiltInVaCopy(BuiltIn):
 
 
 class BuiltInOffsetOf(BuiltIn):
-    """ Built-in function offsetof """
+    """Built-in function offsetof"""
 
     def __init__(self, query_typ, member, typ, location):
         super().__init__(typ, False, location)

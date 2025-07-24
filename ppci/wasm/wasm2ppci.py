@@ -1,4 +1,4 @@
-""" Convert Web Assembly (WASM) into PPCI IR. """
+"""Convert Web Assembly (WASM) into PPCI IR."""
 
 import logging
 import struct
@@ -48,7 +48,7 @@ class WasmToIrCompiler:
         self._fill_dispatch_table()
 
     def _fill_dispatch_table(self):
-        """ Fill the table of what to do with each instruction. """
+        """Fill the table of what to do with each instruction."""
         for opcode in STORE_OPS:
             self._opcode_dispatch[opcode] = self.gen_store
 
@@ -139,17 +139,17 @@ class WasmToIrCompiler:
             "i64.trunc_sat_f64_s",
             "i64.trunc_sat_f64_u",
         ]:
-            self._opcode_dispatch[
-                opcode
-            ] = self.gen_saturated_trunc_instruction
+            self._opcode_dispatch[opcode] = (
+                self.gen_saturated_trunc_instruction
+            )
 
         self._opcode_dispatch["br"] = self.gen_br_instruction
         self._opcode_dispatch["br_if"] = self.gen_br_if_instruction
         self._opcode_dispatch["br_table"] = self.gen_br_table_instruction
         self._opcode_dispatch["call"] = self.gen_call_instruction
-        self._opcode_dispatch[
-            "call_indirect"
-        ] = self.gen_call_indirect_instruction
+        self._opcode_dispatch["call_indirect"] = (
+            self.gen_call_indirect_instruction
+        )
         self._opcode_dispatch["return"] = self.gen_return_instruction
         self._opcode_dispatch["select"] = self.gen_select_instruction
 
@@ -188,9 +188,9 @@ class WasmToIrCompiler:
         self.export_names = {}  # mapping of id's to exported function names
         self.start_function_ref = None
         self.tables = []  # Function pointer tables
-        self.global_inits = (
-            []
-        )  # List of global variable initialization expressions
+
+        # List of global variable initialization expressions:
+        self.global_inits = []
 
         self.memory_base_address = None
 
@@ -214,7 +214,7 @@ class WasmToIrCompiler:
         return self.builder.module
 
     def gen_definition(self, definition):
-        """ Generate code for a single wasm definition. """
+        """Generate code for a single wasm definition."""
         if isinstance(definition, components.Type):
             # assert len(self.wasm_types) == definition.id
             self.wasm_types.append(definition)
@@ -258,7 +258,7 @@ class WasmToIrCompiler:
             raise NotImplementedError(definition.__name__)
 
     def gen_import_definition(self, definition):
-        """ Generate code for import """
+        """Generate code for import"""
         # name = definition.name
         if definition.kind == "func":
             # index = definition.id
@@ -311,7 +311,7 @@ class WasmToIrCompiler:
             raise NotImplementedError(definition.kind)
 
     def gen_export_definition(self, definition):
-        """ Generate code for an export definition. """
+        """Generate code for an export definition."""
         name = sanitize_name(definition.name)
 
         if definition.kind == "func":
@@ -336,7 +336,7 @@ class WasmToIrCompiler:
             # raise NotImplementedError(x.kind)
 
     def gen_func_definition(self, definition):
-        """ Generate function definition. """
+        """Generate function definition."""
         signature = self.wasm_types[definition.ref.index]
         # Set name of function. If we have a string id prefer that,
         # otherwise we may have a name from import/export,
@@ -367,7 +367,7 @@ class WasmToIrCompiler:
         self.gen_functions.append((ppci_function, signature, definition))
 
     def gen_table_definition(self, definition):
-        """ Create room for a table of function pointers. """
+        """Create room for a table of function pointers."""
         assert not hasattr(self, "table_var")
 
         if definition.kind != "funcref":
@@ -403,7 +403,7 @@ class WasmToIrCompiler:
         self.tables[0][1].append((offset, refs))
 
     def gen_global_definition(self, definition):
-        """ Generate room for a global variable. """
+        """Generate room for a global variable."""
         ir_typ = self.get_ir_type(definition.typ)
         fmts = {ir.i32: "<i", ir.i64: "<q", ir.f32: "f", ir.f64: "d"}
         fmt = fmts[ir_typ]
@@ -557,7 +557,7 @@ class WasmToIrCompiler:
         return self.stack[-1]
 
     def generate_function(self, ppci_function, signature, wasm_function):
-        """ Generate code for a single function """
+        """Generate code for a single function"""
         self.logger.info(
             "Generating wasm function %s %s",
             ppci_function.name,
@@ -741,7 +741,7 @@ class WasmToIrCompiler:
         return param_types, result_types
 
     def get_phis(self, instruction):
-        """ Get phi instructions for the given loop/block/if. """
+        """Get phi instructions for the given loop/block/if."""
         param_types, result_types = self.get_block_signature(instruction)
 
         param_phis = [
@@ -756,7 +756,7 @@ class WasmToIrCompiler:
         return param_phis, result_phis
 
     def fill_phis(self, phis):
-        """ Fill phis with current stack top. """
+        """Fill phis with current stack top."""
         if phis and self.is_reachable:
             # Step 1: gather values required:
             values = [self.pop_value(ir_typ=phi.ty) for phi in reversed(phis)]
@@ -784,7 +784,7 @@ class WasmToIrCompiler:
         return block
 
     def pop_condition(self):
-        """ Get comparison, a and b of the value stack """
+        """Get comparison, a and b of the value stack"""
         if len(self.stack) > self.block_stack[-1].stack_start:
             value = self.stack.pop()
             if isinstance(value, ir.Value):
@@ -798,7 +798,7 @@ class WasmToIrCompiler:
             raise ValueError("Value stack underflow")
 
     def pop_value(self, ir_typ=None):
-        """ Pop a value of the stack """
+        """Pop a value of the stack"""
         if len(self.stack) > self.block_stack[-1].stack_start:
             value = self.stack.pop()
             if isinstance(value, ir.Value):
@@ -840,16 +840,16 @@ class WasmToIrCompiler:
         return phi
 
     def push_value(self, value):
-        """ Put a value on top of the stack """
+        """Put a value on top of the stack"""
         self.stack.append(value)
 
     def unwind(self, block):
-        """ Unwind the value stack """
+        """Unwind the value stack"""
         while len(self.stack) > block.stack_start:
             self.stack.pop()
 
     def generate_instruction(self, instruction):
-        """ Generate ir-code for a single wasm instruction """
+        """Generate ir-code for a single wasm instruction"""
         opcode = instruction.opcode
 
         # IMPORTANT: handle block instructions first
@@ -891,7 +891,7 @@ class WasmToIrCompiler:
             raise NotImplementedError(opcode)
 
     def gen_promote_instruction(self, instruction):
-        """ Generate code for promote / demote. """
+        """Generate code for promote / demote."""
         opcode = instruction.opcode
         # TODO: in theory this should be solvable in ir-code.
         if True:
@@ -949,7 +949,7 @@ class WasmToIrCompiler:
         self._runtime_call(opcode)
 
     def gen_const_instruction(self, instruction):
-        """ Generate code for i32.const and friends. """
+        """Generate code for i32.const and friends."""
         opcode = instruction.opcode
         value = self.emit(
             ir.Const(instruction.args[0], "const", self.get_ir_type(opcode))
@@ -996,13 +996,13 @@ class WasmToIrCompiler:
         # self.push_value(value)
 
     def gen_neg_instruction(self, instruction):
-        """ Generate code for (f32|f64).neg """
+        """Generate code for (f32|f64).neg"""
         ir_typ = self.get_ir_type(instruction.opcode)
         value = self.emit(ir.Unop("-", self.pop_value(ir_typ), "neg", ir_typ))
         self.push_value(value)
 
     def gen_binop(self, instruction):
-        """ Generate code for binary operator """
+        """Generate code for binary operator"""
         opcode = instruction.opcode
         itype, opname = opcode.split(".")
         op_map = {
@@ -1039,7 +1039,7 @@ class WasmToIrCompiler:
         self.push_value(value)
 
     def gen_cmpop(self, instruction):
-        """ Generate code for a comparison operation """
+        """Generate code for a comparison operation"""
         opcode = instruction.opcode
         itype, opname = opcode.split(".")
         ir_typ = self.get_ir_type(itype)
@@ -1061,7 +1061,7 @@ class WasmToIrCompiler:
         # todo: hack; we assume this is the only test in an if
 
     def gen_load(self, instruction):
-        """ Generate code for load instruction """
+        """Generate code for load instruction"""
         itype, load_op = instruction.opcode.split(".")
         ir_typ = self.get_ir_type(itype)
         _, offset = instruction.args
@@ -1083,7 +1083,7 @@ class WasmToIrCompiler:
         self.push_value(value)
 
     def gen_store(self, instruction):
-        """ Generate code for store instruction """
+        """Generate code for store instruction"""
         itype, store_op = instruction.opcode.split(".")
         ir_typ = self.get_ir_type(itype)
         # ACHTUNG: alignment and offset are swapped in text:
@@ -1102,7 +1102,7 @@ class WasmToIrCompiler:
             self.emit(ir.Store(value, address))
 
     def get_memory_address(self, offset):
-        """ Emit code to retrieve a memory address """
+        """Emit code to retrieve a memory address"""
         base = self.pop_value()
         if base.ty is not ir.ptr:
             base = self.emit(ir.Cast(base, "cast", ir.ptr))
@@ -1114,14 +1114,14 @@ class WasmToIrCompiler:
 
     @property
     def is_reachable(self):
-        """ Determine if the current position is reachable """
+        """Determine if the current position is reachable"""
         # Attention:
         # Since block implements iter, one cannot check for bool(block) if
         # the block is empty.. So we have to check for None here:
         return self.builder.block is not None
 
     def gen_block_instruction(self, instruction):
-        """ Generate start of block """
+        """Generate start of block"""
         stack_start = len(self.stack)
         if self.is_reachable:
             self.logger.debug("start of block")
@@ -1153,7 +1153,7 @@ class WasmToIrCompiler:
         )
 
     def gen_loop_instruction(self, instruction):
-        """ Generate code for a loop start """
+        """Generate code for a loop start"""
         stack_start = len(self.stack)
         if self.is_reachable:
             param_phis, result_phis = self.get_phis(instruction)
@@ -1217,7 +1217,7 @@ class WasmToIrCompiler:
             self.push_value(phi)
 
     def gen_if_instruction(self, instruction):
-        """ Generate code for an if start """
+        """Generate code for an if start"""
         if self.is_reachable:
             # todo: we assume that the test is a comparison
             op, a, b = self.pop_condition()
@@ -1261,7 +1261,7 @@ class WasmToIrCompiler:
         )
 
     def gen_else_instruction(self):
-        """ Generate code for else instruction """
+        """Generate code for else instruction"""
         if_block = self.pop_block()
         assert if_block.typ == "if"
 
@@ -1287,14 +1287,14 @@ class WasmToIrCompiler:
         )
 
     def gen_call_instruction(self, instruction):
-        """ Generate a function call """
+        """Generate a function call"""
         # Call another function!
         idx = instruction.args[0].index
         ir_function, signature = self.functions[idx]
         self._gen_call_helper(ir_function, signature)
 
     def gen_call_indirect_instruction(self, instruction):
-        """ Call another function by pointer! """
+        """Call another function by pointer!"""
         type_id = instruction.args[0].index
         signature = self.wasm_types[type_id]
         func_index = self.pop_value()
@@ -1317,7 +1317,7 @@ class WasmToIrCompiler:
         self._gen_call_helper(func_ptr, signature)
 
     def _gen_call_helper(self, target, signature):
-        """ Common function calling logic """
+        """Common function calling logic"""
         self.logger.debug(
             "Calling function %s with signature %s",
             target,
@@ -1378,7 +1378,7 @@ class WasmToIrCompiler:
             self.emit(ir.ProcedureCall(target, args))
 
     def gen_select_instruction(self, instruction):
-        """ Generate code for the select wasm instruction """
+        """Generate code for the select wasm instruction"""
         # This is roughly equivalent to C-style: a ? b : c
         op, a, b = self.pop_condition()
         nein_value, ja_value = self.pop_value(), self.pop_value()
@@ -1434,14 +1434,14 @@ class WasmToIrCompiler:
         self.builder.set_block(None)
 
     def gen_br_instruction(self, instruction):
-        """ Generate code for br instruction """
+        """Generate code for br instruction"""
         depth = instruction.args[0]
         targetblock = self.get_jump_target_block(depth)
         self.emit(ir.Jump(targetblock))
         self.builder.set_block(None)
 
     def gen_br_if_instruction(self, instruction):
-        """ Generate code for br_if instruction """
+        """Generate code for br_if instruction"""
         op, a, b = self.pop_condition()
         depth = instruction.args[0]
         targetblock = self.get_jump_target_block(depth)

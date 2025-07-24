@@ -1,5 +1,4 @@
-""" Functionality to translate a java class file into ir-code.
-"""
+"""Functionality to translate a java class file into ir-code."""
 
 import logging
 from .io import load_code, parse_method_descriptor
@@ -15,7 +14,7 @@ logger = logging.getLogger("jvm2ir")
 
 
 def class_to_ir(class_file):
-    """ Translate java class file into IR-code. """
+    """Translate java class file into IR-code."""
     generator = Generator()
     generator.initialize()
     generator.gen_class(class_file)
@@ -23,7 +22,7 @@ def class_to_ir(class_file):
 
 
 def jar_to_ir(jar_file):
-    """ Translate entire jar to ir code. """
+    """Translate entire jar to ir code."""
     generator = Generator()
     generator.initialize()
 
@@ -41,7 +40,7 @@ class Generator:
         self.class_file = None
 
     def initialize(self):
-        """ Prepare translation. """
+        """Prepare translation."""
         self.debug_db = debuginfo.DebugDb()
         module = ir.Module("java", debug_db=self.debug_db)
         self._builder.set_module(module)
@@ -94,7 +93,7 @@ class Generator:
                 logger.warning("Skipping non-static function %s", method.name)
 
     def gen_method(self, method):
-        """ Generate code for a single method. """
+        """Generate code for a single method."""
         logger.info(
             "processing method %s access=%s", method.name, method.access_flags
         )
@@ -192,7 +191,7 @@ class Generator:
             self.gen_instr(instruction)
 
     def gen_instr(self, instruction):
-        """ Generate ir-code for a single instruction. """
+        """Generate ir-code for a single instruction."""
         mnemonic = instruction.mnemonic
         # op_to_name[instruction]  # .opcode
         args = instruction.args
@@ -433,7 +432,7 @@ class Generator:
             raise NotImplementedError(mnemonic)
 
     def call_sub(self, name, signature):
-        """ Call a function / method """
+        """Call a function / method"""
         ir_method = self.get_method_ref(name, signature)
 
         # Gather arguments from stack:
@@ -456,7 +455,7 @@ class Generator:
             self.stack.append(value)
 
     def get_method_ref(self, name, signature):
-        """ Retrieve a method with the given name and signature. """
+        """Retrieve a method with the given name and signature."""
         if name in self._functions:
             func = self._functions[name]
             # Check types?
@@ -466,19 +465,19 @@ class Generator:
         return func
 
     def gen_load_const(self, value, typ):
-        """ Generate code for loading a constant value. """
+        """Generate code for loading a constant value."""
         value = self.emit(ir.Const(value, "const", typ))
         self.stack.append(value)
 
     def gen_load_local(self, index, typ):
-        """ Generate code for loading a local variable. """
+        """Generate code for loading a local variable."""
         var = self.local_variables[index]
         value = self.emit(ir.Load(var, "load", typ))
         assert value.ty == typ
         self.stack.append(value)
 
     def gen_store_local(self, index, typ):
-        """ Generate code for storing a local variable. """
+        """Generate code for storing a local variable."""
         value = self.stack.pop()
         assert value.ty == typ
         address = self.local_variables[index]
@@ -486,7 +485,7 @@ class Generator:
         self.emit(ir.Store(value, address))
 
     def gen_binop(self, op, typ):
-        """ Generate code for a binary operation. """
+        """Generate code for a binary operation."""
         value1 = self.stack.pop()
         value2 = self.stack.pop()
         assert value1.ty is typ
@@ -495,14 +494,14 @@ class Generator:
         self.stack.append(result)
 
     def gen_cast(self, from_typ, to_typ):
-        """ Generate code for a type cast. """
+        """Generate code for a type cast."""
         value = self.stack.pop()
         assert value.ty is from_typ
         result = self.emit(ir.Cast(value, "cast", to_typ))
         self.stack.append(result)
 
     def gen_return(self, typ):
-        """ Generate code for a function return. """
+        """Generate code for a function return."""
         value = self.stack.pop()
         assert value.ty is typ
         self.emit(ir.Return(value))

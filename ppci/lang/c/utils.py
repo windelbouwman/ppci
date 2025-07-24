@@ -3,7 +3,7 @@ from .nodes.visitor import Visitor
 
 
 def required_padding(address, alignment):
-    """ Return how many padding bytes are needed to align address """
+    """Return how many padding bytes are needed to align address"""
     rest = address % alignment
     if rest:
         # We need padding bytes:
@@ -17,7 +17,7 @@ def print_ast(ast, file=None):
 
 
 class CAstPrinter(Visitor):
-    """ Print AST of a C program """
+    """Print AST of a C program"""
 
     def __init__(self, file=None):
         self.indent = 0
@@ -63,7 +63,7 @@ class LineInfo:
 
 
 def cnum(txt: str):
-    """ Convert C number to integer """
+    """Convert C number to integer"""
     assert isinstance(txt, str)
 
     # Lower tha casing:
@@ -109,7 +109,7 @@ def float_num(txt: str):
 
 
 def replace_escape_codes(txt: str):
-    """ Replace escape codes inside the given text """
+    """Replace escape codes inside the given text"""
     prog = re.compile(
         r"(\\[0-7]{1,3})|(\\x[0-9a-fA-F]+)|"
         r'(\\[\'"?\\abfnrtve])|(\\u[0-9a-fA-F]{4})|(\\U[0-9a-fA-F]{8})'
@@ -139,7 +139,7 @@ def replace_escape_codes(txt: str):
                     "r": "\r",
                     "t": "\t",
                     "v": "\v",
-                    "e": "\x1B",  # Non-standard escape character
+                    "e": "\x1b",  # Non-standard escape character
                     "\\": "\\",
                     '"': '"',
                     "'": "'",
@@ -162,7 +162,7 @@ def replace_escape_codes(txt: str):
 
 
 def charval(txt: str):
-    """ Get the character value of a char literal """
+    """Get the character value of a char literal"""
     # Wide char?
     if txt.startswith("L"):
         txt = txt[1:]

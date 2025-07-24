@@ -1,10 +1,10 @@
-""" Contains disassembler stuff. """
+"""Contains disassembler stuff."""
 
 from ..arch.data_instructions import DByte
 
 
 class Disassembler:
-    """ Base disassembler for some architecture """
+    """Base disassembler for some architecture"""
 
     def __init__(self, arch):
         self.arch = arch
@@ -15,7 +15,7 @@ class Disassembler:
             pass
 
     def disasm(self, data, outs, address=0):
-        """ Disassemble data into an instruction stream """
+        """Disassemble data into an instruction stream"""
         # TODO: implement this!
 
         # The trial and error method, will be slow as a snail:

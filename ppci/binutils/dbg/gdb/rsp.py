@@ -1,4 +1,4 @@
-""" Implement the RSP protocol which is used in gdb.
+"""Implement the RSP protocol which is used in gdb.
 
 A packet is send, and then it is acknowledged by a '+'.
 
@@ -10,7 +10,7 @@ from threading import Lock
 
 
 class RspHandler:
-    """ Handle packet handling with the '+' as ack and '-' as nack """
+    """Handle packet handling with the '+' as ack and '-' as nack"""
 
     logger = logging.getLogger("rsp-handler")
     verbose = False
@@ -28,7 +28,7 @@ class RspHandler:
         self.on_message = None
 
     def sendpkt(self, data, retries=10):
-        """ sends data via the RSP protocol to the device """
+        """sends data via the RSP protocol to the device"""
         with self._lock:
             wire_data = self.rsp_pack(data)
             self.logger.debug("--> %s", wire_data)
@@ -44,7 +44,7 @@ class RspHandler:
                     raise ValueError("retry fail")
 
     def send(self, msg):
-        """ Send ascii data to target """
+        """Send ascii data to target"""
         if self.verbose:
             self.logger.debug("--> %s", msg)
         self.transport.send(msg.encode("ascii"))
@@ -61,7 +61,7 @@ class RspHandler:
                 self.decodepkt(msg)
 
     def decodepkt(self, pkt):
-        """ blocks until it reads an RSP packet, and returns it's data"""
+        """blocks until it reads an RSP packet, and returns it's data"""
         self.logger.debug("<-- %s", pkt)
         if pkt.startswith("$"):
             try:
@@ -77,7 +77,7 @@ class RspHandler:
 
     @staticmethod
     def rsp_pack(data):
-        """ formats data into a RSP packet """
+        """formats data into a RSP packet"""
         for a, b in [(x, chr(ord(x) ^ 0x20)) for x in ("}", "*", "#", "$")]:
             data = data.replace(a, "}%s" % b)
         crc = sum(ord(c) for c in data) % 256
@@ -85,7 +85,7 @@ class RspHandler:
 
     @staticmethod
     def rsp_unpack(pkt):
-        """ unpacks an RSP packet, returns the data """
+        """unpacks an RSP packet, returns the data"""
         if pkt[0] != "$" or pkt[-3] != "#":
             raise ValueError("bad packet {}".format(pkt))
         crc = sum(ord(c) for c in pkt[1:-3]) % 256

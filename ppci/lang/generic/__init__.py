@@ -1,1 +1,1 @@
-""" Generic functions accross several languages """
+"""Generic functions accross several languages"""

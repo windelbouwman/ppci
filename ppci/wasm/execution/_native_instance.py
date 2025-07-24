@@ -1,6 +1,4 @@
-""" Instantiate wasm as native code.
-
-"""
+"""Instantiate wasm as native code."""
 
 import logging
 import os
@@ -19,7 +17,7 @@ logger = logging.getLogger("instantiate")
 
 
 def native_instantiate(module, imports, reporter, cache_file):
-    """ Load wasm module native """
+    """Load wasm module native"""
     from ...api import ir_to_object, get_current_arch
 
     logger.info("Instantiating wasm module as native code")
@@ -59,7 +57,7 @@ def native_instantiate(module, imports, reporter, cache_file):
 
 
 class NativeModuleInstance(ModuleInstance):
-    """ Wasm module loaded as natively compiled code """
+    """Wasm module loaded as natively compiled code"""
 
     def __init__(self, obj, imports2):
         super().__init__()
@@ -71,7 +69,6 @@ class NativeModuleInstance(ModuleInstance):
         for name, imp_obj in imports2.items():
             assert name not in imports
             if isinstance(imp_obj, Table):
-
                 # print(name, obj)
                 ptr_size = 8  # TODO: determine this?
                 table_byte_size = imp_obj.max * ptr_size
@@ -93,7 +90,7 @@ class NativeModuleInstance(ModuleInstance):
         self._code_module._run_init()
 
     def memory_size(self) -> int:
-        """ return memory size in pages """
+        """return memory size in pages"""
         return self._memory_data_page.size // PAGE_SIZE
 
     def memory_grow(self, amount: int) -> int:
@@ -137,7 +134,7 @@ class NativeModuleInstance(ModuleInstance):
         self.set_mem_base_ptr(self._memory_data_page.addr)
 
     def set_mem_base_ptr(self, base_addr):
-        """ Set memory base address """
+        """Set memory base address"""
         baseptr = self._code_module.get_symbol_offset("wasm_mem0_address")
         # print(baseptr)
         # TODO: major hack:
@@ -155,18 +152,18 @@ class NativeModuleInstance(ModuleInstance):
 
 
 class NativeWasmMemory(WasmMemory):
-    """ Native wasm memory emulation """
+    """Native wasm memory emulation"""
 
     def __init__(self, instance, min_size, max_size):
         super().__init__(min_size, max_size)
         self._instance = instance
 
     def memory_size(self) -> int:
-        """ return memory size in pages """
+        """return memory size in pages"""
         return self._memory_data_page.size // PAGE_SIZE
 
     def write(self, address: int, data):
-        """ Write some data to memory """
+        """Write some data to memory"""
         self._instance._memory_data_page.seek(address)
         self._instance._memory_data_page.write(data)
 

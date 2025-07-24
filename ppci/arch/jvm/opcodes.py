@@ -1,5 +1,4 @@
-""" Contains a list of java virtual machine bytecodes. """
-
+"""Contains a list of java virtual machine bytecodes."""
 
 OPCODES = [
     ("nop", 0x00),

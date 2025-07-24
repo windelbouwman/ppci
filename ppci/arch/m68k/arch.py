@@ -1,4 +1,4 @@
-""" M68000 architecture.
+"""M68000 architecture.
 
 Calling convention:
 - Arguments are pushed on stack.
@@ -44,12 +44,12 @@ class M68kArch(Architecture):
         )
 
     def gen_prologue(self, frame):
-        """ Generate the prologue instruction sequence """
+        """Generate the prologue instruction sequence"""
         # Label indication function:
         yield Label(frame.name)
 
     def gen_epilogue(self, frame):
-        """ Return epilogue sequence for a frame. """
+        """Return epilogue sequence for a frame."""
         yield instructions.Rts()
 
     def determine_arg_locations(self, arg_types):
@@ -110,7 +110,7 @@ class M68kArch(Architecture):
             yield self.move(rv[1], retval_loc)
 
     def move(self, dst, src):
-        """ Generate a move from src to dst """
+        """Generate a move from src to dst"""
         if isinstance(dst, registers.DataRegister):
             if isinstance(src, registers.DataRegister):
                 return instructions.Movel(

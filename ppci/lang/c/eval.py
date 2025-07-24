@@ -2,13 +2,13 @@ from .nodes import types, expressions, declarations
 
 
 class ConstantExpressionEvaluator:
-    """ Class which is capable of evaluating expressions. """
+    """Class which is capable of evaluating expressions."""
 
     def __init__(self, context):
         self.context = context
 
     def eval_expr(self, expr):
-        """ Evaluate an expression right now! (=at compile time) """
+        """Evaluate an expression right now! (=at compile time)"""
         if isinstance(expr, expressions.BinaryOperator):
             value = self.eval_binop(expr)
         elif isinstance(expr, expressions.UnaryOperator):
@@ -37,7 +37,7 @@ class ConstantExpressionEvaluator:
         return value
 
     def eval_variable_access(self, expr):
-        """ Evaluate variable access. """
+        """Evaluate variable access."""
         declaration = expr.variable.declaration
         if isinstance(declaration, declarations.EnumConstantDeclaration):
             value = self.eval_enum(declaration)
@@ -54,7 +54,7 @@ class ConstantExpressionEvaluator:
         return value
 
     def eval_enum(self, declaration):
-        """ Evaluate enum value. """
+        """Evaluate enum value."""
         value = self.context.get_enum_value(declaration.typ, declaration)
         return value
 
@@ -68,7 +68,7 @@ class ConstantExpressionEvaluator:
         raise NotImplementedError()
 
     def eval_cast(self, expr):
-        """ Evaluate cast expression. """
+        """Evaluate cast expression."""
         value = self.eval_expr(expr.expr)
 
         # do some real casting:
@@ -81,7 +81,7 @@ class ConstantExpressionEvaluator:
         return value
 
     def eval_unop(self, expr):
-        """ Evaluate unary operation. """
+        """Evaluate unary operation."""
         if expr.op in ["-", "~"]:
             a = self.eval_expr(expr.a)
             op_map = {
@@ -99,7 +99,7 @@ class ConstantExpressionEvaluator:
         raise NotImplementedError("take address operator: &")
 
     def eval_binop(self, expr):
-        """ Evaluate binary operator. """
+        """Evaluate binary operator."""
         lhs = self.eval_expr(expr.a)
         rhs = self.eval_expr(expr.b)
         op = expr.op

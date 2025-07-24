@@ -1,1 +1,1 @@
-""" Package containing several graph algorithms """
+"""Package containing several graph algorithms"""

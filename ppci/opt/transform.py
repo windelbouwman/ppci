@@ -1,4 +1,4 @@
-""" Transformation to optimize IR-code """
+"""Transformation to optimize IR-code"""
 
 import logging
 import abc
@@ -22,15 +22,15 @@ class ModulePass(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def run(self, ir_module):  # pragma: no cover
-        """ Run this pass over a module """
+        """Run this pass over a module"""
         raise NotImplementedError()
 
 
 class FunctionPass(ModulePass):
-    """ Base pass that loops over all functions in a module """
+    """Base pass that loops over all functions in a module"""
 
     def run(self, ir_module: ir.Module):
-        """ Main entry point for the pass """
+        """Main entry point for the pass"""
         self.prepare()
         self.debug_db = ir_module.debug_db
         assert isinstance(ir_module, ir.Module)
@@ -40,35 +40,35 @@ class FunctionPass(ModulePass):
 
     @abc.abstractmethod
     def on_function(self, function: ir.SubRoutine):  # pragma: no cover
-        """ Override this virtual method """
+        """Override this virtual method"""
         raise NotImplementedError()
 
 
 class BlockPass(FunctionPass):
-    """ Base pass that loops over all blocks """
+    """Base pass that loops over all blocks"""
 
     def on_function(self, function):
-        """ Loops over each block in the function """
+        """Loops over each block in the function"""
         for block in function.blocks:
             self.on_block(block)
 
     @abc.abstractmethod
     def on_block(self, block: ir.Block):  # pragma: no cover
-        """ Override this virtual method """
+        """Override this virtual method"""
         raise NotImplementedError()
 
 
 class InstructionPass(BlockPass):
-    """ Base pass that loops over all instructions """
+    """Base pass that loops over all instructions"""
 
     def on_block(self, block):
-        """ Loops over each instruction in the block """
+        """Loops over each instruction in the block"""
         for instruction in block:
             self.on_instruction(instruction)
 
     @abc.abstractmethod
     def on_instruction(self, instruction):  # pragma: no cover
-        """ Override this virtual method """
+        """Override this virtual method"""
         raise NotImplementedError()
 
 
@@ -99,7 +99,7 @@ class RemoveAddZeroPass(InstructionPass):
 
 
 class DeleteUnusedInstructionsPass(BlockPass):
-    """ Remove unused variables from a block """
+    """Remove unused variables from a block"""
 
     def on_block(self, block):
         unused_instructions = [

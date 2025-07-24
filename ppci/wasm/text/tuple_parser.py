@@ -1,12 +1,10 @@
-""" Module to assist in parsing nested tuple structures.
-
-"""
+"""Module to assist in parsing nested tuple structures."""
 
 import enum
 
 
 class TupleParser:
-    """ Helper class to parse tuple structures. """
+    """Helper class to parse tuple structures."""
 
     # match helper section:
     def _feed(self, t):
@@ -29,7 +27,7 @@ class TupleParser:
         yield Token.RPAR
 
     def _lookahead(self, amount: int):
-        """ Return some lookahead tokens """
+        """Return some lookahead tokens"""
         assert amount > 0
         while len(self._nxt) < amount:
             nxt = next(self._nxt_func, Token.EOF)
@@ -37,14 +35,14 @@ class TupleParser:
         return tuple(self._nxt[:amount])
 
     def expect(self, *args):
-        """ Check if tokens ahead match the given sequence """
+        """Check if tokens ahead match the given sequence"""
         for arg in args:
             actual = self.take()
             if actual != arg:
                 raise ValueError("Expected {} but have {}".format(arg, actual))
 
     def munch(self, *args):
-        """ Match and eat tokens """
+        """Match and eat tokens"""
         if self.match(*args):
             self.expect(*args)
             return True
@@ -52,7 +50,7 @@ class TupleParser:
             return False
 
     def match(self, *args):
-        """ Check if the given tokens are ahead """
+        """Check if the given tokens are ahead"""
         peek = self._lookahead(len(args))
         if peek == args:
             return True
@@ -60,7 +58,7 @@ class TupleParser:
             return False
 
     def take(self):
-        """ Take the next token """
+        """Take the next token"""
         if not self._nxt:
             nxt = next(self._nxt_func, Token.EOF)
             self._nxt.append(nxt)

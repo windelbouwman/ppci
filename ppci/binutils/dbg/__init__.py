@@ -1,5 +1,4 @@
-""" Debugger module """
-
+"""Debugger module"""
 
 from .debug_driver import DebugDriver
 from .debugger import Debugger

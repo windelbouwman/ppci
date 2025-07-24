@@ -1,4 +1,4 @@
-""" Package for different file formats """
+"""Package for different file formats"""
 
 from .elf import ElfFile
 from .hexfile import HexFile

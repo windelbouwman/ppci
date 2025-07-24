@@ -1,7 +1,4 @@
-""" Functionality to read a wasm module from it's binary format.
-
-"""
-
+"""Functionality to read a wasm module from it's binary format."""
 
 import logging
 import struct
@@ -18,7 +15,7 @@ logger = logging.getLogger("wasm")
 
 
 class BinaryFileReader:
-    """ Reader which can read binary wasm. """
+    """Reader which can read binary wasm."""
 
     def __init__(self, f):
         self._f = [f]
@@ -31,7 +28,7 @@ class BinaryFileReader:
                 self._section_id_to_name[id] = name
 
     def read_module(self, module):
-        """ Load a module from wasm binary format. """
+        """Load a module from wasm binary format."""
         self.read_header()
 
         # Prepare
@@ -67,7 +64,7 @@ class BinaryFileReader:
         module.id = None
 
     def read_section(self, section_id):
-        """ Process a single section. """
+        """Process a single section."""
         section_name = self._section_id_to_name[section_id]
         logger.debug("Loading %s section", section_name)
 
@@ -95,7 +92,7 @@ class BinaryFileReader:
                     assert d.id in id_map
 
     def read_header(self):
-        """ Check header and version """
+        """Check header and version"""
         data = self.read_exactly(4)
         if data != b"\x00asm":
             raise ValueError("Magic wasm marker is invalid")
@@ -140,7 +137,7 @@ class BinaryFileReader:
         assert remaining == bytes(), str(remaining)
 
     def read_fmt(self, fmt):
-        """ Read data according to the given format. """
+        """Read data according to the given format."""
         size = struct.calcsize(fmt)
         data = self.read_exactly(size)
         return struct.unpack(fmt, data)[0]
@@ -156,47 +153,47 @@ class BinaryFileReader:
         return b[0]
 
     def read_byte(self):
-        """ Read the value of a single byte """
+        """Read the value of a single byte"""
         data = self.read_exactly(1)
         return data[0]
 
     def read_int(self):
-        """ Read variable size signed int """
+        """Read variable size signed int"""
         return signed_leb128_decode(self)
 
     def read_uint(self):
-        """ Read variable size unsigned integer """
+        """Read variable size unsigned integer"""
         return unsigned_leb128_decode(self)
 
     def read_f32(self) -> float:
-        """ Read a single f32 value """
+        """Read a single f32 value"""
         return self.read_fmt("f")
 
     def read_f64(self) -> float:
-        """ Read a single f64 value """
+        """Read a single f64 value"""
         return self.read_fmt("d")
 
     def read_u32(self) -> int:
-        """ Read a single u32 value """
+        """Read a single u32 value"""
         return self.read_fmt("<I")
 
     def read_length_prefixed_bytes(self) -> bytes:
-        """ Read length prefixed raw bytes data """
+        """Read length prefixed raw bytes data"""
         amount = self.read_uint()
         return self.read_exactly(amount)
 
     def read_str(self):
-        """ Read a string """
+        """Read a string"""
         data = self.read_length_prefixed_bytes()
         return data.decode("utf-8")
 
     def read_type(self):
-        """ Read a wasm type """
+        """Read a wasm type"""
         tp = self.read_byte()
         return LANG_TYPES_REVERSE[tp]
 
     def read_limits(self):
-        """ Read min and max limits """
+        """Read min and max limits"""
         mx_present = self.read_byte()
         assert mx_present in [0, 1]
         minimum = self.read_uint()
@@ -207,7 +204,7 @@ class BinaryFileReader:
         return minimum, maximum
 
     def read_space_ref(self, space):
-        """ Read a reference into a certain space. """
+        """Read a reference into a certain space."""
         return Ref(space, index=self.read_uint())
 
     def gen_id(self, space):
@@ -220,7 +217,7 @@ class BinaryFileReader:
         id_map[definition.id] = definition
 
     def read_expression(self):
-        """ Read instructions until an end marker is found """
+        """Read instructions until an end marker is found"""
         expr = []
         blocks = 1
         i = self.read_instruction()
@@ -244,7 +241,7 @@ class BinaryFileReader:
         return expr[:-1]
 
     def read_instruction(self):
-        """ Read a single instruction """
+        """Read a single instruction"""
         binopcode = self.read_byte()
         if binopcode == 0xFC:
             opcode2 = self.read_uint()
@@ -278,7 +275,7 @@ class BinaryFileReader:
         return instruction
 
     def read_type_definition(self):
-        """ Read a type definition. """
+        """Read a type definition."""
         form = self.read_exactly(1)
         assert form == b"\x60"
         num_params = self.read_uint()
@@ -291,7 +288,7 @@ class BinaryFileReader:
         return definition
 
     def read_import_definition(self):
-        """ Fill an import. """
+        """Fill an import."""
         modname = self.read_str()
         name = self.read_str()
         kind_id = self.read_byte()
@@ -343,7 +340,7 @@ class BinaryFileReader:
         return definition
 
     def read_export_definition(self):
-        """ Read an `export` definition. """
+        """Read an `export` definition."""
         name = self.read_str()
         kind_id = self.read_byte()
         kind = ["func", "table", "memory", "global"][kind_id]
@@ -355,7 +352,7 @@ class BinaryFileReader:
         return components.Start(ref)
 
     def read_elem_definition(self):
-        """ Read an `elem` definition. """
+        """Read an `elem` definition."""
         ref = self.read_space_ref("table")
         offset = self.read_expression()
 
@@ -364,7 +361,7 @@ class BinaryFileReader:
         return components.Elem(ref, offset, refs)
 
     def read_func_definition(self, index):
-        """ Read a function with locals and instructions. """
+        """Read a function with locals and instructions."""
         # First read on the function body block:
         body_data = self.read_length_prefixed_bytes()
 
@@ -386,14 +383,14 @@ class BinaryFileReader:
         return func
 
     def read_data_definition(self):
-        """ Read a data definition. """
+        """Read a data definition."""
         ref = self.read_space_ref("memory")
         offset = self.read_expression()
         data = self.read_length_prefixed_bytes()
         return components.Data(ref, offset, data)
 
     def read_custom_definition(self):
-        """ Read a custom definition. """
+        """Read a custom definition."""
         name = self.read_str()
         data = self.read_exactly()
         return components.Custom(name, data)

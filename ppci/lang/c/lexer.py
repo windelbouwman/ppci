@@ -1,4 +1,4 @@
-""" C Language lexer """
+"""C Language lexer"""
 
 import logging
 import io
@@ -8,7 +8,7 @@ from ..tools.handlexer import HandLexerBase
 
 
 class SourceFile:
-    """ Presents the current file. """
+    """Presents the current file."""
 
     def __init__(self, name):
         self.filename = name
@@ -32,7 +32,7 @@ tri_map = {
 
 
 def trigraph_filter(chunks):
-    """ Replace trigraphs in a chunk sequence """
+    """Replace trigraphs in a chunk sequence"""
 
     for row, column, text in chunks:
         if len(text) > 2:
@@ -58,7 +58,7 @@ def trigraph_filter(chunks):
 
 
 def continued_lines_filter(chunks):
-    r""" Glue lines which end with a backslash '\' """
+    r"""Glue lines which end with a backslash '\'"""
     backslash = None
     for row, column, text in chunks:
         if backslash:
@@ -84,13 +84,13 @@ def continued_lines_filter(chunks):
 
 
 def lex_text(text, coptions):
-    """ Lex a piece of text """
+    """Lex a piece of text"""
     lexer = CLexer(coptions)
     return list(lexer.lex_text(text))
 
 
 class CLexer(HandLexerBase):
-    """ Lexer used for the preprocessor """
+    """Lexer used for the preprocessor"""
 
     logger = logging.getLogger("clexer")
     lower_letters = "abcdefghijklmnopqrstuvwxyz"
@@ -105,7 +105,7 @@ class CLexer(HandLexerBase):
         self.coptions = coptions
 
     def lex(self, src, source_file):
-        """ Read a source and generate a series of tokens """
+        """Read a source and generate a series of tokens"""
         self.logger.debug("Lexing %s", source_file.filename)
 
         self._source_file = source_file
@@ -122,14 +122,14 @@ class CLexer(HandLexerBase):
         return self.tokenize(source_file.filename, chunks)
 
     def lex_text(self, txt):
-        """ Create tokens from the given text """
+        """Create tokens from the given text"""
         f = io.StringIO(txt)
         filename = None
         source_file = SourceFile(filename)
         return self.lex(f, source_file)
 
     def tokenize(self, filename, chunks):
-        """ Generate tokens from characters """
+        """Generate tokens from characters"""
         space = ""
         first = True
         token = None
@@ -153,7 +153,7 @@ class CLexer(HandLexerBase):
             yield CToken("BOL", "", "", first, token.loc)
 
     def create_chunks(self, f):
-        """ Create a sequence of chunks.
+        """Create a sequence of chunks.
 
         Each chunk is a tuple of (row, column, text)
         """
@@ -164,7 +164,7 @@ class CLexer(HandLexerBase):
             self._source_file.row += 1
 
     def lex_c(self):
-        """ Root parsing function """
+        """Root parsing function"""
         char = self.next_char()
 
         if char is None:
@@ -309,10 +309,10 @@ class CLexer(HandLexerBase):
                 # We got .[0-9]
                 return self.lex_float
             elif self.accept("."):
-                if self.accept('.'):
+                if self.accept("."):
                     self.emit("...")
                 else:
-                    self.error('Expected . or ...')
+                    self.error("Expected . or ...")
             else:
                 self.emit(".")
             return self.lex_c
@@ -332,7 +332,7 @@ class CLexer(HandLexerBase):
         return self.lex_c
 
     def lex_number(self):
-        """ Lex a single numeric literal. """
+        """Lex a single numeric literal."""
         if self.accept("0"):
             # Octal, binary or hex!
             if self.accept("xX"):
@@ -374,7 +374,7 @@ class CLexer(HandLexerBase):
             return self.lex_c
 
     def lex_float(self):
-        """ Lex floating point number from decimal dot onwards. """
+        """Lex floating point number from decimal dot onwards."""
         self.accept_run(self.numbers)
         if self.accept("eEpP"):
             self.accept("+-")
@@ -408,7 +408,7 @@ class CLexer(HandLexerBase):
         return self.lex_c
 
     def lex_string(self):
-        """ Scan for a complete string """
+        """Scan for a complete string"""
         c = self.next_char(eof=False)
         while c != '"':
             if c == "\\":
@@ -418,7 +418,7 @@ class CLexer(HandLexerBase):
         return self.lex_c
 
     def lex_char(self):
-        """ Scan for a complete character constant """
+        """Scan for a complete character constant"""
         if self.accept("\\"):
             self._handle_escape_character()
         else:

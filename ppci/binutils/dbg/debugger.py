@@ -1,4 +1,4 @@
-""" Debugger.
+"""Debugger.
 
 The debugger always operates in remote mode like gdb.
 
@@ -66,17 +66,17 @@ class Debugger:
 
     # Start stop parts:
     def run(self):
-        """ Run the program """
+        """Run the program"""
         self.logger.info("run")
         self.driver.run()
 
     def restart(self):
-        """ Restart the debugged program """
+        """Restart the debugged program"""
         self.logger.info("restart")
         self.driver.restart()
 
     def stop(self):
-        """ Interrupt the currently running program """
+        """Interrupt the currently running program"""
         self.logger.info("stop")
         self.driver.stop()
 
@@ -84,7 +84,7 @@ class Debugger:
         pass
 
     def get_possible_breakpoints(self, filename):
-        """ Return the rows in the file for which breakpoints can be set """
+        """Return the rows in the file for which breakpoints can be set"""
         options = set()
         if self.debug_info:
             for loc in self.debug_info.locations:
@@ -93,7 +93,7 @@ class Debugger:
         return options
 
     def set_breakpoint(self, filename, row):
-        """ Set a breakpoint """
+        """Set a breakpoint"""
         self.logger.info("set breakpoint %s:%i", filename, row)
         address = self.find_address(filename, row)
         if address is None:
@@ -102,7 +102,7 @@ class Debugger:
             self.driver.set_breakpoint(address)
 
     def clear_breakpoint(self, filename, row):
-        """ Remove a breakpoint """
+        """Remove a breakpoint"""
         self.logger.info("clear breakpoint %s:%i", filename, row)
         address = self.find_address(filename, row)
         if address is None:
@@ -111,13 +111,13 @@ class Debugger:
             self.driver.clear_breakpoint(address)
 
     def step(self):
-        """ Single step the debugged program """
+        """Single step the debugged program"""
         self.logger.info("step")
         self.driver.step()
         self.logger.info("program counter 0x%x", self.get_pc())
 
     def nstep(self, count):
-        """ step n instructions of the debugged program """
+        """step n instructions of the debugged program"""
         self.logger.info("nstep 0x%x", count)
         self.driver.nstep(count)
         self.logger.info("program counter 0x%x", self.get_pc())
@@ -129,17 +129,17 @@ class Debugger:
 
     @property
     def is_running(self):
-        """ Test if we are running """
+        """Test if we are running"""
         return self.status == DebugState.RUNNING
 
     @property
     def is_halted(self):
-        """ Test if we are stopped """
+        """Test if we are stopped"""
         return not self.is_running
 
     # debug info:
     def load_symbols(self, obj, validate=True):
-        """ Load debug symbols from object file """
+        """Load debug symbols from object file"""
         obj = get_object(obj)
 
         # verify the contents of the object with the memory image
@@ -161,7 +161,7 @@ class Debugger:
             self.logger.debug("%s at 0x%x", loc, addr)
 
     def validate_memory(self, obj):
-        """ Validate memory given an object file """
+        """Validate memory given an object file"""
         for image in obj.images:
             vdata = image.data
             adata = self.read_mem(image.address, len(vdata))
@@ -172,11 +172,11 @@ class Debugger:
 
     @property
     def has_symbols(self):
-        """ Check if some debug symbols are loaded """
+        """Check if some debug symbols are loaded"""
         return bool(self.addr_map)
 
     def calc_address(self, address):
-        """ Calculate the actual address based on section and offset """
+        """Calculate the actual address based on section and offset"""
         if isinstance(address, DebugAddress):
             address = self.obj.get_symbol_id_value(address.symbol_id)
         elif isinstance(address, FpOffsetAddress):
@@ -186,7 +186,7 @@ class Debugger:
         return address
 
     def find_pc(self):
-        """ Given the current program counter (pc) determine the source """
+        """Given the current program counter (pc) determine the source"""
         pc = self.get_pc()
         # if pc in self.addr_map:
         minkey = min(self.addr_map.keys(), key=lambda k: abs(k - pc))
@@ -199,7 +199,7 @@ class Debugger:
         return loc.filename, loc.row
 
     def current_function(self):
-        """ Determine the PC and then determine which function we are in """
+        """Determine the PC and then determine which function we are in"""
         pc = self.get_pc()
         if self.debug_info:
             for function in self.debug_info.functions:
@@ -209,14 +209,14 @@ class Debugger:
                     return function
 
     def local_vars(self):
-        """ Return map of local variable names """
+        """Return map of local variable names"""
         cur_func = self.current_function()
         if not cur_func:
             return {}
         return {v.name: v for v in cur_func.variables}
 
     def find_address(self, filename, row):
-        """ Given a filename and a row, determine the address """
+        """Given a filename and a row, determine the address"""
         if self.debug_info:
             for debug in self.debug_info.locations:
                 loc = debug.loc
@@ -226,18 +226,18 @@ class Debugger:
 
     # Registers:
     def get_register_values(self, registers):
-        """ Get a dictionary of register values """
+        """Get a dictionary of register values"""
         return self.driver.get_registers(registers)
 
     def set_register_values(self):
-        """ Set target register values to register_values """
+        """Set target register values to register_values"""
         return self.driver.set_registers(self.register_values)
 
     def get_registers(self):
         return self.arch.gdb_registers
 
     def get_register(self, register):
-        """ Get the value of a single register """
+        """Get the value of a single register"""
         raise NotImplementedError()
 
     def set_register(self, register, value):
@@ -246,11 +246,11 @@ class Debugger:
 
     # Memory:
     def read_mem(self, address, size):
-        """ Read binary data from memory location """
+        """Read binary data from memory location"""
         return self.driver.read_mem(address, size)
 
     def write_mem(self, address, data):
-        """ Write binary data to memory location """
+        """Write binary data to memory location"""
         return self.driver.write_mem(address, data)
 
     # Expressions:
@@ -267,7 +267,7 @@ class Debugger:
         return val
 
     def sizeof(self, typ):
-        """ Determine the size of a debug type """
+        """Determine the size of a debug type"""
         return typ.sizeof()
         # TODO: obsolete:
         if isinstance(typ, DebugBaseType):
@@ -281,7 +281,7 @@ class Debugger:
             raise NotImplementedError(str(typ))
 
     def eval_c3_expr(self, expr, rval=True):
-        """ Evaluate C3 expression tree """
+        """Evaluate C3 expression tree"""
         # TODO: check types!!
         # TODO: merge with c3.scope stuff and c3 codegenerator stuff?
         assert isinstance(expr, c3nodes.Expression), str(type(expr))
@@ -387,7 +387,7 @@ class Debugger:
         return val
 
     def load_value(self, addr, typ):
-        """ Load specific type from an address """
+        """Load specific type from an address"""
         # Load variable now!
         if not isinstance(typ, (DebugBaseType, DebugPointerType)):
             raise CompilerError("Cannot load {}".format(typ))
@@ -405,20 +405,20 @@ class Debugger:
             return loaded_val
 
     def eval_variable(self, variable):
-        """ Evaluate the given debug variable """
+        """Evaluate the given debug variable"""
         addr = self.calc_address(variable.address)
         return self.load_value(addr, variable.typ)
 
     # Disassembly:
     def get_pc(self):
-        """ Get the program counter """
+        """Get the program counter"""
         return self.driver.get_pc()
 
     def get_fp(self):
         return self.driver.get_fp()
 
     def get_disasm(self):
-        """ Get instructions around program counter """
+        """Get instructions around program counter"""
         loc = self.get_pc()
         address = max(loc - 8, 0)
         data = self.read_mem(address, 16)
@@ -428,5 +428,5 @@ class Debugger:
         return instructions
 
     def get_mixed(self):
-        """ Get source lines and assembly lines """
+        """Get source lines and assembly lines"""
         pass

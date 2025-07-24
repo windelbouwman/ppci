@@ -1,11 +1,10 @@
-""" OCaml marshalling format.
+"""OCaml marshalling format.
 
 Marshalling as described here:
 
 http://cadmium.x9c.fr/distrib/caml-formats.pdf
 
 """
-
 
 import enum
 import io
@@ -49,7 +48,7 @@ INTEXT_MAGIC_NUMBER_BIG = 0x8495A6BF
 
 
 class Header:
-    """ Marshalled data header """
+    """Marshalled data header"""
 
     pass
 
@@ -91,7 +90,7 @@ class Marshall:
         self._items = []
 
     def read_item(self):
-        """ Read a single item """
+        """Read a single item"""
         code = self.reader.read_byte()
         logger.debug("code %s", hex(code))
         if code >= MarshallCode.PREFIX_SMALL_BLOCK:
@@ -151,7 +150,7 @@ class Marshall:
         return self._items[-1 - ofs]
 
     def read_string(self, size):
-        """ Read string data of length given by size """
+        """Read string data of length given by size"""
         logger.debug("String with size %s", size)
         data = self.reader.read_data(size)
         logger.debug("String raw data %s", data)
@@ -161,7 +160,7 @@ class Marshall:
         return value
 
     def read_block(self, tag, size):
-        """ A series of data with a tag """
+        """A series of data with a tag"""
         logger.debug("Reading block with tag %s and size %s", tag, size)
         values = []
         for _ in range(size):

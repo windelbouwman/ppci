@@ -5,7 +5,7 @@ from ..common import make_num, get_file
 
 
 def get_layout(layout):
-    """ Get a layout from object or file """
+    """Get a layout from object or file"""
     if isinstance(layout, Layout):
         return layout
     else:
@@ -16,7 +16,7 @@ def get_layout(layout):
 
 
 class Layout:
-    """ Defines a layout for the linker to be used """
+    """Defines a layout for the linker to be used"""
 
     def __init__(self):
         self.memories = []
@@ -33,7 +33,7 @@ class Layout:
 
     @staticmethod
     def load(file):
-        """ Load a layout from file """
+        """Load a layout from file"""
         return _lloader.load_layout(file)
 
 
@@ -45,7 +45,7 @@ class EntrySymbol:
 
 
 class Memory:
-    """ Specification of how a memory may look like and what it contains. """
+    """Specification of how a memory may look like and what it contains."""
 
     def __init__(self, name):
         self.inputs = []
@@ -71,7 +71,7 @@ class Input:
 
 
 class Section(Input):
-    """ Insert a section here """
+    """Insert a section here"""
 
     def __init__(self, section_name):
         self.section_name = section_name
@@ -81,7 +81,7 @@ class Section(Input):
 
 
 class SectionData(Input):
-    """ Insert only the data of a section here, not the section itself """
+    """Insert only the data of a section here, not the section itself"""
 
     def __init__(self, section_name):
         self.section_name = section_name
@@ -91,7 +91,7 @@ class SectionData(Input):
 
 
 class Align(Input):
-    """ Align the current position to the given byte """
+    """Align the current position to the given byte"""
 
     def __init__(self, alignment):
         self.alignment = alignment
@@ -109,7 +109,7 @@ class SymbolDefinition(Input):
 
 
 class LayoutLexer(BaseLexer):
-    """ Lexer for layout files """
+    """Lexer for layout files"""
 
     kws = [
         "MEMORY",

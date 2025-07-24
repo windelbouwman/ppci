@@ -29,7 +29,7 @@ class CleanPass(FunctionPass):
         self.remove_one_preds(function)
 
     def find_empty_blocks(self, function):
-        """ Look for all blocks containing only a jump in it """
+        """Look for all blocks containing only a jump in it"""
         empty_blocks = []
         for block in function:
             if block.is_entry:
@@ -39,7 +39,7 @@ class CleanPass(FunctionPass):
         return empty_blocks
 
     def remove_empty_blocks(self, function):
-        """ Remove empty basic blocks from function. """
+        """Remove empty basic blocks from function."""
         stat = 0
         for block in self.find_empty_blocks(function):
             predecessors = block.predecessors
@@ -66,7 +66,7 @@ class CleanPass(FunctionPass):
             self.logger.debug("Removed %s empty blocks", stat)
 
     def find_single_predecessor_block(self, function):
-        """ Find a block with a single predecessor """
+        """Find a block with a single predecessor"""
         for block in function:
             preds = block.predecessors
 
@@ -85,7 +85,7 @@ class CleanPass(FunctionPass):
                 return block
 
     def remove_one_preds(self, function):
-        """ Remove basic blocks with only one predecessor """
+        """Remove basic blocks with only one predecessor"""
         change = True
         while change:
             change = False
@@ -96,7 +96,7 @@ class CleanPass(FunctionPass):
                 change = True
 
     def glue_blocks(self, block1, block2):
-        """ Glue two blocks together into the first block """
+        """Glue two blocks together into the first block"""
         self.logger.debug(
             "Inserting %s at the end of %s", block2.name, block1.name
         )

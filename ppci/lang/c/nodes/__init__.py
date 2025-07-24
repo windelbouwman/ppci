@@ -1,1 +1,1 @@
-""" Contains AST nodes """
+"""Contains AST nodes"""

@@ -1,4 +1,4 @@
-""" Microblaze instructions """
+"""Microblaze instructions"""
 
 from ..encoding import Instruction, Syntax, Operand, Relocation
 
@@ -38,7 +38,7 @@ class TypeBToken(MicroBlazeToken32):
 
 
 class PcRel64Token(Token):
-    """ A double immediate field token """
+    """A double immediate field token"""
 
     class Info:
         size = 64
@@ -63,7 +63,7 @@ def syntax_from_operands(mnemonic, operands):
 def type_a(
     mnemonic: str, opcode1, opcode2, rd=None, ra=None, rb=None, rd_write=True
 ):
-    """ Create a type a instruction """
+    """Create a type a instruction"""
     operands = []
     if rd is None:
         if rd_write:
@@ -100,7 +100,7 @@ def type_a(
 
 
 def type_b(mnemonic, opcode, rd=None, ra=None, imm=None, rd_write=True):
-    """ Create an instruction class for a type B instruction """
+    """Create an instruction class for a type B instruction"""
     operands = []
     if rd is None:
         if rd_write:
@@ -434,7 +434,7 @@ class Bgei_label(ArtificialInstruction):
 
 
 def mov(dst, src):
-    """ Move instruction """
+    """Move instruction"""
     # TODO: use the keep carry variant here?
     return Add(dst, registers.R0, src, ismove=True)
 
@@ -499,7 +499,7 @@ def pattern_const32(context, tree):
 
 @isa.pattern("reg", "LABEL", size=8)
 def pattern_label(context, tree):
-    """ Determine the label address and yield its result """
+    """Determine the label address and yield its result"""
     dst = context.new_reg(MicroBlazeRegister)
     context.emit(Addik_label(dst, R0, tree.value))
     return dst
@@ -594,7 +594,7 @@ def pattern_mul(context, tree, c0, c1):
 
 
 def call_intrinsic(context, label, args, result):
-    """ Generate a call to an intrinsic function """
+    """Generate a call to an intrinsic function"""
     c0, c1 = args
     context.move(registers.R5, c0)
     context.move(registers.R6, c1)

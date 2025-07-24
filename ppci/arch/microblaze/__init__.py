@@ -1,4 +1,4 @@
-""" Microblaze architecture.
+"""Microblaze architecture.
 
 Low level instruction class usage:
 
@@ -10,7 +10,6 @@ Low level instruction class usage:
     'add R4, R5, R6'
 
 """
-
 
 from .arch import MicroBlazeArch
 from .registers import MicroBlazeRegister

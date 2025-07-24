@@ -1,4 +1,4 @@
-""" x87 floating point unit instructions """
+"""x87 floating point unit instructions"""
 
 from ..isa import Isa
 from ..encoding import Operand, Syntax, Instruction
@@ -10,13 +10,13 @@ x87_isa = Isa()
 
 
 class X87Instruction(Instruction):
-    """ x87 FPU instruction """
+    """x87 FPU instruction"""
 
     isa = x87_isa
 
 
 class Fsqrt(X87Instruction):
-    """ Floating point square root """
+    """Floating point square root"""
 
     syntax = Syntax(["fsqrt"])
     patterns = {"opcode": 0xD9, "opcode2": 0xFA}
@@ -24,7 +24,7 @@ class Fsqrt(X87Instruction):
 
 
 class Fld32(X87Instruction):
-    """ Push 32 bit operand on the FPU stack, suffix s=32 bit """
+    """Push 32 bit operand on the FPU stack, suffix s=32 bit"""
 
     m = Operand("m", mem_modes)
     syntax = Syntax(["flds", " ", m])
@@ -33,7 +33,7 @@ class Fld32(X87Instruction):
 
 
 class Fld64(X87Instruction):
-    """ Push 64 bit operand on the FPU stack, suffix l=64 bit """
+    """Push 64 bit operand on the FPU stack, suffix l=64 bit"""
 
     m = Operand("m", mem_modes)
     syntax = Syntax(["fldl", " ", m])
@@ -42,7 +42,7 @@ class Fld64(X87Instruction):
 
 
 class Fld80(X87Instruction):
-    """ Push 80 bit operand on the FPU stack, suffix t=80 bit """
+    """Push 80 bit operand on the FPU stack, suffix t=80 bit"""
 
     m = Operand("m", mem_modes)
     syntax = Syntax(["fldt", " ", m])
@@ -51,7 +51,7 @@ class Fld80(X87Instruction):
 
 
 class Fst32(X87Instruction):
-    """ Store 32 bit float into memory """
+    """Store 32 bit float into memory"""
 
     m = Operand("m", mem_modes)
     syntax = Syntax(["fsts", " ", m])
@@ -60,7 +60,7 @@ class Fst32(X87Instruction):
 
 
 class Fstp32(X87Instruction):
-    """ Store 32 bit float into memory and pop """
+    """Store 32 bit float into memory and pop"""
 
     m = Operand("m", mem_modes)
     syntax = Syntax(["fsts", " ", m])
@@ -69,7 +69,7 @@ class Fstp32(X87Instruction):
 
 
 class Fst64(X87Instruction):
-    """ Store 64 bit float into memory """
+    """Store 64 bit float into memory"""
 
     m = Operand("m", mem_modes)
     syntax = Syntax(["fstl", " ", m])

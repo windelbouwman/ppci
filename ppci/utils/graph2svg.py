@@ -1,4 +1,5 @@
-""" Implementation of a graph to svg formatter. """
+"""Implementation of a graph to svg formatter."""
+
 from statistics import median
 from .collections import OrderedSet
 
@@ -41,7 +42,7 @@ class Edge:
 
     @property
     def path_length(self):
-        """ return length of the path given a layering """
+        """return length of the path given a layering"""
         assert self.src.layer < self.dst.layer
         return self.dst.layer - self.src.layer
 
@@ -92,7 +93,7 @@ class Graph:
         return edge
 
     def has_edge(self, src, dst):
-        """ Check if there is an edge from src to dst """
+        """Check if there is an edge from src to dst"""
         return (src, dst) in self.edge_map
 
     def get_edge(self, src, dst):
@@ -102,7 +103,7 @@ class Graph:
         return self.node_map[nid]
 
     def print(self, *args):
-        """ Convenience helper for printing to dumpfile """
+        """Convenience helper for printing to dumpfile"""
         print(*args, file=self.dump_file)
 
     def to_svg(self, f):
@@ -165,7 +166,7 @@ class Point:
 
 
 class Path:
-    """ A sequence of points """
+    """A sequence of points"""
 
     def __init__(self, points=()):
         self.points = list(points)
@@ -239,7 +240,7 @@ class LayeredLayout:
         return layers
 
     def _insert_dummies(self, graph, layers):
-        """ Insert dummy nodes such that all edge lengths are 1 """
+        """Insert dummy nodes such that all edge lengths are 1"""
         # Gather all current long edges:
         long_edges = [e for e in graph.edges if e.path_length > 1]
 
@@ -261,7 +262,7 @@ class LayeredLayout:
                 edge.color = long_edge.color
 
     def _minimize_crossings(self, graph, layers):
-        """ Minimize the amount of crossings in the graph """
+        """Minimize the amount of crossings in the graph"""
         # def count_crossings(l1, l2):
         #    for n in l2:
         #        for

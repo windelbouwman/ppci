@@ -1,4 +1,4 @@
-""" Wrapper for the WebAssembly Binary Toolkit
+"""Wrapper for the WebAssembly Binary Toolkit
 
 https://github.com/WebAssembly/wabt/
 

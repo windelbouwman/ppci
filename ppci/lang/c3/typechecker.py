@@ -4,7 +4,7 @@ from .scope import SemanticError
 
 
 class TypeChecker:
-    """ Type checker """
+    """Type checker"""
 
     logger = logging.getLogger("c3check")
 
@@ -13,12 +13,12 @@ class TypeChecker:
         self.context = context
 
     def check(self):
-        """ Check everything """
+        """Check everything"""
         for module in self.context.modules:
             self.check_module(module)
 
     def check_module(self, module: ast.Module):
-        """ Check a module """
+        """Check a module"""
         assert isinstance(module, ast.Module)
         self.module_ok = True
         self.logger.info("Checking module %s", module.name)
@@ -94,13 +94,13 @@ class TypeChecker:
             raise NotImplementedError("{} not implemented".format(type(typ)))
 
     def check_variable(self, var):
-        """ Check a variable and especially its initial value """
+        """Check a variable and especially its initial value"""
         self.check_type(var.typ)
         if var.ival:
             var.ival = self.check_initial_value(var.ival, var.typ)
 
     def check_initial_value(self, ival, typ):
-        """ Ensure that the initial value fits the given type """
+        """Ensure that the initial value fits the given type"""
         typ = self.context.get_type(typ)
         if isinstance(typ, ast.ArrayType):
             if not isinstance(ival, ast.ExpressionList):
@@ -141,7 +141,7 @@ class TypeChecker:
             return self.do_coerce(ival, typ)
 
     def check_function(self, function):
-        """ Check a function. """
+        """Check a function."""
         for param in function.parameters:
             self.check_type(param.typ)
 
@@ -166,7 +166,7 @@ class TypeChecker:
         self.current_function = None
 
     def check_stmt(self, code: ast.Statement):
-        """ Check a statement """
+        """Check a statement"""
         try:
             assert isinstance(code, ast.Statement)
             if isinstance(code, ast.Compound):
@@ -204,25 +204,25 @@ class TypeChecker:
             self.error(exc.msg, exc.loc)
 
     def check_if_stmt(self, code):
-        """ Check if statement """
+        """Check if statement"""
         self.check_condition(code.condition)
         self.check_stmt(code.truestatement)
         self.check_stmt(code.falsestatement)
 
     def check_while(self, code):
-        """ Check while statement """
+        """Check while statement"""
         self.check_condition(code.condition)
         self.check_stmt(code.statement)
 
     def check_for_stmt(self, code):
-        """ Check a for-loop """
+        """Check a for-loop"""
         self.check_stmt(code.init)
         self.check_condition(code.condition)
         self.check_stmt(code.statement)
         self.check_stmt(code.final)
 
     def check_switch_stmt(self, switch):
-        """ Check a switch statement """
+        """Check a switch statement"""
         self.check_expr(switch.expression, rvalue=True)
         if not self.context.equal_types("int", switch.expression.typ):
             raise SemanticError(
@@ -245,7 +245,7 @@ class TypeChecker:
             )
 
     def check_return_stmt(self, code):
-        """ Check a return statement """
+        """Check a return statement"""
         if code.expr:
             if self.context.equal_types(
                 "void", self.current_function.typ.returntype
@@ -264,7 +264,7 @@ class TypeChecker:
                 raise SemanticError("Cannot return nothing", code.location)
 
     def check_assignment_stmt(self, code):
-        """ Check code for assignment statement """
+        """Check code for assignment statement"""
         # Evaluate left hand side:
         self.check_expr(code.lval)
 
@@ -286,7 +286,7 @@ class TypeChecker:
         code.rval = self.do_coerce(code.rval, code.lval.typ)
 
     def check_condition(self, expr):
-        """ Check condition expression """
+        """Check condition expression"""
         if isinstance(expr, ast.Binop):
             if expr.op in ["and", "or"]:
                 self.check_condition(expr.a)
@@ -319,7 +319,7 @@ class TypeChecker:
             self.error("Condition must be boolean", expr.loc)
 
     def check_expr(self, expr: ast.Expression, rvalue=False):
-        """ Check an expression. """
+        """Check an expression."""
         assert isinstance(expr, ast.Expression)
         if expr.is_bool:
             self.check_bool_expr(expr)
@@ -362,7 +362,7 @@ class TypeChecker:
             expr.lvalue = False
 
     def check_bool_expr(self, expr):
-        """ Check boolean expression """
+        """Check boolean expression"""
         self.check_condition(expr)
 
         # This is for sure no lvalue:
@@ -378,7 +378,7 @@ class TypeChecker:
         self.check_type(expr.query_typ)
 
     def check_dereference(self, expr: ast.Deref):
-        """ dereference pointer type, which means *(expr) """
+        """dereference pointer type, which means *(expr)"""
         assert isinstance(expr, ast.Deref)
 
         # Make sure to have the rvalue of the pointer:
@@ -393,7 +393,7 @@ class TypeChecker:
         expr.typ = ptr_typ.ptype
 
     def check_unop(self, expr):
-        """ Check unary operator """
+        """Check unary operator"""
         if expr.op == "&":
             self.check_expr(expr.a)
             if not expr.a.lvalue:
@@ -408,7 +408,7 @@ class TypeChecker:
             raise NotImplementedError(str(expr.op))
 
     def check_binop(self, expr: ast.Binop):
-        """ Check binary operation """
+        """Check binary operation"""
         assert isinstance(expr, ast.Binop)
         assert expr.op not in ast.Binop.cond_ops
         expr.lvalue = False
@@ -431,7 +431,7 @@ class TypeChecker:
         expr.b = self.do_coerce(expr.b, common_type)
 
     def check_identifier(self, expr):
-        """ Check identifier usage """
+        """Check identifier usage"""
         # Generate code for this identifier.
         target = self.context.resolve_symbol(expr)
 
@@ -448,7 +448,7 @@ class TypeChecker:
             )
 
     def check_member_expr(self, expr):
-        """ Check expressions such as struc.mem """
+        """Check expressions such as struc.mem"""
         if self.is_module_ref(expr):
             # Damn, we are referring something inside another module!
             # Invoke scope machinery!
@@ -488,7 +488,7 @@ class TypeChecker:
         assert expr.lvalue
 
     def is_module_ref(self, expr):
-        """ Determine whether a module is referenced """
+        """Determine whether a module is referenced"""
         if isinstance(expr, ast.Member):
             if isinstance(expr.base, ast.Identifier):
                 target = self.context.resolve_symbol(expr.base)
@@ -498,7 +498,7 @@ class TypeChecker:
         return False
 
     def check_index_expr(self, expr):
-        """ Array indexing """
+        """Array indexing"""
         self.check_expr(expr.base)
         self.check_expr(expr.i, rvalue=True)
 
@@ -518,13 +518,13 @@ class TypeChecker:
         expr.lvalue = True
 
     def check_literal_expr(self, expr):
-        """ Check literal """
+        """Check literal"""
         expr.lvalue = False
         typemap = {int: "int", float: "double", bool: "bool", str: "string"}
         expr.typ = self.context.get_type(typemap[type(expr.val)])
 
     def check_type_cast(self, expr):
-        """ Check type cast """
+        """Check type cast"""
         # When type casting, the rvalue property is lost.
         self.check_expr(expr.a, rvalue=True)
         expr.lvalue = False
@@ -532,7 +532,7 @@ class TypeChecker:
         expr.typ = expr.to_type
 
     def check_function_call(self, expr):
-        """ Check function call """
+        """Check function call"""
         # Lookup the function in question:
         target_func = self.context.resolve_symbol(expr.proc)
         if not isinstance(target_func, ast.Function):
@@ -659,7 +659,7 @@ class TypeChecker:
         return expr
 
     def error(self, msg, loc=None):
-        """ Emit error to diagnostic system and mark package as invalid """
+        """Emit error to diagnostic system and mark package as invalid"""
         self.module_ok = False
         self.logger.error(msg)
         self.diag.error(msg, loc)

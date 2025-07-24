@@ -1,4 +1,4 @@
-""" Contains a list of instantiated targets. """
+"""Contains a list of instantiated targets."""
 
 from functools import lru_cache
 from .arm import ArmArch

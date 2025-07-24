@@ -1,4 +1,4 @@
-""" X86 target descriptions and encodings.
+"""X86 target descriptions and encodings.
 
 See for a reference: http://ref.x86asm.net/coder64.html
 """
@@ -45,7 +45,7 @@ class Prefix2Token(Token):
 
 
 class OpcodeToken(Token):
-    """ Primary opcode """
+    """Primary opcode"""
 
     class Info:
         size = 8
@@ -54,7 +54,7 @@ class OpcodeToken(Token):
 
 
 class SecondaryOpcodeToken(Token):
-    """ Secondary opcode """
+    """Secondary opcode"""
 
     class Info:
         size = 8
@@ -63,7 +63,7 @@ class SecondaryOpcodeToken(Token):
 
 
 class ModRmToken(Token):
-    """ Construct the modrm byte from its components """
+    """Construct the modrm byte from its components"""
 
     class Info:
         size = 8
@@ -93,7 +93,7 @@ class SibToken(Token):
 
 
 class RexToken(Token):
-    """ Create a REX prefix byte """
+    """Create a REX prefix byte"""
 
     class Info:
         size = 8
@@ -113,7 +113,7 @@ class RexToken(Token):
 
 
 class RexOpcodeRmToken(Token):
-    """ A single token that combines rex prefix, opcode and mod rm """
+    """A single token that combines rex prefix, opcode and mod rm"""
 
     class Info:
         size = 24
@@ -148,7 +148,7 @@ class Rel32JmpRelocation(Relocation):
 
 @isa.register_relocation
 class Abs32Relocation(Relocation):
-    """ Absolute 32 bit relocation value """
+    """Absolute 32 bit relocation value"""
 
     token = Imm32Token
     field = "disp32"
@@ -181,14 +181,14 @@ class Abs64Relocation(Relocation):
 
 # Actual instructions:
 class X86Instruction(Instruction):
-    """ Base instruction for all x86 instructions """
+    """Base instruction for all x86 instructions"""
 
     tokens = [ModRmToken]
     isa = isa
 
 
 class NearJump(X86Instruction):
-    """ jmp imm32 """
+    """jmp imm32"""
 
     target = Operand("target", str)
     syntax = Syntax(["jmp", " ", target])
@@ -203,7 +203,7 @@ class NearJump(X86Instruction):
 
 
 class ConditionalJump(X86Instruction):
-    """ j?? imm32 """
+    """j?? imm32"""
 
     target = Operand("target", str)
     tokens = [PrefixToken, OpcodeToken, Imm32Token]
@@ -234,7 +234,7 @@ Jg = make_cjump("jg", 0x8F)
 
 
 class ShortJump(X86Instruction):
-    """ jmp imm8 """
+    """jmp imm8"""
 
     tokens = [OpcodeToken, Imm8Token]
     target = Operand("target", str)
@@ -246,7 +246,7 @@ class ShortJump(X86Instruction):
 
 
 class Push(X86Instruction):
-    """ Push a register onto the stack """
+    """Push a register onto the stack"""
 
     reg = Operand("reg", Register64, read=True)
     syntax = Syntax(["push", " ", reg])
@@ -260,7 +260,7 @@ class Push(X86Instruction):
 
 
 class Pop(X86Instruction):
-    """ Pop a register of the stack """
+    """Pop a register of the stack"""
 
     reg = Operand("reg", Register64, write=True)
     syntax = Syntax(["pop", " ", reg])
@@ -274,7 +274,7 @@ class Pop(X86Instruction):
 
 
 class Int(X86Instruction):
-    """ Trigger an interrupt """
+    """Trigger an interrupt"""
 
     nr = Operand("nr", int)
     syntax = Syntax(["int", " ", nr])
@@ -298,7 +298,7 @@ class CallReg(X86Instruction):
 
 
 class Call(X86Instruction):
-    """ call a function """
+    """call a function"""
 
     target = Operand("target", str)
     syntax = Syntax(["call", " ", target])
@@ -337,7 +337,7 @@ class Inc(X86Instruction):
 
 
 class RmMem(Constructor):
-    """ Memory access at memory pointed by register """
+    """Memory access at memory pointed by register"""
 
     reg = Operand("reg", Register64, read=True)
     syntax = Syntax(["[", reg, "]"])
@@ -366,7 +366,7 @@ class RmMem(Constructor):
 
 
 class RmMemDisp(Constructor):
-    """ register with 8 bit displacement """
+    """register with 8 bit displacement"""
 
     reg = Operand("reg", Register64, read=True)
     disp = Operand("disp", int)
@@ -395,7 +395,7 @@ class RmMemDisp(Constructor):
 
 
 class RmMemDisp2(Constructor):
-    """ memory access with base, index and displacement """
+    """memory access with base, index and displacement"""
 
     regb = Operand("regb", Register64, read=True)
     regi = Operand("regi", Register64, read=True)
@@ -417,7 +417,7 @@ class RmMemDisp2(Constructor):
 
 
 class RmRip(Constructor):
-    """ rip with 32 bit displacement special case """
+    """rip with 32 bit displacement special case"""
 
     disp = Operand("disp", int)
     syntax = Syntax(["[", "rip", ",", " ", disp, "]"])
@@ -428,7 +428,7 @@ class RmRip(Constructor):
 
 
 class RmAbsLabel(Constructor):
-    """ absolute address access """
+    """absolute address access"""
 
     label = Operand("label", str)
     syntax = Syntax(["[", label, "]"], priority=2)
@@ -451,7 +451,7 @@ class RmAbsLabel(Constructor):
 
 
 class RmAbs(Constructor):
-    """ absolute address access """
+    """absolute address access"""
 
     address = Operand("address", int)
     syntax = Syntax(["[", address, "]"], priority=2)
@@ -462,7 +462,7 @@ class RmAbs(Constructor):
 
 
 class RmReg64(Constructor):
-    """ Register access, this case is relatively easy """
+    """Register access, this case is relatively easy"""
 
     reg_rm = Operand("reg_rm", Register64, read=True)
     syntax = Syntax([reg_rm])
@@ -474,7 +474,7 @@ class RmReg64(Constructor):
 
 
 class RmReg32(Constructor):
-    """ Register access, this case is relatively easy """
+    """Register access, this case is relatively easy"""
 
     reg_rm = Operand("reg_rm", Register32, read=True)
     syntax = Syntax([reg_rm])
@@ -486,7 +486,7 @@ class RmReg32(Constructor):
 
 
 class RmReg16(Constructor):
-    """ Short register access """
+    """Short register access"""
 
     reg_rm = Operand("reg_rm", Register16, read=True)
     syntax = Syntax([reg_rm])
@@ -497,7 +497,7 @@ class RmReg16(Constructor):
 
 
 class RmReg8(Constructor):
-    """ Low register access """
+    """Low register access"""
 
     reg_rm = Operand("reg_rm", Register8, read=True)
     syntax = Syntax([reg_rm])
@@ -714,7 +714,7 @@ class RmBase16(rmregbase16):
 
 
 def make_rm64(mnemonic, opcode, o):
-    """ Create an instruction taking a 64 bit r/m operand """
+    """Create an instruction taking a 64 bit r/m operand"""
     rm = Operand("rm", rm64_modes)
     syntax = Syntax([mnemonic, " ", rm], priority=2)
     members = {"syntax": syntax, "rm": rm, "opcode": opcode, "reg": o}
@@ -722,7 +722,7 @@ def make_rm64(mnemonic, opcode, o):
 
 
 def make_rm32(mnemonic, opcode, o):
-    """ Create an instruction taking a 32 bit r/m operand """
+    """Create an instruction taking a 32 bit r/m operand"""
     rm = Operand("rm", rm32_modes)
     syntax = Syntax([mnemonic, " ", rm], priority=2)
     members = {"syntax": syntax, "rm": rm, "opcode": opcode, "reg": o}
@@ -730,7 +730,7 @@ def make_rm32(mnemonic, opcode, o):
 
 
 def make_rm16(mnemonic, opcode, o):
-    """ Create an instruction taking a 16 bit r/m operand """
+    """Create an instruction taking a 16 bit r/m operand"""
     rm = Operand("rm", rm16_modes)
     syntax = Syntax([mnemonic, " ", rm], priority=2)
     members = {"syntax": syntax, "rm": rm, "opcode": opcode, "reg": o}
@@ -743,7 +743,7 @@ Jmp = make_rm64("jmp", 0xFF, 4)
 
 
 def make_rm_reg64(mnemonic, opcode, read_op1=True, write_op1=True):
-    """ Create instruction class rm, reg """
+    """Create instruction class rm, reg"""
     rm = Operand("rm", rm64_modes)
     reg = Operand("reg", Register64, read=True)
     syntax = Syntax([mnemonic, " ", rm, ",", " ", reg], priority=0)
@@ -752,7 +752,7 @@ def make_rm_reg64(mnemonic, opcode, read_op1=True, write_op1=True):
 
 
 def make_rm_reg32(mnemonic, opcode, read_op1=True, write_op1=True):
-    """ Create instruction class rm, reg """
+    """Create instruction class rm, reg"""
     rm = Operand("rm", rm32_modes)
     reg = Operand("reg", Register32, read=True)
     syntax = Syntax([mnemonic, " ", rm, ",", " ", reg], priority=0)
@@ -761,7 +761,7 @@ def make_rm_reg32(mnemonic, opcode, read_op1=True, write_op1=True):
 
 
 def make_rm_reg16(mnemonic, opcode, read_op1=True, write_op1=True):
-    """ Create instruction class rm, reg """
+    """Create instruction class rm, reg"""
     rm = Operand("rm", rm16_modes)
     reg = Operand("reg", Register16, read=True)
     syntax = Syntax([mnemonic, " ", rm, ",", " ", reg], priority=0)
@@ -770,7 +770,7 @@ def make_rm_reg16(mnemonic, opcode, read_op1=True, write_op1=True):
 
 
 def make_rm_reg8(mnemonic, opcode, read_op1=True, write_op1=True):
-    """ Create instruction class rm, reg """
+    """Create instruction class rm, reg"""
     rm = Operand("rm", rm8_modes)
     reg = Operand("reg", Register8, read=True)
     syntax = Syntax([mnemonic, " ", rm, ",", " ", reg], priority=0)
@@ -811,7 +811,7 @@ def make_reg_rm8(mnemonic, opcode, read_op1=True, write_op1=True):
 
 
 class MovsxReg64Rm8(rmregbase64):
-    """ Move sign extend, which means take a byte and sign extend it! """
+    """Move sign extend, which means take a byte and sign extend it!"""
 
     reg = Operand("reg", Register64, write=True)
     rm = Operand("rm", rm8_modes, read=True)
@@ -821,7 +821,7 @@ class MovsxReg64Rm8(rmregbase64):
 
 
 class MovsxReg64Rm16(rmregbase64):
-    """ Move sign extend, which means take a byte and sign extend it! """
+    """Move sign extend, which means take a byte and sign extend it!"""
 
     reg = Operand("reg", Register64, write=True)
     rm = Operand("rm", rm16_modes, read=True)
@@ -831,7 +831,7 @@ class MovsxReg64Rm16(rmregbase64):
 
 
 class MovsxReg32Rm8(rmregbase64):
-    """ Move sign extend, which means take a byte and sign extend it! """
+    """Move sign extend, which means take a byte and sign extend it!"""
 
     reg = Operand("reg", Register32, write=True)
     rm = Operand("rm", rm8_modes, read=True)
@@ -842,7 +842,7 @@ class MovsxReg32Rm8(rmregbase64):
 
 
 class MovsxReg32Rm16(rmregbase64):
-    """ Move sign extend, which means take a byte and sign extend it! """
+    """Move sign extend, which means take a byte and sign extend it!"""
 
     reg = Operand("reg", Register32, write=True)
     rm = Operand("rm", rm16_modes, read=True)
@@ -853,7 +853,7 @@ class MovsxReg32Rm16(rmregbase64):
 
 
 class MovsxReg16Rm8(rmregbase16):
-    """ Move sign extend, which means take a byte and sign extend it! """
+    """Move sign extend, which means take a byte and sign extend it!"""
 
     reg = Operand("reg", Register16, write=True)
     rm = Operand("rm", rm8_modes, read=True)
@@ -864,7 +864,7 @@ class MovsxReg16Rm8(rmregbase16):
 
 
 class MovzxRegRm(rmregbase64):
-    """ Move zero extend """
+    """Move zero extend"""
 
     reg = Operand("reg", Register64, write=True)
     rm = Operand("rm", rm8_modes, read=True)
@@ -874,7 +874,7 @@ class MovzxRegRm(rmregbase64):
 
 
 class InstructionCollection:
-    """ Helper class to be able to create instructions in batch """
+    """Helper class to be able to create instructions in batch"""
 
     def __init__(self, bits):
         make_rm = {16: make_rm16, 32: make_rm32, 64: make_rm64}[bits]
@@ -1064,7 +1064,7 @@ class SarCl8(shift8_cl_base):
 
 
 class Imul(X86Instruction):
-    """ Multiply imul r64, r/m64 """
+    """Multiply imul r64, r/m64"""
 
     reg1 = Operand("reg1", Register64, write=True, read=True)
     reg2 = Operand("reg2", Register64, read=True)
@@ -1083,7 +1083,7 @@ class Imul(X86Instruction):
 
 
 class Imul32(X86Instruction):
-    """ Multiply imul r32, r/m32 """
+    """Multiply imul r32, r/m32"""
 
     reg1 = Operand("reg1", Register32, write=True, read=True)
     reg2 = Operand("reg2", Register32, read=True)
@@ -1208,7 +1208,7 @@ class Idiv16(X86Instruction):
 
 
 class MovImm8(X86Instruction):
-    """ Mov immediate into low 8-bit register """
+    """Mov immediate into low 8-bit register"""
 
     reg = Operand("reg", Register8, write=True)
     imm = Operand("imm", int)
@@ -1225,7 +1225,7 @@ class MovImm8(X86Instruction):
 
 
 class MovImm16(X86Instruction):
-    """ Mov immediate into 16 bits register """
+    """Mov immediate into 16 bits register"""
 
     reg = Operand("reg", Register16, write=True)
     imm = Operand("imm", int)
@@ -1242,7 +1242,7 @@ class MovImm16(X86Instruction):
 
 
 class MovImm32(X86Instruction):
-    """ Mov immediate into 32 bits register """
+    """Mov immediate into 32 bits register"""
 
     reg = Operand("reg", Register32, write=True)
     imm = Operand("imm", int)
@@ -1260,7 +1260,7 @@ class MovImm32(X86Instruction):
 
 
 class MovImm(X86Instruction):
-    """ Mov immediate into a 64 bits register """
+    """Mov immediate into a 64 bits register"""
 
     reg = Operand("reg", Register64, write=True)
     imm = Operand("imm", int)
@@ -1278,7 +1278,7 @@ class MovImm(X86Instruction):
 
 
 class MovAdr(X86Instruction):
-    """ Mov address of label into register """
+    """Mov address of label into register"""
 
     reg = Operand("reg", Register64, write=True)
     imm = Operand("imm", str)
@@ -1298,7 +1298,7 @@ class MovAdr(X86Instruction):
 
 
 class Cdqe(X86Instruction):
-    """ Convert with sign extension to double size """
+    """Convert with sign extension to double size"""
 
     syntax = Syntax(["cdqe"])
     tokens = [RexToken, OpcodeToken]
@@ -1306,7 +1306,7 @@ class Cdqe(X86Instruction):
 
 
 class Cwd(X86Instruction):
-    """ Convert ax with sign extension to double size into dx:ax """
+    """Convert ax with sign extension to double size into dx:ax"""
 
     syntax = Syntax(["cwd"])
     tokens = [PrefixToken, OpcodeToken]
@@ -1314,7 +1314,7 @@ class Cwd(X86Instruction):
 
 
 class Cdq(X86Instruction):
-    """ Convert with sign extension to double size into edx:eax """
+    """Convert with sign extension to double size into edx:eax"""
 
     syntax = Syntax(["cdq"])
     tokens = [RexToken, OpcodeToken]
@@ -1322,7 +1322,7 @@ class Cdq(X86Instruction):
 
 
 class Cqo(X86Instruction):
-    """ Convert with sign extension to double size into rdx:rax """
+    """Convert with sign extension to double size into rdx:rax"""
 
     syntax = Syntax(["cqo"])
     tokens = [RexToken, OpcodeToken]
@@ -1330,7 +1330,7 @@ class Cqo(X86Instruction):
 
 
 class Rep(X86Instruction):
-    """ Repeat string operation prefix """
+    """Repeat string operation prefix"""
 
     syntax = Syntax(["rep"])
 
@@ -1339,7 +1339,7 @@ class Rep(X86Instruction):
 
 
 class Movsb(X86Instruction):
-    """ Move data from string to string """
+    """Move data from string to string"""
 
     syntax = Syntax(["movsb"])
 
@@ -1676,7 +1676,7 @@ def pattern_add64_const_2(context, tree, c0, c1):
     condition=lambda x: x.value in range(0, 4294967296),
 )
 def pattern_const32(context, tree):
-    """ Small 64 bit constants as a constant """
+    """Small 64 bit constants as a constant"""
     return tree.value
 
 
@@ -2142,7 +2142,7 @@ def pattern_neg_32(context, tree, c0):
 @isa.pattern("reg16", "NEGI16(reg16)", size=3)
 @isa.pattern("reg16", "NEGU16(reg16)", size=3)
 def pattern_neg_16(context, tree, c0):
-    """ 16 bits negation """
+    """16 bits negation"""
     d = context.new_reg(Register16)
     context.move(d, c0)
     context.emit(bits16.NegRm(RmReg16(d)))
@@ -2267,7 +2267,7 @@ def pattern_i64toi32(context, tree, c0):
 @isa.pattern("reg64", "U32TOU64(reg32)", size=4)
 @isa.pattern("reg64", "U32TOI64(reg32)", size=4)
 def pattern_u32toi64(context, tree, c0):
-    """ Zero extend 32 to 64 bits. """
+    """Zero extend 32 to 64 bits."""
     defu1 = RegisterUseDef()
     defu1.add_def(rax)
     context.emit(defu1)
@@ -2288,7 +2288,7 @@ def pattern_u32toi64(context, tree, c0):
 @isa.pattern("reg64", "I32TOU64(reg32)", size=4)
 @isa.pattern("reg64", "I32TOI64(reg32)", size=4)
 def pattern_i32toi64(context, tree, c0):
-    """ Sign extend 32 to 64 bits. """
+    """Sign extend 32 to 64 bits."""
     defu1 = RegisterUseDef()
     defu1.add_def(rax)
     context.emit(defu1)
@@ -2329,7 +2329,7 @@ def pattern_i32toi16(context, tree, c0):
 @isa.pattern("reg32", "I16TOI32(reg16)", size=4)
 @isa.pattern("reg32", "I16TOU32(reg16)", size=4)
 def pattern_i16_to_i32(context, tree, c0):
-    """ Sign extend 16 to 32 bits. """
+    """Sign extend 16 to 32 bits."""
     dst = context.new_reg(Register32)
 
     # sign extend:
@@ -2422,7 +2422,7 @@ def pattern_i64toi8(context, tree, c0):
 @isa.pattern("reg64", "I8TOI64(reg8)", size=4)
 @isa.pattern("reg64", "I8TOU64(reg8)", size=4)
 def pattern_i8toi64(context, tree, c0):
-    """ Sign extend 8 to 64 bits. """
+    """Sign extend 8 to 64 bits."""
     dst = context.new_reg(Register64)
     context.emit(MovsxReg64Rm8(dst, RmReg8(c0)))
     return dst
@@ -2492,7 +2492,7 @@ def pattern_u8to16(context, tree, c0):
 @isa.pattern("reg16", "I8TOI16(reg8)", size=4)
 @isa.pattern("reg16", "I8TOU16(reg8)", size=4)
 def pattern_i8to16(context, tree, c0):
-    """ Sign extend 8 to 16 bits. """
+    """Sign extend 8 to 16 bits."""
     dst = context.new_reg(Register16)
     context.emit(MovsxReg16Rm8(dst, RmReg8(c0)))
     return dst

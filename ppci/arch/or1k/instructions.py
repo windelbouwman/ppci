@@ -1,4 +1,4 @@
-""" Open risc instruction definitions """
+"""Open risc instruction definitions"""
 
 from .isa import orbis32, Orbis32Token, Orbis32StoreToken
 from .isa import Orbis32ShiftImmediateToken
@@ -90,7 +90,7 @@ def regreg(mnemonic, opcode, opcode2):
 
 
 class HighAddressImmediate(Constructor):
-    """ Sort of macro for a high address half """
+    """Sort of macro for a high address half"""
 
     label = Operand("label", str)
     syntax = Syntax(["hi", "(", label, ")"])
@@ -104,7 +104,7 @@ class HighAddressImmediate(Constructor):
 
 
 class LowAddressImmediate(Constructor):
-    """ Sort of macro for a high address half """
+    """Sort of macro for a high address half"""
 
     label = Operand("label", str)
     syntax = Syntax(["lo", "(", label, ")"])
@@ -173,7 +173,7 @@ def fixed(mnemonic, opcode):
 
 
 def load(mnemonic, opcode):
-    """ Create a load instruction """
+    """Create a load instruction"""
     rd = Operand("rd", Or1kRegister, write=True)
     ra = Operand("ra", Or1kRegister, read=True)
     imm = Operand("imm", int)
@@ -191,7 +191,7 @@ def load(mnemonic, opcode):
 
 
 def shiftimm(mnemonic, opcode):
-    """ Create a shift with immediate instruction """
+    """Create a shift with immediate instruction"""
     rd = Operand("rd", Or1kRegister, write=True)
     ra = Operand("ra", Or1kRegister, read=True)
     imm = Operand("imm", int)
@@ -216,7 +216,7 @@ def shiftimm(mnemonic, opcode):
 
 
 def store(mnemonic, opcode):
-    """ Create a store instruction """
+    """Create a store instruction"""
     ra = Operand("ra", Or1kRegister, read=True)
     rb = Operand("rb", Or1kRegister, read=True)
     imm = Operand("imm", int)
@@ -235,7 +235,7 @@ def store(mnemonic, opcode):
 
 
 def setflag(mnemonic, opcode):
-    """ Create an instruction setting the flag bit """
+    """Create an instruction setting the flag bit"""
     ra = Operand("ra", Or1kRegister, read=True)
     rb = Operand("rb", Or1kRegister, read=True)
     syntax = Syntax(["l", ".", mnemonic, " ", ra, ",", " ", rb])
@@ -276,7 +276,7 @@ Lwz = load("lwz", 0b100001)
 
 
 class Movhi(Orbis32Instruction):
-    """ Mov immediate high """
+    """Mov immediate high"""
 
     rd = Operand("rd", Or1kRegister, write=True)
     imm = Operand("imm", immediates)
@@ -285,7 +285,7 @@ class Movhi(Orbis32Instruction):
 
 
 class Macrc(Orbis32Instruction):
-    """ Mac read and clear """
+    """Mac read and clear"""
 
     rd = Operand("rd", Or1kRegister, write=True)
     syntax = Syntax(["l", ".", "macrc", " ", rd])
@@ -297,7 +297,7 @@ Mulu = regregreg("mulu", 0b111000, 0b01100001011)
 
 
 class Nop(Orbis32Instruction):
-    """ No operation """
+    """No operation"""
 
     imm = Operand("imm", int)
     syntax = Syntax(["l", ".", "nop", " ", imm])

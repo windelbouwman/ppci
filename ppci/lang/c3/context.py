@@ -26,11 +26,11 @@ class Context:
         self.pointerSize = arch_info.get_size("ptr")
 
     def has_module(self, name):
-        """ Check if a module with the given name exists """
+        """Check if a module with the given name exists"""
         return name in self.module_map
 
     def get_module(self, name, create=True):
-        """ Gets or creates the module with the given name """
+        """Gets or creates the module with the given name"""
         if name not in self.module_map and create:
             module = ast.Module(name, Scope(self.scope), None)
             self.module_map[name] = module
@@ -38,11 +38,11 @@ class Context:
 
     @property
     def modules(self):
-        """ Get all the modules in this context """
+        """Get all the modules in this context"""
         return self.module_map.values()
 
     def link_imports(self):
-        """ Resolve all modules referenced by other modules """
+        """Resolve all modules referenced by other modules"""
         self.logger.debug("Resolving imports")
         for mod in self.modules:
             for imp in mod.imports:
@@ -54,7 +54,7 @@ class Context:
                     raise SemanticError("Cannot import {}".format(imp))
 
     def resolve_symbol(self, ref):
-        """ Find out what is designated with x """
+        """Find out what is designated with x"""
         if isinstance(ref, ast.Member):
             base = self.resolve_symbol(ref.base)
             if not isinstance(base, ast.Module):
@@ -86,7 +86,7 @@ class Context:
         return sym
 
     def get_constant_value(self, const):
-        """ Get the constant value, calculate if required """
+        """Get the constant value, calculate if required"""
         assert isinstance(const, ast.Constant)
         if const not in self.const_map:
             if const in self.const_workset:
@@ -99,7 +99,7 @@ class Context:
         return self.const_map[const]
 
     def eval_const(self, expr):
-        """ Evaluates a constant expression. """
+        """Evaluates a constant expression."""
 
         # TODO: check types!!
         assert isinstance(expr, ast.Expression), str(expr) + str(type(expr))
@@ -143,7 +143,7 @@ class Context:
             )
 
     def pack_string(self, txt):
-        """ Pack a string an int as length followed by text data """
+        """Pack a string an int as length followed by text data"""
         length = self.pack_int(len(txt))
         data = txt.encode("ascii")
         return length + data
@@ -270,12 +270,12 @@ class Context:
         return typ
 
     def is_simple_type(self, typ):
-        """ Determines if the given type is a simple type """
+        """Determines if the given type is a simple type"""
         typ = self.get_type(typ)
         return isinstance(typ, (ast.PointerType, ast.BaseType))
 
     def size_of(self, typ):
-        """ Determine the byte size of a type """
+        """Determine the byte size of a type"""
         typ = self.get_type(typ)
 
         if isinstance(typ, ast.BaseType):

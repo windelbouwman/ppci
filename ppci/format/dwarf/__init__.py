@@ -1,4 +1,4 @@
-""" Implementation of the dwarf debugging format.
+"""Implementation of the dwarf debugging format.
 
 See also: http://dwarfstd.org/
 """

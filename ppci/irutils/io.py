@@ -1,4 +1,4 @@
-""" Module to serialize and deserialize IR-code.
+"""Module to serialize and deserialize IR-code.
 
 Take an IR-module, and turn it into a dict or json.
 Then, this item can be persistet or send via e-mail.
@@ -26,6 +26,7 @@ This can be useful in these scenario's:
 
 
 """
+
 import json
 from .. import ir
 from ..utils.binary_txt import bin2asc, asc2bin
@@ -68,7 +69,7 @@ def from_dict(d):
 
 
 class DictWriter:
-    """ Serialize an IR-module as a dict. """
+    """Serialize an IR-module as a dict."""
 
     def __init__(self):
         pass
@@ -384,7 +385,6 @@ class DictReader:
         if etype == "variable":
             external = ir.ExternalVariable(name)
         elif etype == "function":
-
             argument_types = [
                 self.get_type(pt) for pt in json_external["parameter_types"]
             ]

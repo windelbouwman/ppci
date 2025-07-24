@@ -1,4 +1,4 @@
-""" Hunk file loading.
+"""Hunk file loading.
 
 Functionality to process Amiga hunk files.
 
@@ -16,7 +16,7 @@ logger = logging.getLogger("hunk")
 
 
 def read_hunk(filename):
-    """ Read a hunk file. """
+    """Read a hunk file."""
     logger.debug("Loading hunk file from %s", filename)
     with open(filename, "rb") as f:
         reader = Reader()
@@ -24,8 +24,7 @@ def read_hunk(filename):
 
 
 class Reader:
-    """ Process an amiga hunk file.
-    """
+    """Process an amiga hunk file."""
 
     def read(self, f):
         self.f = f
@@ -54,7 +53,7 @@ class Reader:
                 )
 
     def read_header(self):
-        """ Read a header hunk """
+        """Read a header hunk"""
         names = []
         while True:
             name = self.read_string()
@@ -79,7 +78,7 @@ class Reader:
             hunk_sizes.append(hunk_size)
 
     def read_code(self):
-        """ Read code hunk. """
+        """Read code hunk."""
         num_longs = self.read_u32()
         size = num_longs * 4
         logger.debug("Code section of %s words (%s bytes)", num_longs, size)
@@ -87,13 +86,13 @@ class Reader:
         return data
 
     def read_data(self):
-        """ Read data hunk. """
+        """Read data hunk."""
         num_longs = self.read_u32()
         data = self.f.read(num_longs * 4)
         return data
 
     def read_drel32(self):
-        """ Read some form of relocation data """
+        """Read some form of relocation data"""
         num_offsets = self.read_u16()
         hunk_number = self.read_u16()
         logger.debug(
@@ -109,7 +108,7 @@ class Reader:
         return hunk_number, offsets
 
     def read_symbol(self):
-        """ Read symbol information """
+        """Read symbol information"""
         symbols = []
         while True:
             name = self.read_string()
@@ -121,7 +120,7 @@ class Reader:
         return symbols
 
     def read_string(self):
-        """ Read a string. """
+        """Read a string."""
         num_longs = self.read_u32()
         if num_longs < 1:
             s = ""

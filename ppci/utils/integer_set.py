@@ -1,4 +1,4 @@
-""" RangeSet / IntegerSet implementation.
+"""RangeSet / IntegerSet implementation.
 
 An integer set is super handy, since we can store large
 ranges of inetegers as simple intervals. Note that
@@ -50,7 +50,7 @@ class IntegerSet:
         return not self.ranges
 
     def cardinality(self) -> int:
-        """ Determine total amount of values in this set. """
+        """Determine total amount of values in this set."""
         total = 0
         for r in self.ranges:
             total += r[1] - r[0] + 1

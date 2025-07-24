@@ -24,7 +24,7 @@ class CSynthesizer:
             self.syn_block(block)
 
     def syn_block(self, block):
-        """ Synthesize an ir block into C """
+        """Synthesize an ir block into C"""
         self._inner_statements = []
         for instruction in block:
             self.syn_instruction(instruction)
@@ -66,7 +66,7 @@ class CSynthesizer:
         return typ
 
     def syn_instruction(self, instruction):
-        """ Convert ir instruction to its corresponding C counterpart """
+        """Convert ir instruction to its corresponding C counterpart"""
         if isinstance(instruction, ir.Alloc):
             ctyp = types.BasicType(types.BasicType.INT)
             declaration = declarations.VariableDeclaration(

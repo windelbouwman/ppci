@@ -19,13 +19,13 @@ class ElfSection:
         self.header = header
 
     def read_data(self, f):
-        """ Read this elf section's data from file """
+        """Read this elf section's data from file"""
         f.seek(self.header.sh_offset)
         self.data = f.read(self.header.sh_size)
         return self.data
 
     def get_str(self, offset):
-        """ Get a string indicated by numeric value """
+        """Get a string indicated by numeric value"""
         end = self.data.find(0, offset)
         return self.data[offset:end].decode("utf8")
 
@@ -34,8 +34,7 @@ SHN_UNDEF = 0
 
 
 class ElfFile:
-    """ This class can load and save a elf file.
-    """
+    """This class can load and save a elf file."""
 
     e_version = 1
 
@@ -50,7 +49,7 @@ class ElfFile:
         logger.debug("Loading ELF file")
         # Read header
         e_ident = f.read(16)
-        if e_ident[0:4] != b"\x7FELF":
+        if e_ident[0:4] != b"\x7fELF":
             raise ValueError("Not a valid ELF file")
 
         bits_map = {1: 32, 2: 64}
@@ -97,7 +96,7 @@ class ElfFile:
         return table
 
     def get_str(self, offset):
-        """ Get a string indicated by numeric value """
+        """Get a string indicated by numeric value"""
         end = self.strtab.find(0, offset)
         return self.strtab[offset:end].decode("utf8")
 

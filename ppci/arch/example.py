@@ -1,6 +1,6 @@
 """
-    This is an example target with some instructions. It is used in test-cases
-    and serves as a minimal example.
+This is an example target with some instructions. It is used in test-cases
+and serves as a minimal example.
 """
 
 from .arch import Architecture
@@ -75,7 +75,7 @@ class ExampleArch(Architecture):
 
 
 class ExampleRegister(Register):
-    """ Example register class """
+    """Example register class"""
 
     bitsize = 32
 
@@ -85,7 +85,7 @@ class ExampleRegister(Register):
 
 
 class HalfExampleRegister(Register):
-    """ Example register class """
+    """Example register class"""
 
     bitsize = 16
 
@@ -113,7 +113,7 @@ gdb_registers = (R0, R1, R2)
 
 
 class ExampleInstruction(Instruction):
-    """ Base class for all example instructions """
+    """Base class for all example instructions"""
 
     tokens = []
 

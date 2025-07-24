@@ -1,4 +1,4 @@
-""" Pascal front-end """
+"""Pascal front-end"""
 
 from .builder import PascalBuilder, pascal_to_ir
 from .parser import Parser

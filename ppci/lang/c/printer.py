@@ -1,6 +1,4 @@
-""" Ast to sourcecode printer.
-
-"""
+"""Ast to sourcecode printer."""
 
 import io
 from contextlib import contextmanager
@@ -33,7 +31,7 @@ def expr_to_str(expr):
 
 
 def type_to_str(typ):
-    """ Render a type as text """
+    """Render a type as text"""
     f = io.StringIO()
     printer = CPrinter(f)
     return printer.render_type(typ)
@@ -47,12 +45,12 @@ class CPrinter:
         self.f = f
 
     def print(self, compile_unit):
-        """ Render compilation unit as C """
+        """Render compilation unit as C"""
         for declaration in compile_unit.declarations:
             self.gen_declaration(declaration)
 
     def gen_declaration(self, declaration):
-        """ Spit out a declaration """
+        """Spit out a declaration"""
         if isinstance(declaration, declarations.VariableDeclaration):
             if declaration.initial_value:
                 self._print(
@@ -92,7 +90,7 @@ class CPrinter:
             raise NotImplementedError(str(declaration))
 
     def render_type(self, typ, name=None):
-        """ Generate a proper C-string for the given type """
+        """Generate a proper C-string for the given type"""
         if name is None:
             name = ""
         if isinstance(typ, types.BasicType):
@@ -133,7 +131,7 @@ class CPrinter:
             raise NotImplementedError(str(typ))
 
     def gen_statement(self, statement):
-        """ Render a single statement as text """
+        """Render a single statement as text"""
         if isinstance(statement, statements.Compound):
             self._print("{")
             with self._indented(1):
@@ -232,7 +230,7 @@ class CPrinter:
             raise NotImplementedError(str(statement))
 
     def gen_expr(self, expr):
-        """ Format an expression as text """
+        """Format an expression as text"""
         if expr is None:
             return ""
         elif isinstance(expr, expressions.BinaryOperator):

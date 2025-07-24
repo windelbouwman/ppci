@@ -1,1 +1,1 @@
-""" The cpu module defines cpu's and their properties """
+"""The cpu module defines cpu's and their properties"""

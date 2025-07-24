@@ -1,4 +1,4 @@
-""" This is the brain-fuck language front-end. """
+"""This is the brain-fuck language front-end."""
 
 import logging
 from .. import ir
@@ -10,7 +10,7 @@ __all__ = ("bf_to_ir", "BrainFuckGenerator")
 
 
 def bf_to_ir(source, target):
-    """ Compile brainfuck source into ir code """
+    """Compile brainfuck source into ir code"""
     target = get_arch(target)
     ircode = BrainFuckGenerator(target).generate(source)
     return ircode
@@ -28,7 +28,7 @@ class BrainFuckGenerator:
         self.builder = Builder()
 
     def generate(self, src, module_name="main", function_name="main"):
-        """ Takes a brainfuck program and returns the IR-code module """
+        """Takes a brainfuck program and returns the IR-code module"""
         self.logger.info("Generating IR-code from brainfuck")
 
         # Assembler code will call sample_start

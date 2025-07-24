@@ -1,5 +1,4 @@
-""" Read a CODE block.
-"""
+"""Read a CODE block."""
 
 import io
 import logging
@@ -33,7 +32,7 @@ class CodeReader:
         return instructions
 
     def read_instr(self):
-        """ Read a single instruction """
+        """Read a single instruction"""
         label = self.nr
         opcode = self.read_word()
         if opcode not in Instrs:

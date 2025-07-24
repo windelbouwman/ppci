@@ -1,4 +1,4 @@
-""" Generate code for a scanner.
+"""Generate code for a scanner.
 
 This can be used to create a C file which does the scanning
 of tokens.

@@ -1,17 +1,17 @@
-""" Contains register definitions for x86 target. """
+"""Contains register definitions for x86 target."""
 
 from ..registers import Register, RegisterClass
 from ... import ir
 
 
 class Register64(Register):
-    """ 64-bit register like 'rax' """
+    """64-bit register like 'rax'"""
 
     bitsize = 64
 
     @classmethod
     def from_num(cls, num):
-        """ Based on a number, get the corresponding register """
+        """Based on a number, get the corresponding register"""
         return num2regmap[num]
 
     @property
@@ -24,7 +24,7 @@ class Register64(Register):
 
 
 class Register32(Register):
-    """ 32-bit register like 'eax' """
+    """32-bit register like 'eax'"""
 
     bitsize = 32
 
@@ -42,7 +42,7 @@ class Register32(Register):
 
 
 class Register16(Register):
-    """ 16-bit register like 'ax' """
+    """16-bit register like 'ax'"""
 
     bitsize = 16
 
@@ -52,7 +52,7 @@ class Register16(Register):
 
 
 class Register8(Register):
-    """ 8-bit register like 'al' """
+    """8-bit register like 'al'"""
 
     bitsize = 8
 
@@ -77,7 +77,7 @@ class X87StackRegister(Register):
 
 
 class XmmRegisterDouble(Register):
-    """ Xmm register used to hold a f64 value. """
+    """Xmm register used to hold a f64 value."""
 
     bitsize = 64
     # TODO: actually the register is 128 bit wide, but float is now 32 bit
@@ -90,7 +90,7 @@ class XmmRegisterDouble(Register):
 
 
 class XmmRegisterSingle(Register):
-    """ Xmm register used to hold a f32 value. """
+    """Xmm register used to hold a f32 value."""
 
     ty = "F"
     bitsize = 32

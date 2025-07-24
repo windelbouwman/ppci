@@ -1,4 +1,4 @@
-""" Implementation of tree structure.
+"""Implementation of tree structure.
 
 Including a parser that can
 parse tree structures from text.
@@ -9,7 +9,7 @@ from ppci.lang.tools.baselex import BaseLexer
 
 
 class Tree:
-    """ Tree node with a name and possibly some child nodes """
+    """Tree node with a name and possibly some child nodes"""
 
     __slots__ = ("name", "value", "children", "state")
 
@@ -34,7 +34,7 @@ class Tree:
         return self.children[index]
 
     def structural_equal(self, other):
-        """ Determine if this tree is structurally equivalent to another """
+        """Determine if this tree is structurally equivalent to another"""
         return (
             self.name == other.name
             and len(self.children) == len(other.children)
@@ -45,7 +45,7 @@ class Tree:
         )
 
     def get_defined_names(self):
-        """ Returns a set of all names defined by this tree """
+        """Returns a set of all names defined by this tree"""
         names = set([self.name])
         for child in self.children:
             names = names | child.get_defined_names()
@@ -109,5 +109,5 @@ tree_parser = TreeParser()
 
 
 def from_string(s):
-    """ Create tree from string definition """
+    """Create tree from string definition"""
     return tree_parser.parse(s)

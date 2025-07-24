@@ -1,4 +1,4 @@
-""" Symbol AST nodes.
+"""Symbol AST nodes.
 
 Examples:
 - Variables
@@ -22,7 +22,7 @@ class Symbol:
 
 
 class Program(Symbol):
-    """ A module contains functions, types, consts and global variables """
+    """A module contains functions, types, consts and global variables"""
 
     def __init__(self, name, inner_scope, location):
         super().__init__(name, None)
@@ -32,22 +32,22 @@ class Program(Symbol):
 
     @property
     def types(self):
-        """ Get the types in this module """
+        """Get the types in this module"""
         return self.inner_scope.types
 
     @property
     def constants(self):
-        """ Get the constants in this module """
+        """Get the constants in this module"""
         return self.inner_scope.constants
 
     @property
     def variables(self):
-        """ Get the variables in this module """
+        """Get the variables in this module"""
         return self.inner_scope.variables
 
     @property
     def functions(self):
-        """ Get all the functions that are defined in this module """
+        """Get all the functions that are defined in this module"""
         return self.inner_scope.functions
 
     def __repr__(self):
@@ -66,7 +66,7 @@ class Program(Symbol):
 
 
 class DefinedType(Symbol):
-    """ A named type indicating another type """
+    """A named type indicating another type"""
 
     def __init__(self, name, typ, loc):
         assert isinstance(name, str)
@@ -78,7 +78,7 @@ class DefinedType(Symbol):
 
 
 class Constant(Symbol):
-    """ Constant definition """
+    """Constant definition"""
 
     def __init__(self, name, typ, value, location):
         super().__init__(name, typ)
@@ -90,7 +90,7 @@ class Constant(Symbol):
 
 
 class Variable(Symbol):
-    """ A variable, either global or local """
+    """A variable, either global or local"""
 
     def __init__(self, name: str, typ, initial_value, location):
         super().__init__(name, typ)
@@ -138,7 +138,7 @@ class SubRoutine(Symbol):
 
 
 class Function(SubRoutine):
-    """ Actual implementation of a function """
+    """Actual implementation of a function"""
 
     def __init__(self, name: str, location):
         super().__init__(name, None)
@@ -149,7 +149,7 @@ class Function(SubRoutine):
 
 
 class Procedure(SubRoutine):
-    """ Actual implementation of a function """
+    """Actual implementation of a function"""
 
     def __init__(self, name: str, location):
         super().__init__(name, None)

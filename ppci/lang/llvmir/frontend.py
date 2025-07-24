@@ -5,7 +5,7 @@ from .codegenerator import CodeGenerator
 
 
 def llvm_to_ir(source):
-    """ Convert llvm assembly code into an IR-module """
+    """Convert llvm assembly code into an IR-module"""
     llvm = LlvmIrFrontend()
     ir_module = llvm.compile(source)
     return ir_module

@@ -1,4 +1,4 @@
-""" Parser generator utility.
+"""Parser generator utility.
 
 This script can generate a python script from a grammar description.
 

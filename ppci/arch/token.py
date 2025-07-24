@@ -44,7 +44,7 @@ class _p2(property):
 
 
 def bit_range(b, e, signed=False):
-    """ Create a property which sets a bit range """
+    """Create a property which sets a bit range"""
 
     def getter(s):
         return s[b:e]
@@ -56,12 +56,12 @@ def bit_range(b, e, signed=False):
 
 
 def bit(b):
-    """ Return a property that sets a single bit """
+    """Return a property that sets a single bit"""
     return bit_range(b, b + 1)
 
 
 def bit_concat(*partials):
-    """ Group several fields together into a single usable field """
+    """Group several fields together into a single usable field"""
 
     def getter(s):
         v = 0
@@ -101,7 +101,7 @@ class TokenMeta(type):
 
 
 class Token(metaclass=TokenMeta):
-    """ A token in a stream """
+    """A token in a stream"""
 
     class Info:
         precode = False  # Set precode to True to indicate a precode
@@ -117,7 +117,7 @@ class Token(metaclass=TokenMeta):
         self.mask = (1 << self.Info.size) - 1
 
     def set_bit(self, i, value):
-        """ Sets a specific bit in this token """
+        """Sets a specific bit in this token"""
         value = bool(value)
         assert i in range(0, self.Info.size)
         mask = 1 << i
@@ -165,12 +165,12 @@ class Token(metaclass=TokenMeta):
             raise KeyError(key)
 
     def encode(self):
-        """ Encode the token given some format """
+        """Encode the token given some format"""
         return self.pack(self.bit_value)
 
     @classmethod
     def from_data(cls, data):
-        """ Instantiate this token type from the given data """
+        """Instantiate this token type from the given data"""
         initial_bit_value = cls.unpack(data)
         return cls(initial_bit_value)
 
@@ -179,7 +179,7 @@ class Token(metaclass=TokenMeta):
 
     @classmethod
     def pack(cls, value):
-        """ Pack integer value into bytes """
+        """Pack integer value into bytes"""
         assert cls.Info.size is not None
         size = cls.Info.size // 8
         if cls.Info.endianness == Endianness.LITTLE:
@@ -190,7 +190,7 @@ class Token(metaclass=TokenMeta):
 
     @classmethod
     def unpack(cls, data):
-        """ Unpack data into integer value """
+        """Unpack data into integer value"""
         byte_size = cls.Info.size // 8
         if len(data) != byte_size:
             raise TypeError("Incorrect amount of data provided")
@@ -204,7 +204,7 @@ class Token(metaclass=TokenMeta):
 
 
 class TokenSequence:
-    """ A helper to work with a sequence of tokens """
+    """A helper to work with a sequence of tokens"""
 
     def __init__(self, tokens):
         self.tokens = tokens
@@ -213,7 +213,7 @@ class TokenSequence:
         return self.tokens.__getitem__(item)
 
     def set_field(self, field, value):
-        """ Set a given field in one of the tokens """
+        """Set a given field in one of the tokens"""
         for token in self.tokens:
             if hasattr(token, field):
                 setattr(token, field, value)
@@ -221,21 +221,21 @@ class TokenSequence:
         raise KeyError(field)
 
     def get_field(self, field):
-        """ Get the value of a field """
+        """Get the value of a field"""
         for token in self.tokens:
             if hasattr(token, field):
                 return getattr(token, field)
         raise KeyError(field)
 
     def encode(self):
-        """ Concatenate the token bytes """
+        """Concatenate the token bytes"""
         r = bytes()
         for token in self.tokens:
             r += token.encode()
         return r
 
     def fill(self, data):
-        """ Fill the tokens with data """
+        """Fill the tokens with data"""
         offset = 0
         for token in self.tokens:
             size = token.Info.size // 8

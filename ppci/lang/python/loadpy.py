@@ -25,7 +25,7 @@ def load_py(f, imports=None, reporter=None):
 
 
 class JittedFunction:
-    """ This is a wrapper around a compiled function. """
+    """This is a wrapper around a compiled function."""
 
     def __init__(self, original, compiled, mod):
         self.original = original

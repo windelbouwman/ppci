@@ -8,7 +8,7 @@ class ArmRegister(Register):
 
     @classmethod
     def from_num(cls, num):
-        """ Based on a number, get the corresponding register """
+        """Based on a number, get the corresponding register"""
         return num2regmap[num]
 
 
@@ -21,7 +21,7 @@ class VfpRegister(Register):
 
 
 def register_range(a, b):
-    """ Return set of registers from a to b """
+    """Return set of registers from a to b"""
     assert a.num < b.num
     return {ArmRegister.from_num(n) for n in range(a.num, b.num + 1)}
 

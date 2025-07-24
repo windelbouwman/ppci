@@ -1,4 +1,4 @@
-""" Frontend for the whitespace programming language.
+"""Frontend for the whitespace programming language.
 
 Whitespace has only 3 used characters: space (32), tab (9) and newline (10)
 See also:
@@ -13,7 +13,7 @@ from ..common import CompilerError
 
 
 def ws_to_ir(source):
-    """ Compile whitespace source """
+    """Compile whitespace source"""
     return WhitespaceGenerator().compile(source)
 
 
@@ -25,7 +25,7 @@ class WhitespaceGenerator:
 
 
 class WhitespaceRunner:
-    """ Run some whitespace source """
+    """Run some whitespace source"""
 
     def run(self, f):
         prog = WhitespaceParser().compile(f)
@@ -34,14 +34,14 @@ class WhitespaceRunner:
 
 
 class WhitespaceParser:
-    """ Parse whitespace sourcecode """
+    """Parse whitespace sourcecode"""
 
     def __init__(self):
         self.tokens = None
         self.token = None
 
     def compile(self, f):
-        """ Compile whitespace code from open file handle """
+        """Compile whitespace code from open file handle"""
         self.start_lexer(f)
         return self.parse_program()
 
@@ -65,12 +65,12 @@ class WhitespaceParser:
         return self.token
 
     def consume(self, typ):
-        """ Eat a token of given type """
+        """Eat a token of given type"""
         assert self.peak == typ
         return self.next_token()
 
     def error(self, msg):
-        """ Report an error """
+        """Report an error"""
         raise CompilerError(msg)
 
     def has_consumed(self, typ):
@@ -88,7 +88,7 @@ class WhitespaceParser:
         return program
 
     def parse_instruction(self):
-        """ Parse a new command """
+        """Parse a new command"""
         if self.has_consumed(" "):
             return self.parse_stack_manipulation()
         elif self.has_consumed("\t"):
@@ -112,7 +112,7 @@ class WhitespaceParser:
             raise NotImplementedError()
 
     def parse_arithmatic(self):
-        """ Parse an arithmatic code """
+        """Parse an arithmatic code"""
         if self.has_consumed(" "):
             if self.has_consumed(" "):
                 return Add()
@@ -133,7 +133,7 @@ class WhitespaceParser:
             self.error("Expected  or \t")
 
     def parse_io(self):
-        """ Parse io action """
+        """Parse io action"""
         if self.has_consumed(" "):
             if self.has_consumed(" "):
                 return OutputCharacter()
@@ -152,7 +152,7 @@ class WhitespaceParser:
             raise NotImplementedError()
 
     def parse_flow_control(self):
-        """ Parse flow control constructs """
+        """Parse flow control constructs"""
         if self.has_consumed(" "):
             raise NotImplementedError()
         elif self.has_consumed("\t"):
@@ -164,7 +164,7 @@ class WhitespaceParser:
             self.error("Expected  , \t or \n")
 
     def parse_number(self):
-        """ Parse a number """
+        """Parse a number"""
         bits = self.parse_bits()
         if len(bits) > 0:
             sign = bits[0]
@@ -178,11 +178,11 @@ class WhitespaceParser:
             return 0
 
     def parse_label(self):
-        """ Parse a label """
+        """Parse a label"""
         self.parse_bits()
 
     def parse_bits(self):
-        """ Parse LF terminated series of bits SP=0, tab=1 """
+        """Parse LF terminated series of bits SP=0, tab=1"""
         bit_values = []
         while not self.has_consumed("\n"):
             if self.has_consumed(" "):
@@ -255,7 +255,7 @@ class WhitespaceContext:
 
 
 class WhitespaceInterpreter:
-    """ Interpreter for the whitespace language """
+    """Interpreter for the whitespace language"""
 
     def run(self, program):
         context = WhitespaceContext()

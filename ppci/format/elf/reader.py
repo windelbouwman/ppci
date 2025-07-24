@@ -1,5 +1,4 @@
-""" Support to process an ELF file.
-"""
+"""Support to process an ELF file."""
 
 from .file import ElfFile
 
@@ -7,5 +6,5 @@ from .file import ElfFile
 
 
 def read_elf(f):
-    """ Read an ELF file """
+    """Read an ELF file"""
     return ElfFile.load(f)

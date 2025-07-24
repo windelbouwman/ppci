@@ -1,7 +1,4 @@
-""" Convert binary wasm to wasm text (WAT) format.
-
-"""
-
+"""Convert binary wasm to wasm text (WAT) format."""
 
 import argparse
 import sys
@@ -27,7 +24,7 @@ parser.add_argument(
 
 
 def wasm2wat(args=None):
-    """ Compile wasm to native code """
+    """Compile wasm to native code"""
     args = parser.parse_args(args)
     with LogSetup(args):
         wasm_module = read_wasm(args.wasm)

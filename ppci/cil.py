@@ -1,4 +1,4 @@
-""" Common Intermediate Language (CIL).
+"""Common Intermediate Language (CIL).
 
 This module contains supporting routines for CIL from the .NET framework.
 
@@ -40,45 +40,44 @@ opcodes = [
     (0x1D, "ldc.i4.7"),
     (0x1E, "ldc.i4.8"),
     (0x1F, "ldc.i4.s"),
-    (0x20, "ldc.i4", 'i32'),
-    (0x21, "ldc.i8", 'i64'),
-    (0x22, "ldc.r4", 'f32'),
-    (0x23, "ldc.r8", 'f64'),
+    (0x20, "ldc.i4", "i32"),
+    (0x21, "ldc.i8", "i64"),
+    (0x22, "ldc.r4", "f32"),
+    (0x23, "ldc.r8", "f64"),
     (0x25, "dup"),
     (0x26, "pop"),
-    (0x27, "jmp", 'method'),
-    (0x28, "call", 'method'),
+    (0x27, "jmp", "method"),
+    (0x28, "call", "method"),
     (0x29, "calli"),
     (0x2A, "ret"),
-    (0x2B, "br.s", 'i8'),
-    (0x2C, "brfalse.s", 'i8'),
+    (0x2B, "br.s", "i8"),
+    (0x2C, "brfalse.s", "i8"),
     # Alias: (0x2C, "brnull.s", 'i8'),
-    (0x2D, "brtrue.s", 'i8'),
-    (0x2E, "beq.s", 'i8'),
-    (0x2F, "bge.s", 'i8'),
-    (0x30, "bgt.s", 'i8'),
-    (0x31, "ble.s", 'i8'),
-    (0x32, "blt.s", 'i8'),
-    (0x33, "bne.un.s", 'i8'),
-    (0x34, "bge.un.s", 'i8'),
-    (0x35, "bgt.un.s", 'i8'),
-    (0x36, "ble.un.s", 'i8'),
-    (0x37, "blt.un.s", 'i8'),
-    (0x38, "br", 'i32'),
-    (0x39, "brfalse", 'i32'),
-    (0x3A, "brtrue", 'i32'),
-    (0x3B, "beq", 'i32'),
-    (0x3C, "bge", 'i32'),
-    (0x3D, "bgt", 'i32'),
-    (0x3E, "ble", 'i32'),
-    (0x3F, "blt", 'i32'),
-    (0x40, "bne.un", 'i32'),
-    (0x41, "bge.un", 'i32'),
-    (0x42, "bgt.un", 'i32'),
-    (0x43, "ble.un", 'i32'),
-    (0x44, "blt.un", 'i32'),
+    (0x2D, "brtrue.s", "i8"),
+    (0x2E, "beq.s", "i8"),
+    (0x2F, "bge.s", "i8"),
+    (0x30, "bgt.s", "i8"),
+    (0x31, "ble.s", "i8"),
+    (0x32, "blt.s", "i8"),
+    (0x33, "bne.un.s", "i8"),
+    (0x34, "bge.un.s", "i8"),
+    (0x35, "bgt.un.s", "i8"),
+    (0x36, "ble.un.s", "i8"),
+    (0x37, "blt.un.s", "i8"),
+    (0x38, "br", "i32"),
+    (0x39, "brfalse", "i32"),
+    (0x3A, "brtrue", "i32"),
+    (0x3B, "beq", "i32"),
+    (0x3C, "bge", "i32"),
+    (0x3D, "bgt", "i32"),
+    (0x3E, "ble", "i32"),
+    (0x3F, "blt", "i32"),
+    (0x40, "bne.un", "i32"),
+    (0x41, "bge.un", "i32"),
+    (0x42, "bgt.un", "i32"),
+    (0x43, "ble.un", "i32"),
+    (0x44, "blt.un", "i32"),
     (0x45, "switch"),
-
     (0x58, "add"),
     (0x59, "sub"),
     (0x5A, "mul"),
@@ -94,7 +93,6 @@ opcodes = [
     (0x64, "shr.un"),
     (0x65, "neg"),
     (0x66, "not"),
-
     (0x67, "conv.i1"),
     (0x68, "conv.i2"),
     (0x69, "conv.i4"),
@@ -103,9 +101,7 @@ opcodes = [
     (0x6C, "conv.r8"),
     (0x6D, "conv.u4"),
     (0x6E, "conv.u8"),
-
     (0x76, "conv.r.un"),
-
     (0x82, "conv.ovf.i1.un"),
     (0x83, "conv.ovf.i2.un"),
     (0x84, "conv.ovf.i4.un"),
@@ -116,7 +112,6 @@ opcodes = [
     (0x89, "conv.ovf.u8.un"),
     (0x8A, "conv.ovf.i.un"),
     (0x8B, "conv.ovf.u.un"),
-
     (0xB3, "conv.ovf.i1"),
     (0xB4, "conv.ovf.u1"),
     (0xB5, "conv.ovf.i2"),
@@ -125,9 +120,7 @@ opcodes = [
     (0xB8, "conv.ovf.u4"),
     (0xB9, "conv.ovf.i8"),
     (0xBA, "conv.ovf.u8"),
-
     (0xC3, "ckfinite"),
-
     (0xD1, "conv.u2"),
     (0xD2, "conv.u1"),
     (0xD3, "conv.i"),
@@ -140,15 +133,13 @@ opcodes = [
     (0xDA, "sub.ovf"),
     (0xDB, "sub.ovf.un"),
     (0xDC, "endfault"),
-    (0xDD, "leave", 'i32'),
-    (0xDE, "leave.s", 'i8'),
+    (0xDD, "leave", "i32"),
+    (0xDE, "leave.s", "i8"),
     (0xDF, "stind.i"),
     (0xE0, "conv.u"),
-
 ]
 
 
 class Instruction:
     def __init__(self, opcode):
         self.opcode = opcode
-

@@ -22,7 +22,7 @@ class LoadAfterStorePass(BlockPass):
     def find_store_backwards(
         self, i, ty, stop_on=(ir.FunctionCall, ir.ProcedureCall, ir.Store)
     ):
-        """ Go back from this instruction to beginning """
+        """Go back from this instruction to beginning"""
         block = i.block
         instructions = block.instructions
         pos = instructions.index(i)
@@ -44,7 +44,7 @@ class LoadAfterStorePass(BlockPass):
         self.remove_redundant_stores(block)
 
     def replace_load_after_store(self, block):
-        """ Replace load after store with the value of the store """
+        """Replace load after store with the value of the store"""
         load_instructions = [
             ins
             for ins in block
@@ -67,7 +67,7 @@ class LoadAfterStorePass(BlockPass):
             self.logger.debug("Replaced %s loads after store", count)
 
     def remove_redundant_stores(self, block):
-        """ From two stores to the same address remove the previous one """
+        """From two stores to the same address remove the previous one"""
         store_instructions = [
             i for i in block if isinstance(i, ir.Store) and not i.volatile
         ]

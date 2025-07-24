@@ -1,6 +1,4 @@
-""" This module contains shared code for backend options.
-
-"""
+"""This module contains shared code for backend options."""
 
 import argparse
 import logging
@@ -48,7 +46,7 @@ compile_parser.add_argument(
 
 
 def do_compile(ir_modules, march, reporter, args):
-    """ Handle the proper output action """
+    """Handle the proper output action"""
 
     # Optimize:
     for ir_module in ir_modules:

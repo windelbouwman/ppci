@@ -1,12 +1,11 @@
-""" Functions to add instrumentation to IR code.
-"""
+"""Functions to add instrumentation to IR code."""
 
 import logging
 from .. import ir
 
 
 def add_tracer(ir_module, trace_function_name="trace"):
-    """ Instrument the given ir-module with a call tracer function """
+    """Instrument the given ir-module with a call tracer function"""
     logger = logging.getLogger("instrument")
     trace_func = ir.ExternalProcedure(trace_function_name, [ir.ptr])
     ir_module.add_external(trace_func)

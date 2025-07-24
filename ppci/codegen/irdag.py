@@ -1,4 +1,4 @@
-""" IR to DAG
+"""IR to DAG
 
 The process of instruction selection is preceeded by the creation of
 a selection DAG (directed acyclic graph). The dagger take ir-code as
@@ -21,7 +21,7 @@ from .selectiongraph import SGNode, SGValue, SelectionGraph
 
 
 def prepare_function_info(arch, function_info, ir_function):
-    """ Fill function info with labels for all basic blocks """
+    """Fill function info with labels for all basic blocks"""
     # First define labels and phis:
 
     function_info.epilog_label = Label(ir_function.name + "_epilog")
@@ -80,7 +80,7 @@ class FunctionInfo:
 
 
 def depth_first_order(function):
-    """ Return blocks in depth first search order """
+    """Return blocks in depth first search order"""
     blocks = [function.entry]
     L = [function.entry]
     while L:
@@ -93,7 +93,7 @@ def depth_first_order(function):
 
 
 class Operation:
-    """ A single operation with a type """
+    """A single operation with a type"""
 
     def __init__(self, op, ty):
         self.op = op
@@ -126,7 +126,7 @@ def make_map(cls):
 
 @make_map
 class SelectionGraphBuilder:
-    """ Create a selectiongraph from a function for instruction selection """
+    """Create a selectiongraph from a function for instruction selection"""
 
     logger = logging.getLogger("selection-graph-builder")
     f_map = {}
@@ -229,7 +229,7 @@ class SelectionGraphBuilder:
         self.current_token = sgnode.new_output("ctrl", kind=SGValue.CONTROL)
 
     def new_node(self, name, ty, *args, value=None):
-        """ Create a new selection graph node, and add it to the graph """
+        """Create a new selection graph node, and add it to the graph"""
         assert isinstance(name, str)
         assert isinstance(ty, ir.Typ) or ty is None
         # assert isinstance(name, Operation)
@@ -243,7 +243,7 @@ class SelectionGraphBuilder:
         return sgnode
 
     def new_vreg(self, ty):
-        """ Generate a new temporary fitting for the given type """
+        """Generate a new temporary fitting for the given type"""
         return self.function_info.frame.new_reg(
             self.arch.info.value_classes[ty]
         )
@@ -257,7 +257,7 @@ class SelectionGraphBuilder:
         return self.function_info.value_map[node]
 
     def do_return(self, node):
-        """ Move result into result register and jump to epilog """
+        """Move result into result register and jump to epilog"""
         res = self.get_value(node.result)
         vreg = self.function_info.rv_vreg
         if vreg:
@@ -272,7 +272,7 @@ class SelectionGraphBuilder:
         self.chain(sgnode)
 
     def do_c_jump(self, node):
-        """ Process conditional jump into dag """
+        """Process conditional jump into dag"""
         lhs = self.get_value(node.a)
         rhs = self.get_value(node.b)
         assert node.a.ty is node.b.ty
@@ -293,13 +293,13 @@ class SelectionGraphBuilder:
         self.chain(sgnode)
 
     def do_address_of(self, node):
-        """ Process ir.AddressOf instruction """
+        """Process ir.AddressOf instruction"""
         address = self.get_value(node.src)
         self.add_map(node, address)
         return address
 
     def do_alloc(self, node):
-        """ Process the alloc instruction """
+        """Process the alloc instruction"""
         # TODO: check alignment?
         # fp = self.new_node("REG", ir.ptr, value=self.arch.fp)
         # fp_output = fp.new_output('fp')
@@ -319,14 +319,14 @@ class SelectionGraphBuilder:
         # self.debug_db.map(node, sgnode)
 
     def do_copy_blob(self, node):
-        """ Create a memcpy node. """
+        """Create a memcpy node."""
         dst = self.get_address(node.dst)
         src = self.get_address(node.src)
         sgnode = self.new_node("MOVB", None, dst, src, value=node.amount)
         self.chain(sgnode)
 
     def get_address(self, ir_address):
-        """ Determine address for load or store. """
+        """Determine address for load or store."""
         if isinstance(ir_address, ir.GlobalValue):
             # A global variable may be contained in another module
             # That is why it is created here, and not in the prepare step
@@ -338,7 +338,7 @@ class SelectionGraphBuilder:
         return address
 
     def do_load(self, node):
-        """ Create dag node for load operation """
+        """Create dag node for load operation"""
         address = self.get_address(node.address)
         sgnode = self.new_node("LDR", node.ty, address)
         # Make sure a data dependence is added to this node
@@ -347,7 +347,7 @@ class SelectionGraphBuilder:
         self.add_map(node, sgnode.new_output(node.name))
 
     def do_store(self, node):
-        """ Create a DAG node for the store operation """
+        """Create a DAG node for the store operation"""
         address = self.get_address(node.address)
         value = self.get_value(node.value)
         if node.value.ty.is_blob:
@@ -379,12 +379,13 @@ class SelectionGraphBuilder:
             input_registers.append(reg_loc)
 
         if len(node.output_values) > 0:
-            assert len(node.output_values) <= len(node.input_values), "Output registers on asm cannot be greater than the number of input"
+            issue = "Output registers on asm cannot be greater than the number of input"
+            assert len(node.output_values) <= len(node.input_values), issue
         elif len(node.output_values) > 3:
             assert False, "Currently, asm uses at most 3 output registers"
 
         output_registers = []
-                
+
         sgnode = self.new_node(
             "ASM",
             None,
@@ -397,20 +398,22 @@ class SelectionGraphBuilder:
         )
         self.chain(sgnode)
         self.debug_db.map(node, sgnode)
-        
-        for i,(reg,addr) in enumerate(zip(node.clobbers,node.output_values)):
+
+        for i, (reg, addr) in enumerate(
+            zip(node.clobbers, node.output_values)
+        ):
             address = self.get_address(addr)
-            
+
             param_node = self.new_node("REG", address.ty, value=reg)
             output = param_node.new_output("ret_" + str(i))
             output.wants_vreg = False
 
-            sgnode = self.new_node("STR", address.ty, address,output)
+            sgnode = self.new_node("STR", address.ty, address, output)
 
             self.chain(sgnode)
 
     def do_const(self, node):
-        """ Process constant instruction """
+        """Process constant instruction"""
         if isinstance(node.value, (int, float)):
             value = node.value
         else:  # pragma: no cover
@@ -423,13 +426,13 @@ class SelectionGraphBuilder:
         self.add_map(node, output)
 
     def do_literal_data(self, node):
-        """ Literal data is stored after a label """
+        """Literal data is stored after a label"""
         label = self.function_info.frame.add_constant(node.data)
         sgnode = self.new_node("LABEL", ir.ptr, value=label)
         self.add_map(node, sgnode.new_output(node.name))
 
     def do_unop(self, node):
-        """ Visit an unary operator and create a DAG node """
+        """Visit an unary operator and create a DAG node"""
         names = {"-": "NEG", "~": "INV"}
         op = names[node.operation]
         a = self.get_value(node.a)
@@ -438,7 +441,7 @@ class SelectionGraphBuilder:
         self.add_map(node, sgnode.new_output(node.name))
 
     def do_binop(self, node):
-        """ Visit a binary operator and create a DAG node """
+        """Visit a binary operator and create a DAG node"""
         names = {
             "+": "ADD",
             "-": "SUB",
@@ -459,7 +462,7 @@ class SelectionGraphBuilder:
         self.add_map(node, sgnode.new_output(node.name))
 
     def do_cast(self, node):
-        """ Create a cast of type """
+        """Create a cast of type"""
         from_ty = node.src.ty
         if from_ty is ir.ptr:
             from_ty = self.ptr_ty
@@ -491,14 +494,14 @@ class SelectionGraphBuilder:
             self.add_map(node, sgnode.new_output(node.name))
 
     def do_undefined(self, node):
-        """ Create node for undefined value. """
+        """Create node for undefined value."""
         op = "UND"
         sgnode = self.new_node(op, node.ty)
         self.debug_db.map(node, sgnode)
         self.add_map(node, sgnode.new_output(node.name))
 
     def _prep_call_arguments(self, node):
-        """ Prepare call arguments into proper locations """
+        """Prepare call arguments into proper locations"""
         # This is the moment to move all parameters to new temp registers.
         args = []
         for argument in node.arguments:
@@ -538,12 +541,12 @@ class SelectionGraphBuilder:
         self.chain(sgnode)
 
     def do_procedure_call(self, node):
-        """ Transform a procedure call """
+        """Transform a procedure call"""
         args = self._prep_call_arguments(node)
         self._make_call(node, args, None)
 
     def do_function_call(self, node):
-        """ Transform a function call """
+        """Transform a function call"""
         args = self._prep_call_arguments(node)
 
         # New register for copy of result:
@@ -562,7 +565,7 @@ class SelectionGraphBuilder:
         self.add_map(node, output)
 
     def do_phi(self, node):
-        """ Refer to the correct copy of the phi node """
+        """Refer to the correct copy of the phi node"""
         vreg = self.function_info.phi_map[node]
         sgnode = self.new_node("REG", node.ty, value=vreg)
         output = sgnode.new_output(node.name)

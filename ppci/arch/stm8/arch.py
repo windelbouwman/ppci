@@ -8,7 +8,7 @@ from .instructions import stm8_isa
 
 
 class Stm8Arch(Architecture):
-    """ STM8 architecture description. """
+    """STM8 architecture description."""
 
     name = "stm8"
     option_names = ("coolcc",)

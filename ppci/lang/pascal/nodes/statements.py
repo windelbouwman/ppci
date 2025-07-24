@@ -1,18 +1,17 @@
-""" Pascal statement AST nodes.
-"""
+"""Pascal statement AST nodes."""
 
 from .expressions import Expression
 
 
 class Statement:
-    """ Base class of all statements """
+    """Base class of all statements"""
 
     def __init__(self, location):
         self.location = location
 
 
 class Compound(Statement):
-    """ Statement consisting of a sequence of other statements """
+    """Statement consisting of a sequence of other statements"""
 
     def __init__(self, statements, location):
         super().__init__(location)
@@ -24,7 +23,7 @@ class Compound(Statement):
 
 
 class Empty(Statement):
-    """ Empty statement which does nothing! """
+    """Empty statement which does nothing!"""
 
     def __init__(self):
         super().__init__(None)
@@ -34,7 +33,7 @@ class Empty(Statement):
 
 
 class Return(Statement):
-    """ Return statement """
+    """Return statement"""
 
     def __init__(self, expr, loc):
         super().__init__(loc)
@@ -45,14 +44,14 @@ class Return(Statement):
 
 
 class Exit(Statement):
-    """ Exit statement """
+    """Exit statement"""
 
     def __repr__(self):
         return "EXIT STATEMENT"
 
 
 class Assignment(Statement):
-    """ Assignment statement with a left hand side and right hand side """
+    """Assignment statement with a left hand side and right hand side"""
 
     def __init__(self, lval, rval, location):
         super().__init__(location)
@@ -67,7 +66,7 @@ class Assignment(Statement):
 
 
 class If(Statement):
-    """ If statement """
+    """If statement"""
 
     def __init__(self, condition, truestatement, falsestatement, loc):
         super().__init__(loc)
@@ -80,7 +79,7 @@ class If(Statement):
 
 
 class CaseOf(Statement):
-    """ Case-of statement """
+    """Case-of statement"""
 
     def __init__(self, expression, options, loc):
         super().__init__(loc)
@@ -92,7 +91,7 @@ class CaseOf(Statement):
 
 
 class While(Statement):
-    """ While statement """
+    """While statement"""
 
     def __init__(self, condition, statement, loc):
         super().__init__(loc)
@@ -104,7 +103,7 @@ class While(Statement):
 
 
 class Repeat(Statement):
-    """ Repeat statement """
+    """Repeat statement"""
 
     def __init__(self, statement, condition, loc):
         super().__init__(loc)
@@ -116,7 +115,7 @@ class Repeat(Statement):
 
 
 class For(Statement):
-    """ For statement with a start, condition and final statement """
+    """For statement with a start, condition and final statement"""
 
     def __init__(self, loop_var, start, direction, final, statement, loc):
         super().__init__(loc)
@@ -131,7 +130,7 @@ class For(Statement):
 
 
 class With(Statement):
-    """ The 'with' statement. """
+    """The 'with' statement."""
 
     def __init__(self, record_variables, inner, location):
         super().__init__(location)
@@ -146,7 +145,7 @@ class Goto(Statement):
 
 
 class Label(Statement):
-    """ A label we can jump to. """
+    """A label we can jump to."""
 
     def __init__(self, label, inner, location):
         super().__init__(location)
@@ -162,7 +161,7 @@ class ProcedureCall(Statement):
 
 
 class BuiltinProcedureCall(Statement):
-    """ A builtin procedure call. """
+    """A builtin procedure call."""
 
     def __init__(self, calls, location):
         super().__init__(location)

@@ -1,6 +1,4 @@
-""" Wasm runtime functions.
-
-"""
+"""Wasm runtime functions."""
 
 import struct
 import math
@@ -19,7 +17,7 @@ class Unreachable(RuntimeError):
 
 
 def f32_sqrt(v: ir.f32) -> ir.f32:
-    """ Square root """
+    """Square root"""
     return math.sqrt(v)
 
 
@@ -28,22 +26,22 @@ def f64_sqrt(v: ir.f64) -> ir.f64:
 
 
 def i32_rotr(v: ir.i32, cnt: ir.i32) -> ir.i32:
-    """ Rotate right """
+    """Rotate right"""
     return to_signed(rotr(to_unsigned(v, 32), cnt, 32), 32)
 
 
 def i64_rotr(v: ir.i64, cnt: ir.i64) -> ir.i64:
-    """ Rotate right """
+    """Rotate right"""
     return to_signed(rotr(to_unsigned(v, 64), cnt, 64), 64)
 
 
 def i32_rotl(v: ir.i32, cnt: ir.i32) -> ir.i32:
-    """ Rotate left """
+    """Rotate left"""
     return to_signed(rotl(to_unsigned(v, 32), cnt, 32), 32)
 
 
 def i64_rotl(v: ir.i64, cnt: ir.i64) -> ir.i64:
-    """ Rotate left """
+    """Rotate left"""
     return to_signed(rotl(to_unsigned(v, 64), cnt, 64), 64)
 
 
@@ -146,9 +144,9 @@ def satured_truncate(value: float, lower_limit, upper_limit) -> int:
         return int(value)
 
 
-MAX_I32 = 2 ** 31 - 1
-MIN_I32 = -(2 ** 31)
-MAX_U32 = 2 ** 32 - 1
+MAX_I32 = 2**31 - 1
+MIN_I32 = -(2**31)
+MAX_U32 = 2**32 - 1
 MIN_U32 = 0
 
 
@@ -168,9 +166,9 @@ def i32_trunc_sat_f64_u(v: ir.f64) -> ir.i32:
     return make_int(satured_truncate(v, MIN_U32, MAX_U32), 32)
 
 
-MAX_I64 = 2 ** 63 - 1
-MIN_I64 = -(2 ** 63)
-MAX_U64 = 2 ** 64 - 1
+MAX_I64 = 2**63 - 1
+MIN_I64 = -(2**63)
+MAX_U64 = 2**64 - 1
 MIN_U64 = 0
 
 

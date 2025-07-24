@@ -1,4 +1,4 @@
-""" C initializer helping classes.
+"""C initializer helping classes.
 
 The classes and functions here mainly deal with keeping track of the
 position in an C style initializer.
@@ -20,7 +20,7 @@ class InitCursor:
 
     @property
     def level(self):
-        """ The current initial level. """
+        """The current initial level."""
         return self._stack[-1]
 
     @property
@@ -28,23 +28,23 @@ class InitCursor:
         return len(self._stack) == 0
 
     def at_end(self):
-        """ Check if we point the cursor into the void. """
+        """Check if we point the cursor into the void."""
         return self.level.at_end()
 
     def at_typ(self):
-        """ Get the type we are pointing to. """
+        """Get the type we are pointing to."""
         return self.level.element_typ()
 
     def get_value(self):
-        """ Get current expression under cursor. """
+        """Get current expression under cursor."""
         return self.level.get_value()
 
     def set_value(self, value):
-        """ Set value at cursor position. """
+        """Set value at cursor position."""
         self.level.set_value(value)
 
     def enter_compound(self, typ, location, implicit):
-        """ Contrapt new initializer element, and append to stack. """
+        """Contrapt new initializer element, and append to stack."""
         is_toplevel = self.is_toplevel
         # Get current initializer:
         if is_toplevel:
@@ -62,7 +62,7 @@ class InitCursor:
         self._stack.append(init_level)
 
     def _make_init_level(self, typ, location, initializer, implicit):
-        """ Create an initialization level. """
+        """Create an initialization level."""
         assert isinstance(typ, types.CType)
 
         if typ.is_struct:
@@ -88,16 +88,16 @@ class InitCursor:
         return init_level
 
     def leave_compound(self):
-        """ As in, leave the current sub type.a.b -> type.a """
+        """As in, leave the current sub type.a.b -> type.a"""
         return self._stack.pop(-1).initializer
 
     def unwind(self):
-        """ Unwind levels to last explicit level. """
+        """Unwind levels to last explicit level."""
         while self.level.implicit:
             self._stack.pop()
 
     def next_element(self):
-        """ Proceed cursor to next slot to come. """
+        """Proceed cursor to next slot to come."""
         # Proceed to next element:
         self.level.go_next()
         while self.level.at_end() and self.level.implicit:
@@ -105,7 +105,7 @@ class InitCursor:
             self.level.go_next()
 
     def select_field(self, field_name, location):
-        """ Select the given field name taking anonymous structs into account. """
+        """Select the given field name taking anonymous structs into account."""
         assert not self.is_toplevel
         typ = self.level.typ
         assert typ.is_struct_or_union
@@ -124,7 +124,7 @@ class InitCursor:
 
 
 class InitLevel(abc.ABC):
-    """ An in progress initializer. """
+    """An in progress initializer."""
 
     def __init__(self, initializer, implicit):
         self.typ = initializer.typ
@@ -132,11 +132,11 @@ class InitLevel(abc.ABC):
         self.implicit = implicit
 
     def element_typ(self):
-        """ Current type under cursor. """
+        """Current type under cursor."""
         raise NotImplementedError()
 
     def at_end(self):
-        """ Check if there are more elements to be initialized. """
+        """Check if there are more elements to be initialized."""
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -189,7 +189,7 @@ class StructInitLevel(InitLevel):
 
 
 class UnionInitLevel(InitLevel):
-    """ Union initialization in progress. """
+    """Union initialization in progress."""
 
     def __init__(self, initializer, implicit):
         assert initializer.typ.is_union
@@ -226,7 +226,7 @@ class UnionInitLevel(InitLevel):
 
 
 class ArrayInitLevel(InitLevel):
-    """ Array initialization in progress. """
+    """Array initialization in progress."""
 
     def __init__(self, initializer, size, implicit):
         assert initializer.typ.is_array

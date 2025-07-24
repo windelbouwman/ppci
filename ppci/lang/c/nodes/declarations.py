@@ -1,13 +1,12 @@
-""" The different objects which can be declared. """
+"""The different objects which can be declared."""
 
 # pylint: disable=R0903
-
 
 from .types import CType
 
 
 class CDeclaration:
-    """ A single declaration """
+    """A single declaration"""
 
     def __init__(self, storage_class, typ: CType, name: str, location):
         assert isinstance(typ, CType)
@@ -22,12 +21,12 @@ class CDeclaration:
         return isinstance(self, FunctionDeclaration)
 
     def is_definition(self):
-        """ Tests if this declaration defines a variable / function. """
+        """Tests if this declaration defines a variable / function."""
         return False
 
 
 class StorageClass:
-    """ Sort of enum with all options for storage classes. """
+    """Sort of enum with all options for storage classes."""
 
     AUTO = "auto"
     EXTERN = "extern"
@@ -36,7 +35,7 @@ class StorageClass:
 
 
 class Typedef(CDeclaration):
-    """ Type definition """
+    """Type definition"""
 
     def __init__(self, typ, name, location):
         super().__init__("typedef", typ, name, location)
@@ -46,7 +45,7 @@ class Typedef(CDeclaration):
 
 
 class VariableDeclaration(CDeclaration):
-    """ Variable declaration, be it local or global """
+    """Variable declaration, be it local or global"""
 
     def __init__(self, storage_class, typ, name, initial_value, location):
         super().__init__(storage_class, typ, name, location)
@@ -79,7 +78,7 @@ class EnumDeclaration(CDeclaration):
 
 
 class EnumConstantDeclaration(CDeclaration):
-    """ Declaration of an enum value """
+    """Declaration of an enum value"""
 
     def __init__(self, typ, name, value, location):
         super().__init__(None, typ, name, location)
@@ -92,14 +91,14 @@ class EnumConstantDeclaration(CDeclaration):
 
 
 class ParameterDeclaration(CDeclaration):
-    """ Function parameter declaration """
+    """Function parameter declaration"""
 
     def __repr__(self):
         return "Parameter [typ={} name={}]".format(self.typ, self.name)
 
 
 class FunctionDeclaration(CDeclaration):
-    """ A function declaration """
+    """A function declaration"""
 
     def __init__(self, storage_class, typ, name, location):
         super().__init__(storage_class, typ, name, location)

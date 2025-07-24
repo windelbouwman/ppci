@@ -1,4 +1,4 @@
-""" WASI API.
+"""WASI API.
 
 These are some of the WASI api functions implemented in python.
 
@@ -158,7 +158,7 @@ class WasiApi:
         return data.decode("utf8")
 
     def _trace(self, txt):
-        """ Trace execution. """
+        """Trace execution."""
         if self._trace_calls:
             self.logger.debug(txt)
 
@@ -272,8 +272,8 @@ class WasiApi:
                 fs_filetype = FILETYPE_DIRECTORY
                 fs_flags = 0
 
-                fs_rights_base = 2 ** 64 - 1
-                fs_rights_inheriting = 2 ** 64 - 1
+                fs_rights_base = 2**64 - 1
+                fs_rights_inheriting = 2**64 - 1
                 self._write_mem_u8(fdstat, fs_filetype)
                 self._write_mem_u16(fdstat + 2, fs_flags)
                 self._write_mem_u64(fdstat + 8, fs_rights_base)
@@ -403,7 +403,7 @@ class WasiApi:
         path_buf: ir.i32,
         path_len: ir.i32,
     ) -> ir.i32:
-        """ Similar to mkdirat in POSIX """
+        """Similar to mkdirat in POSIX"""
         path = self._read_string(path_buf, path_len)
 
         self._trace("path_create_directory(fd={}, path={})".format(fd, path))
@@ -435,7 +435,7 @@ class WasiApi:
         path_len: ir.i32,
         buf: ir.i32,
     ) -> ir.i32:
-        """ Return attributes of file or directory. Similar to POSIX stat. """
+        """Return attributes of file or directory. Similar to POSIX stat."""
         path = self._read_string(path_buf, path_len)
         self._trace(
             "path_filestat_get(fd={}, flags={}, path={}, buf={})".format(
@@ -608,7 +608,7 @@ class WasiApi:
         raise ProcExit(code)
 
     def random_get(self, buf: ir.i32, buf_len: ir.i32) -> ir.i32:
-        """ Generate some random bytes into buf. """
+        """Generate some random bytes into buf."""
         noise = os.urandom(buf_len)
         self._write_mem_data(buf, noise)
         return ESUCCESS

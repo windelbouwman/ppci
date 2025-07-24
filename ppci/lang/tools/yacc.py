@@ -1,5 +1,5 @@
 """
-  Parser generator script
+Parser generator script
 """
 
 import types
@@ -59,7 +59,7 @@ class XaccParser(RecursiveDescentParser):
     """
 
     def parse_grammar(self, tokens):
-        """ Entry parse function into recursive descent parser """
+        """Entry parse function into recursive descent parser"""
         self.init_lexer(tokens)
         # parse header
         self.headers = []
@@ -82,7 +82,7 @@ class XaccParser(RecursiveDescentParser):
         return self.consume("ID").val
 
     def parse_rhs(self):
-        """ Parse the right hand side of a rule definition """
+        """Parse the right hand side of a rule definition"""
         symbols = []
         while self.peek not in [";", "BRACEDCODE", "|"]:
             symbols.append(self.parse_symbol())
@@ -94,7 +94,7 @@ class XaccParser(RecursiveDescentParser):
         return symbols, action
 
     def parse_rule(self):
-        """ Parse a rule definition """
+        """Parse a rule definition"""
         p = self.parse_symbol()
         self.consume(":")
         symbols, action = self.parse_rhs()
@@ -106,7 +106,7 @@ class XaccParser(RecursiveDescentParser):
 
 
 class XaccGenerator:
-    """ Generator that writes generated parser to file """
+    """Generator that writes generated parser to file"""
 
     def __init__(self):
         self.logger = logging.getLogger("yacc")
@@ -121,11 +121,11 @@ class XaccGenerator:
         self.generate_python_script()
 
     def print(self, *args):
-        """ Print helper function that prints to output file """
+        """Print helper function that prints to output file"""
         print(*args, file=self.output_file)
 
     def generate_python_script(self):
-        """ Generate python script with the parser table """
+        """Generate python script with the parser table"""
         self.print("#!/usr/bin/python")
         stamp = datetime.datetime.now().ctime()
         self.print('""" Automatically generated on {} """'.format(stamp))
@@ -220,7 +220,7 @@ def transform(f_in, f_out):
 
 
 def load_as_module(filename):
-    """ Load a parser spec file, generate LR tables and create module """
+    """Load a parser spec file, generate LR tables and create module"""
     ob = io.StringIO()
     if hasattr(filename, "read"):
         transform(filename, ob)

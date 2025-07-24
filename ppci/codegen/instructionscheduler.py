@@ -1,6 +1,6 @@
 """
-    This algorithm takes the selected instructions and schedules them in
-    a linear form.
+This algorithm takes the selected instructions and schedules them in
+a linear form.
 """
 
 

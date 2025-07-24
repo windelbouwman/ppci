@@ -1,13 +1,12 @@
-""" C Statements """
+"""C Statements"""
 
 # pylint: disable=R0903
-
 
 from ...generic.nodes import Node
 
 
 class CStatement(Node):
-    """ Base C statement """
+    """Base C statement"""
 
     __slots__ = ("location",)
 
@@ -16,7 +15,7 @@ class CStatement(Node):
 
 
 class Compound(CStatement):
-    """ Statement consisting of a sequence of other statements """
+    """Statement consisting of a sequence of other statements"""
 
     def __init__(self, statements, location):
         super().__init__(location)
@@ -28,7 +27,7 @@ class Compound(CStatement):
 
 
 class If(CStatement):
-    """ If statement """
+    """If statement"""
 
     __slots__ = ("condition", "yes", "no")
 
@@ -43,7 +42,7 @@ class If(CStatement):
 
 
 class Switch(CStatement):
-    """ Switch statement """
+    """Switch statement"""
 
     def __init__(self, expression, statement, location):
         super().__init__(location)
@@ -55,7 +54,7 @@ class Switch(CStatement):
 
 
 class While(CStatement):
-    """ While statement """
+    """While statement"""
 
     __slots__ = ("condition", "body")
 
@@ -69,7 +68,7 @@ class While(CStatement):
 
 
 class DoWhile(CStatement):
-    """ Do-while statement """
+    """Do-while statement"""
 
     __slots__ = ("condition", "body")
 
@@ -83,7 +82,7 @@ class DoWhile(CStatement):
 
 
 class For(CStatement):
-    """ For statement """
+    """For statement"""
 
     __slots__ = ("init", "condition", "post", "body")
 
@@ -99,21 +98,21 @@ class For(CStatement):
 
 
 class Break(CStatement):
-    """ Break statement """
+    """Break statement"""
 
     def __repr__(self):
         return "Break"
 
 
 class Continue(CStatement):
-    """ Continue statement """
+    """Continue statement"""
 
     def __repr__(self):
         return "Continue"
 
 
 class Case(CStatement):
-    """ Case statement """
+    """Case statement"""
 
     def __init__(self, value, statement, location):
         super().__init__(location)
@@ -142,7 +141,7 @@ class RangeCase(CStatement):
 
 
 class Default(CStatement):
-    """ Default statement """
+    """Default statement"""
 
     def __init__(self, statement, location):
         super().__init__(location)
@@ -153,7 +152,7 @@ class Default(CStatement):
 
 
 class Label(CStatement):
-    """ A label """
+    """A label"""
 
     def __init__(self, name, statement, location):
         super().__init__(location)
@@ -165,7 +164,7 @@ class Label(CStatement):
 
 
 class Goto(CStatement):
-    """ Goto statement """
+    """Goto statement"""
 
     __slots__ = ("label",)
 
@@ -178,7 +177,7 @@ class Goto(CStatement):
 
 
 class Return(CStatement):
-    """ Return statement """
+    """Return statement"""
 
     __slots__ = ("value",)
 
@@ -191,14 +190,14 @@ class Return(CStatement):
 
 
 class Empty(CStatement):
-    """ Do nothing! """
+    """Do nothing!"""
 
     def __repr__(self):
         return "Empty"
 
 
 class ExpressionStatement(CStatement):
-    """ An expression used as a statment """
+    """An expression used as a statment"""
 
     __slots__ = ("expression",)
 
@@ -211,7 +210,7 @@ class ExpressionStatement(CStatement):
 
 
 class DeclarationStatement(CStatement):
-    """ A declaration """
+    """A declaration"""
 
     __slots__ = ("declaration",)
 
@@ -224,7 +223,7 @@ class DeclarationStatement(CStatement):
 
 
 class InlineAssemblyCode(CStatement):
-    """ A piece of inlined assembly code """
+    """A piece of inlined assembly code"""
 
     def __init__(
         self, template, output_operands, input_operands, clobbers, location

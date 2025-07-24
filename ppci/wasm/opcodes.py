@@ -1,4 +1,4 @@
-""" A table with WASM opcodes. """
+"""A table with WASM opcodes."""
 
 import enum
 
@@ -413,7 +413,7 @@ I = _make_instructionset()
 
 
 def eval_expr(expr):
-    """ Evaluate a sequence of instructions """
+    """Evaluate a sequence of instructions"""
     stack = []
     for i in expr:
         consumed_types, produced_types, action = EVAL[i.opcode]

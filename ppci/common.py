@@ -46,9 +46,8 @@ class CompilerError(Exception):
         self.msg = msg
         self.loc = loc
         if loc:
-            assert isinstance(loc, SourceLocation), "{0} must be SourceLocation".format(
-                type(loc)
-            )
+            issue = f"{type(loc)} must be SourceLocation"
+            assert isinstance(loc, SourceLocation), issue
 
         if hints is None:
             hints = []

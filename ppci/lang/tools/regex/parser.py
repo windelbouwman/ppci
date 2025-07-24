@@ -1,4 +1,4 @@
-""" Regular expression parsing.
+"""Regular expression parsing.
 
 This module is able to parse regular expressions.
 
@@ -8,13 +8,13 @@ from . import regex
 
 
 def parse(r):
-    """ Parse a regular expression """
+    """Parse a regular expression"""
     parser = Parser()
     return parser.parse(r)
 
 
 class Parser:
-    """ Regular expression program parser """
+    """Regular expression program parser"""
 
     def parse(self, txt):
         self.txt = txt
@@ -36,7 +36,7 @@ class Parser:
         return self.pos >= len(self.txt)
 
     def peek(self, c):
-        """ Look at next character """
+        """Look at next character"""
         return c == self.current()
 
     def _next_char(self):
@@ -48,7 +48,7 @@ class Parser:
         return c
 
     def eat(self, c=None):
-        """ Consume single character """
+        """Consume single character"""
         actual = self._next_char()
 
         if c is None:
@@ -81,7 +81,7 @@ class Parser:
         return self._parse_element()
 
     def _parse_element(self):
-        """ Parse single element of regex """
+        """Parse single element of regex"""
         if self.peek("("):
             self.eat("(")
             expr = self._parse_top()
@@ -99,12 +99,12 @@ class Parser:
         return expr
 
     def _parse_symbol(self):
-        """ Simple symbol. """
+        """Simple symbol."""
         sym = self.eat()
         return regex.Symbol(sym)
 
     def _parse_set(self):
-        """ Parse a set of options '[0-9abc]' """
+        """Parse a set of options '[0-9abc]'"""
         self.eat("[")
         ranges = []
         # Check inversion:
@@ -142,7 +142,7 @@ class Parser:
         return expr
 
     def _parse_modifier(self, expr):
-        """ Parse any modifiers after an expression """
+        """Parse any modifiers after an expression"""
         if self.did_eat("*"):
             expr = regex.Kleene(expr)
         elif self.did_eat("+"):

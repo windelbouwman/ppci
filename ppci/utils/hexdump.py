@@ -1,4 +1,5 @@
-""" Utilities to dump binary data in hex """
+"""Utilities to dump binary data in hex"""
+
 from .chunk import chunks
 
 

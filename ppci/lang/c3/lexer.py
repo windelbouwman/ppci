@@ -1,4 +1,4 @@
-""" Lexical analyzer part. Splits the input character stream into tokens. """
+"""Lexical analyzer part. Splits the input character stream into tokens."""
 
 import re
 from ...common import make_num
@@ -7,7 +7,7 @@ from ..tools.baselex import BaseLexer
 
 
 class Lexer(BaseLexer):
-    """ Generates a sequence of token from an input stream """
+    """Generates a sequence of token from an input stream"""
 
     keywords = [
         "and",
@@ -118,7 +118,7 @@ class Lexer(BaseLexer):
         self.incomment = False
 
     def tokenize(self, text):
-        """ Keeps track of the long comments """
+        """Keeps track of the long comments"""
         self.incomment = False
         for token in super().tokenize(text):
             if self.incomment:

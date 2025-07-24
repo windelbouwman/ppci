@@ -69,7 +69,7 @@ burg_parser = yacc.load_as_module(spec_file)
 
 
 class BurgLexer(baselex.BaseLexer):
-    """ Overridden base lexer to keep track of sections """
+    """Overridden base lexer to keep track of sections"""
 
     def __init__(self):
         tok_spec = [
@@ -163,13 +163,13 @@ class BurgSystem:
         return rule
 
     def get_rule(self, nr):
-        """ Get a rule by rule number """
+        """Get a rule by rule number"""
         rule = self.rules[nr - 1]
         assert rule.nr == nr
         return rule
 
     def get_rules_for_root(self, name):
-        """ Get only the rules for a given root name """
+        """Get only the rules for a given root name"""
         return self.rule_map[name]
 
     def non_term(self, name: str):
@@ -183,7 +183,7 @@ class BurgSystem:
         return Tree(name, *args)
 
     def chain_rules_for_nt(self, non_terminal):
-        """ Retrieve chain rules for a given non terminal """
+        """Retrieve chain rules for a given non terminal"""
         return self.symbols[non_terminal].chain_rules
 
     def install(self, name: str, t):
@@ -204,7 +204,7 @@ class BurgSystem:
         self.install(terminal, Term)
 
     def tree_terminal_equal(self, t1, t2):
-        """ Check if the terminals of a tree match """
+        """Check if the terminals of a tree match"""
         if t1.name in self.terminals and t2.name in self.terminals:
             if t1.name == t2.name:
                 # match children:
@@ -222,7 +222,7 @@ class BurgSystem:
             return True
 
     def get_kids(self, tree, template_tree):
-        """ Get the kids of a tree given a template that matched """
+        """Get the kids of a tree given a template that matched"""
         kids = []
         if template_tree.name in self.non_terminals:
             assert len(template_tree.children) == 0
@@ -233,7 +233,7 @@ class BurgSystem:
         return kids
 
     def get_nts(self, template_tree):
-        """ Get the names of the non terminals of a template """
+        """Get the names of the non terminals of a template"""
         nts = []
         if template_tree.name in self.non_terminals:
             assert len(template_tree.children) == 0
@@ -244,13 +244,13 @@ class BurgSystem:
         return nts
 
     def check_tree_defined(self, tree):
-        """ Check if all names in a tree are defined """
+        """Check if all names in a tree are defined"""
         for name in tree.get_defined_names():
             if name not in self.symbols.keys():
                 raise BurgError("{} not defined".format(name))
 
     def check(self):
-        """ Run sanity checks on this burg system """
+        """Run sanity checks on this burg system"""
         for rule in self.rules:
             self.check_tree_defined(rule.tree)
         # Check burg system for completeness:
@@ -264,7 +264,7 @@ class BurgError(Exception):
 
 
 class BurgParser(burg_parser.Parser):
-    """ Derived from automatically generated parser """
+    """Derived from automatically generated parser"""
 
     def parse(self, lexer):
         self.system = BurgSystem()
@@ -274,11 +274,11 @@ class BurgParser(burg_parser.Parser):
 
 class BurgGenerator:
     def print(self, level, text=""):
-        """ Print helper function that prints to output file """
+        """Print helper function that prints to output file"""
         print("    " * level + text, file=self.output_file)
 
     def generate(self, system, output_file):
-        """ Generate script that implements the burg spec """
+        """Generate script that implements the burg spec"""
         self.output_file = output_file
         self.system = system
 
@@ -368,7 +368,7 @@ class BurgGenerator:
             )
 
     def emit_state(self):
-        """ Emit a function that assigns a new state to a node """
+        """Emit a function that assigns a new state to a node"""
         self.print(1, "def burm_state(self, tree):")
         self.print(2, "tree.state = State()")
         for term in self.system.terminals:
@@ -398,7 +398,7 @@ class BurgGenerator:
             return k, nts
 
     def emittest(self, tree, prefix):
-        """ Generate condition for a tree pattern """
+        """Generate condition for a tree pattern"""
         ct = (
             c for c in tree.children if c.name not in self.system.non_terminals
         )
@@ -414,7 +414,7 @@ class BurgGenerator:
 
 
 def make_argument_parser():
-    """ Constructs an argument parser """
+    """Constructs an argument parser"""
     parser = argparse.ArgumentParser(
         description="pyburg bottom up rewrite system generator"
     )

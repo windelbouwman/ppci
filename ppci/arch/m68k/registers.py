@@ -1,17 +1,17 @@
-""" Description of registers """
+"""Description of registers"""
 
 from ..registers import Register, RegisterClass
 from ... import ir
 
 
 class M68kRegister(Register):
-    """ An 68000 register """
+    """An 68000 register"""
 
     bitsize = 32
 
 
 class DataRegister(M68kRegister):
-    """ Data register """
+    """Data register"""
 
     @classmethod
     def from_num(cls, num):
@@ -19,7 +19,7 @@ class DataRegister(M68kRegister):
 
 
 class AddressRegister(M68kRegister):
-    """ Address register """
+    """Address register"""
 
     @classmethod
     def from_num(cls, num):

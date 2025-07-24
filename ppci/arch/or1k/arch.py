@@ -1,4 +1,4 @@
-""" Open risc 1K architecture """
+"""Open risc 1K architecture"""
 
 from ... import ir
 from ...binutils.assembler import BaseAssembler
@@ -61,7 +61,7 @@ class Or1kArch(Architecture):
         self.gdb_pc = registers.PC
 
     def determine_arg_locations(self, arg_types):
-        """ Given a set of argument types, determine location for argument """
+        """Given a set of argument types, determine location for argument"""
         locations = []
         regs = [
             registers.r3,
@@ -80,7 +80,7 @@ class Or1kArch(Architecture):
         return registers.r11
 
     def gen_prologue(self, frame):
-        """ Generate the prologue instruction sequence """
+        """Generate the prologue instruction sequence"""
         # Label indication function:
         yield Label(frame.name)
 
@@ -111,7 +111,7 @@ class Or1kArch(Architecture):
         )
 
     def gen_epilogue(self, frame):
-        """ Return epilogue sequence for a frame. """
+        """Return epilogue sequence for a frame."""
         # Restore stack pointer:
         yield instructions.Ori(
             registers.r1, registers.r2, instructions.Immediate(0)
@@ -202,7 +202,7 @@ class Or1kArch(Architecture):
         yield RegisterUseDef(uses=live_out)
 
     def litpool(self, frame):
-        """ Generate instructions for literals """
+        """Generate instructions for literals"""
         if frame.constants:
             # Align at 4 bytes
             yield SectionInstruction("rodata")
@@ -223,5 +223,5 @@ class Or1kArch(Architecture):
             yield SectionInstruction("code")
 
     def move(self, dst, src):
-        """ Generate a move from src to dst """
+        """Generate a move from src to dst"""
         return instructions.mov(dst, src)

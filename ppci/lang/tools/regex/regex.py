@@ -1,4 +1,4 @@
-""" Regular expression descriptions """
+"""Regular expression descriptions"""
 
 import abc
 import itertools
@@ -9,7 +9,7 @@ from ....utils.integer_set import IntegerSet
 class Regex(abc.ABC):
     @abc.abstractmethod
     def nu(self):
-        """ Determine if this regex is nullable or not """
+        """Determine if this regex is nullable or not"""
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -61,12 +61,12 @@ class Regex(abc.ABC):
         return self | EPSILON
 
     def kleene(self):
-        """ Apply the *-operator to this regex. """
+        """Apply the *-operator to this regex."""
         return Kleene(self)
 
 
 class Epsilon(Regex):
-    """ The empty string """
+    """The empty string"""
 
     def nu(self):
         return self
@@ -88,7 +88,7 @@ EPSILON = Epsilon()
 
 
 class SymbolSet(Regex):
-    """ Match a symbol set """
+    """Match a symbol set"""
 
     def __init__(self, symbols):
         self.symbols = IntegerSet(*symbols)
@@ -120,7 +120,7 @@ SIGMA = SymbolSet([(0, 255)])  # ASCII for now.
 
 
 def Symbol(symbol):
-    """ Special case of a set with one item """
+    """Special case of a set with one item"""
     if isinstance(symbol, str):
         symbol = ord(symbol)
 
@@ -128,7 +128,7 @@ def Symbol(symbol):
 
 
 class Kleene(Regex):
-    """ Kleene closure modifier r* """
+    """Kleene closure modifier r*"""
 
     def __init__(self, expr):
         if not isinstance(expr, Regex):
@@ -168,7 +168,7 @@ def concatenate(left, right):
 
 
 class Concatenation(Regex):
-    """ Concatenate two regular expressions a . b """
+    """Concatenate two regular expressions a . b"""
 
     def __init__(self, lhs, rhs):
         if not isinstance(lhs, Regex):
@@ -210,7 +210,7 @@ class Concatenation(Regex):
 
 
 def logical_or(left, right):
-    """ Perform logical or, but in a smart way
+    """Perform logical or, but in a smart way
     so that we only construct a logical or when we need to.
 
     This implements the weaker notion of RE equivalence.
@@ -231,7 +231,7 @@ def logical_or(left, right):
 
 
 class LogicalOr(Regex):
-    """ Alternation operator a | b """
+    """Alternation operator a | b"""
 
     def __init__(self, lhs, rhs):
         if not isinstance(lhs, Regex):
@@ -287,7 +287,7 @@ def logical_and(lhs, rhs):
 
 
 class LogicalAnd(Regex):
-    """ operator a & b """
+    """operator a & b"""
 
     def __init__(self, lhs, rhs):
         if not isinstance(lhs, Regex):
@@ -335,7 +335,7 @@ def product_intersections(*sets):
 
 
 class ExpressionVector:
-    """ Holds a vector of name, expression pairs. """
+    """Holds a vector of name, expression pairs."""
 
     def __init__(self, vector):
         self.vector = tuple(vector)
@@ -350,7 +350,7 @@ class ExpressionVector:
         return hash(self.vector)
 
     def nullable(self):
-        """ Return names of the expressions that are nullable. """
+        """Return names of the expressions that are nullable."""
         return [name for name, expr in self.vector if expr.nullable()]
 
     @property

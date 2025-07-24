@@ -1,4 +1,4 @@
-""" Stm8 support.
+"""Stm8 support.
 
 STM8 is an 8-bit processor, see also:
 

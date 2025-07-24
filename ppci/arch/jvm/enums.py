@@ -1,5 +1,4 @@
-""" Java class file related enums. """
-
+"""Java class file related enums."""
 
 import enum
 

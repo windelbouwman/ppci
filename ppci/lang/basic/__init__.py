@@ -1,1 +1,1 @@
-""" Basic languages module """
+"""Basic languages module"""

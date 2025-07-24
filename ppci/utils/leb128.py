@@ -1,4 +1,4 @@
-""" Little Endian Base 128 (LEB128) variable length encoding
+"""Little Endian Base 128 (LEB128) variable length encoding
 
 https://en.wikipedia.org/wiki/LEB128#Unsigned_LEB128
 """

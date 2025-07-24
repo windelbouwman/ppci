@@ -1,4 +1,4 @@
-""" Linker utility. """
+"""Linker utility."""
 
 import logging
 from collections import defaultdict
@@ -100,7 +100,7 @@ class Linker:
         libraries=None,
         entry_symbol_name=None,
     ):
-        """ Link together the given object files using the layout """
+        """Link together the given object files using the layout"""
         assert isinstance(input_objects, (list, tuple))
 
         if self.reporter:
@@ -186,13 +186,13 @@ class Linker:
         self.reporter.message("Linking complete")
 
     def merge_objects(self, input_objects, debug):
-        """ Merge object files into a single object file """
+        """Merge object files into a single object file"""
 
         for input_object in input_objects:
             self.inject_object(input_object, debug)
 
     def inject_object(self, obj, debug):
-        """ Paste object into destination object. """
+        """Paste object into destination object."""
         self.logger.debug("Merging %s", obj)
 
         section_offsets = {}
@@ -274,7 +274,7 @@ class Linker:
             replicator.replicate(obj.debug_info, self.dst.debug_info)
 
     def merge_global_symbol(self, name, section, value, typ, size):
-        """ Insert or merge a global name. """
+        """Insert or merge a global name."""
         if self.dst.has_symbol(name):
             new_symbol = self.dst.get_symbol(name)
             assert new_symbol.binding == "global"
@@ -296,7 +296,7 @@ class Linker:
         return new_symbol
 
     def inject_symbol(self, name, binding, section, value, typ, size):
-        """ Generate new symbol into object file. """
+        """Generate new symbol into object file."""
         symbol_id = len(self.dst.symbols)
         new_symbol = self.dst.add_symbol(
             symbol_id, name, binding, value, section, typ, size
@@ -304,7 +304,7 @@ class Linker:
         return new_symbol
 
     def layout_sections(self, layout):
-        """ Use the given layout to place sections into memories """
+        """Use the given layout to place sections into memories"""
         # Create sections with address:
         for mem in layout.memories:
             image = Image(mem.name, mem.location)
@@ -374,7 +374,7 @@ class Linker:
             self.dst.add_image(image)
 
     def get_symbol_value(self, symbol_id):
-        """ Get value of a symbol from object or fallback """
+        """Get value of a symbol from object or fallback"""
         # Lookup symbol:
         return self.dst.get_symbol_id_value(symbol_id)
         #    raise CompilerError('Undefined reference "{}"'.format(name))
@@ -545,7 +545,7 @@ class Linker:
         """
 
         def count_holes(offset, holes):
-            """ Count how much holes we have until the given offset. """
+            """Count how much holes we have until the given offset."""
             diff = 0
             for hole_offset, hole_size in holes:
                 if hole_offset < offset:
@@ -614,7 +614,7 @@ class Linker:
                 delta += section_changes[section.name]
 
     def do_relocations(self):
-        """ Perform the correct relocation as listed """
+        """Perform the correct relocation as listed"""
         self.logger.debug(
             "Performing {} linker relocations".format(
                 len(self.dst.relocations)

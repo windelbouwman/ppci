@@ -1,4 +1,4 @@
-""" ELF file format module """
+"""ELF file format module"""
 
 from .file import ElfFile
 from .reader import read_elf

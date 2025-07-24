@@ -1,1 +1,1 @@
-""" Module containing files for the build system """
+"""Module containing files for the build system"""

@@ -1,9 +1,8 @@
-""" Preprocessor macros.
-"""
+"""Preprocessor macros."""
 
 
 class BaseMacro:
-    """ Base macro """
+    """Base macro"""
 
     def __init__(self, name, protected=False):
         self.name = name
@@ -11,7 +10,7 @@ class BaseMacro:
 
 
 class Macro(BaseMacro):
-    """ Macro define """
+    """Macro define"""
 
     def __init__(
         self, name, value, args=None, protected=False, variadic=False
@@ -23,7 +22,7 @@ class Macro(BaseMacro):
 
 
 class FunctionMacro(BaseMacro):
-    """ Special macro, like __FILE__ """
+    """Special macro, like __FILE__"""
 
     def __init__(self, name, function):
         super().__init__(name, protected=True)

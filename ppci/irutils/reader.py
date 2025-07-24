@@ -1,5 +1,4 @@
-""" Parsing IR-code from a textual form.
-"""
+"""Parsing IR-code from a textual form."""
 
 from binascii import unhexlify
 import re
@@ -78,14 +77,14 @@ class Scope:
 
 
 class Reader:
-    """ Read IR-code from file """
+    """Read IR-code from file"""
 
     def __init__(self):
         self.undefined_values = {}
         self.scopes = []
 
     def read(self, f) -> ir.Module:
-        """ Read ir code from file f """
+        """Read ir code from file f"""
         self.prepare_lexing(f)
         module = self.parse_module()
         return module
@@ -114,7 +113,7 @@ class Reader:
             self.error('Expected "{}" got "{}"'.format(typ, self.peek))
 
     def error(self, msg):
-        """ Something went wrong. """
+        """Something went wrong."""
         row = self.token[2]
         column = self.token[3]
         raise IrParseException(
@@ -122,11 +121,11 @@ class Reader:
         )
 
     def at_keyword(self, keyword):
-        """ Test if we are at some keyword. """
+        """Test if we are at some keyword."""
         return self.token[0] == "ID" and self.token[1] == keyword
 
     def consume_keyword(self, keyword):
-        """ Consume a specific identifier. """
+        """Consume a specific identifier."""
         val = self.parse_id()
         if val != keyword:
             self.error('Expected "{}" got "{}"'.format(keyword, val))
@@ -134,7 +133,7 @@ class Reader:
     # Top level contraptions:
 
     def parse_module(self):
-        """ Entry for recursive descent parser """
+        """Entry for recursive descent parser"""
         self.consume_keyword("module")
         name = self.parse_id()
         module = ir.Module(name)
@@ -151,7 +150,7 @@ class Reader:
         return module
 
     def parse_external(self, module):
-        """ Parse external variable. """
+        """Parse external variable."""
         self.consume_keyword("external")
         if self.at_keyword("function"):
             self.consume_keyword("function")
@@ -217,7 +216,7 @@ class Reader:
         return variable
 
     def parse_function(self, binding):
-        """ Parse a function or procedure """
+        """Parse a function or procedure"""
         if self.at_keyword("function"):
             self.consume_keyword("function")
             return_type = self.parse_type()
@@ -256,7 +255,7 @@ class Reader:
         return subroutine
 
     def parse_type(self):
-        """ Parse a single type """
+        """Parse a single type"""
         if self.at_keyword("blob"):
             self.consume_keyword("blob")
             self.consume("<")
@@ -272,7 +271,7 @@ class Reader:
         return typ
 
     def parse_block(self, function):
-        """ Read a single block from file """
+        """Read a single block from file"""
         name = self.parse_id()
         block = self._get_block(name)
         assert block.function is None
@@ -292,7 +291,7 @@ class Reader:
         self.scopes.pop()
 
     def define_value(self, value):
-        """ Define a value """
+        """Define a value"""
         if value.name in self.undefined_values:
             # Now what? Double declaration?
             old_value = self.undefined_values.pop(value.name)
@@ -319,7 +318,7 @@ class Reader:
         return value
 
     def _get_block(self, name):
-        """ Get or create the given block """
+        """Get or create the given block"""
         scope = self.scopes[-1]
         if name in scope.block_map:
             block = scope.block_map[name]
@@ -329,7 +328,7 @@ class Reader:
         return block
 
     def parse_assignment(self):
-        """ Parse an instruction with shape 'ty' 'name' '=' ... """
+        """Parse an instruction with shape 'ty' 'name' '=' ..."""
         ty = self.parse_type()
         name = self.parse_id()
         self.consume("=")
@@ -409,14 +408,14 @@ class Reader:
         return self.consume("ID")[1]
 
     def parse_value_ref(self, ty=ir.ptr):
-        """ Parse a reference to another variable. """
+        """Parse a reference to another variable."""
         return self.find_value(self.parse_id(), ty=ty)
 
     def parse_block_ref(self):
         return self._get_block(self.parse_id())
 
     def parse_statement(self):
-        """ Parse a single instruction line """
+        """Parse a single instruction line"""
         if self.at_keyword("jmp"):
             ins = self.parse_jmp()
         elif self.at_keyword("cjmp"):

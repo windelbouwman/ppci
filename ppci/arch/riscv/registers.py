@@ -28,12 +28,12 @@ class RiscvCsrRegister(Register):
 
 
 def get_register(n):
-    """ Based on a number, get the corresponding register """
+    """Based on a number, get the corresponding register"""
     return num2regmap[n]
 
 
 def register_range(a, b):
-    """ Return set of registers from a to b """
+    """Return set of registers from a to b"""
     assert a.num < b.num
     return {get_register(n) for n in range(a.num, b.num + 1)}
 

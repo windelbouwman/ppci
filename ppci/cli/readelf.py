@@ -1,5 +1,4 @@
-""" Clone of the famous `readelf` utility """
-
+"""Clone of the famous `readelf` utility"""
 
 import argparse
 from .base import base_parser, LogSetup
@@ -68,7 +67,7 @@ parser.add_argument(
 
 
 def readelf(args=None):
-    """ Read ELF file and display contents """
+    """Read ELF file and display contents"""
     args = parser.parse_args(args)
     with LogSetup(args):
         # Read in elf file:
@@ -97,7 +96,7 @@ def readelf(args=None):
 
 
 def print_elf_header(elf):
-    """ Print the ELF header fields """
+    """Print the ELF header fields"""
     print("ELF Header:")
     magic = " ".join("{:02x}".format(v) for v in elf.e_ident)
     print("  Magic:", magic)
@@ -137,7 +136,7 @@ def print_elf_header(elf):
 
 
 def print_program_headers(program_headers):
-    """ Print the program headers """
+    """Print the program headers"""
     print("Program headers:")
     print("  Type             Offset         VirtAddr         PhysAddr")
     print("              FileSiz           MemSiz  Flags  Align")
@@ -166,7 +165,7 @@ def print_program_headers(program_headers):
 
 
 def print_section_headers(elf_file):
-    """ Print the section headers in a nice overview """
+    """Print the section headers in a nice overview"""
     print("Section headers:")
     print("  [Nr] Name              Type             Address           Offset")
     print("       Size              Entsize          Flags   Link Info  Align")
@@ -197,7 +196,7 @@ def print_section_headers(elf_file):
 
 
 def print_symbol_table(elf_file):
-    """ Print the symbol table out """
+    """Print the symbol table out"""
     sym_types = [SectionHeaderType.DYNSYM, SectionHeaderType.SYMTAB]
     for sym_section in elf_file.sections:
         if sym_section.header.sh_type in sym_types:
@@ -237,7 +236,7 @@ def print_hex_dump(elf, section_number):
 
 
 def print_debug_info(elf, what):
-    """ Print out debug information in the ELF file """
+    """Print out debug information in the ELF file"""
     if what == "rawline":
         print("Raw dump of section .debug_line:")
         section = elf.get_section(".debug_line")

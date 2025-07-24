@@ -1,5 +1,4 @@
-""" Compile python code statically """
-
+"""Compile python code statically"""
 
 import argparse
 from .base import base_parser, march_parser
@@ -21,7 +20,7 @@ parser.add_argument(
 
 
 def pycompile(args=None):
-    """ Compile python code statically """
+    """Compile python code statically"""
     args = parser.parse_args(args)
     with LogSetup(args) as log_setup:
         march = get_arch_from_args(args)
