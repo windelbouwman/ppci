@@ -307,6 +307,15 @@ class CFrontendTestCase(unittest.TestCase):
         """
         self.do(src)
 
+    def test_struct_combined_assignment(self):
+        src = """
+        struct S{ int a; } s;
+        void main(){
+            s.a == 1;
+        }
+        """
+        self.do(src)
+
     def test_bad_bitfield_type(self):
         """Test bad bitfield type"""
         src = """
