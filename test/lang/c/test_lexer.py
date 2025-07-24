@@ -10,7 +10,7 @@ from ppci.lang.c.utils import cnum, float_num
 
 
 class CLexerTestCase(unittest.TestCase):
-    """ Test the behavior of the lexer """
+    """Test the behavior of the lexer"""
 
     def setUp(self):
         coptions = COptions()
@@ -23,7 +23,7 @@ class CLexerTestCase(unittest.TestCase):
         return tokens
 
     def test_trigraphs(self):
-        """ Test the handling of trigraph sequences. """
+        """Test the handling of trigraph sequences."""
         src_chunks = [(1, 1, "??( ??) ??/ ??' ??< ??> ??! ??- ??= ")]
         chunks = list(lexer.trigraph_filter(src_chunks))
         # should be: r"[ ] \ ^ { } | ~ #"
@@ -47,11 +47,12 @@ class CLexerTestCase(unittest.TestCase):
                 (1, 32, " "),
                 (1, 33, "#"),
                 (1, 36, " "),
-            ], chunks
+            ],
+            chunks,
         )
-    
+
     def test_line_glue(self):
-        """ Test handling of backslash-newline combinations. """
+        """Test handling of backslash-newline combinations."""
         src_chunks = [
             (1, 1, "bla \\\n"),
             (2, 1, "foo"),
@@ -71,23 +72,22 @@ class CLexerTestCase(unittest.TestCase):
                 (3, 1, "bar"),
                 (6, 1, "\\"),
             ],
-            chunks
+            chunks,
         )
 
     def test_trigraph_challenge(self):
-        """ Test a nice example for the lexer including some trigraphs """
+        """Test a nice example for the lexer including some trigraphs"""
         src = "Hell??/\no world"
         tokens = [
             (t.val, t.loc.row, t.loc.col, t.space, t.first)
             for t in self.tokenize(src)
         ]
         self.assertSequenceEqual(
-            [("Hello", 1, 1, "", True), ("world", 2, 3, " ", False)],
-            tokens
+            [("Hello", 1, 1, "", True), ("world", 2, 3, " ", False)], tokens
         )
 
     def test_block_comment(self):
-        """ Test block comments """
+        """Test block comments"""
         src = "/* bla bla */"
         tokens = [(t.typ, t.val) for t in self.tokenize(src)]
         self.assertEqual([], tokens)
@@ -99,7 +99,7 @@ class CLexerTestCase(unittest.TestCase):
         self.assertEqual(expected_tokens, tokens)
 
     def test_line_comment(self):
-        """ Test single line comments """
+        """Test single line comments"""
         src = """
         int a; // my nice int
         int
@@ -150,7 +150,7 @@ class CLexerTestCase(unittest.TestCase):
         self.assertSequenceEqual(operators, lexed_values)
 
     def test_dotdotdot(self):
-        """ Test the lexing of the triple dot """
+        """Test the lexing of the triple dot"""
         # TODO: accept '..' during lexing?
         # giving an error is a safe bet here.
         # the source below could be validly lexed, but does not parse:
@@ -161,7 +161,7 @@ class CLexerTestCase(unittest.TestCase):
         self.assertSequenceEqual([".", "...", "...", "."], dots)
 
     def test_character_literals(self):
-        """ Test various character literals """
+        """Test various character literals"""
         src = r"'a' '\n' L'\0' '\\' '\a' '\b' '\f' '\r' '\t' '\v' '\11' '\xee'"
         expected_tokens = [
             ("CHAR", "'a'"),
@@ -181,7 +181,7 @@ class CLexerTestCase(unittest.TestCase):
         self.assertSequenceEqual(expected_tokens, tokens)
 
     def test_string_literals(self):
-        """ Test various string literals """
+        """Test various string literals"""
         src = r'"\"|\x7F"'
         tokens = [(t.typ, t.val) for t in self.tokenize(src)]
         expected_tokens = [("STRING", r'"\"|\x7F"')]
@@ -200,7 +200,7 @@ class CLexerTestCase(unittest.TestCase):
         self.assertEqual("Expected '", cm.exception.msg)
 
     def test_float_constant(self):
-        """ Test floating point constant
+        """Test floating point constant
 
         See also:
             http://en.cppreference.com/w/c/language/floating_constant
@@ -208,8 +208,8 @@ class CLexerTestCase(unittest.TestCase):
         test_cases = [
             (".12e+2", 12.0),
             (".12e-2", 0.0012),
-            ('1.2e3', 1200.0),
-            ('12e3', 12000.0),
+            ("1.2e3", 1200.0),
+            ("12e3", 12000.0),
             ("3.14", 3.14),
             ("1.", 1.0),
             (".1", 0.1),
@@ -222,7 +222,7 @@ class CLexerTestCase(unittest.TestCase):
             self.assertEqual("FLOAT", tokens[0].typ)
             self.assertEqual(src, tokens[0].val)
             lexed_val, type_spec = float_num(tokens[0].val)
-            assert type_spec == ['double']
+            assert type_spec == ["double"]
             assert isinstance(lexed_val, float)
             assert math.isclose(lexed_val, value)
 

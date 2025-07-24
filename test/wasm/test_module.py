@@ -6,39 +6,49 @@ from ppci import wasm
 
 
 def dedent(code):
-    return '\n'.join(line[4: ]for line in code.splitlines()).strip() + '\n'
+    return "\n".join(line[4:] for line in code.splitlines()).strip() + "\n"
 
 
 def test_module1():
-
     instructions1 = [
-        ('loop', None, 'emptyblock',
+        (
+            "loop",
+            None,
+            "emptyblock",
             # print iter
-            ('local.get', 0), ('call', '$print'),
+            ("local.get", 0),
+            ("call", "$print"),
             # Increase iter
-            ('f64.const', 1), ('local.get', 0), ('f64.add', ),
-            ('local.tee', 0), ('f64.const', 10),
-            ('f64.lt', ), ('br_if', 0),
-        )
-    ]
-    
-    instructions2 = [
-        ('loop', 'emptyblock',
-            # write iter
-            ('local.get', 0),
-            ('call', '$print'),
-            # Increase iter
-            ('f64.const', 1),
-            ('local.get', 0),
-            ('f64.add', ),
-            ('local.tee', 0),
-            ('f64.const', 10),
-            ('f64.lt', ),
-            ('br_if', 0),
+            ("f64.const", 1),
+            ("local.get", 0),
+            ("f64.add",),
+            ("local.tee", 0),
+            ("f64.const", 10),
+            ("f64.lt",),
+            ("br_if", 0),
         )
     ]
 
-    CODE0 = dedent("""
+    instructions2 = [
+        (
+            "loop",
+            "emptyblock",
+            # write iter
+            ("local.get", 0),
+            ("call", "$print"),
+            # Increase iter
+            ("f64.const", 1),
+            ("local.get", 0),
+            ("f64.add",),
+            ("local.tee", 0),
+            ("f64.const", 10),
+            ("f64.lt",),
+            ("br_if", 0),
+        )
+    ]
+
+    CODE0 = dedent(
+        """
     (module
       (type $print (func (param f64)))
       (type $1 (func))
@@ -58,7 +68,8 @@ def test_module1():
           br_if 0
         end)
     )
-    """)
+    """
+    )
 
     # ----- Test main code
 
@@ -67,12 +78,14 @@ def test_module1():
 
     b0 = m0.to_bytes()
     if wasm.has_node():
-        assert wasm.run_wasm_in_node(m0, True) == '0\n1\n2\n3\n4\n5\n6\n7\n8\n9'
-
+        assert (
+            wasm.run_wasm_in_node(m0, True) == "0\n1\n2\n3\n4\n5\n6\n7\n8\n9"
+        )
 
     # ----- Abbreviated text
 
-    m1 = wasm.Module("""
+    m1 = wasm.Module(
+        """
         (module
             (import "js" "print_ln" (func $print (param f64)))
             (start $main)
@@ -86,7 +99,8 @@ def test_module1():
                     (f64.lt) (br_if 0)
                 )
             )
-        )""")
+        )"""
+    )
 
     assert m1.to_bytes() == b0
 
@@ -94,8 +108,8 @@ def test_module1():
 
     m2 = wasm.Module(
         '(import "js" "print_ln" (func $print (param f64)))',
-        ('start', '$main'),
-        ('func', '$main', ('local', 'f64')) + tuple(instructions1),
+        ("start", "$main"),
+        ("func", "$main", ("local", "f64")) + tuple(instructions1),
     )
 
     assert m2.to_bytes() == b0
@@ -104,8 +118,8 @@ def test_module1():
 
     m3 = wasm.Module(
         '(import "js" "print_ln" (func $print (param f64)))',
-        ('start', '$main'),
-        ('func', '$main', ('local', 'f64')) + tuple(instructions2),
+        ("start", "$main"),
+        ("func", "$main", ("local", "f64")) + tuple(instructions2),
     )
 
     assert m3.to_bytes() == b0
@@ -151,23 +165,22 @@ def test_module1():
 
 
 def test_module_id():
-
     m1 = wasm.Module("(module)")
     m2 = wasm.Module("(module $foo)")
     m3 = wasm.Module("(module $bar (func $spam))")
 
     assert m1.id is None
     assert len(m1.definitions) == 0
-    assert m1.to_string() == '(module)\n'
+    assert m1.to_string() == "(module)\n"
 
-    assert m2.id == '$foo'
-    assert m2.to_string() == '(module $foo)\n'
+    assert m2.id == "$foo"
+    assert m2.to_string() == "(module $foo)\n"
     assert len(m2.definitions) == 0
 
-    assert m3.id == '$bar'
+    assert m3.id == "$bar"
     assert len(m3.definitions) == 2  # Type and func
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     test_module1()
     test_module_id()

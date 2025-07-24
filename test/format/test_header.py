@@ -5,11 +5,14 @@ from ppci.format import header
 
 class HeaderTestCase(unittest.TestCase):
     def test_header_type(self):
-        Hdr = header.mk_header('myheader', [
-            header.Byte('b1'),
-            header.Uint32('u32'),
-            header.Byte('b2'),
-        ])
+        Hdr = header.mk_header(
+            "myheader",
+            [
+                header.Byte("b1"),
+                header.Uint32("u32"),
+                header.Byte("b2"),
+            ],
+        )
         print(Hdr)
         h1 = Hdr()
         h2 = Hdr()
@@ -26,25 +29,31 @@ class HeaderTestCase(unittest.TestCase):
         # TODO: __eq__? self.assertEqual(h1, h3)
 
     def test_header_type2(self):
-        Hdr = header.mk_header('my_header', [
-            header.Byte('b1'),
-            header.Uint32('u32'),
-        ])
+        Hdr = header.mk_header(
+            "my_header",
+            [
+                header.Byte("b1"),
+                header.Uint32("u32"),
+            ],
+        )
         h1 = Hdr()
         self.assertEqual(0, h1.u32)
         self.assertEqual(5, Hdr.size)
 
     def test_const_padding(self):
-        Hdr = header.mk_header('myheader', [
-            header.Const(b'ELF'),
-            header.Uint32('u32'),
-        ])
+        Hdr = header.mk_header(
+            "myheader",
+            [
+                header.Const(b"ELF"),
+                header.Uint32("u32"),
+            ],
+        )
         h1 = Hdr()
         self.assertEqual(0, h1.u32)
         self.assertEqual(7, Hdr.size)
         h1.u32 = 13
-        self.assertEqual(b'ELF\x0d\x00\x00\x00', h1.serialize())
+        self.assertEqual(b"ELF\x0d\x00\x00\x00", h1.serialize())
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

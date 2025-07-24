@@ -5,15 +5,15 @@ from ppci.utils.collections import OrderedSet
 
 
 class OrderedSetTestCase(unittest.TestCase):
-    """ Test if graph works.
-        - Add nodes
-        - add edges
-        - mask and unmask nodes
-        - combine nodes.
+    """Test if graph works.
+    - Add nodes
+    - add edges
+    - mask and unmask nodes
+    - combine nodes.
     """
 
     def test_example(self):
-        """ Test example from Raymond (slightly modified) """
+        """Test example from Raymond (slightly modified)"""
         s = OrderedSet("abracadabra")
         t = OrderedSet("simsalabim")
         self.assertSequenceEqual("abrcdsiml", list(s | t))

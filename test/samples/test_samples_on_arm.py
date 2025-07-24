@@ -93,7 +93,7 @@ class TestSamplesOnVexpressO2(TestSamplesOnVexpress):
 @unittest.skipUnless(do_long_tests("arm"), "skipping slow tests")
 @add_samples("simple", "medium", "8bit", "32bit")
 class TestSamplesOnCortexM3O2(unittest.TestCase):
-    """ The lm3s811 has 64 k memory """
+    """The lm3s811 has 64 k memory"""
 
     opt_level = 2
     march = "arm:thumb"

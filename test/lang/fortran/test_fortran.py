@@ -1,7 +1,8 @@
 """
-    Test fortran front end.
+Test fortran front end.
 
 """
+
 import unittest
 from ppci.lang.fortran import FortranParser, Printer
 
@@ -40,24 +41,24 @@ class FortranTestCase(unittest.TestCase):
         self.printer = Printer()
 
     def do(self, src):
-        #print('======')
+        # print('======')
         prog = self.parser.parse(src)
-        #self.printer.print(prog)
-        #print('======')
+        # self.printer.print(prog)
+        # print('======')
 
     def test_hello_world(self):
-        """ Test hello world program """
+        """Test hello world program"""
         self.do(hello_world_src)
 
     def test_example(self):
-        """ Test a simple example """
+        """Test a simple example"""
         self.do(example)
 
-    @unittest.skip('todo')
+    @unittest.skip("todo")
     def test_spaced_prog(self):
-        """ Test if a program with lots of spacing works correctly """
+        """Test if a program with lots of spacing works correctly"""
         self.do(space_ignoring_src)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

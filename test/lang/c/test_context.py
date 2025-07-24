@@ -8,7 +8,7 @@ from ppci.lang.c.options import COptions
 
 @unittest.skip("fixme")
 class CTypeInitializerTestCase(unittest.TestCase):
-    """ Test if C-types are correctly initialized """
+    """Test if C-types are correctly initialized"""
 
     def setUp(self):
         arch = get_arch("x86_64")
@@ -20,7 +20,7 @@ class CTypeInitializerTestCase(unittest.TestCase):
         return reduce(operator.add, mem)
 
     def test_int_array(self):
-        """ Test array initialization """
+        """Test array initialization"""
         src = "short[4]"
         ty = parse_type(src, self.context)
         self.assertEqual(8, self.context.sizeof(ty))
@@ -35,7 +35,7 @@ class CTypeInitializerTestCase(unittest.TestCase):
         self.assertEqual(bytes([3, 0, 4, 0]), mem)
 
     def test_packed_struct(self):
-        """ Check how a packed struct is initialized """
+        """Check how a packed struct is initialized"""
         src = "struct { unsigned x: 5; short y : 10; }"
         ty = parse_type(src, self.context)
         self.assertEqual(2, self.context.sizeof(ty))

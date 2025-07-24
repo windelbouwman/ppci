@@ -15,7 +15,7 @@ logger = logging.getLogger("util")
 
 
 def make_filename(s):
-    """ Remove all invalid characters from a string for a valid filename.
+    """Remove all invalid characters from a string for a valid filename.
 
     And create a directory if none present.
     """
@@ -60,7 +60,7 @@ def tryrm(fn):
 
 
 def do_long_tests(arch):
-    """ Determine whether to run samples, these take somewhat longer """
+    """Determine whether to run samples, these take somewhat longer"""
     if "LONGTESTS" not in os.environ:
         return False
     val = os.environ["LONGTESTS"]
@@ -75,7 +75,7 @@ def do_iverilog():
 
 
 def has_qemu():
-    """ Determines if qemu is possible """
+    """Determines if qemu is possible"""
     if hasattr(shutil, "which"):
         return bool(shutil.which(qemu_app))
     else:
@@ -87,7 +87,7 @@ def has_qemu():
 
 
 def run_qemu(kernel, machine="lm3s811evb", dump_file=None, dump_range=None):
-    """ Runs qemu on a given kernel file """
+    """Runs qemu on a given kernel file"""
 
     if not has_qemu():
         return ""
@@ -110,8 +110,8 @@ def run_qemu(kernel, machine="lm3s811evb", dump_file=None, dump_range=None):
 
 
 def create_qemu_launch_script(filename, qemu_cmd):
-    """ Create a shell script for a qemu command.
-    
+    """Create a shell script for a qemu command.
+
     This can be used to launch qemu manually for a specific test example.
     """
 
@@ -148,7 +148,7 @@ def create_qemu_launch_script(filename, qemu_cmd):
 
 
 def qemu(args):
-    """ Run qemu with given arguments and capture serial output """
+    """Run qemu with given arguments and capture serial output"""
     # Listen to the control socket:
     qemu_control_serve = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     qemu_control_serve.bind(("", 0))  # Using 0 as port for autoselect port
@@ -233,7 +233,7 @@ def qemu(args):
 
 
 def run_python(kernel):
-    """ Run given file in python and capture output """
+    """Run given file in python and capture output"""
     python_proc = subprocess.Popen(
         [sys.executable, kernel], stdout=subprocess.PIPE
     )
@@ -250,7 +250,7 @@ def run_python(kernel):
 
 
 def run_nodejs(js_filename):
-    """ Run given file in nodejs and capture output """
+    """Run given file in nodejs and capture output"""
     proc = subprocess.Popen(["node", js_filename], stdout=subprocess.PIPE)
 
     outs, _ = proc.communicate(timeout=10)
@@ -262,12 +262,12 @@ def run_nodejs(js_filename):
 
 @lru_cache(maxsize=None)
 def has_iverilog():
-    """ Determines if iverilog is installed """
+    """Determines if iverilog is installed"""
     return hasattr(shutil, "which") and bool(shutil.which(iverilog_app))
 
 
 def run_msp430(pmem):
-    """ Run the given memory file in the openmsp430 iverilog project. """
+    """Run the given memory file in the openmsp430 iverilog project."""
 
     # Make a run file with the same name as the mem file:
     simv = pmem[:-4] + ".run"
@@ -316,7 +316,7 @@ def run_msp430(pmem):
 
 
 def run_picorv32(pmem):
-    """ Run the given memory file in the riscvpicorv32 iverilog project. """
+    """Run the given memory file in the riscvpicorv32 iverilog project."""
 
     # Make a run file with the same name as the mem file:
     simv = pmem[:-4] + ".run"
@@ -363,7 +363,7 @@ def has_avr_emulator():
 
 
 def run_avr(hexfile):
-    """ Run hexfile through avr emulator """
+    """Run hexfile through avr emulator"""
     command = [avr_emu1, hexfile]
     logger.debug("Running %s", command)
     outs = subprocess.check_output(command, timeout=10)
@@ -378,7 +378,7 @@ def run_avr(hexfile):
 
 
 def gnu_assemble(source, as_args=(), prefix="arm-none-eabi-"):
-    """ Helper function to feed source through gnu assembling tools """
+    """Helper function to feed source through gnu assembling tools"""
     prefix = "arm-none-eabi-"
     gas = "{}as".format(prefix)
     objdump = prefix + "objdump"

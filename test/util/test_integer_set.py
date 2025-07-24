@@ -5,7 +5,7 @@ from ppci.utils.integer_set import IntegerSet
 
 class IntegerSetTestCase(unittest.TestCase):
     def test_empty(self):
-        """ Test the empty set. """
+        """Test the empty set."""
         s = IntegerSet()
         self.assertEqual(s.cardinality(), 0)
         self.assertNotIn(1337, s)
@@ -15,13 +15,13 @@ class IntegerSetTestCase(unittest.TestCase):
         self.assertEqual(0, len(s))
 
     def test_iteration(self):
-        """ See how we turn a range set into a list. """
+        """See how we turn a range set into a list."""
         s = IntegerSet((5, 8), 1)
         L = list(s)
         self.assertEqual(L, [1, 5, 6, 7, 8])
 
     def test_basics(self):
-        """ Test some simple use cases. """
+        """Test some simple use cases."""
         s = IntegerSet(1, (20, 30), 4, (13, 50))
         self.assertTrue(s)
         self.assertEqual(40, len(s))

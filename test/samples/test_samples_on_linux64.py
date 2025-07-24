@@ -104,12 +104,12 @@ def has_linux():
 
 @unittest.skipIf(not has_linux(), "no 64 bit linux found")
 class LinuxTests(unittest.TestCase):
-    """ Run tests against the linux syscall api """
+    """Run tests against the linux syscall api"""
 
     def test_exit42(self):
         """
-            ; exit with code 42:
-            ; syscall 60 = exit, rax is first argument, rdi second
+        ; exit with code 42:
+        ; syscall 60 = exit, rax is first argument, rdi second
         """
         src = io.StringIO(
             """

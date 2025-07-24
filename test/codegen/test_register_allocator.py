@@ -10,14 +10,16 @@ from ppci.arch.x86_64.registers import XmmRegisterDouble
 
 
 class GraphColoringRegisterAllocatorTestCase(unittest.TestCase):
-    """ Use the example target to test the different cases of the register
-        allocator.
-        Possible cases: freeze of move, spill of register
+    """Use the example target to test the different cases of the register
+    allocator.
+    Possible cases: freeze of move, spill of register
     """
+
     def setUp(self):
-        arch = get_arch('example')
+        arch = get_arch("example")
         self.register_allocator = GraphColoringRegisterAllocator(
-            arch, None, None)
+            arch, None, None
+        )
 
     def conflict(self, ta, tb):
         reg_a = self.register_allocator.node(ta).reg
@@ -25,12 +27,12 @@ class GraphColoringRegisterAllocatorTestCase(unittest.TestCase):
         self.assertNotEqual(reg_a, reg_b)
 
     def test_register_allocation(self):
-        f = Frame('tst')
-        t1 = ExampleRegister('t1')
-        t2 = ExampleRegister('t2')
-        t3 = ExampleRegister('t3')
-        t4 = ExampleRegister('t4')
-        t5 = ExampleRegister('t5')
+        f = Frame("tst")
+        t1 = ExampleRegister("t1")
+        t2 = ExampleRegister("t2")
+        t3 = ExampleRegister("t3")
+        t4 = ExampleRegister("t4")
+        t5 = ExampleRegister("t5")
         f.instructions.append(Def(t1))
         f.instructions.append(Def(t2))
         f.instructions.append(Def(t3))
@@ -42,14 +44,14 @@ class GraphColoringRegisterAllocatorTestCase(unittest.TestCase):
         self.conflict(t2, t3)
 
     def test_register_coalescing(self):
-        """ Register coalescing happens when a move can be eliminated """
-        f = Frame('tst')
-        t1 = ExampleRegister('t1')
-        t2 = ExampleRegister('t2')
-        t3 = ExampleRegister('t3')
-        t4 = ExampleRegister('t4')
-        t5 = ExampleRegister('t5')
-        t6 = ExampleRegister('t6')
+        """Register coalescing happens when a move can be eliminated"""
+        f = Frame("tst")
+        t1 = ExampleRegister("t1")
+        t2 = ExampleRegister("t2")
+        t3 = ExampleRegister("t3")
+        t4 = ExampleRegister("t4")
+        t5 = ExampleRegister("t5")
+        t6 = ExampleRegister("t6")
         f.instructions.append(Def(t1))
         f.instructions.append(Def(t2))
         f.instructions.append(Def(t3))
@@ -64,18 +66,18 @@ class GraphColoringRegisterAllocatorTestCase(unittest.TestCase):
         self.conflict(t1, t3)
 
     def test_constrained_move(self):
-        """ Test a constrained move.
+        """Test a constrained move.
 
-            Do this by creating two pre-colored registers. Move one
-            and add the other with the copy of the first.
+        Do this by creating two pre-colored registers. Move one
+        and add the other with the copy of the first.
 
-            The move can then not be coalesced, and will be frozen.
+        The move can then not be coalesced, and will be frozen.
         """
-        f = Frame('tst')
+        f = Frame("tst")
         t1 = R0
         t2 = R0
-        t3 = ExampleRegister('t3')
-        t4 = ExampleRegister('t4')
+        t3 = ExampleRegister("t3")
+        t4 = ExampleRegister("t4")
         f.instructions.append(Def(t1))
         move = Mov(t3, t1, ismove=True)
         f.instructions.append(move)
@@ -87,7 +89,8 @@ class GraphColoringRegisterAllocatorTestCase(unittest.TestCase):
         # Check t1 and t2 are pre-colored:
         self.assertEqual(
             {self.register_allocator.node(R0)},
-            self.register_allocator.precolored)
+            self.register_allocator.precolored,
+        )
         self.assertEqual(set(), self.register_allocator.coalescedMoves)
         self.assertEqual({move}, self.register_allocator.constrainedMoves)
         self.conflict(t2, t3)
@@ -95,11 +98,11 @@ class GraphColoringRegisterAllocatorTestCase(unittest.TestCase):
         self.assertIn(move, f.instructions)
 
     def test_constrained_move_by_alias(self):
-        """ Test if aliased registers work and cannot be coalesced. """
-        f = Frame('tst')
+        """Test if aliased registers work and cannot be coalesced."""
+        f = Frame("tst")
         t1 = R10
         t2 = R10l
-        t3 = ExampleRegister('t3')
+        t3 = ExampleRegister("t3")
         move = Mov(t3, t1, ismove=True)
         f.instructions.append(Def(t1))
         f.instructions.append(move)
@@ -110,9 +113,12 @@ class GraphColoringRegisterAllocatorTestCase(unittest.TestCase):
 
         # Check t1 and t2 are pre-colored:
         self.assertEqual(
-            {self.register_allocator.node(R10),
-             self.register_allocator.node(R10l)},
-            self.register_allocator.precolored)
+            {
+                self.register_allocator.node(R10),
+                self.register_allocator.node(R10l),
+            },
+            self.register_allocator.precolored,
+        )
         self.assertEqual(set(), self.register_allocator.coalescedMoves)
         self.assertEqual({move}, self.register_allocator.constrainedMoves)
         self.conflict(t2, t3)
@@ -120,11 +126,10 @@ class GraphColoringRegisterAllocatorTestCase(unittest.TestCase):
         self.assertIn(move, f.instructions)
 
     def test_freeze(self):
-        """ Create a situation where no select and no coalesc is possible
-        """
-        f = Frame('tst')
-        t4 = ExampleRegister('t4')
-        t5 = ExampleRegister('t5')
+        """Create a situation where no select and no coalesc is possible"""
+        f = Frame("tst")
+        t4 = ExampleRegister("t4")
+        t5 = ExampleRegister("t5")
         f.instructions.append(Def(R0))
         move = Mov(R1, R0, ismove=True)
         f.instructions.append(move)
@@ -153,11 +158,11 @@ class GraphColoringRegisterAllocatorTestCase(unittest.TestCase):
         # self.register_allocator.coalesc()
 
     def test_is_used(self):
-        arch = get_arch('x86_64')
-        frame = Frame('tst')
-        vreg = XmmRegisterSingle('vreg99')
+        arch = get_arch("x86_64")
+        frame = Frame("tst")
+        vreg = XmmRegisterSingle("vreg99")
         vreg.set_color(6)
-        vreg2 = XmmRegisterDouble('vreg100')
+        vreg2 = XmmRegisterDouble("vreg100")
         vreg2.set_color(6)
         frame.used_regs.add(vreg.get_real())
         assert vreg is not xmm6
@@ -168,5 +173,5 @@ class GraphColoringRegisterAllocatorTestCase(unittest.TestCase):
         assert frame.is_used(xmm6, arch.info.alias)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

@@ -9,12 +9,13 @@ from ppci.arch.example import Def, Use, DefUse, Add, Cmp, Use3, ExampleRegister
 
 
 class GraphTestCase(unittest.TestCase):
-    """ Test if graph works.
-        - Add nodes
-        - add edges
-        - mask and unmask nodes
-        - combine nodes.
+    """Test if graph works.
+    - Add nodes
+    - add edges
+    - mask and unmask nodes
+    - combine nodes.
     """
+
     def test_edge(self):
         g = Graph()
         n1 = Node(g)
@@ -80,8 +81,8 @@ class GraphTestCase(unittest.TestCase):
         self.assertEqual(2, n1.degree)
 
     def test_degree_mask_unmask_combine(self):
-        """ Test the combination of masking and combining
-            difficult case!
+        """Test the combination of masking and combining
+        difficult case!
         """
         g = MaskableGraph()
         n1 = Node(g)
@@ -119,11 +120,11 @@ class DigraphTestCase(unittest.TestCase):
 
 class InterferenceGraphTestCase(unittest.TestCase):
     def test_normal_use(self):
-        """ Test if interference graph works """
-        t1 = ExampleRegister('t1')
-        t2 = ExampleRegister('t2')
-        t3 = ExampleRegister('t3')
-        t4 = ExampleRegister('t4')
+        """Test if interference graph works"""
+        t1 = ExampleRegister("t1")
+        t2 = ExampleRegister("t2")
+        t3 = ExampleRegister("t3")
+        t4 = ExampleRegister("t4")
         instrs = []
         instrs.append(Def(t1))  # t1 is live
         instrs.append(Def(t2))  # t1, t2 is live
@@ -137,21 +138,21 @@ class InterferenceGraphTestCase(unittest.TestCase):
         self.assertFalse(ig.interfere(t2, t4))
 
     def test_loop_cfg(self):
-        """ Test two blocks in a loop
-            a:
-            t1 = t4
-            t2 = 0x10
-            jmp b
-            b:
-            t3 = t2
-            t4 = t1
-            jmp a
+        """Test two blocks in a loop
+        a:
+        t1 = t4
+        t2 = 0x10
+        jmp b
+        b:
+        t3 = t2
+        t4 = t1
+        jmp a
 
         """
-        t1 = ExampleRegister('t1')
-        t2 = ExampleRegister('t2')
-        t3 = ExampleRegister('t3')
-        t4 = ExampleRegister('t4')
+        t1 = ExampleRegister("t1")
+        t2 = ExampleRegister("t2")
+        t3 = ExampleRegister("t3")
+        t4 = ExampleRegister("t4")
         i1 = DefUse(t1, t4)  # t1 is live
         i3 = DefUse(t3, t2)  # t2, t1, t3 live
         i2 = Def(t2, jumps=[i3])  # t1, t2 is live
@@ -165,12 +166,12 @@ class InterferenceGraphTestCase(unittest.TestCase):
         self.assertFalse(ig.interfere(t2, t4))
 
     def test_multiple_successors(self):
-        """ Example from wikipedia about liveness """
-        a = ExampleRegister('a')
-        b = ExampleRegister('b')
-        c = ExampleRegister('c')
-        d = ExampleRegister('d')
-        x = ExampleRegister('x')
+        """Example from wikipedia about liveness"""
+        a = ExampleRegister("a")
+        b = ExampleRegister("b")
+        c = ExampleRegister("c")
+        d = ExampleRegister("d")
+        x = ExampleRegister("x")
         i1 = Def(a)  # a = 3
         i2 = Def(b)  # b = 5
         i3 = Def(d)  # d = 4
@@ -244,10 +245,10 @@ class InterferenceGraphTestCase(unittest.TestCase):
         I6:  cjmp I2, I7
         I7:  nop
         """
-        a = ExampleRegister('a')
-        b = ExampleRegister('b')
-        c = ExampleRegister('c')
-        x = ExampleRegister('x')
+        a = ExampleRegister("a")
+        b = ExampleRegister("b")
+        c = ExampleRegister("c")
+        x = ExampleRegister("x")
         i2 = DefUse(a, x)
         i1 = Def(x, jumps=[i2])
         i3 = Def(x)
@@ -285,7 +286,7 @@ class InterferenceGraphTestCase(unittest.TestCase):
         I4: jmp I5
         I5: jmp I2
         """
-        x = ExampleRegister('x')
+        x = ExampleRegister("x")
         i2 = Use(x)
         i1 = Def(x, jumps=[i2])
         i3 = Def(x)
@@ -306,10 +307,10 @@ class InterferenceGraphTestCase(unittest.TestCase):
         self.assertEqual({x}, b3.live_out)
 
     def test_combine(self):
-        t1 = ExampleRegister('t1')
-        t2 = ExampleRegister('t2')
-        t3 = ExampleRegister('t3')
-        t4 = ExampleRegister('t4')
+        t1 = ExampleRegister("t1")
+        t2 = ExampleRegister("t2")
+        t3 = ExampleRegister("t3")
+        t4 = ExampleRegister("t4")
         instrs = []
         instrs.append(Def(t1))
         instrs.append(Def(t2))
@@ -329,5 +330,5 @@ class InterferenceGraphTestCase(unittest.TestCase):
         self.assertTrue(str(ig.get_node(t4)))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

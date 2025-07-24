@@ -11,7 +11,7 @@ from ppci.lang.c import CSynthesizer
 
 class CSynthesizerTestCase(unittest.TestCase):
     def test_hello(self):
-        """ Convert C to Ir, and then this IR to C """
+        """Convert C to Ir, and then this IR to C"""
         src = r"""
         void printf(char*);
         void main(int b) {

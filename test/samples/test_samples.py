@@ -22,24 +22,24 @@ def enable_report_logger(filename):
 
 
 def only_bf(txt):
-    """ Strip a string from all characters, except brainfuck chars """
+    """Strip a string from all characters, except brainfuck chars"""
     return re.sub(r"[^\.,<>\+-\]\[]", "", txt)
 
 
 @add_samples("32bit")
 class I32Samples:
-    """ 32-bit samples """
+    """32-bit samples"""
 
     @unittest.skip("too large codesize")
     def test_brain_fuck_hello_world(self):
-        """ Test brainfuck hello world program """
+        """Test brainfuck hello world program"""
         hello_world = """++++++++[>++++[>++>+++>+++>+<<<<-]>+>+>->>+[<]<-]>>
         .>---.+++++++..+++.>>.<-.<.+++.------.--------.>>+.>++."""
         self.do(hello_world, "Hello World!\n", lang="bf")
 
     @unittest.skip("too slow test")
     def test_brain_fuck_quine(self):
-        """ A quine is a program that outputs itself! """
+        """A quine is a program that outputs itself!"""
         quine = """>>+>>+++++>>++>>+++>>+>>++++++>>++>>++>>++>>+++++>>+>>++++>>
         +>>+++>>+>>+>>++>>++>>+>>+>>+>>+++>>+>>++++++>>+++++++++++++
         +++++++++++++++++++++++++++++++++++++++++++++++++>>+>>++>>++

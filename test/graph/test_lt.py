@@ -1,4 +1,4 @@
-""" Test Lengauer Tarjan algorithm """
+"""Test Lengauer Tarjan algorithm"""
 
 import unittest
 from ppci.graph import DiGraph, DiNode
@@ -6,9 +6,10 @@ from ppci.graph.lt import calculate_idom
 
 
 class LengauerTarjanTestCase(unittest.TestCase):
-    """ Test the Lengauer Tarjan algorithm for computing dominators """
+    """Test the Lengauer Tarjan algorithm for computing dominators"""
+
     def test_appel_example_19_4(self):
-        """ figure 19.4 """
+        """figure 19.4"""
         graph = DiGraph()
         node_1 = DiNode(graph)
         node_2 = DiNode(graph)
@@ -39,7 +40,7 @@ class LengauerTarjanTestCase(unittest.TestCase):
         self.assertEqual(correct_idom, idom)
 
     def test_appel_example_19_8(self):
-        """ figure 19.8 """
+        """figure 19.8"""
         graph = DiGraph()
         node_a = DiNode(graph)
         node_b = DiNode(graph)
@@ -92,5 +93,5 @@ class LengauerTarjanTestCase(unittest.TestCase):
         self.assertEqual(correct_idom, idom)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

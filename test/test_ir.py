@@ -9,13 +9,13 @@ from .helper_util import relpath
 
 class IrCodeTestCase(unittest.TestCase):
     def test_add(self):
-        """ See if the ir classes can be constructed """
+        """See if the ir classes can be constructed"""
         v1 = ir.Const(1, "const", ir.i32)
         v2 = ir.Const(2, "const", ir.i32)
         ir.add(v1, v2, "add", ir.i32)
 
     def test_use(self):
-        """ Check if use def information is correctly administered """
+        """Check if use def information is correctly administered"""
         c1 = ir.Const(1, "one", ir.i32)
         c2 = ir.Const(2, "two", ir.i32)
         c3 = ir.Const(3, "three", ir.i32)

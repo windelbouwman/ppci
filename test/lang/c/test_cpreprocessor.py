@@ -8,7 +8,7 @@ from ppci.lang.c import CTokenPrinter
 
 
 class CPreProcessorTestCase(unittest.TestCase):
-    """ Test the preprocessor functioning """
+    """Test the preprocessor functioning"""
 
     def setUp(self):
         coptions = COptions()
@@ -28,7 +28,7 @@ class CPreProcessorTestCase(unittest.TestCase):
             self.assertEqual(expected, actual_output)
 
     def test_empty(self):
-        """ Test the obvious empty case! """
+        """Test the obvious empty case!"""
         self.preprocess("", "")
 
     def test_simple_define(self):
@@ -42,7 +42,7 @@ class CPreProcessorTestCase(unittest.TestCase):
         self.preprocess(src, expected)
 
     def test_null_directive(self):
-        """ Test null directive. """
+        """Test null directive."""
         src = r"""
         #
         x"""
@@ -53,7 +53,7 @@ class CPreProcessorTestCase(unittest.TestCase):
         self.preprocess(src, expected)
 
     def test_recursive_define(self):
-        """ Test recursive function like macro. """
+        """Test recursive function like macro."""
         src = r"""
         #define A(X,Y) (100 + X + (Y))
         A(A(1,2),A(A(23,G),22))"""
@@ -64,7 +64,7 @@ class CPreProcessorTestCase(unittest.TestCase):
         self.preprocess(src, expected)
 
     def test_if_expression(self):
-        """ The #if preprocessor directive. """
+        """The #if preprocessor directive."""
         src = r"""#if L'\0'-1 > 0
         unsigned wide char
         #endif
@@ -77,7 +77,7 @@ class CPreProcessorTestCase(unittest.TestCase):
         self.preprocess(src, expected)
 
     def test_expression_binding(self):
-        """ Test if operator associativity is correct. """
+        """Test if operator associativity is correct."""
         src = r"""
         #if 2 * 3 / 2 == 3
         ok
@@ -92,7 +92,7 @@ class CPreProcessorTestCase(unittest.TestCase):
         self.preprocess(src, expected)
 
     def test_boolean_expression_value(self):
-        """ Test the value of logical operators. """
+        """Test the value of logical operators."""
         src = r"""
         #if (7 && 3) == 1
         ok1
@@ -123,7 +123,7 @@ class CPreProcessorTestCase(unittest.TestCase):
         self.preprocess(src, expected)
 
     def test_empty_macro_expansion(self):
-        """ See what happens when on the next line, the first token is
+        """See what happens when on the next line, the first token is
         macro-expanded into nothing.
 
         Proper care should be taken to copy the beginning-of-line (BOL)
@@ -142,7 +142,7 @@ class CPreProcessorTestCase(unittest.TestCase):
         self.preprocess(src, expected)
 
     def test_ifdef(self):
-        """ Test #ifdef directive. """
+        """Test #ifdef directive."""
         src = r"""
         #ifdef A
         printf("%i\n", A);
@@ -159,7 +159,7 @@ class CPreProcessorTestCase(unittest.TestCase):
         self.preprocess(src, expected)
 
     def test_line_directive(self):
-        """ Test #line directive and __LINE__ and __FILE__ macros. """
+        """Test #line directive and __LINE__ and __FILE__ macros."""
         src = r"""
         #define assert(e) _assert(e, __FILE__, __LINE__)
         assert(1);
@@ -196,7 +196,7 @@ class CPreProcessorTestCase(unittest.TestCase):
         )
 
     def test_intermediate_example(self):
-        """ Check a medium hard example """
+        """Check a medium hard example"""
         src = r"""
         int X = A;
 
@@ -251,7 +251,7 @@ class CPreProcessorTestCase(unittest.TestCase):
         self.preprocess(src, expected)
 
     def test_hard_example(self):
-        """ Check a hard example """
+        """Check a hard example"""
         src = r"""
         #define A(B,C) 100 + B + # C
         #define B 55 + B ## ghe
@@ -278,7 +278,7 @@ class CPreProcessorTestCase(unittest.TestCase):
         self.preprocess(src, expected)
 
     def test_scandalous_hack_1(self):
-        """ Test a scandalous use of the preprocessor """
+        """Test a scandalous use of the preprocessor"""
         src = r"""#define function() 123
         #define concat(a,b) a ## b
         concat(func,tion)()"""
@@ -289,7 +289,7 @@ class CPreProcessorTestCase(unittest.TestCase):
         self.preprocess(src, expected)
 
     def test_cpplib_example(self):
-        """ Test a nested function like macro on multiple lines.
+        """Test a nested function like macro on multiple lines.
 
         https://gcc.gnu.org/onlinedocs/cppinternals.pdf
         """
@@ -302,7 +302,7 @@ class CPreProcessorTestCase(unittest.TestCase):
         self.preprocess(src, expected)
 
     def test_if_expression_single_line(self):
-        """ Test if which might roll over to the next line!
+        """Test if which might roll over to the next line!
 
         This case requires to stay on the line with the if on it.
         """
@@ -326,7 +326,7 @@ class CPreProcessorTestCase(unittest.TestCase):
         self.preprocess(src, expected)
 
     def test_if(self):
-        """ Test elif with else """
+        """Test elif with else"""
         src = r"""/* test with comments */
         #define __WORDSIZE 32  /* use 32 */
         #if __WORDSIZE == 32  /* woei */
@@ -349,7 +349,7 @@ class CPreProcessorTestCase(unittest.TestCase):
         self.preprocess(src, expected)
 
     def test_elif(self):
-        """ Test elif with else """
+        """Test elif with else"""
         src = r"""/* test with comments */
         #define __WORDSIZE 64  /* use 64 */
         #if __WORDSIZE == 32  /* woei */
@@ -372,19 +372,19 @@ class CPreProcessorTestCase(unittest.TestCase):
         self.preprocess(src, expected)
 
     def test_mismatching_endif(self):
-        """ Test stray #endif directive. """
+        """Test stray #endif directive."""
         src = r"""     #endif   """
         with self.assertRaises(CompilerError):
             self.preprocess(src)
 
     def test_mismatching_else(self):
-        """ Test wild #else directive. """
+        """Test wild #else directive."""
         src = r"""     #else   """
         with self.assertRaises(CompilerError):
             self.preprocess(src)
 
     def test_double_else(self):
-        """ Test misplaced #else directive. """
+        """Test misplaced #else directive."""
         src = r""" #ifdef A
         #else
         #else
@@ -402,7 +402,7 @@ class CPreProcessorTestCase(unittest.TestCase):
             self.preprocess(src)
 
     def test_command_structure(self):
-        """ Test a typical use case of token glueing. """
+        """Test a typical use case of token glueing."""
         src = r"""
         #define COMMAND(NAME)  { #NAME, NAME ## _command }
         struct command commands[] =
@@ -458,7 +458,7 @@ class CPreProcessorTestCase(unittest.TestCase):
 
     @mock.patch("time.strftime", lambda fmt: '"mastah"')
     def test_builtin_time_macros(self):
-        """ Test builtin macros __DATE__ and __TIME__ """
+        """Test builtin macros __DATE__ and __TIME__"""
         src = r"""
         __DATE__;__TIME__;"""
         expected = """# 1 "dummy.t"
@@ -467,7 +467,7 @@ class CPreProcessorTestCase(unittest.TestCase):
         self.preprocess(src, expected)
 
     def test_empty_arguments(self):
-        """ Check empty arguments """
+        """Check empty arguments"""
         src = r"""#define A(); // comments!
         #define B();
         A();
@@ -480,7 +480,7 @@ class CPreProcessorTestCase(unittest.TestCase):
         self.preprocess(src, expected)
 
     def test_stringify(self):
-        """ Test token stringification. """
+        """Test token stringification."""
         src = r"""#define S(a) #a
         S(word)
         S("string")
@@ -503,7 +503,7 @@ class CPreProcessorTestCase(unittest.TestCase):
         self.preprocess(src, expected)
 
     def test_token_glue(self):
-        """ Check various concatenations """
+        """Check various concatenations"""
         src = r"""#define A(x,y) x ## y
         A(b,2)
         A(2,L)
@@ -516,7 +516,7 @@ class CPreProcessorTestCase(unittest.TestCase):
         self.preprocess(src, expected)
 
     def test_token_invalid_concatenation(self):
-        """ Check invalid concatenation """
+        """Check invalid concatenation"""
         src = r"""#define A(x,y) x ## y
         A(:,;)"""
         with self.assertRaises(CompilerError) as cm:
@@ -525,7 +525,7 @@ class CPreProcessorTestCase(unittest.TestCase):
         self.assertEqual(11, cm.exception.loc.col)
 
     def test_argument_expansion(self):
-        """ Check the behavior of macro arguments when used in stringify """
+        """Check the behavior of macro arguments when used in stringify"""
         src = r"""#define A(x) # x x
         #define B 55 - 3
         A(B)"""
@@ -536,7 +536,7 @@ class CPreProcessorTestCase(unittest.TestCase):
         self.preprocess(src, expected)
 
     def test_variadic_macro(self):
-        """ Check the behavior of variadic macros """
+        """Check the behavior of variadic macros"""
         src = r"""#define A(...) a __VA_ARGS__ b
         A(B)
         A(2, 4,5)
@@ -557,7 +557,7 @@ class CPreProcessorTestCase(unittest.TestCase):
         self.preprocess(src, expected)
 
     def test_argument_prescan(self):
-        """ When argument is used in concatenation, do not expand it """
+        """When argument is used in concatenation, do not expand it"""
         src = r"""#define AFTERX(x) X_ ## x
         #define XAFTERX(x) AFTERX(x)
         #define TABLESIZE w1024
@@ -574,7 +574,7 @@ class CPreProcessorTestCase(unittest.TestCase):
         self.preprocess(src, expected)
 
     def test_macro_arguments(self):
-        """ Test the amount of comma's in macro arguments.
+        """Test the amount of comma's in macro arguments.
 
         Test both variadic and fixed count argument macros.
         """
@@ -605,9 +605,9 @@ class CPreProcessorTestCase(unittest.TestCase):
 
     @unittest.skip("TODO!")
     def test_argument_prescan2(self):
-        """ Example from gnu argument prescan website.
+        """Example from gnu argument prescan website.
 
-        https://gcc.gnu.org/onlinedocs/cpp/Argument-Prescan.html """
+        https://gcc.gnu.org/onlinedocs/cpp/Argument-Prescan.html"""
         src = r"""#define foo a,b
         #define bar(x) lose(x)
         #define lose(x) (1 + (x))
@@ -620,7 +620,7 @@ class CPreProcessorTestCase(unittest.TestCase):
         self.preprocess(src, expected)
 
     def test_single_line_comment(self):
-        """ Line comment issue """
+        """Line comment issue"""
         src = r"""// error
         void main() {// ok }
         """

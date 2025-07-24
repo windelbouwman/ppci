@@ -7,29 +7,32 @@ from ppci.wasm import instantiate
 
 
 def dedent(code):
-    return '\n'.join(line[4: ]for line in code.splitlines()).strip() + '\n'
+    return "\n".join(line[4:] for line in code.splitlines()).strip() + "\n"
 
 
 def test_func0():
-
     f = Func(
-        '$foo', Ref('type', name='$sig'),
-        [(None, 'i32'), ('$local1', 'f32')], []
+        "$foo",
+        Ref("type", name="$sig"),
+        [(None, "i32"), ("$local1", "f32")],
+        [],
     )
-    assert f.to_string() == '(func $foo (type $sig)\n  (local i32) (local $local1 f32)\n)'
+    assert (
+        f.to_string()
+        == "(func $foo (type $sig)\n  (local i32) (local $local1 f32)\n)"
+    )
 
     # Locals can be (and are) combined
     f = Func(
-        '$foo', Ref('type', name='$sig'),
-        [(None, 'i32'), (None, 'f32')], []
+        "$foo", Ref("type", name="$sig"), [(None, "i32"), (None, "f32")], []
     )
-    assert f.to_string() == '(func $foo (type $sig)\n  (local i32 f32)\n)'
+    assert f.to_string() == "(func $foo (type $sig)\n  (local i32 f32)\n)"
 
 
 def test_func1():
-
     # The canonical form
-    CODE0 = dedent("""
+    CODE0 = dedent(
+        """
     (module
       (type $0 (func (param i32)))
       (type $1 (func (param i32 i32) (result i32)))
@@ -49,7 +52,8 @@ def test_func1():
         local.get $foo
         call $print)
     )
-    """)
+    """
+    )
 
     # Test main code
     m0 = Module(CODE0)
@@ -59,18 +63,20 @@ def test_func1():
     assert Module(b0).to_bytes() == b0
 
     printed_numbers = []
+
     def print_ln(x: int) -> None:
         printed_numbers.append(x)
+
     imports = {
-        'js': {
-            'print_ln': print_ln,
+        "js": {
+            "print_ln": print_ln,
         },
     }
-    instantiate(m0, imports=imports, target='python')
+    instantiate(m0, imports=imports, target="python")
     assert [7] == printed_numbers
 
     if has_node():
-        assert run_wasm_in_node(m0, True) == '7'
+        assert run_wasm_in_node(m0, True) == "7"
 
     # Abbreviation: inline typedefs
     CODE1 = """
@@ -100,6 +106,6 @@ def test_func1():
     assert m1.to_bytes() == b0
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     test_func0()
     test_func1()

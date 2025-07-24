@@ -38,19 +38,20 @@ hello_world_source = """   \t  H\t
 
 
 class WhitespaceTestCase(unittest.TestCase):
-    """ Test whitespace frontend """
+    """Test whitespace frontend"""
+
     def test_hello_world(self):
         src = hello_world_source
-        print('src=', src.encode('ascii'))
+        print("src=", src.encode("ascii"))
         f = io.StringIO(src)
         ws_to_ir(f)
 
-    @unittest.skip('todo')
+    @unittest.skip("todo")
     def test_error(self):
         src = ""
         with self.assertRaises(CompilerError):
             ws_to_ir(src)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

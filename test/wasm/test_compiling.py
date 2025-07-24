@@ -1,5 +1,4 @@
-""" Compile a piece of code to wasm, to ir, run it, compile back to wasm.
-"""
+"""Compile a piece of code to wasm, to ir, run it, compile back to wasm."""
 
 from ppci import wasm
 from ppci.lang.python import python_to_wasm
@@ -57,7 +56,6 @@ return i
 
 
 def xx_test_compiling():
-
     # Convert Python to wasm
     wasm_module = python_to_wasm(py3)
 
@@ -81,5 +79,5 @@ def xx_test_compiling():
     # wasm_module2 = wasm.ir_to_wasm(ppci_module)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     xx_test_compiling()

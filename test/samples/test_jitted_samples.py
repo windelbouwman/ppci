@@ -12,7 +12,7 @@ from ppci.utils.reporting import html_reporter
 @unittest.skipUnless(do_long_tests("jit"), "skipping slow tests")
 @add_samples("simple")
 class TestJittedSamples(unittest.TestCase):
-    """ Take each sample, compile it and load it into the current process """
+    """Take each sample, compile it and load it into the current process"""
 
     def do(self, src, expected_output, lang="c3"):
         # Compile:

@@ -19,8 +19,7 @@ class RegexParsingTestCase(unittest.TestCase):
         expr = regex.parse(re_txt)
         self.assertEqual(
             expr,
-            regex.SymbolSet([(48, 57)])
-            + regex.SymbolSet([(48, 57)]).kleene(),
+            regex.SymbolSet([(48, 57)]) + regex.SymbolSet([(48, 57)]).kleene(),
         )
 
     def test_parse_epsilon(self):
@@ -41,7 +40,9 @@ class RegexParsingTestCase(unittest.TestCase):
     def test_parse_optional(self):
         re_txt = "a?b"
         expr = regex.parse(re_txt)
-        self.assertEqual(expr, regex.Symbol("a").optional() + regex.Symbol("b"))
+        self.assertEqual(
+            expr, regex.Symbol("a").optional() + regex.Symbol("b")
+        )
 
 
 class RegexCompilationTestCase(unittest.TestCase):
@@ -52,12 +53,12 @@ class RegexCompilationTestCase(unittest.TestCase):
         self.assertEqual(res, ["1234hi", "88hi", "9hi"])
 
     def wicked_example(self, n):
-        """ This is an example regex taken from this site:
+        """This is an example regex taken from this site:
 
         https://swtch.com/~rsc/regexp/regexp1.html
 
         """
-        pattern = r'a?' * n + 'a' * n
+        pattern = r"a?" * n + "a" * n
         prog = regex.compile(pattern)
         print(prog)
         res = list(regex.scan(prog, "a" * n))
@@ -103,9 +104,9 @@ class RegexCompilationTestCase(unittest.TestCase):
 
     def test_examples(self):
         for pattern, text, is_found in re_cases:
-            print('Test pattern', pattern, 'with text', text)
+            print("Test pattern", pattern, "with text", text)
             prog = regex.compile(pattern)
-            print('compiled regex', prog)
+            print("compiled regex", prog)
             try:
                 res = list(regex.scan(prog, text))
             except ValueError:

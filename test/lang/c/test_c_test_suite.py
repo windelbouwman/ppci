@@ -1,4 +1,4 @@
-""" Unit test adapter for c-testsuite
+"""Unit test adapter for c-testsuite
 
 The c-testsuite is a collection of C test cases.
 
@@ -19,7 +19,6 @@ See also:
 https://github.com/c-testsuite/c-testsuite
 
 """
-
 
 import unittest
 import glob
@@ -42,7 +41,7 @@ logger = logging.getLogger("c-test-suite")
 
 
 def c_test_suite_populate(cls):
-    """ Enrich a unittest.TestCase with a function for each test snippet. """
+    """Enrich a unittest.TestCase with a function for each test snippet."""
     if "C_TEST_SUITE_DIR" in os.environ:
         c_test_suite_directory = os.path.normpath(
             os.environ["C_TEST_SUITE_DIR"]
@@ -78,7 +77,7 @@ def get_test_snippets(c_test_suite_directory, name_filter="*"):
 
 
 def create_test_function(cls, filename):
-    """ Create a test function for a single snippet """
+    """Create a test function for a single snippet"""
     snippet_filename = os.path.split(filename)[1]
     test_name = os.path.splitext(snippet_filename)[0]
     test_name = test_name.replace(".", "_").replace("-", "_")
@@ -93,7 +92,7 @@ def create_test_function(cls, filename):
 
 
 def perform_test(filename):
-    """ Try to compile the given snippet. """
+    """Try to compile the given snippet."""
     logger.info("Step 1: Compile %s!", filename)
     march = "x86_64"
 
@@ -104,9 +103,9 @@ def perform_test(filename):
     libc_folder = os.path.join(root_folder, "librt", "libc")
     libc_include = os.path.join(libc_folder, "include")
     coptions.add_include_path(libc_include)
-    
+
     # TODO: this should be injected elsewhere?
-    coptions.add_define('__LP64__', '1')
+    coptions.add_define("__LP64__", "1")
     # coptions.enable('freestanding')
 
     with html_reporter(html_report) as reporter:
@@ -202,7 +201,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--verbose", "-v", action="count", default=0)
     parser.add_argument(
-        "--folder", help="the folder with the c test suite.",
+        "--folder",
+        help="the folder with the c test suite.",
     )
     parser.add_argument(
         "--filter", help="Apply filtering on the test cases", default="*"

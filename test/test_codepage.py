@@ -1,4 +1,3 @@
-
 import unittest
 import io
 import ctypes
@@ -12,15 +11,17 @@ from ppci.utils.reporting import html_reporter
 def has_numpy():
     try:
         import numpy as np
+
         return True
     except ImportError:
         return False
 
 
-@unittest.skipUnless(is_platform_supported(), 'skipping codepage tests')
+@unittest.skipUnless(is_platform_supported(), "skipping codepage tests")
 class CodePageTestCase(unittest.TestCase):
     def test_add(self):
-        source_file = io.StringIO("""
+        source_file = io.StringIO(
+            """
               module main;
               function int add(int a, int b) {
                 return a + b;
@@ -29,7 +30,8 @@ class CodePageTestCase(unittest.TestCase):
               function int sub(int a, int b) {
                 return a - b;
               }
-            """)
+            """
+        )
         m = load_code_as_module(source_file)
 
         # Cross fingers
@@ -37,20 +39,22 @@ class CodePageTestCase(unittest.TestCase):
         self.assertEqual(8, m.sub(10, 2))
 
     def test_floated(self):
-        """ Test floating point function """
-        source_file = io.StringIO("""
+        """Test floating point function"""
+        source_file = io.StringIO(
+            """
             module main;
             function double add(double a, int b) {
                 return a + b;
             }
-            """)
+            """
+        )
         m = load_code_as_module(source_file)
         x = m.add(3.14, 101)
         # print(x, type(x))
         self.assertEqual(104.14, x)
 
     def test_c(self):
-        """ Test loading of C code """
+        """Test loading of C code"""
         source = io.StringIO("int x(int a) { return a + 1 ; }")
         arch = get_current_arch()
         obj = cc(source, arch, debug=True)
@@ -59,27 +63,30 @@ class CodePageTestCase(unittest.TestCase):
         self.assertEqual(102, y)
 
     def test_callback_from_c(self):
-        """ Test calling a python function from C code """
-        source = io.StringIO("""
+        """Test calling a python function from C code"""
+        source = io.StringIO(
+            """
             int add(int x, int y);
             int x(int a) {
                 return add(a + 1, 13);
             }
-            """)
+            """
+        )
         arch = get_current_arch()
         obj = cc(source, arch, debug=True)
+
         def my_add(x: int, y: int) -> int:
             return x + y + 2
-        imports = {
-            'add': my_add
-        }
+
+        imports = {"add": my_add}
         m = load_obj(obj, imports=imports)
         y = m.x(101)
         self.assertEqual(117, y)
 
     def test_jit_example(self):
-        """ Test loading of C code from jit example """
-        source = io.StringIO("""
+        """Test loading of C code from jit example"""
+        source = io.StringIO(
+            """
         int mega_complex_stuff(int* a, int* b, int count) {
           int sum = 0;
           int i;
@@ -87,9 +94,10 @@ class CodePageTestCase(unittest.TestCase):
             sum += a[i] * b[i];
           return sum;
         }
-        """)
+        """
+        )
         arch = get_current_arch()
-        html_filename = make_filename(self.id()) + '.html'
+        html_filename = make_filename(self.id()) + ".html"
         with html_reporter(html_filename) as reporter:
             obj = cc(source, arch, debug=True, reporter=reporter)
         m = load_obj(obj)
@@ -104,10 +112,13 @@ class CodePageTestCase(unittest.TestCase):
         self.assertEqual(40, y)
 
 
-@unittest.skipUnless(has_numpy() and is_platform_supported(), 'skipping codepage')
+@unittest.skipUnless(
+    has_numpy() and is_platform_supported(), "skipping codepage"
+)
 class NumpyCodePageTestCase(unittest.TestCase):
     def test_numpy(self):
-        source_file = io.StringIO("""
+        source_file = io.StringIO(
+            """
             module main;
             function int find_first(int *a, int b, int size, int stride) {
                 var int i = 0;
@@ -121,12 +132,14 @@ class NumpyCodePageTestCase(unittest.TestCase):
 
                 return 0xff;
             }
-            """)
-        html_filename = make_filename(self.id()) + '.html'
+            """
+        )
+        html_filename = make_filename(self.id()) + ".html"
         with html_reporter(html_filename) as reporter:
             m = load_code_as_module(source_file, reporter=reporter)
 
         import numpy as np
+
         a = np.array([12, 7, 3, 5, 42, 8, 3, 5, 8, 1, 4, 6, 2], dtype=int)
         addr = ctypes.cast(a.ctypes.data, ctypes.POINTER(ctypes.c_int))
 
@@ -135,11 +148,12 @@ class NumpyCodePageTestCase(unittest.TestCase):
         self.assertEqual(4, pos)
 
         pos = m.find_first(addr, 200, len(a), a.itemsize)
-        self.assertEqual(0xff, pos)
+        self.assertEqual(0xFF, pos)
 
     def test_numpy_floated(self):
         # TODO: add '10.2' instead of '10'. Somehow, adding 10.2 does not work
-        source_file = io.StringIO("""
+        source_file = io.StringIO(
+            """
             module main;
             function void mlt(double* a, double *b, int size, int stride) {
                 var int i = 0;
@@ -149,12 +163,14 @@ class NumpyCodePageTestCase(unittest.TestCase):
                   ptr += stride;
                 }
             }
-            """)
-        html_filename = make_filename(self.id()) + '.html'
+            """
+        )
+        html_filename = make_filename(self.id()) + ".html"
         with html_reporter(html_filename) as r:
             m = load_code_as_module(source_file, reporter=r)
 
         import numpy as np
+
         a = np.array([12, 7, 3, 5, 42, 100], dtype=float)
         b = np.array([82, 2, 5, 8, 13, 600], dtype=float)
         c = np.array([186, 21, 23, 31, 78, 1310], dtype=float)
@@ -168,5 +184,5 @@ class NumpyCodePageTestCase(unittest.TestCase):
         self.assertTrue(np.allclose(c, a))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

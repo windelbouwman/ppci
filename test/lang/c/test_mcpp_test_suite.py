@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-""" MCPP validation suite runner.
+"""MCPP validation suite runner.
 
 See homepage: http://mcpp.sourceforge.net
 
@@ -33,7 +33,7 @@ this_dir = os.path.dirname(os.path.abspath(__file__))
 
 
 def create_test_function(cls, filename):
-    """ Create a test function for a single snippet """
+    """Create a test function for a single snippet"""
     test_t_directory, snippet_filename = os.path.split(filename)
     test_function_name = "test_" + snippet_filename.replace(".", "_")
 
@@ -74,12 +74,14 @@ def mcpp_populate(cls):
                 continue
             create_test_function(cls, fullfile)
     else:
+
         def test_func(self):
             self.skipTest(
                 "Please specify MCPP_DIR if you wish to run the mcpp tests."
                 "For example: export MCPP_DIR=~/SVN/mcpp-code"
             )
-        setattr(cls, 'test_stub', test_func)
+
+        setattr(cls, "test_stub", test_func)
     return cls
 
 

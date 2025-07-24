@@ -1,4 +1,4 @@
-""" Stress test using hypothesis to generate test cases.
+"""Stress test using hypothesis to generate test cases.
 
 Idea:
 - generate random graph

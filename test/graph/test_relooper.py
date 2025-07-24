@@ -1,4 +1,4 @@
-""" Test algorithms which reconstruct structured flow blocks from cfg """
+"""Test algorithms which reconstruct structured flow blocks from cfg"""
 
 import unittest
 import io
@@ -8,7 +8,7 @@ from ppci import irutils
 
 class RelooperTestCase(unittest.TestCase):
     def test_return_from_loop(self):
-        """ Check the behavior when we return from within a loop """
+        """Check the behavior when we return from within a loop"""
         mod = """module foo;
         global procedure x() {
             block1: {
@@ -36,7 +36,7 @@ class RelooperTestCase(unittest.TestCase):
         }
         """
         ir_module = irutils.read_module(io.StringIO(mod))
-        ir_function = ir_module['x']
+        ir_function = ir_module["x"]
         # print(ir_function)
         # irutils.print_module(ir_module)
         shape, _ = relooper.find_structure(ir_function)
@@ -44,5 +44,5 @@ class RelooperTestCase(unittest.TestCase):
         # print(shape)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

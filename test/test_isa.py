@@ -5,8 +5,8 @@ from ppci.arch import example
 
 
 class DummyInstruction1(Instruction):
-    rg = Operand('rg', str)
-    syntax = Syntax(['inc', rg])
+    rg = Operand("rg", str)
+    syntax = Syntax(["inc", rg])
 
 
 class DummyInstruction2(Instruction):
@@ -17,7 +17,7 @@ class EncodingTestCase(unittest.TestCase):
     def test_invalid_field(self):
         tokens = TokenSequence([])
         with self.assertRaises(KeyError):
-            tokens.set_field('x', 123)
+            tokens.set_field("x", 123)
 
 
 class IsaTestCase(unittest.TestCase):
@@ -36,7 +36,7 @@ class IsaTestCase(unittest.TestCase):
         self.assertTrue(str(DummyInstruction1.syntax))
 
     def test_replace_register(self):
-        """ Test the replace register function """
+        """Test the replace register function"""
         add = example.Add(example.R1, example.R2, example.R3)
         add.replace_register(example.R2, example.R6)
         self.assertIs(example.R1, add.rd)
@@ -49,5 +49,5 @@ class IsaTestCase(unittest.TestCase):
         self.assertIs(example.R2, add.rm)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

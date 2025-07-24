@@ -19,34 +19,35 @@ class SignExtendTestCase(unittest.TestCase):
         self.assertEqual(0, sign_extend(0, 8))
         self.assertEqual(-1, sign_extend(-1, 8))
 
-        self.assertEqual(0x7f, sign_extend(0xffffff7f, 8))
-        self.assertEqual(0x7fff, sign_extend(0xffff7fff, 16))
+        self.assertEqual(0x7F, sign_extend(0xFFFFFF7F, 8))
+        self.assertEqual(0x7FFF, sign_extend(0xFFFF7FFF, 16))
 
 
 class BitViewTestCase(unittest.TestCase):
-    """ Checkout the functions of the bit fiddler """
+    """Checkout the functions of the bit fiddler"""
+
     def test_simple_case(self):
-        """ Check the simple case where only one byte is touched """
+        """Check the simple case where only one byte is touched"""
         dummy_data = bytearray([3, 3, 3, 3])
         bv = BitView(dummy_data, 1, 2)
         bv[4:8] = 5
         self.assertSequenceEqual(bytearray([3, 0x53, 0x3, 3]), dummy_data)
 
     def test_byte_boundary(self):
-        """ Test two bytes """
+        """Test two bytes"""
         dummy_data = bytearray([3, 3, 3, 3])
         bv = BitView(dummy_data, 1, 2)
         bv[4:12] = 0xAB
         self.assertSequenceEqual(bytearray([3, 0xB3, 0xA, 3]), dummy_data)
 
     def test_large_field(self):
-        """ Test three bytes spanning field """
+        """Test three bytes spanning field"""
         dummy_data = bytearray([3, 3, 3, 3])
         bv = BitView(dummy_data, 1, 3)
         bv[4:24] = 0xABCDE
-        self.assertSequenceEqual(bytearray([3, 0xe3, 0xcd, 0xab]), dummy_data)
+        self.assertSequenceEqual(bytearray([3, 0xE3, 0xCD, 0xAB]), dummy_data)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()
     sys.exit()

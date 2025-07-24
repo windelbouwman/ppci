@@ -15,7 +15,7 @@ from ppci.lang.c.options import COptions
 
 
 def gen_tokens(tokens):
-    """ Helper function which creates a token iterator """
+    """Helper function which creates a token iterator"""
     for col, token in enumerate(tokens, start=1):
         typ, val = token
         loc = SourceLocation("test.c", 1, col, 1)
@@ -23,7 +23,7 @@ def gen_tokens(tokens):
 
 
 class CParserTestCase(unittest.TestCase):
-    """ Test the C parser.
+    """Test the C parser.
 
     Since the C parser uses the C semantics class, we use a mock for
     the semantics and assert that the proper functions are called on it.
@@ -39,11 +39,11 @@ class CParserTestCase(unittest.TestCase):
         return cu
 
     def given_tokens(self, tokens):
-        """ Provide the parser with the given tokens """
+        """Provide the parser with the given tokens"""
         self.parser.init_lexer(gen_tokens(tokens))
 
     def given_source(self, source):
-        """ Lex a given source and prepare the parser """
+        """Lex a given source and prepare the parser"""
         clexer = CLexer(COptions())
         f = io.StringIO(source)
         source_file = SourceFile("<snippet>")
@@ -52,7 +52,7 @@ class CParserTestCase(unittest.TestCase):
         self.parser.init_lexer(tokens)
 
     def test_empty(self):
-        """ Test the obvious empty case! """
+        """Test the obvious empty case!"""
         cu = self.parse([])
         self.assertSequenceEqual(
             [mock.call.begin(), mock.call.finish_compilation_unit()],
@@ -60,7 +60,7 @@ class CParserTestCase(unittest.TestCase):
         )
 
     def test_global_int(self):
-        """ Test the parsing of a global integer """
+        """Test the parsing of a global integer"""
         tokens = [("int", "int"), ("ID", "A"), (";", ";")]
         cu = self.parse(tokens)
         # TODO: this would be nice, but is very hard as of now:
@@ -71,7 +71,7 @@ class CParserTestCase(unittest.TestCase):
         self.semantics.on_variable_declaration.assert_called()
 
     def test_function(self):
-        """ Test the parsing of a function """
+        """Test the parsing of a function"""
         tokens = [
             ("int", "int"),
             ("ID", "add"),
@@ -96,13 +96,13 @@ class CParserTestCase(unittest.TestCase):
         self.semantics.on_return.assert_called()
 
     def test_pointer_declaration(self):
-        """ Test the proper parsing of a pointer to an integer """
+        """Test the proper parsing of a pointer to an integer"""
         self.given_source("int *a;")
         self.parser.parse_declarations()
         self.semantics.on_variable_declaration.assert_called()
 
     def test_cdecl_example1(self):
-        """ Test the proper parsing of 'int (*(*foo)(void))[3]'.
+        """Test the proper parsing of 'int (*(*foo)(void))[3]'.
 
         Example taken from cdecl.org.
         """
@@ -112,32 +112,32 @@ class CParserTestCase(unittest.TestCase):
         self.semantics.on_variable_declaration.assert_called()
 
     def test_function_returning_pointer(self):
-        """ Test the proper parsing of a pointer to a function """
+        """Test the proper parsing of a pointer to a function"""
         self.given_source("int *a(int x);")
         self.parser.parse_declarations()
         self.semantics.on_variable_declaration.assert_called()
 
     def test_function_pointer(self):
-        """ Test the proper parsing of a pointer to a function """
+        """Test the proper parsing of a pointer to a function"""
         self.given_source("int (*a)(int x);")
         self.parser.parse_declarations()
         self.semantics.on_variable_declaration.assert_called()
 
     def test_array_pointer(self):
-        """ Test the proper parsing of a pointer to an array """
+        """Test the proper parsing of a pointer to an array"""
         self.given_source("int (*a)[3];")
         self.parser.parse_declarations()
         self.semantics.on_variable_declaration.assert_called()
 
     def test_struct_declaration(self):
-        """ Test struct declaration parsing """
+        """Test struct declaration parsing"""
         self.given_source("struct {int g; } a;")
         self.parser.parse_declarations()
         self.semantics.on_struct_or_union.assert_called()
         self.semantics.on_variable_declaration.assert_called()
 
     def test_union_declaration(self):
-        """ Test union declaration parsing """
+        """Test union declaration parsing"""
         self.given_source("union {int g; } a;")
         self.parser.parse_declarations()
         self.semantics.on_struct_or_union.assert_called()

@@ -7,14 +7,15 @@ from ppci.irutils import verify_module
 
 
 class BuildTestCaseBase(unittest.TestCase):
-    """ Test if various snippets build correctly """
+    """Test if various snippets build correctly"""
+
     def setUp(self):
         self.diag = DiagnosticsManager()
         self.builder = PascalBuilder(self.diag, ExampleArch())
         self.diag.clear()
 
     def make_file_list(self, snippet):
-        """ Try to make a list with opened files """
+        """Try to make a list with opened files"""
         if isinstance(snippet, list):
             files = []
             for src in snippet:
@@ -27,23 +28,24 @@ class BuildTestCaseBase(unittest.TestCase):
             return [io.StringIO(snippet)]
 
     def build(self, snippet):
-        """ Try to build a snippet and also print it to test the printer """
+        """Try to build a snippet and also print it to test the printer"""
         srcs = self.make_file_list(snippet)
         ir_modules = self.builder.build(srcs)
         return ir_modules
 
     def expect_errors(self, snippet, rows):
-        """ Helper to test for expected errors on rows """
+        """Helper to test for expected errors on rows"""
         with self.assertRaises(CompilerError):
             self.build(snippet)
         actual_errors = [
-            err.loc.row if err.loc else 0 for err in self.diag.diags]
+            err.loc.row if err.loc else 0 for err in self.diag.diags
+        ]
         if rows != actual_errors:
             self.diag.print_errors()
         self.assertSequenceEqual(rows, actual_errors)
 
     def expect_ok(self, snippet):
-        """ Expect a snippet to be OK """
+        """Expect a snippet to be OK"""
         ircode = self.build(snippet)
         if len(self.diag.diags) > 0:
             self.diag.print_errors()
@@ -55,10 +57,10 @@ class BuildTestCaseBase(unittest.TestCase):
 
 
 class PascalTestCase(BuildTestCaseBase):
-    """ Test pascal snippets """
+    """Test pascal snippets"""
 
     def test_hello(self):
-        """ Test the pascal hello world """
+        """Test the pascal hello world"""
         snippet = """
         {
           This is a hello world program with nice comments!
@@ -72,7 +74,7 @@ class PascalTestCase(BuildTestCaseBase):
         self.expect_ok(snippet)
 
     def test_if(self):
-        """ Test if statement """
+        """Test if statement"""
         snippet = """
         program test_if;
         var
@@ -93,7 +95,7 @@ class PascalTestCase(BuildTestCaseBase):
         self.expect_ok(snippet)
 
     def test_for_loop(self):
-        """ Test the for loop """
+        """Test the for loop"""
         snippet = """
         program hello1;
         var
@@ -110,7 +112,7 @@ class PascalTestCase(BuildTestCaseBase):
         self.expect_ok(snippet)
 
     def test_case_else(self):
-        """ Test case followed by else """
+        """Test case followed by else"""
         snippet = """
         program test_case_else;
         var
@@ -132,7 +134,7 @@ class PascalTestCase(BuildTestCaseBase):
         self.expect_ok(snippet)
 
     def test_comments(self):
-        """ Test correct lexing of comments. """
+        """Test correct lexing of comments."""
         snippet = """
         { Comment 1 }
         program hello1;
@@ -145,7 +147,7 @@ class PascalTestCase(BuildTestCaseBase):
         self.expect_ok(snippet)
 
     def test_recursive_function(self):
-        """ Test recursive function """
+        """Test recursive function"""
         snippet = """
         program exRecursion;
          var
@@ -167,5 +169,5 @@ class PascalTestCase(BuildTestCaseBase):
         self.expect_ok(snippet)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

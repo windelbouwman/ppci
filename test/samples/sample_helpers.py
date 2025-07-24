@@ -7,7 +7,7 @@ from ppci.lang.c import COptions
 
 
 def create_test_function(source, output, lang):
-    """ Create a test function for a source file """
+    """Create a test function for a source file"""
     with open(source) as f:
         snippet = f.read()
     with open(output) as f:
@@ -20,7 +20,7 @@ def create_test_function(source, output, lang):
 
 
 def add_samples(*folders):
-    """ Create a decorator function that adds tests in the given folders """
+    """Create a decorator function that adds tests in the given folders"""
 
     extensions = (".c3", ".bf", ".c", ".pas")
 
@@ -41,7 +41,7 @@ def add_samples(*folders):
 
 
 def build_sample_to_ir(src, lang, bsp_c3, march, reporter):
-    """ Compile the given sample into ir-modules """
+    """Compile the given sample into ir-modules"""
     if lang == "c3":
         ir_modules = [
             api.c3_to_ir(
@@ -76,7 +76,7 @@ def build_sample_to_ir(src, lang, bsp_c3, march, reporter):
 
 
 def build_sample_to_code(src, lang, bsp_c3, opt_level, march, debug, reporter):
-    """ Turn example sample into code objects. """
+    """Turn example sample into code objects."""
     if lang == "c3":
         srcs = [relpath("..", "librt", "io.c3"), bsp_c3, io.StringIO(src)]
         o2 = api.c3c(
@@ -122,7 +122,7 @@ def build_sample_to_code(src, lang, bsp_c3, opt_level, march, debug, reporter):
 
 
 def partial_build(src, lang, bsp_c3, opt_level, march, reporter):
-    """ Compile source and return an object """
+    """Compile source and return an object"""
     objs = build_sample_to_code(
         src, lang, bsp_c3, opt_level, march, True, reporter
     )
@@ -149,7 +149,7 @@ def build(
     elf_format=None,
     code_image="code",
 ):
-    """ Construct object file from source snippet """
+    """Construct object file from source snippet"""
     list_filename = base_filename + ".html"
 
     with html_reporter(list_filename) as reporter:

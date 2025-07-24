@@ -45,7 +45,12 @@ class TestSamplesOnPython(unittest.TestCase):
                 # Expose all functions as external symbols:
                 for ir_module in ir_modules:
                     for routine in ir_module.functions:
-                        print('_irpy_externals["{0}"] = {0}'.format(routine.name), file=f)
+                        print(
+                            '_irpy_externals["{0}"] = {0}'.format(
+                                routine.name
+                            ),
+                            file=f,
+                        )
 
                 # Add glue:
                 print("", file=f)

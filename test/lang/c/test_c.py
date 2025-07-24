@@ -8,7 +8,7 @@ from ppci.irutils import verify_module
 
 
 class CFrontendTestCase(unittest.TestCase):
-    """ Test if various C-snippets build correctly """
+    """Test if various C-snippets build correctly"""
 
     def setUp(self):
         arch = ExampleArch()
@@ -133,7 +133,7 @@ class CFrontendTestCase(unittest.TestCase):
         self.do(src)
 
     def test_for_statement_scope(self):
-        """ Test the scope of declarations inside a for loop. """
+        """Test the scope of declarations inside a for loop."""
         src = """
         void print(int);
         int main() {
@@ -154,7 +154,7 @@ class CFrontendTestCase(unittest.TestCase):
         self.do(src)
 
     def test_expressions(self):
-        """ Test various expression constructions """
+        """Test various expression constructions"""
         src = """
         void main() {
           int a,b,c,d;
@@ -167,7 +167,7 @@ class CFrontendTestCase(unittest.TestCase):
         self.do(src)
 
     def test_ternary_operator(self):
-        """ Test ternary operator with functions. """
+        """Test ternary operator with functions."""
         src = """
         int foo(int x) { return x + 1; }
         int bar(int x) { return x - 1; }
@@ -183,7 +183,7 @@ class CFrontendTestCase(unittest.TestCase):
         self.do(src)
 
     def test_comma_operator(self):
-        """ Test comma operator """
+        """Test comma operator"""
         src = """
         void main() {
           int a,b,c,d;
@@ -193,7 +193,7 @@ class CFrontendTestCase(unittest.TestCase):
         self.do(src)
 
     def test_4(self):
-        """ Test expressions """
+        """Test expressions"""
         src = """
         int main(int, int c) {
           int stack[2];
@@ -224,7 +224,7 @@ class CFrontendTestCase(unittest.TestCase):
         self.do(src)
 
     def test_type_modifiers(self):
-        """ Test the various constructs of type names """
+        """Test the various constructs of type names"""
         src = """
         void main() {
         int n;
@@ -241,7 +241,7 @@ class CFrontendTestCase(unittest.TestCase):
         self.do(src)
 
     def test_struct(self):
-        """ Test structure usage """
+        """Test structure usage"""
         src = """
         typedef struct {int quot, rem; } div_t;
         struct {} empty_unit;
@@ -288,7 +288,7 @@ class CFrontendTestCase(unittest.TestCase):
         self.do(src)
 
     def test_struct_copy(self):
-        """ Test struct behavior when copied around. """
+        """Test struct behavior when copied around."""
         src = """
         typedef struct {int a,b,c,d,e,f; } data_t;
         data_t my_f(data_t y) {
@@ -308,14 +308,14 @@ class CFrontendTestCase(unittest.TestCase):
         self.do(src)
 
     def test_bad_bitfield_type(self):
-        """ Test bad bitfield type """
+        """Test bad bitfield type"""
         src = """
         struct z { float foo : 3; };
         """
         self.expect_errors(src, [(2, r"Invalid type \(float\) for bit-field")])
 
     def test_offsetof(self):
-        """ Test offsetof """
+        """Test offsetof"""
         src = """
         struct z { int foo; };
         void main() {
@@ -325,7 +325,7 @@ class CFrontendTestCase(unittest.TestCase):
         self.do(src)
 
     def test_offsetof_after_bitfield(self):
-        """ Test offsetof after bitfields works """
+        """Test offsetof after bitfields works"""
         src = """
         struct z { char foo : 1; int fu : 2; int bar; };
         void do_x(struct z g) {
@@ -340,7 +340,7 @@ class CFrontendTestCase(unittest.TestCase):
         self.do(src)
 
     def test_offsetof_bitfield(self):
-        """ Test offsetof on bitfields returns an error """
+        """Test offsetof on bitfields returns an error"""
         src = """
         struct z { int foo : 23; };
         void main() {
@@ -350,7 +350,7 @@ class CFrontendTestCase(unittest.TestCase):
         self.expect_errors(src, [(4, 'address of bit-field "foo"')])
 
     def test_union(self):
-        """ Test union usage """
+        """Test union usage"""
         src = """
         union z { int foo; struct { int b, a, r; } bar;};
         union z myZ[2] = {1, 2};
@@ -361,7 +361,7 @@ class CFrontendTestCase(unittest.TestCase):
         self.do(src)
 
     def test_anonymous_union_member(self):
-        """ Test anonymous union member access. """
+        """Test anonymous union member access."""
         src = """
         union z { int foo; struct { int b; }; };
         void main() {
@@ -372,7 +372,7 @@ class CFrontendTestCase(unittest.TestCase):
         self.do(src)
 
     def test_array(self):
-        """ Test array types """
+        """Test array types"""
         src = """
         int a[10];
         int b[] = {1, 2};
@@ -388,7 +388,7 @@ class CFrontendTestCase(unittest.TestCase):
         self.do(src)
 
     def test_array_index_pointer(self):
-        """ Test array indexing of a pointer type """
+        """Test array indexing of a pointer type"""
         src = """
         void main() {
          int* a, b;
@@ -398,7 +398,7 @@ class CFrontendTestCase(unittest.TestCase):
         self.do(src)
 
     def test_pointer_arithmatics(self):
-        """ Test dark pointer voodoo """
+        """Test dark pointer voodoo"""
         src = """
         void main() {
          int *a, b, *c;
@@ -414,14 +414,14 @@ class CFrontendTestCase(unittest.TestCase):
         self.do(src)
 
     def test_size_outside_struct(self):
-        """ Assert error when using bitsize indicator outside struct """
+        """Assert error when using bitsize indicator outside struct"""
         src = """
          int b:2+5, c:9, d;
         """
         self.expect_errors(src, [(2, 'Expected ";"')])
 
     def test_wrong_tag_kind(self):
-        """ Assert error when using wrong tag kind """
+        """Assert error when using wrong tag kind"""
         src = """
         union S { int x;};
         int B = sizeof(struct S);
@@ -429,7 +429,7 @@ class CFrontendTestCase(unittest.TestCase):
         self.expect_errors(src, [(3, "Wrong tag kind")])
 
     def test_enum(self):
-        """ Test enum usage """
+        """Test enum usage"""
         src = """
         void main() {
          enum E { A, B, C=A+10 };
@@ -441,7 +441,7 @@ class CFrontendTestCase(unittest.TestCase):
         self.do(src)
 
     def test_enum_implicit_cast(self):
-        """ Test enum casting """
+        """Test enum casting"""
         src = """
         void main() {
          enum E { A, B, C };
@@ -452,7 +452,7 @@ class CFrontendTestCase(unittest.TestCase):
         self.do(src)
 
     def test_literal_data(self):
-        """ Test various formats of literal data """
+        """Test various formats of literal data"""
         src = """
         void main() {
          int i;
@@ -466,7 +466,7 @@ class CFrontendTestCase(unittest.TestCase):
         self.do(src)
 
     def test_compound_literal(self):
-        """ Test compund literal """
+        """Test compund literal"""
         src = """
         typedef struct { int x; } X_t;
 
@@ -477,7 +477,7 @@ class CFrontendTestCase(unittest.TestCase):
         self.do(src)
 
     def test_global_compound_literal(self):
-        """ Test pointer to global compund literals.
+        """Test pointer to global compund literals.
 
         Points of interest:
         - compound literals can empty initializer lists.
@@ -492,7 +492,7 @@ class CFrontendTestCase(unittest.TestCase):
         self.do(src)
 
     def test_assignment_operators(self):
-        """ Test assignment operators """
+        """Test assignment operators"""
         src = """
         void main() {
          int a, b, c;
@@ -507,7 +507,7 @@ class CFrontendTestCase(unittest.TestCase):
         self.do(src)
 
     def test_sizeof(self):
-        """ Test sizeof usage """
+        """Test sizeof usage"""
         src = """
         void main() {
          int x, *y;
@@ -524,7 +524,7 @@ class CFrontendTestCase(unittest.TestCase):
         self.do(src)
 
     def test_goto(self):
-        """ Test goto statements """
+        """Test goto statements"""
         src = """
         void main() {
           goto part2;
@@ -538,7 +538,7 @@ class CFrontendTestCase(unittest.TestCase):
         self.do(src)
 
     def test_continue(self):
-        """ Test continue statement """
+        """Test continue statement"""
         src = """
         void main() {
           while (1) {
@@ -549,7 +549,7 @@ class CFrontendTestCase(unittest.TestCase):
         self.do(src)
 
     def test_break(self):
-        """ Test break statement """
+        """Test break statement"""
         src = """
         void main() {
           while (1) {
@@ -560,7 +560,7 @@ class CFrontendTestCase(unittest.TestCase):
         self.do(src)
 
     def test_switch(self):
-        """ Test switch statement """
+        """Test switch statement"""
         src = """
         void main() {
           int a;
@@ -580,7 +580,7 @@ class CFrontendTestCase(unittest.TestCase):
         self.do(src)
 
     def test_switch_gnu(self):
-        """ Test switch statement with gnu extension. """
+        """Test switch statement with gnu extension."""
         src = """
         void main() {
           int b = 23;
@@ -597,7 +597,7 @@ class CFrontendTestCase(unittest.TestCase):
         self.do(src)
 
     def test_loose_case(self):
-        """ Test loose case statement """
+        """Test loose case statement"""
         src = """
         void main() {
           case 34: break;
@@ -606,7 +606,7 @@ class CFrontendTestCase(unittest.TestCase):
         self.expect_errors(src, [(3, "Case statement outside")])
 
     def test_loose_default(self):
-        """ Test loose default statement """
+        """Test loose default statement"""
         src = """
         void main() {
           default: break;
@@ -615,7 +615,7 @@ class CFrontendTestCase(unittest.TestCase):
         self.expect_errors(src, [(3, "Default statement outside")])
 
     def test_void_function(self):
-        """ Test calling of a void function """
+        """Test calling of a void function"""
         src = """
         void main(void) {
           main();
@@ -624,7 +624,7 @@ class CFrontendTestCase(unittest.TestCase):
         self.do(src)
 
     def test_function_arguments(self):
-        """ Test calling of functions """
+        """Test calling of functions"""
         src = """
         void add(int a, int b, int c);
         void main() {
@@ -634,7 +634,7 @@ class CFrontendTestCase(unittest.TestCase):
         self.do(src)
 
     def test_function_argument_name(self):
-        """ Test an argument name with the same name as a typedef """
+        """Test an argument name with the same name as a typedef"""
         src = """
         typedef double a;
         void add(a a) {
@@ -647,7 +647,7 @@ class CFrontendTestCase(unittest.TestCase):
         self.do(src)
 
     def test_forward_declaration(self):
-        """ Test forward declarations """
+        """Test forward declarations"""
         src = """
         extern char a;
         char a = 2;
@@ -655,7 +655,7 @@ class CFrontendTestCase(unittest.TestCase):
         self.do(src)
 
     def test_afterwards_declaration(self):
-        """ Test redeclaration """
+        """Test redeclaration"""
         src = """
         char a = 2;
         extern char a;  // this is fine too!
@@ -672,7 +672,7 @@ class CFrontendTestCase(unittest.TestCase):
         self.do(src)
 
     def test_variable_double_definition(self):
-        """ Test double definition raises an error. """
+        """Test double definition raises an error."""
         src = """
         char a = 2;
         char a = 3; // Not cool!
@@ -680,7 +680,7 @@ class CFrontendTestCase(unittest.TestCase):
         self.expect_errors(src, [(3, "Invalid redefinition")])
 
     def test_function_double_definition(self):
-        """ Test double definition raises an error. """
+        """Test double definition raises an error."""
         src = """
         int add(int a, int b) {
           return a + b;
@@ -692,7 +692,7 @@ class CFrontendTestCase(unittest.TestCase):
         self.expect_errors(src, [(5, "invalid redefinition")])
 
     def test_softfloat_bug(self):
-        """ Bug encountered in softfloat library """
+        """Bug encountered in softfloat library"""
         src = """
         #define INLINE
         typedef short int16;
@@ -753,7 +753,7 @@ class CFrontendTestCase(unittest.TestCase):
         self.do(src)
 
     def test_initialization(self):
-        """ Test initialization of complex data structures. """
+        """Test initialization of complex data structures."""
         src = """
         struct rec {
           int a, b;
@@ -781,7 +781,7 @@ class CFrontendTestCase(unittest.TestCase):
         self.do(src)
 
     def test_anonymous_struct_field_initialization(self):
-        """ Test designated initialization into an anonymous struct. """
+        """Test designated initialization into an anonymous struct."""
         src = """
         struct rec {
           struct {
@@ -796,7 +796,7 @@ class CFrontendTestCase(unittest.TestCase):
         self.do(src)
 
     def test_function_pointer_passing(self):
-        """ Test passing of function pointers """
+        """Test passing of function pointers"""
         src = """
 
         void callback(void)
@@ -819,7 +819,7 @@ class CFrontendTestCase(unittest.TestCase):
         self.do(src)
 
     def test_not_all_paths_return_value(self):
-        """ Test what happens when not all code paths return a value """
+        """Test what happens when not all code paths return a value"""
         src = """
         int f(int a)
         {
@@ -829,7 +829,7 @@ class CFrontendTestCase(unittest.TestCase):
         self.do(src)
 
     def test_array_of_strings(self):
-        """ Test array's of strings """
+        """Test array's of strings"""
         src = """
         char *msg[] = {
           "Hi",
@@ -839,7 +839,7 @@ class CFrontendTestCase(unittest.TestCase):
         self.do(src)
 
     def test_inline_asm(self):
-        """ Test inline assembly code. """
+        """Test inline assembly code."""
         src = """
         void main(int a) {
           // This is example arch asm code:

@@ -8,10 +8,10 @@ import ppci.build.buildtasks
 
 
 class ApiTestCase(unittest.TestCase):
-    @patch('sys.stdout', new_callable=io.StringIO)
+    @patch("sys.stdout", new_callable=io.StringIO)
     def test_disasm(self, mock_stdout):
         binary_file = io.BytesIO(bytes(range(10)))
-        disasm(binary_file, 'riscv')
+        disasm(binary_file, "riscv")
 
     def test_link_without_arguments(self):
         with self.assertRaises(ValueError):
@@ -24,7 +24,7 @@ class RecipeTestCase(unittest.TestCase):
         with self.assertRaisesRegex(TaskError, "Invalid xml"):
             construct(io.StringIO(recipe))
 
-    @patch('sys.stdout', new_callable=io.StringIO)
+    @patch("sys.stdout", new_callable=io.StringIO)
     def test_recipe(self, mock_stdout):
         recipe = """
         <project>
@@ -48,7 +48,7 @@ class RecipeTestCase(unittest.TestCase):
         </project>
         """
 
-        with self.assertRaisesRegex(TaskError, 'Property .* not found'):
+        with self.assertRaisesRegex(TaskError, "Property .* not found"):
             construct(io.StringIO(recipe), ["init"])
 
     def test_missing_argument(self):
@@ -60,7 +60,7 @@ class RecipeTestCase(unittest.TestCase):
         </project>
         """
 
-        with self.assertRaisesRegex(TaskError, 'attribute .* not'):
+        with self.assertRaisesRegex(TaskError, "attribute .* not"):
             construct(io.StringIO(recipe), ["init"])
 
     def test_unknown_task(self):
@@ -72,7 +72,7 @@ class RecipeTestCase(unittest.TestCase):
         </project>
         """
 
-        with self.assertRaisesRegex(TaskError, 'Task .* not be found'):
+        with self.assertRaisesRegex(TaskError, "Task .* not be found"):
             construct(io.StringIO(recipe), ["init"])
 
     def test_nonexisting_target(self):
@@ -81,7 +81,7 @@ class RecipeTestCase(unittest.TestCase):
         </project>
         """
 
-        with self.assertRaisesRegex(TaskError, 'target .* not found'):
+        with self.assertRaisesRegex(TaskError, "target .* not found"):
             construct(io.StringIO(recipe), ["init"])
 
     def test_no_targets(self):
@@ -96,8 +96,8 @@ class RecipeTestCase(unittest.TestCase):
 class ObjcopyTestCase(unittest.TestCase):
     def test_wrong_format(self):
         with self.assertRaises(TaskError):
-            objcopy(None, None, 'invalid_format', None)
+            objcopy(None, None, "invalid_format", None)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

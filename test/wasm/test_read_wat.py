@@ -98,13 +98,14 @@ TEXT2 = """
 )
 """
 
-def test_read_wat():
 
+def test_read_wat():
     for text in (TEXT1, TEXT2):
         m = Module(text)
         m.to_string()
         b = m.to_bytes()
         assert isinstance(b, bytes)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     test_read_wat()

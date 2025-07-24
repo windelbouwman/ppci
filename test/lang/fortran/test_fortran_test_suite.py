@@ -16,26 +16,26 @@ from ppci.api import fortrancompile, get_arch
 
 
 def create_test_function(cls, filename):
-    """ Create a test function for a single snippet """
+    """Create a test function for a single snippet"""
     _, snippet_filename = os.path.split(filename)
-    test_function_name = 'test_' + snippet_filename.replace('.', '_')
+    test_function_name = "test_" + snippet_filename.replace(".", "_")
 
     def test_function(self):
-        march = get_arch('arm')
-        with open(filename, 'r') as f:
+        march = get_arch("arm")
+        with open(filename, "r") as f:
             fortrancompile([f.read()], march)
         # TODO: check output for correct values:
 
     if hasattr(cls, test_function_name):
-        raise ValueError('Duplicate test {}'.format(test_function_name))
+        raise ValueError("Duplicate test {}".format(test_function_name))
 
     setattr(cls, test_function_name, test_function)
 
 
 def populate(cls):
-    if 'FCVS_DIR' in os.environ:
-        directory = os.path.normpath(os.environ['FCVS_DIR'])
-        for filename in sorted(glob.iglob(os.path.join(directory, '*.FOR'))):
+    if "FCVS_DIR" in os.environ:
+        directory = os.path.normpath(os.environ["FCVS_DIR"])
+        for filename in sorted(glob.iglob(os.path.join(directory, "*.FOR"))):
             create_test_function(cls, filename)
     return cls
 
@@ -45,5 +45,5 @@ class FCVSTestCase(unittest.TestCase):
     pass
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main(verbosity=2)

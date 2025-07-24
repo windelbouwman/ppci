@@ -5,21 +5,21 @@ from ppci.utils.leb128 import signed_leb128_decode, unsigned_leb128_decode
 
 
 class Leb128TestCase(unittest.TestCase):
-    """ Test examples from https://en.wikipedia.org/wiki/LEB128 """
+    """Test examples from https://en.wikipedia.org/wiki/LEB128"""
 
     def test_unsigned_wiki_example(self):
-        """ Test the wikipedia example """
+        """Test the wikipedia example"""
         data = unsigned_leb128_encode(624485)
         self.assertEqual(bytes([0xE5, 0x8E, 0x26]), data)
         self.assertEqual(624485, unsigned_leb128_decode(iter(data)))
 
     def test_invalid_unsigned_number(self):
-        """ Test negative unsigned number """
+        """Test negative unsigned number"""
         with self.assertRaises(ValueError):
             unsigned_leb128_encode(-13)
 
     def test_signed_wiki_example(self):
-        """ Test wikipedia example """
+        """Test wikipedia example"""
         data = signed_leb128_encode(-624485)
         self.assertEqual(bytes([0x9B, 0xF1, 0x59]), data)
         self.assertEqual(-624485, signed_leb128_decode(iter(data)))

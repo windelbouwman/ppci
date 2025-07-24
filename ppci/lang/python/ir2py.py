@@ -415,7 +415,8 @@ class IrToPythonCompiler:
         a = self.fetch_value(ins.a)
         b = self.fetch_value(ins.b)
         if self._shape_style:
-            self.fill_phis(block)
+            raise NotImplementedError("TODO")
+            # self.fill_phis(block)
             self.emit("if {} {} {}:".format(a, ins.cond, b))
         else:
             self.emit("if {} {} {}:".format(a, ins.cond, b))
@@ -427,7 +428,8 @@ class IrToPythonCompiler:
 
     def gen_jump(self, ins):
         if self._shape_style:
-            self.fill_phis(block)
+            raise NotImplementedError("TODO")
+            # self.fill_phis(block)
             self.emit("pass")
         else:
             self.emit_jump(ins.target)

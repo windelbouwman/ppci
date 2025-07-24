@@ -63,14 +63,15 @@ def p1(a: str):
 """
 
 
-@unittest.skipUnless(api.is_platform_supported(), 'skipping codepage tests')
+@unittest.skipUnless(api.is_platform_supported(), "skipping codepage tests")
 class PythonJitLoadingTestCase(unittest.TestCase):
-    """ Check the on the fly compiling of python code """
+    """Check the on the fly compiling of python code"""
+
     def test_load_py(self):
         d = {}
         exec(src1, d)
-        a = d['a']
-        with html_reporter('p2p_report.html') as reporter:
+        a = d["a"]
+        with html_reporter("p2p_report.html") as reporter:
             m2 = load_py(io.StringIO(src1), reporter=reporter)
 
         for x in range(20):
@@ -85,11 +86,10 @@ class PythonJitLoadingTestCase(unittest.TestCase):
             mock(x)
 
         imports = {
-            'myprint': myprint,
+            "myprint": myprint,
         }
-        with html_reporter('p2p_callback_report.html') as reporter:
-            m2 = load_py(
-                io.StringIO(src2), imports=imports, reporter=reporter)
+        with html_reporter("p2p_callback_report.html") as reporter:
+            m2 = load_py(io.StringIO(src2), imports=imports, reporter=reporter)
         # Segfaults:
         m2.a(2)
         mock.assert_called_with(15)
@@ -102,7 +102,8 @@ class PythonJitLoadingTestCase(unittest.TestCase):
 
 
 class PythonToIrCompilerTestCase(unittest.TestCase):
-    """ Check the compilation of python code to ir """
+    """Check the compilation of python code to ir"""
+
     def do(self, src, imports=None):
         mod = python_to_ir(io.StringIO(src), imports=imports)
         f = io.StringIO()
@@ -115,9 +116,7 @@ class PythonToIrCompilerTestCase(unittest.TestCase):
         self.do(src1)
 
     def test_snippet2(self):
-        imports = {
-            'myprint': (None, (int,))
-        }
+        imports = {"myprint": (None, (int,))}
         self.do(src2, imports=imports)
         # mod = python_to_ir(io.StringIO(src2), imports=imports)
         # print(f.getvalue())
@@ -138,5 +137,5 @@ class PythonToIrCompilerTestCase(unittest.TestCase):
         self.do(src7)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

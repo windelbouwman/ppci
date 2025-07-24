@@ -12,7 +12,7 @@ def relpath(*args):
 
 
 class CastXmlTestCase(unittest.TestCase):
-    """ Try out cast xml parsing. """
+    """Try out cast xml parsing."""
 
     def test_test8(self):
         reader = CastXmlReader()

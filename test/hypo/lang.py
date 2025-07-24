@@ -1,4 +1,4 @@
-""" Use hypothesis and lark to generate snippets
+"""Use hypothesis and lark to generate snippets
 of sourcecode to test the parser.
 """
 
@@ -66,7 +66,7 @@ explicit = {
 
 @given(from_lark(grammar, explicit=explicit))
 def test_c(prog):
-    """ Test various randomly generated slabs of C-ish code. """
+    """Test various randomly generated slabs of C-ish code."""
     print(prog)
     try:
         ast = parse_text(prog)
