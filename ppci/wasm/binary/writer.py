@@ -77,7 +77,7 @@ class BinaryFileWriter(BaseIoWriter):
                         # Note that id in Type.params can be int/str, not None
                         if section_name == "func":
                             typedefs = definitions["type"]
-                            typedef = typedefs[d.ref.index]
+                            _typedef = typedefs[d.ref.index]
                         # Write it!
                         f2.write_definition(d)
 

@@ -243,7 +243,7 @@ class BinaryFileReader:
     def read_instruction(self):
         """Read a single instruction"""
         binopcode = self.read_byte()
-        if binopcode == 0xFC:
+        if binopcode == 0xFC or binopcode == 0xFD:
             opcode2 = self.read_uint()
             binopcode = (binopcode, opcode2)
         opcode = REVERZ[binopcode]

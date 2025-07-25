@@ -409,7 +409,7 @@ def _make_instructionset():
     return main_i
 
 
-I = _make_instructionset()
+I = _make_instructionset()  # noqa
 
 
 def eval_expr(expr):
