@@ -199,6 +199,10 @@ class CLexerTestCase(unittest.TestCase):
             self.tokenize(src)
         self.assertEqual("Expected '", cm.exception.msg)
 
+    def test_invalid_suffix(self):
+        with self.assertRaises(CompilerError) as cm:
+            self.tokenize("0xe+1")
+
     def test_float_constant(self):
         """Test floating point constant
 
