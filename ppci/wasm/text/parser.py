@@ -652,7 +652,7 @@ class WatTupleLoader(TupleParser):
                     while self._at_ref():
                         targets.append(self._parse_ref("label"))
                     arg = targets
-                elif op == "byte":
+                elif op == ArgType.U8:
                     # one day, this byte argument might be used
                     # to indicate which memory to access.
                     arg = 0

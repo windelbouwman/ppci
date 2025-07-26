@@ -363,7 +363,7 @@ class IrToPythonCompiler:
         elif isinstance(ins, ir.Unop):
             op = ins.operation
             a = self.fetch_value(ins.a)
-            self.emit("{} = {}{}".format(ins.name, op, ins.a.name))
+            self.emit("{} = {}{}".format(ins.name, op, a))
             if ins.ty.is_integer:
                 self.emit(
                     "{0} = _irpy_correct({0}, {1}, {2})".format(
@@ -454,7 +454,7 @@ class IrToPythonCompiler:
                 )
             )
         else:
-            self.emit("{} = {} {} {}".format(ins.name, a, op, b))
+            self.emit(f"{ins.name} = {a} {op} {b}")
 
         if ins.ty.is_integer:
             self.emit(

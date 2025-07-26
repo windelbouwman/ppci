@@ -123,7 +123,7 @@ def get_program_classes_by_group():
 
 def get_program_classes_html():
     """Generate html to show program classes in a graph."""
-    program_classes = get_program_classes()
+    _program_classes = get_program_classes()
     programs1, programs2, programs3 = get_program_classes_by_group()
 
     html = ""

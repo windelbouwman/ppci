@@ -121,20 +121,20 @@ class BinaryFileReader:
 
     def read_exactly(self, amount=None):
         if amount is not None and amount < 0:
-            raise ValueError("Cannot read {} bytes".format(amount))
+            raise ValueError(f"Cannot read {amount} bytes")
         data = self._f[-1].read(amount)
         if amount is not None and len(data) != amount:
             raise EOFError("Reading beyond end of file")
         return data
 
     @contextmanager
-    def push_data(self, data):
+    def push_data(self, data: bytes):
         """Process the given data first."""
         self._f.append(BytesIO(data))
         yield
         f = self._f.pop()
         remaining = f.read()
-        assert remaining == bytes(), str(remaining)
+        assert len(remaining) == 0, str(remaining)
 
     def read_fmt(self, fmt):
         """Read data according to the given format."""
@@ -243,7 +243,7 @@ class BinaryFileReader:
     def read_instruction(self):
         """Read a single instruction"""
         binopcode = self.read_byte()
-        if binopcode == 0xFC:
+        if binopcode == 0xFC or binopcode == 0xFD:
             opcode2 = self.read_uint()
             binopcode = (binopcode, opcode2)
         opcode = REVERZ[binopcode]
@@ -253,8 +253,6 @@ class BinaryFileReader:
         for operand in operands:
             if operand in rfm:
                 arg = rfm[operand](self)
-            elif operand == "byte":
-                arg = self.read_byte()
             elif operand == "br_table":
                 count = self.read_uint()
                 vec = []
@@ -399,6 +397,7 @@ class BinaryFileReader:
 # This is a list of functions to read specific argument types:
 rfm = {
     ArgType.TYPE: lambda reader: reader.read_type(),
+    ArgType.U8: lambda reader: reader.read_byte(),
     ArgType.U32: lambda reader: reader.read_uint(),
     ArgType.LABELIDX: lambda reader: reader.read_space_ref("label"),
     ArgType.LOCALIDX: lambda reader: reader.read_space_ref("local"),
@@ -410,4 +409,5 @@ rfm = {
     ArgType.I64: lambda reader: reader.read_int(),
     ArgType.F32: lambda reader: reader.read_f32(),
     ArgType.F64: lambda reader: reader.read_f64(),
+    ArgType.U8x16: lambda reader: reader.read_exactly(16),
 }

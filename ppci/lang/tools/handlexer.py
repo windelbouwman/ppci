@@ -107,14 +107,25 @@ class HandLexerBase:
         self.current_text.clear()
         self._chunk_start = self._chunk_index
 
-    def emit(self, typ):
-        """Emit the current text under scope as a token"""
+    def peek(self) -> str:
+        """Take a peek at the next upcoming character"""
+        c = self.next_char()
+        self.backup_char(c)
+        return c
+
+    def get_lexeme(self) -> str:
+        """Get the lexeme currently under the cursor."""
+        parts = []
+        parts.extend(self.current_text)
         # Check if we have some text in this chunk:
         if self._chunk_index > self._chunk_start:
             text = self._chunk[2][self._chunk_start : self._chunk_index]
-            self.current_text.append(text)
-        # Grab all pieces of text from start to here:
-        val = "".join(self.current_text)
+            parts.append(text)
+        return "".join(parts)
+
+    def emit(self, typ):
+        """Emit the current text under scope as a token"""
+        val = self.get_lexeme()
         location = self._start_loc
         assert location
         token = Token(typ, val, location)

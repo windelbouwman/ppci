@@ -5,6 +5,7 @@ LANG_TYPES = {
     "i64": b"\x7e",
     "f32": b"\x7d",
     "f64": b"\x7c",
+    "v128": b"\x7b",
     "funcref": b"\x70",
     "func": b"\x60",
     "emptyblock": b"\x40",  # pseudo type for representing an empty block_type

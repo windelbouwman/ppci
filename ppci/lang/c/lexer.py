@@ -352,6 +352,12 @@ class CLexer(HandLexerBase):
 
         # Accept a series of number characters:
         self.accept_run(number_chars)
+
+        if base == 16 and self.peek() == "+":
+            text = self.get_lexeme()
+            if text[-1] in "eE":
+                pass  # TODO: emit error here
+
         if base == 10 and self.accept("."):
             # For example 12.3
             return self.lex_float()
