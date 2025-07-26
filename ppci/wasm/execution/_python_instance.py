@@ -14,7 +14,9 @@ from ._base_instance import ModuleInstance, WasmMemory, WasmGlobal
 logger = logging.getLogger("instantiate")
 
 
-def python_instantiate(module, imports, reporter, cache_file):
+def python_instantiate(
+    module, imports, reporter, cache_file
+) -> "PythonModuleInstance":
     """Load wasm module as a PythonModuleInstance"""
     from ...api import ir_to_python
 
@@ -78,7 +80,7 @@ class PythonModuleInstance(ModuleInstance):
 
         # Store pointer to heap top:
         mem0_ptr_ptr = self._py_module.wasm_mem0_address
-        self._py_module.store_i32(self.mem0_start, mem0_ptr_ptr)
+        self._py_module.store_i32(mem0_ptr_ptr, self.mem0_start)
 
         # Create memory object:
         mem0 = PythonWasmMemory(self, min_size, max_size)
@@ -152,11 +154,11 @@ class PythonWasmGlobal(WasmGlobal):
         return f(addr)
 
     def write(self, value):
-        addr = self._get_ptr()
-        # print('Writing', self.name, addr)
+        address = self._get_ptr()
+        # print("Writing", self.name, addr)
         mp = {
-            ir.i32: self.instance._py_module.write_i32,
-            ir.i64: self.instance._py_module.write_i64,
+            ir.i32: self.instance._py_module.store_i32,
+            ir.i64: self.instance._py_module.store_i64,
         }
         f = mp[self.name[0]]
-        f(addr, value)
+        f(address, value)

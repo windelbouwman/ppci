@@ -45,7 +45,7 @@ from ._spec_suite import get_spec_suite_dir, get_test_script_parts
 
 
 logging.getLogger().setLevel(logging.DEBUG)
-
+logger = logging.getLogger()
 
 # ==================== BLACKLISTS ==================== #
 
@@ -95,7 +95,6 @@ black_list_expr = {
 
 
 def perform_test(filename, target):
-    logger = logging.getLogger()
     logger.info("Loading %s", filename)
     base_name = os.path.splitext(os.path.split(filename)[1])[0]
     with open(filename, "rt", encoding="utf-8") as f:

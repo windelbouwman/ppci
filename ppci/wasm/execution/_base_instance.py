@@ -144,10 +144,10 @@ class WasmGlobal(abc.ABC):
 
 
 class Exports:
+    """Container for exported functions"""
+
     def __init__(self):
         self._function_map = {}
-
-    """ Container for exported functions """
 
     def __getitem__(self, key):
         assert isinstance(key, str)

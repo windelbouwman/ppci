@@ -12,6 +12,7 @@ from .runtime import create_runtime
 from ..components import Import
 from ._native_instance import native_instantiate
 from ._python_instance import python_instantiate
+from ._base_instance import ModuleInstance
 
 
 __all__ = ("instantiate",)
@@ -19,7 +20,7 @@ __all__ = ("instantiate",)
 
 def instantiate(
     module, imports=None, target="native", reporter=None, cache_file=None
-):
+) -> ModuleInstance:
     """Instantiate a wasm module.
 
     Args:

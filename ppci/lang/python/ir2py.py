@@ -3,6 +3,7 @@
 import math
 import contextlib
 import io
+import struct
 import logging
 import time
 from ... import ir
@@ -57,19 +58,27 @@ class IrToPythonCompiler:
         self._level -= 1
 
     @contextlib.contextmanager
+    def func_def(self, decl: str):
+        self.emit(f"def {decl}")
+        self._indent()
+        yield
+        self._dedent()
+        self.emit("")
+
+    @contextlib.contextmanager
     def indented(self):
         self._indent()
         yield
         self._dedent()
 
-    def emit(self, txt):
+    def emit(self, txt: str):
         """Emit python code at current indentation level"""
         self.print(self._level, txt)
 
     def header(self):
         """Emit a header suitable for in a python file"""
-        self.emit("# Automatically generated on {}".format(time.ctime()))
-        self.emit("# Generator {}".format(__file__))
+        self.emit(f"# Automatically generated on {time.ctime()}")
+        self.emit(f"# Generator {__file__}")
         self.emit("")
         self.emit("import struct")
         self.emit("import math")
@@ -85,20 +94,16 @@ class IrToPythonCompiler:
         self.generate_memory_builtins()
 
     def generate_memory_builtins(self):
-        self.emit("def read_mem(address, size):")
-        with self.indented():
+        with self.func_def("read_mem(address, size):"):
             self.emit("mem, address = _irpy_get_memory(address)")
             self.emit("assert address+size <= len(mem), str(hex(address))")
             self.emit("return mem[address:address+size]")
-        self.emit("")
 
-        self.emit("def write_mem(address, data):")
-        with self.indented():
+        with self.func_def("write_mem(address, data):"):
             self.emit("mem, address = _irpy_get_memory(address)")
             self.emit("size = len(data)")
-            self.emit("assert address+size <= len(mem), str(hex(address))")
+            self.emit("assert address+size <= len(mem), f'{hex(address)}'")
             self.emit("mem[address:address+size] = data")
-        self.emit("")
 
         self.emit("def _irpy_get_memory(v):")
         self.print(1, "if v >= HEAP_START:")
@@ -107,10 +112,8 @@ class IrToPythonCompiler:
         self.print(2, "return _irpy_stack, v")
         self.emit("")
 
-        self.emit("def _irpy_heap_top():")
-        with self.indented():
+        with self.func_def("_irpy_heap_top():"):
             self.emit("return len(_irpy_heap) + HEAP_START")
-        self.emit("")
 
         # Generate load functions:
         foo = [
@@ -128,20 +131,16 @@ class IrToPythonCompiler:
         ]
 
         for ty, fmt, size in foo:
+            assert struct.calcsize(fmt) == size
             # Generate load helpers:
-            self.emit("def load_{}(p):".format(ty.name))
-            self.print(
-                1,
-                'return struct.unpack("{0}", read_mem(p, {1}))[0]'.format(
-                    fmt, size
-                ),
-            )
-            self.emit("")
+            with self.func_def(f"load_{ty.name}(address):"):
+                self.emit(f"data = read_mem(address, {size})")
+                self.emit(f'return struct.unpack("{fmt}", data)[0]')
 
             # Generate store helpers:
-            self.emit("def store_{}(v, p):".format(ty.name))
-            self.print(1, 'write_mem(p, struct.pack("{0}", v))'.format(fmt))
-            self.emit("")
+            with self.func_def(f"store_{ty.name}(address, value):"):
+                self.emit(f'data = struct.pack("{fmt}", value)')
+                self.emit("write_mem(address, data)")
 
     def generate_builtins(self):
         # Wrap type helper:
@@ -155,14 +154,12 @@ class IrToPythonCompiler:
         self.emit("")
 
         # More C like integer divide
-        self.emit("def _irpy_idiv(x, y):")
-        with self.indented():
+        with self.func_def("_irpy_idiv(x, y):"):
             self.emit("sign = False")
             self.emit("if x < 0: x = -x; sign = not sign")
             self.emit("if y < 0: y = -y; sign = not sign")
             self.emit("v = x // y")
             self.emit("return -v if sign else v")
-        self.emit("")
 
         # More c like remainder:
         # Note: sign of y is not relevant for result sign
@@ -178,25 +175,19 @@ class IrToPythonCompiler:
         self.emit("")
 
         # More c like shift left:
-        self.emit("def _irpy_ishl(x, amount, bits):")
-        with self.indented():
+        with self.func_def("_irpy_ishl(x, amount, bits):"):
             self.emit("amount = amount % bits")
             self.emit("return x << amount")
-        self.emit("")
 
         # More c like shift right:
-        self.emit("def _irpy_ishr(x, amount, bits):")
-        with self.indented():
+        with self.func_def("_irpy_ishr(x, amount, bits):"):
             self.emit("amount = amount % bits")
             self.emit("return x >> amount")
-        self.emit("")
 
-        self.emit("def _irpy_alloca(amount):")
-        with self.indented():
+        with self.func_def("_irpy_alloca(amount):"):
             self.emit("ptr = len(_irpy_stack)")
             self.emit("_irpy_stack.extend(bytes(amount))")
             self.emit("return (ptr, amount)")
-        self.emit("")
 
         self.emit("def _irpy_free(amount):")
         self.print(1, "for _ in range(amount):")
@@ -234,7 +225,7 @@ class IrToPythonCompiler:
                 self.emit("_irpy_heap.append({})".format(val))
         self.emit("")
 
-    def generate_function(self, ir_function):
+    def generate_function(self, ir_function: ir.SubRoutine):
         """Generate a function to python code"""
         self.stack_size = 0
         args = ",".join(a.name for a in ir_function.arguments)
@@ -297,7 +288,7 @@ class IrToPythonCompiler:
         else:  # pragma: no cover
             raise NotImplementedError(str(shape))
 
-    def generate_function_fallback(self, ir_function):
+    def generate_function_fallback(self, ir_function: ir.SubRoutine):
         """Generate a while-true with a switch-case on current block.
 
         This is a non-optimal, but always working strategy.
@@ -466,30 +457,19 @@ class IrToPythonCompiler:
     def gen_load(self, ins):
         address = self.fetch_value(ins.address)
         if isinstance(ins.ty, ir.BlobDataTyp):
-            self.emit(
-                "{0} = read_mem({1}, {2})".format(
-                    ins.name, address, ins.ty.size
-                )
-            )
+            self.emit(f"{ins.name} = read_mem({address}, {ins.ty.size})")
         else:
-            self.emit(
-                "{0} = load_{1}({2})".format(ins.name, ins.ty.name, address)
-            )
+            self.emit(f"{ins.name} = load_{ins.ty.name}({address})")
 
     def gen_store(self, ins):
+        address = ins.address.name
         if isinstance(ins.value.ty, ir.BlobDataTyp):
             self.emit(
-                "write_mem({0}, {1}, {2})".format(
-                    ins.address.name, ins.value.ty.size, ins.value.name
-                )
+                f"write_mem({address}, {ins.value.ty.size}, {ins.value.name})"
             )
         else:
-            v = self.fetch_value(ins.value)
-            self.emit(
-                "store_{0}({2}, {1})".format(
-                    ins.value.ty.name, ins.address.name, v
-                )
-            )
+            value = self.fetch_value(ins.value)
+            self.emit(f"store_{ins.value.ty.name}({address}, {value})")
 
     def gen_const(self, ins):
         if math.isinf(ins.value):
@@ -499,16 +479,16 @@ class IrToPythonCompiler:
                 value = "-math.inf"
         else:
             value = str(ins.value)
-        self.emit("{} = {}".format(ins.name, value))
+        self.emit(f"{ins.name} = {value}")
 
     def _fetch_callee(self, callee):
         """Retrieves a callee and puts it into _fptr variable"""
         if isinstance(callee, ir.SubRoutine):
             expr = "{}".format(callee.name)
         elif isinstance(callee, ir.ExternalSubRoutine):
-            expr = "_irpy_externals['{}']".format(callee.name)
+            expr = f"_irpy_externals['{callee.name}']"
         else:
-            expr = "_irpy_func_pointers[{}]".format(callee.name)
+            expr = f"_irpy_func_pointers[{callee.name}]"
         return expr
 
     def fetch_value(self, value):

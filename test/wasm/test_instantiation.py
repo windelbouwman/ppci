@@ -3,8 +3,8 @@
 import math
 import unittest
 from ppci.wasm import instantiate, Module
-from ppci.utils.reporting import html_reporter
 from ppci.api import is_platform_supported
+# from ppci.utils.reporting import html_reporter
 
 # The below snippet is from the wasm spec test suite.
 # It detected an issue in the x86_64 backend.
@@ -65,8 +65,6 @@ class WasmInstantiationTestCase(unittest.TestCase):
             res, expected_result, rel_tol=0.0001, abs_tol=0.0000001
         )
 
-    # @unittest.skipUnless(is_platform_supported(), "native code not supported")
-    @unittest.skip("callbacks do not work in windows / python")
     def test_callbacks(self):
         """Test various stuff around wasm instantiation.
         See examples/wasm/callbacks.py
@@ -114,8 +112,7 @@ class WasmInstantiationTestCase(unittest.TestCase):
             print("my add called", x, y)
             return x + y + 1
 
-        imports = {"py_add": my_add}
-
+        # with html_reporter("oi.html") as reporter:
         instance = instantiate(
             module,
             imports={
@@ -124,6 +121,7 @@ class WasmInstantiationTestCase(unittest.TestCase):
                 }
             },
             target="python",
+            # reporter=reporter,
         )
 
         self.assertEqual(1380, instance.exports.main(1337))
