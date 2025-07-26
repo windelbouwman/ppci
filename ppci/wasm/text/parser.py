@@ -7,23 +7,37 @@ https://github.com/WebAssembly/wabt/blob/master/src/wast-parser.cc
 """
 
 import logging
+import enum
 
 from collections import defaultdict
 from ...lang.sexpr import parse_sexpr
+from ...lang.sexpr import SList, SSymbol, SString
+from ...lang.common import SourceLocation
+from ...lang.common import Token as Token2
+from ...lang.tools.recursivedescent import RecursiveDescentParser
 from ..opcodes import OPERANDS, OPCODES, ArgType
 from ..util import datastring2bytes, make_int, make_float, is_int, PAGE_SIZE
 from .util import default_alignment, log2
-from .tuple_parser import TupleParser, Token
 from .. import components
+
+
+class Token(enum.Enum):
+    LPAR = 1
+    RPAR = 2
+    EOF = 3
 
 
 logger = logging.getLogger("wat")
 
 
+def s_token(e, loc):
+    return Token2(e, e, loc)
+
+
 def load_tuple(module, t):
     """Load contents of tuple t into module"""
     if not isinstance(t, tuple):
-        raise TypeError("t must be tuple")
+        raise TypeError(f"t must be tuple, not {type(t)}")
 
     loader = WatTupleLoader(module)
 
@@ -36,18 +50,71 @@ def load_tuple(module, t):
         module.id = None
         module.definitions = loader.gather_definitions()
     else:
-        # Parse nested strings at top level:
-        t2 = []
-        for e in t:
-            if isinstance(e, str) and e.startswith("("):
-                e = parse_sexpr(e)
-            t2.append(e)
-        t2 = tuple(t2)
-
-        loader.load_module(t2)
+        loader.load_module(tuple_to_tokens(t))
 
 
-class WatTupleLoader(TupleParser):
+def tuple_to_tokens(t: tuple):
+    # Parse nested strings at top level:
+    loc = SourceLocation("?", 1, 1, 1)
+    yield s_token(Token.LPAR, loc)
+    for e in t:
+        if isinstance(e, str) and e.startswith("("):
+            e = parse_sexpr(e)
+            for x in _s_expr_generator_inner(e):
+                yield x
+        elif isinstance(e, tuple):
+            for x in _tuple_generator_inner(e, loc):
+                yield x
+        else:
+            raise NotImplementedError(str(e))
+    yield s_token(Token.RPAR, loc)
+    yield s_token(Token.EOF, loc)
+
+
+def _tuple_generator_inner(s: tuple, loc):
+    yield s_token(Token.LPAR, loc)
+    for e in s:
+        if isinstance(e, tuple):
+            for e2 in _tuple_generator_inner(e, loc):
+                yield e2
+        elif isinstance(e, (str, int)) or e is None:
+            yield s_token(e, loc)
+        else:
+            raise NotImplementedError(str(e))
+    yield s_token(Token.RPAR, loc)
+
+
+def s_expr_to_tokens(s: SList):
+    for e in _s_expr_generator_inner(s):
+        yield e
+    yield s_token(Token.EOF, s.loc)
+
+
+def _s_expr_generator_inner(s: SList):
+    yield s_token(Token.LPAR, s.loc)
+    for e in s:
+        if isinstance(e, SList):
+            for e2 in _s_expr_generator_inner(e):
+                yield e2
+        elif isinstance(e, (SSymbol, SString)):
+            yield s_token(e.value, e.loc)
+        else:
+            raise NotImplementedError(str(e))
+    yield s_token(Token.RPAR, s.loc)
+
+
+def load_s_expr(module, s):
+    """First, flatten the S-expression"""
+    tokens = s_expr_to_tokens(s)
+    load_from_s_tokens(module, tokens)
+
+
+def load_from_s_tokens(module, tokens):
+    loader = WatTupleLoader(module)
+    loader.load_module(tokens)
+
+
+class WatTupleLoader(RecursiveDescentParser):
     def __init__(self, module):
         self.module = module
         self.definitions = defaultdict(list)
@@ -56,20 +123,18 @@ class WatTupleLoader(TupleParser):
         self.resolve_backlog = []
         self.func_backlog = []
 
-    def load_module(self, t):
-        """Load a module from a tuple"""
-        self._feed(t)
+    def load_module(self, tokens):
+        """Load a module from series of tokens"""
+        self.init_lexer(tokens)
 
         self.expect(Token.LPAR)
-        top_module_tag = self.munch("module")
-        if top_module_tag:
+        if self.munch("module"):
             # Detect id:
             self.module.id = self._parse_optional_id()
         else:
             self.module.id = None
 
-        while self.match(Token.LPAR):
-            self.expect(Token.LPAR)
+        while self.munch(Token.LPAR):
             kind = self.take()
             if kind == "type":
                 self.load_type()
@@ -157,7 +222,8 @@ class WatTupleLoader(TupleParser):
         logger.debug("Parsed %s %s", definition, nr)
 
     def gen_id(self, kind):
-        return "${}".format(len(self.definitions[kind]))
+        id = len(self.definitions[kind])
+        return f"${id}"
 
     # Section types:
     def load_type(self):
@@ -394,9 +460,9 @@ class WatTupleLoader(TupleParser):
             self.add_definition(components.Memory(id, min, max))
 
     def parse_limits(self):
-        if is_int(self._lookahead(1)[0]):
+        if is_int(self.look_ahead(0).val):
             min = make_int(self.take())
-            if is_int(self._lookahead(1)[0]):
+            if is_int(self.look_ahead(0).val):
                 max = make_int(self.take())
             else:
                 max = None
@@ -623,7 +689,6 @@ class WatTupleLoader(TupleParser):
 
             args = []
             for op in operands:
-                # assert not self.match(Token.LPAR)
                 if op == ArgType.LABELIDX:
                     arg = self._parse_ref("label")
                 elif op == ArgType.LOCALIDX:
@@ -688,7 +753,7 @@ class WatTupleLoader(TupleParser):
     def _parse_keyword_arguments(self):
         """Parse some arguments of shape key=value."""
         attributes = {}
-        while is_kwarg(self._lookahead(1)[0]):
+        while is_kwarg(self.look_ahead(0).val):
             arg = self.take()
             assert is_kwarg(arg)
             key, value = arg.split("=", 1)
@@ -714,17 +779,43 @@ class WatTupleLoader(TupleParser):
 
     def at_instruction(self):
         if self.match(Token.LPAR):
-            la = self._lookahead(2)[1]
+            la = self.look_ahead(1).val
         else:
-            la = self._lookahead(1)[0]
+            la = self.look_ahead(0).val
         return la in OPCODES
 
+    def match(self, *args):
+        """Test if we match"""
+        for i, arg in enumerate(args):
+            tok = self.look_ahead(i)
+            if tok.val != arg:
+                return False
+        return True
+
+    def munch(self, *args) -> bool:
+        if self.match(*args):
+            for arg in args:
+                self.next_token()
+            return True
+        else:
+            return False
+
+    def expect(self, *args):
+        for arg in args:
+            tok = self.next_token()
+            if tok.val != arg:
+                self.error(f"Got {tok.val}, expected: {arg}", tok.loc)
+
+    def take(self):
+        tok = self.next_token()
+        return tok.val
+
     def _at_id(self):
-        x = self._lookahead(1)[0]
+        x = self.look_ahead(0).val
         return is_id(x)
 
     def _at_ref(self):
-        x = self._lookahead(1)[0]
+        x = self.look_ahead(0).val
         return is_ref(x)
 
 

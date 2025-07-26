@@ -2,7 +2,7 @@
 
 from pytest import raises
 
-from ppci.wasm.components import parse_sexpr
+from ppci.wasm.components import parse_sexpr as parse_sexpr2
 from ppci.common import CompilerError
 
 TEXT = """
@@ -25,6 +25,10 @@ TUPLE = (
     ("func", "$shared0func", ("result", "i32"), "i32.const", 0, "i32.load"),
     ("foo", 3.2),
 )
+
+
+def parse_sexpr(text):
+    return parse_sexpr2(text).as_tuple()
 
 
 def test_basic():

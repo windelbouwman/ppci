@@ -34,7 +34,8 @@ import argparse
 
 from ppci.wasm import read_wat, Module, instantiate, components
 from ppci.common import CompilerError, logformat
-from ppci.lang.sexpr import parse_sexpr, parse_multiple_sexpr
+from ppci.lang.sexpr import parse_sexpr, parse_s_expressions
+from ppci.lang.sexpr import SExpression, SSymbol, SList
 from ppci.utils.reporting import html_reporter
 from ppci.wasm.util import datastring2bytes
 from ppci.wasm.util import make_int, make_float
@@ -104,7 +105,7 @@ def perform_test(filename, target):
     with html_reporter(html_report) as reporter:
         reporter.message("Test spec file {}".format(filename))
         try:
-            s_expressions = parse_multiple_sexpr(source_text)
+            s_expressions = parse_s_expressions(source_text)
             expressions2ignore = black_list_expr.get(base_name, [])
             executor = WastExecutor(target, reporter, expressions2ignore)
             executor.execute(s_expressions)
@@ -142,16 +143,16 @@ class WastExecutor:
         # Registered instances:
         self._registered_instances = {}
 
-    def execute(self, s_expressions):
+    def execute(self, s_expressions: tuple[SExpression]):
         for s_expr in s_expressions:
             if s_expr in self.s_expr_blacklist:
                 self.logger.warning("Backlisted: %s", s_expr)
             else:
                 self.execute_single(s_expr)
 
-    def execute_single(self, s_expr):
+    def execute_single(self, s_expr: SList):
         """Execute a single line in the test case."""
-        if s_expr[0] == "module":
+        if s_expr[0].is_symbol("module"):
             self.load_module(s_expr)
 
         elif s_expr[0] == "invoke":
@@ -186,53 +187,58 @@ class WastExecutor:
             # print('Unknown directive', s_expr[0])
             pass
 
-    def parse_module(self, s_expr):
-        if "binary" in s_expr:
-            # We have (module binary "")
-
-            # Iterate:
-            elems = iter(s_expr)
-
-            # Skip to binary tag:
-            while next(elems) != "binary":
-                pass
-
-            # fetch data from last tuple elements:
-            parts = []
-            for elem in elems:
-                data = datastring2bytes(elem)
-                parts.append(data)
-            data = reduce(add, parts)
-
-            # Load module from binary data:
-            m1 = Module(data)
-
-            # Go back
-            data2 = m1.to_bytes()
-
-            # Wont always be the same, e.g. some tests use non-minimal LEB ints
-            # assert data == data2
-
-            data3 = Module(data2).to_bytes()
-
-            # Check that reading it in result in the same module ...
-            assert data2 == data3
-
+    def parse_module(self, s_expr: SList):
+        if s_expr[1].is_symbol("binary"):
+            m1 = self.parse_binary_module(s_expr)
         else:
-            # Load module from tuples:
-            m1 = Module(s_expr)
-
-            # # Convert module to text form and parse again
-            # # This should yield the same binary form:
-            # m2 = Module(m1.to_string())
-            # assert m1.to_bytes() == m2.to_bytes()
-
-            # NOTE: going to string format and back does not
-            # guarantee that parsing was correct.
-
-            self.reporter.dump_wasm(m1)
-
+            m1 = self.parse_text_module(s_expr)
         self.logger.debug("loaded wasm module %s (id=%s)", m1, m1.id)
+        return m1
+
+    def parse_text_module(self, s_expr: SList):
+        logger.debug(f"Loading text module at {s_expr.loc}")
+        # Load module from tuples:
+        m1 = Module(s_expr)
+
+        # # Convert module to text form and parse again
+        # # This should yield the same binary form:
+        # m2 = Module(m1.to_string())
+        # assert m1.to_bytes() == m2.to_bytes()
+
+        # NOTE: going to string format and back does not
+        # guarantee that parsing was correct.
+
+        self.reporter.dump_wasm(m1)
+        return m1
+
+    def parse_binary_module(self, s_expr: SList):
+        logger.debug(f"Loading binary module at {s_expr.loc}")
+        # We have (module binary "")
+
+        # Iterate:
+        elems = iter(s_expr)
+
+        # Skip to binary tag:
+        while not next(elems).is_symbol("binary"):
+            pass
+
+        # fetch data from last tuple elements:
+        strings = map(lambda e: e.get_string(), elems)
+        data = reduce(add, map(datastring2bytes, strings))
+
+        # Load module from binary data:
+        m1 = Module(data)
+
+        # Go back
+        data2 = m1.to_bytes()
+
+        # Wont always be the same, e.g. some tests use non-minimal LEB ints
+        # assert data == data2
+
+        data3 = Module(data2).to_bytes()
+
+        # Check that reading it in result in the same module ...
+        assert data2 == data3
         return m1
 
     def load_module(self, s_expr):

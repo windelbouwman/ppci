@@ -32,7 +32,6 @@ class SExpressionLexer(HandLexerBase):
     def tokenize(self, f, filename):
         chunks = create_chunks(f)
         for token in super().tokenize(filename, chunks, self.lex_sexpr):
-            # print(token)
             # Modify some values of tokens:
             if token.typ == "string":
                 token.val = token.val[1:-1]  # Strip of '"'
@@ -129,43 +128,112 @@ def filtered(tokens):
 class SExpressionParser(RecursiveDescentParser):
     """This class can be used to parse S-expressions."""
 
-    def parse(self, tokens):
+    def parse(self, tokens) -> tuple["SExpression"]:
         self.init_lexer(tokens)
         expressions = []
         while not self.at_end:
             expressions.append(self.parse_sexpr())
-        return expressions
+        return tuple(expressions)
 
-    def parse_sexpr(self) -> tuple:
+    def parse_sexpr(self) -> "SList":
+        """Parse a single S expression enclosed in parenthesis"""
         values = []
-        self.consume("(")
+        loc = self.consume("(").loc
         while self.peek != ")":
             if self.at_end:
                 self.error("Unexpected end of file")
             elif self.peek == "(":
                 val = self.parse_sexpr()
             else:
-                val = self.consume().val
+                tok = self.consume()
+                if tok.typ == "string":
+                    val = SString(tok.val, tok.loc)
+                elif tok.typ == "word":
+                    val = SSymbol(tok.val, tok.loc)
+                else:
+                    raise NotImplementedError(tok.typ)
+                    val = tok.val
             values.append(val)
         self.consume(")")
-        return tuple(values)
+        return SList(values, loc)
 
 
-def parse_sexpr(text: str, multiple=False) -> tuple:
+def parse_sexpr(text: str, multiple=False) -> "SExpression":
     """Parse S-expression given as string.
     Returns a tuple that represents the S-expression.
     """
     assert isinstance(text, str)
 
-    expressions = parse_multiple_sexpr(text)
+    expressions = parse_s_expressions(text)
     if len(expressions) != 1:
         raise ValueError("Expected a single S-expression")
     return expressions[0]
 
 
-def parse_multiple_sexpr(text: str) -> tuple:
+def parse_s_expressions(text: str) -> tuple["SExpression"]:
     assert isinstance(text, str)
     # Check start ok
     tokens = filtered(tokenize_sexpr(text))
     parser = SExpressionParser()
     return parser.parse(tokens)
+
+
+class SExpression:
+    """A S-expression"""
+
+    def __init__(self, loc):
+        self.loc = loc
+
+    def is_symbol(self, value: str) -> bool:
+        return False
+
+
+class SList(SExpression):
+    def __init__(self, values: list[SExpression], loc):
+        super().__init__(loc)
+        self.values = values
+
+    def __getitem__(self, index):
+        return self.values[index]
+
+    def as_tuple(self):
+        values = []
+        for v in self.values:
+            if isinstance(v, SList):
+                v = v.as_tuple()
+            else:
+                v = v.value
+            values.append(v)
+        return tuple(values)
+
+
+class SSymbol(SExpression):
+    def __init__(self, value: str, loc):
+        super().__init__(loc)
+        self.value = value
+
+    def is_symbol(self, value: str) -> bool:
+        return self.value == value
+
+
+class SString(SExpression):
+    """String  S-expression"""
+
+    def __init__(self, value: str, loc):
+        super().__init__(loc)
+        self.value = value
+
+    def get_string(self) -> str:
+        return self.value
+
+
+class SInteger(SExpression):
+    def __init__(self, value: int, loc):
+        super().__init__(loc)
+        self.value = value
+
+
+class SFloat(SExpression):
+    def __init__(self, value: float, loc):
+        super().__init__(loc)
+        self.value = value

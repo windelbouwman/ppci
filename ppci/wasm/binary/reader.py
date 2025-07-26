@@ -74,6 +74,8 @@ class BinaryFileReader:
             self._definitions.append(self.read_start_definition())
         elif section_name == "custom":
             self._definitions.append(self.read_custom_definition())
+        elif section_name == "datacount":
+            self._definitions.append(self.read_data_count_definition())
         else:
             ndefs = self.read_uint()  # for this section
             for i in range(ndefs):
@@ -328,7 +330,7 @@ class BinaryFileReader:
         self.add_definition("memory", definition)
         return definition
 
-    def read_global_definition(self):
+    def read_global_definition(self) -> components.Global:
         typ = self.read_type()
         mutable = bool(self.read_byte())
         init = self.read_expression()
@@ -337,7 +339,7 @@ class BinaryFileReader:
         self.add_definition("global", definition)
         return definition
 
-    def read_export_definition(self):
+    def read_export_definition(self) -> components.Export:
         """Read an `export` definition."""
         name = self.read_str()
         kind_id = self.read_byte()
@@ -345,7 +347,7 @@ class BinaryFileReader:
         ref = self.read_space_ref(kind)
         return components.Export(name, kind, ref)
 
-    def read_start_definition(self):
+    def read_start_definition(self) -> components.Start:
         ref = self.read_space_ref("func")
         return components.Start(ref)
 
@@ -386,6 +388,10 @@ class BinaryFileReader:
         offset = self.read_expression()
         data = self.read_length_prefixed_bytes()
         return components.Data(ref, offset, data)
+
+    def read_data_count_definition(self):
+        n = self.read_int()
+        return components.DataCount(n)
 
     def read_custom_definition(self):
         """Read a custom definition."""

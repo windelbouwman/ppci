@@ -34,7 +34,7 @@ import logging
 import sys
 from collections import OrderedDict
 
-from ..lang.sexpr import parse_sexpr
+from ..lang.sexpr import parse_sexpr, SExpression
 
 
 def this_is_js():
@@ -59,6 +59,7 @@ SECTION_IDS = {  # Note: order matters!
     "func": 10,  # the field is called func,
     "code": 10,  # but the section is called code
     "data": 11,
+    "datacount": 12,
 }
 
 if sys.version_info < (3, 6):
@@ -236,9 +237,12 @@ class Module(WASMComponent):
     def _from_tuple(self, t):
         """Initialize from tuple."""
 
-        from .text import load_tuple
+        from .text import load_tuple, load_s_expr
 
-        load_tuple(self, t)
+        if isinstance(t, SExpression):
+            load_s_expr(self, t)
+        else:
+            load_tuple(self, t)
 
     def _from_file(self, f):
         from .binary.reader import BinaryFileReader
@@ -775,6 +779,17 @@ class Data(Definition):
         writer = TextWriter()
         writer.write_data_definition(self)
         return writer.finish()
+
+
+class DataCount(Definition):
+    """Data count.
+
+    Number of data segments."""
+
+    __slots__ = ("n",)
+
+    def _from_args(self, n):
+        self.n = n
 
 
 class Custom(Definition):

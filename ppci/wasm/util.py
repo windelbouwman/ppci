@@ -133,7 +133,8 @@ def inspect_bytes_at(bb, offset):
     print("|".rjust(text_offset))
 
 
-def datastring2bytes(s):
+def datastring2bytes(s: str) -> bytes:
+    """Convert s expression data string to bytes"""
     # return eval('b"' + s + '"')  # can we do this without evil?
     f = io.BytesIO()
     i = 0
