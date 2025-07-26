@@ -83,6 +83,9 @@ data_file = ".cache/.coverage"
 [tool.coverage.xml]
 output = ".cache/coverage.xml"
 
+[tool.mypy]
+cache_dir = ".cache/mypy"
+
 [tool.flit.sdist]
 include = [
     "readme.rst",

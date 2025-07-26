@@ -581,6 +581,8 @@ class WasiApi:
         # This is the full path:
         full_path = os.path.join(base_folder, path)
 
+        self.logger.error(f"TODO: unlink {full_path}")
+
         # TODO: actual removal!
 
         return EACCES

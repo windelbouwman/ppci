@@ -346,7 +346,7 @@ class Instruction(WASMComponent):
 
     def _from_args(self, opcode, *args):
         for arg in args:
-            assert isinstance(arg, (str, int, float, Ref, list))
+            assert isinstance(arg, (str, int, float, Ref, list, bytes))
 
         self.opcode = opcode
         self.args = args

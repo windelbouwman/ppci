@@ -39,4 +39,13 @@ __all__ = [
     "WasmProgram",
     "X86Program",
     "ArmProgram",
+    "Program",
+    "SourceCodeProgram",
+    "IntermediateProgram",
+    "MachineProgram",
+    "get_program_classes",
+    "get_targets",
+    "get_program_graph",
+    "get_program_classes_by_group",
+    "get_program_classes_html",
 ]
