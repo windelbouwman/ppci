@@ -1,6 +1,7 @@
 """Functionality to tokenize and parse S-expressions."""
 
 import io
+import enum
 from .tools.handlexer import HandLexerBase
 from .tools.recursivedescent import RecursiveDescentParser
 
@@ -17,7 +18,15 @@ def tokenize_sexpr(text):
     filename = "?"
     f = io.StringIO(text)
     lexer = SExpressionLexer()
-    return lexer.tokenize(f, filename)
+    return filtered(lexer.tokenize(f, filename))
+
+
+class STokenType(enum.Enum):
+    LPAR = 1
+    RPAR = 2
+    WORD = 3
+    STRING = 4
+    EOF = 9
 
 
 def create_chunks(f):
@@ -47,6 +56,7 @@ class SExpressionLexer(HandLexerBase):
                     except ValueError:
                         pass
             yield token
+        yield self.make_token("EOF", "EOF")
 
     def lex_sexpr(self):
         c = self.next_char()
@@ -131,7 +141,7 @@ class SExpressionParser(RecursiveDescentParser):
     def parse(self, tokens) -> tuple["SExpression"]:
         self.init_lexer(tokens)
         expressions = []
-        while not self.at_end:
+        while self.peek != "EOF":
             expressions.append(self.parse_sexpr())
         return tuple(expressions)
 
@@ -140,7 +150,7 @@ class SExpressionParser(RecursiveDescentParser):
         values = []
         loc = self.consume("(").loc
         while self.peek != ")":
-            if self.at_end:
+            if self.peek == "EOF":
                 self.error("Unexpected end of file")
             elif self.peek == "(":
                 val = self.parse_sexpr()
@@ -173,7 +183,7 @@ def parse_sexpr(text: str, multiple=False) -> "SExpression":
 def parse_s_expressions(text: str) -> tuple["SExpression"]:
     assert isinstance(text, str)
     # Check start ok
-    tokens = filtered(tokenize_sexpr(text))
+    tokens = tokenize_sexpr(text)
     parser = SExpressionParser()
     return parser.parse(tokens)
 

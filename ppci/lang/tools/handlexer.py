@@ -103,7 +103,9 @@ class HandLexerBase:
 
     def _mark_start(self):
         """Store location, and reset text buffer."""
-        self._start_loc = self.get_location()
+        loc = self.get_location()
+        if loc is not None:
+            self._start_loc = loc
         self.current_text.clear()
         self._chunk_start = self._chunk_index
 
@@ -126,11 +128,14 @@ class HandLexerBase:
     def emit(self, typ):
         """Emit the current text under scope as a token"""
         val = self.get_lexeme()
-        location = self._start_loc
-        assert location
-        token = Token(typ, val, location)
+        token = self.make_token(typ, val)
         self.token_buffer.append(token)
         self._mark_start()
+
+    def make_token(self, typ, val):
+        location = self._start_loc
+        assert location
+        return Token(typ, val, location)
 
     def ignore(self):
         """Ignore text under cursor"""

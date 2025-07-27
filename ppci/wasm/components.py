@@ -128,8 +128,7 @@ class WASMComponent:
 
     def _from_string(self, s):
         # This method typically does not need overloading
-        t = parse_sexpr(s)
-        self._from_tuple(t)
+        raise NotImplementedError()
 
     def _from_tuple(self, t):
         # Implement this to be able to consume str
@@ -232,7 +231,9 @@ class Module(WASMComponent):
     __slots__ = ("id", "definitions")  # id is only for documentation purposes
 
     def _from_args(self, *definitions):
-        self._from_tuple(definitions)
+        from .text import load_tuple
+
+        load_tuple(self, definitions)
 
     def _from_tuple(self, t):
         """Initialize from tuple."""
@@ -243,6 +244,16 @@ class Module(WASMComponent):
             load_s_expr(self, t)
         else:
             load_tuple(self, t)
+
+    def _from_string(self, text):
+        from .text import load_from_s_tokens
+        from ..lang.sexpr import tokenize_sexpr
+
+        # When loading from a string, tokenize to S-expression tokens
+        # and then invoke the wasm parser on these tokens.
+
+        tokens = tokenize_sexpr(text)
+        load_from_s_tokens(self, tokens)
 
     def _from_file(self, f):
         from .binary.reader import BinaryFileReader

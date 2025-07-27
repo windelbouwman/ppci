@@ -7,13 +7,11 @@ https://github.com/WebAssembly/wabt/blob/master/src/wast-parser.cc
 """
 
 import logging
-import enum
-
 from collections import defaultdict
 from ...lang.sexpr import parse_sexpr
 from ...lang.sexpr import SList, SSymbol, SString
 from ...lang.common import SourceLocation
-from ...lang.common import Token as Token2
+from ...lang.common import Token
 from ...lang.tools.recursivedescent import RecursiveDescentParser
 from ..opcodes import OPERANDS, OPCODES, ArgType
 from ..util import datastring2bytes, make_int, make_float, is_int, PAGE_SIZE
@@ -21,17 +19,11 @@ from .util import default_alignment, log2
 from .. import components
 
 
-class Token(enum.Enum):
-    LPAR = 1
-    RPAR = 2
-    EOF = 3
-
-
 logger = logging.getLogger("wat")
 
 
 def s_token(e, loc):
-    return Token2(e, e, loc)
+    return Token(e, e, loc)
 
 
 def load_tuple(module, t):
@@ -56,7 +48,7 @@ def load_tuple(module, t):
 def tuple_to_tokens(t: tuple):
     # Parse nested strings at top level:
     loc = SourceLocation("?", 1, 1, 1)
-    yield s_token(Token.LPAR, loc)
+    yield s_token("(", loc)
     for e in t:
         if isinstance(e, str) and e.startswith("("):
             e = parse_sexpr(e)
@@ -67,40 +59,42 @@ def tuple_to_tokens(t: tuple):
                 yield x
         else:
             raise NotImplementedError(str(e))
-    yield s_token(Token.RPAR, loc)
-    yield s_token(Token.EOF, loc)
+    yield s_token(")", loc)
+    yield s_token("EOF", loc)
 
 
 def _tuple_generator_inner(s: tuple, loc):
-    yield s_token(Token.LPAR, loc)
+    yield s_token("(", loc)
     for e in s:
         if isinstance(e, tuple):
             for e2 in _tuple_generator_inner(e, loc):
                 yield e2
         elif isinstance(e, (str, int)) or e is None:
-            yield s_token(e, loc)
+            yield Token("word", e, loc)
         else:
             raise NotImplementedError(str(e))
-    yield s_token(Token.RPAR, loc)
+    yield s_token(")", loc)
 
 
-def s_expr_to_tokens(s: SList):
-    for e in _s_expr_generator_inner(s):
+def s_expr_to_tokens(s_expr: SList):
+    for e in _s_expr_generator_inner(s_expr):
         yield e
-    yield s_token(Token.EOF, s.loc)
+    yield s_token("EOF", s_expr.loc)
 
 
-def _s_expr_generator_inner(s: SList):
-    yield s_token(Token.LPAR, s.loc)
-    for e in s:
+def _s_expr_generator_inner(s_expr: SList):
+    yield s_token("(", s_expr.loc)
+    for e in s_expr:
         if isinstance(e, SList):
             for e2 in _s_expr_generator_inner(e):
                 yield e2
-        elif isinstance(e, (SSymbol, SString)):
-            yield s_token(e.value, e.loc)
+        elif isinstance(e, SSymbol):
+            yield Token("word", e.value, e.loc)
+        elif isinstance(e, SString):
+            yield Token("string", e.value, e.loc)
         else:
             raise NotImplementedError(str(e))
-    yield s_token(Token.RPAR, s.loc)
+    yield s_token(")", s_expr.loc)
 
 
 def load_s_expr(module, s):
@@ -127,14 +121,14 @@ class WatTupleLoader(RecursiveDescentParser):
         """Load a module from series of tokens"""
         self.init_lexer(tokens)
 
-        self.expect(Token.LPAR)
+        self.expect("(")
         if self.munch("module"):
             # Detect id:
             self.module.id = self._parse_optional_id()
         else:
             self.module.id = None
 
-        while self.munch(Token.LPAR):
+        while self.munch("("):
             kind = self.take()
             if kind == "type":
                 self.load_type()
@@ -158,10 +152,10 @@ class WatTupleLoader(RecursiveDescentParser):
                 self.load_table()
             else:  # pragma: no cover
                 raise NotImplementedError(kind)
-            self.expect(Token.RPAR)
+            self.expect(")")
 
-        self.expect(Token.RPAR)
-        self.expect(Token.EOF)
+        self.expect(")")
+        self.expect("EOF")
 
         self.resolve_references()
         self.module.definitions = self.gather_definitions()
@@ -229,9 +223,9 @@ class WatTupleLoader(RecursiveDescentParser):
     def load_type(self):
         """Load a tuple starting with 'type'"""
         id = self._parse_optional_id(default=self.gen_id("type"))
-        self.expect(Token.LPAR, "func")
+        self.expect("(", "func")
         params, results = self._parse_function_signature()
-        self.expect(Token.RPAR)
+        self.expect(")")
         # Note cannot reuse type here unless we remap the id whereever
         # it is used
         self.add_definition(components.Type(id, params, results))
@@ -270,11 +264,9 @@ class WatTupleLoader(RecursiveDescentParser):
         return ref
 
     def _parse_type_use(self):
-        if self.match(Token.LPAR, "type"):
+        if self.match("(", "type"):
             ref = self._parse_type_ref()
-        elif self.match(Token.LPAR, "param") or self.match(
-            Token.LPAR, "result"
-        ):
+        elif self.match("(", "param") or self.match("(", "result"):
             params, results = self._parse_function_signature()
             ref = self._add_or_reuse_type_definition(params, results)
         else:
@@ -283,12 +275,12 @@ class WatTupleLoader(RecursiveDescentParser):
 
     def _parse_type_ref(self):
         """Parse a type reference."""
-        self.expect(Token.LPAR, "type")
+        self.expect("(", "type")
         ref = self._parse_ref("type")
-        self.expect(Token.RPAR)
+        self.expect(")")
 
         # Parse trailing check up of signature:
-        if self.match(Token.LPAR, "param") or self.match(Token.LPAR, "result"):
+        if self.match("(", "param") or self.match("(", "result"):
             params, results = self._parse_function_signature()
             # TODO: check this with the type ref?
 
@@ -310,31 +302,31 @@ class WatTupleLoader(RecursiveDescentParser):
     def _parse_type_bound_value_list(self, kind):
         """Parse thing like (locals i32) (locals $foo i32)"""
         params = []
-        while self.munch(Token.LPAR, kind):
-            if not self.match(Token.RPAR):
+        while self.munch("(", kind):
+            if not self.match(")"):
                 if self._at_id():  # (param $id i32)
                     params.append((self.take(), self.take()))
                 else:
                     # anonymous (param i32 i32 i32)
-                    while not self.match(Token.RPAR):
+                    while not self.match(")"):
                         p = self.take()
                         params.append((len(params), p))
-            self.expect(Token.RPAR)
+            self.expect(")")
         return params
 
     def _parse_result_list(self):
         result = []
-        while self.munch(Token.LPAR, "result"):
-            while not self.match(Token.RPAR):
+        while self.munch("(", "result"):
+            while not self.match(")"):
                 result.append(self.take())
-            self.expect(Token.RPAR)
+            self.expect(")")
         return result
 
     def load_import(self):
         """Parse top level import."""
         modname = self.take()
         name = self.take()
-        self.expect(Token.LPAR)
+        self.expect("(")
         kind = self.take()
         id = self._parse_optional_id(default=self.gen_id(kind))
         if kind == "func":
@@ -354,16 +346,16 @@ class WatTupleLoader(RecursiveDescentParser):
         else:  # pragma: no cover
             raise NotImplementedError(kind)
 
-        self.expect(Token.RPAR)
+        self.expect(")")
         self.add_definition(components.Import(modname, name, kind, id, info))
 
     def load_export(self):
         """Parse a toplevel export"""
         name = self.take()
-        self.expect(Token.LPAR)
+        self.expect("(")
         kind = self.take()
         ref = self._parse_ref(kind)
-        self.expect(Token.RPAR)
+        self.expect(")")
         self.add_definition(components.Export(name, kind, ref))
 
     def load_start(self):
@@ -375,7 +367,7 @@ class WatTupleLoader(RecursiveDescentParser):
         """Parse a table"""
         id = self._parse_optional_id(default=self.gen_id("table"))
         self._parse_inline_export("table", id)
-        if self.match(Token.LPAR, "import"):  # handle inline imports
+        if self.match("(", "import"):  # handle inline imports
             modname, name = self._parse_inline_import()
             min, max = self.parse_limits()
             kind = self.take()
@@ -385,9 +377,9 @@ class WatTupleLoader(RecursiveDescentParser):
             )
         elif self.munch("funcref"):
             # We have embedded data
-            self.expect(Token.LPAR, "elem")
+            self.expect("(", "elem")
             refs = self.parse_ref_list()
-            self.expect(Token.RPAR)
+            self.expect(")")
             offset = [components.Instruction("i32.const", 0)]
             min = max = len(refs)
             self.add_definition(components.Table(id, "funcref", min, max))
@@ -438,16 +430,16 @@ class WatTupleLoader(RecursiveDescentParser):
         """Load a memory definition"""
         id = self._parse_optional_id(default=self.gen_id("memory"))
         self._parse_inline_export("memory", id)
-        if self.match(Token.LPAR, "import"):  # handle inline imports
+        if self.match("(", "import"):  # handle inline imports
             modname, name = self._parse_inline_import()
             min, max = self.parse_limits()
             info = (min, max)
             self.add_definition(
                 components.Import(modname, name, "memory", id, info)
             )
-        elif self.munch(Token.LPAR, "data"):  # Inline data
+        elif self.munch("(", "data"):  # Inline data
             data = self.parse_data_blobs()
-            self.expect(Token.RPAR)
+            self.expect(")")
             max = round_up(len(data), PAGE_SIZE) // PAGE_SIZE
             assert len(data) <= max * PAGE_SIZE, "TODO: round upward"
             min = max
@@ -472,10 +464,10 @@ class WatTupleLoader(RecursiveDescentParser):
         return min, max
 
     def parse_global_type(self):
-        if self.munch(Token.LPAR, "mut"):
+        if self.munch("(", "mut"):
             typ = self.take()
             mutable = True
-            self.expect(Token.RPAR)
+            self.expect(")")
         else:
             typ = self.take()
             mutable = False
@@ -485,7 +477,7 @@ class WatTupleLoader(RecursiveDescentParser):
         """Load a global definition"""
         id = self._parse_optional_id(default=self.gen_id("global"))
         self._parse_inline_export("global", id)
-        if self.match(Token.LPAR, "import"):  # handle inline imports
+        if self.match("(", "import"):  # handle inline imports
             modname, name = self._parse_inline_import()
             typ, mutable = self.parse_global_type()
             info = (typ, mutable)
@@ -506,7 +498,7 @@ class WatTupleLoader(RecursiveDescentParser):
 
     def parse_data_blobs(self):
         data = bytearray()
-        while not self.match(Token.RPAR):
+        while not self.match(")"):
             txt = self.take()
             if isinstance(txt, bytes):
                 blob = txt
@@ -518,11 +510,11 @@ class WatTupleLoader(RecursiveDescentParser):
         return data
 
     def parse_offset_expression(self):
-        in_offset = self.munch(Token.LPAR, "offset")
+        in_offset = self.munch("(", "offset")
         assert self.at_instruction()
         offset = self._load_instruction_list()
         if in_offset:
-            self.expect(Token.RPAR)
+            self.expect(")")
         return offset
 
     def load_func(self):
@@ -530,7 +522,7 @@ class WatTupleLoader(RecursiveDescentParser):
         id = self._parse_optional_id(default=self.gen_id("func"))
         self._parse_inline_export("func", id)
 
-        if self.match(Token.LPAR, "import"):  # handle inline imports
+        if self.match("(", "import"):  # handle inline imports
             modname, name = self._parse_inline_import()
             ref = self._parse_type_use()
             info = (ref,)
@@ -567,7 +559,7 @@ class WatTupleLoader(RecursiveDescentParser):
 
         instructions = []
         # We can have instructions without parenthesis! OMG
-        is_braced = self.munch(Token.LPAR)
+        is_braced = self.munch("(")
         opcode = self.take()
 
         if opcode == "if":
@@ -587,15 +579,15 @@ class WatTupleLoader(RecursiveDescentParser):
                 instructions.append(if_instruction)
 
                 # A nested then:
-                self.expect(Token.LPAR, "then")
+                self.expect("(", "then")
                 instructions.extend(self._load_instruction_list())
-                self.expect(Token.RPAR)
+                self.expect(")")
 
                 # Optional nested 'else':
-                if self.munch(Token.LPAR, "else"):
+                if self.munch("(", "else"):
                     instructions.append(components.Instruction("else"))
                     instructions.extend(self._load_instruction_list())
-                    self.expect(Token.RPAR)
+                    self.expect(")")
 
                 # Add implicit end:
                 self.block_stack.pop()
@@ -650,7 +642,7 @@ class WatTupleLoader(RecursiveDescentParser):
 
         # Parse matching closing brace:
         if is_braced:
-            self.expect(Token.RPAR)
+            self.expect(")")
 
         return instructions
 
@@ -659,7 +651,7 @@ class WatTupleLoader(RecursiveDescentParser):
         if self.munch("emptyblock"):
             # TODO: is this legit?
             block_type = "emptyblock"
-        elif self.match(Token.LPAR, "type"):
+        elif self.match("(", "type"):
             block_type = self._parse_type_ref()
         else:
             params, results = self._parse_function_signature()
@@ -763,22 +755,22 @@ class WatTupleLoader(RecursiveDescentParser):
 
     # Inline stuff:
     def _parse_inline_import(self):
-        self.expect(Token.LPAR, "import")
+        self.expect("(", "import")
         modname = self.take()
         name = self.take()
-        self.expect(Token.RPAR)
+        self.expect(")")
         return modname, name
 
     def _parse_inline_export(self, kind, obj_name):
         ref = self._make_ref(kind, obj_name)
-        while self.match(Token.LPAR, "export"):
-            self.expect(Token.LPAR, "export")
+        while self.match("(", "export"):
+            self.expect("(", "export")
             name = self.take()
-            self.expect(Token.RPAR)
+            self.expect(")")
             self.add_definition(components.Export(name, kind, ref))
 
     def at_instruction(self):
-        if self.match(Token.LPAR):
+        if self.match("("):
             la = self.look_ahead(1).val
         else:
             la = self.look_ahead(0).val
@@ -788,7 +780,7 @@ class WatTupleLoader(RecursiveDescentParser):
         """Test if we match"""
         for i, arg in enumerate(args):
             tok = self.look_ahead(i)
-            if tok.val != arg:
+            if not self.is_ok_tok(tok, arg):
                 return False
         return True
 
@@ -803,8 +795,17 @@ class WatTupleLoader(RecursiveDescentParser):
     def expect(self, *args):
         for arg in args:
             tok = self.next_token()
-            if tok.val != arg:
+            if not self.is_ok_tok(tok, arg):
                 self.error(f"Got {tok.val}, expected: {arg}", tok.loc)
+
+    @staticmethod
+    def is_ok_tok(tok, arg):
+        if tok is None:
+            return False
+        if arg in ("(", ")", "EOF"):
+            return tok.typ == arg
+        else:
+            return tok.typ == "word" and tok.val == arg
 
     def take(self):
         tok = self.next_token()

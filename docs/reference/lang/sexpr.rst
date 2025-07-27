@@ -8,7 +8,8 @@ The ppci.lang.sexpr module can be used to read
 .. doctest::
 
     >>> from ppci.lang.sexpr import parse_sexpr
-    >>> parse_sexpr('(bla 29 ("hello world" 1337 @#!))')
+    >>> s = parse_sexpr('(bla 29 ("hello world" 1337 @#!))')
+    >>> s.as_tuple()
     ('bla', 29, ('hello world', 1337, '@#!'))
 
 Reference

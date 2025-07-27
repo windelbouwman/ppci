@@ -182,7 +182,7 @@ class TextWriter:
         self.emit('"' + bytes2datastring(datadef.data) + '"')
         self.emit(")")
 
-    def write_instruction(self, instruction: components.Instruction):
+    def write_instruction(self, instruction: components.Instruction) -> str:
         opcode = instruction.opcode
         args = instruction.args
         if ".load" in opcode or ".store" in opcode:

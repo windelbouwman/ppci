@@ -33,7 +33,7 @@ class SourceLocation:
         self.source = source
 
     def __repr__(self):
-        return "({}, {}, {})".format(self.filename, self.row, self.col)
+        return f"({self.filename}, {self.row}, {self.col}, {self.length})"
 
     def get_source_line(self):
         """Return the source line indicated by this location"""
@@ -48,7 +48,9 @@ class SourceLocation:
         else:
             return "Could not load source"
 
-    def print_message(self, message, lines=None, filename=None, file=None):
+    def print_message(
+        self, message: str, lines=None, filename=None, file=None
+    ):
         """Print a message at this location in the given source lines"""
         if lines is None:
             with open(self.filename, "r") as f:
@@ -61,33 +63,42 @@ class SourceLocation:
         if filename:
             print('File : "{}"'.format(filename), file=file)
 
-        # Print relevant lines:
-        prerow = self.row - 2
-        if prerow < 1:
-            prerow = 1
+        print_message(
+            lines, self.row, self.col, self.length, message, file=file
+        )
 
-        afterrow = self.row + 3
-        if afterrow > len(lines):
-            afterrow = len(lines)
 
-        # print preceding source lines:
-        for row in range(prerow, self.row):
-            print_line(row, lines, file=file)
+def print_message(
+    lines, row: int, col: int, length: int, message: str, file=None
+):
+    """Render a message nicely embedded in surrounding source"""
+    # Print relevant lines:
+    prerow = row - 2
+    if prerow < 1:
+        prerow = 1
+
+    afterrow = row + 3
+    if afterrow > len(lines):
+        afterrow = len(lines)
+
+    # print preceding source lines:
+    for r in range(prerow, afterrow + 1):
+        # Render source line:
+        if r in range(len(lines)):
+            txt = lines[r - 1]
+            print("{:5} :{}".format(r, txt), file=file)
 
         # print source line containing error:
-        print_line(self.row, lines, file=file)
-        print(" " * (6 + self.col - 1) + "^ {0}".format(message), file=file)
-
-        # print trailing source line:
-        for row in range(self.row + 1, afterrow + 1):
-            print_line(row, lines, file=file)
-
-
-def print_line(row, lines, file=None):
-    """Print a single source line"""
-    if row in range(len(lines)):
-        txt = lines[row - 1]
-        print("{:5}:{}".format(row, txt), file=file)
+        base_txt = "      :"
+        if r == row:
+            if length < 1:
+                length = 1
+            marker = "^" * length
+            indent = (col - 1) + length // 2
+            indent_txt = base_txt + " " * indent
+            print(f"{indent_txt}{marker}", file=file)
+            print(f"{indent_txt}|", file=file)
+            print(f"{indent_txt}+---- {message}", file=file)
 
 
 SourceRange = namedtuple("SourceRange", ["p1", "p2"])
