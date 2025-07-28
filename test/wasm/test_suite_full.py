@@ -113,7 +113,8 @@ def perform_test(filename, target):
         except CompilerError as ex:
             print("Exception:", ex)
             if ex.loc:
-                lines = list(io.StringIO(source_text))
+                lines = source_text.splitlines()
+                ex.loc.filename = filename
                 ex.render(lines)
             raise
 
@@ -152,18 +153,19 @@ class WastExecutor:
 
     def execute_single(self, s_expr: SList):
         """Execute a single line in the test case."""
-        if s_expr[0].is_symbol("module"):
+        command = s_expr[0].get_symbol()
+        if command == "module":
             self.load_module(s_expr)
 
-        elif s_expr[0] == "invoke":
+        elif command == "invoke":
             # TODO: invoke test functions defined in wast files
             self.invoke(s_expr)
 
-        elif s_expr[0] == "register":
+        elif command == "register":
             # TODO: register module for cross module imports.
             self.register_instance(s_expr)
 
-        elif s_expr[0] == "assert_return":
+        elif command == "assert_return":
             invoke_target = s_expr[1]
             expected_values = [self.parse_expr(e) for e in s_expr[2:]]
 
@@ -183,13 +185,24 @@ class WastExecutor:
                 self.logger.warning(
                     "Skipping multiple return function %s", invoke_target
                 )
+        elif command == "assert_trap":
+            logger.debug("TODO: assert_trap")
+        elif command == "assert_invalid":
+            logger.debug("TODO: assert_invalid")
+        elif command == "assert_malformed":
+            logger.debug("TODO: assert_invalid")
         else:
             # print('Unknown directive', s_expr[0])
+            raise NotImplementedError(f"{command=}")
             pass
 
     def parse_module(self, s_expr: SList):
-        if s_expr[1].is_symbol("binary"):
+        """Parse a module from an s_expression"""
+        if len(s_expr) > 1 and s_expr[1].is_symbol("binary"):
             m1 = self.parse_binary_module(s_expr)
+        elif len(s_expr) > 2 and s_expr[2].is_symbol("binary"):
+            m1 = self.parse_binary_module(s_expr)
+            m1.id = s_expr[1].get_symbol()
         else:
             m1 = self.parse_text_module(s_expr)
         self.logger.debug("loaded wasm module %s (id=%s)", m1, m1.id)
@@ -211,7 +224,7 @@ class WastExecutor:
         self.reporter.dump_wasm(m1)
         return m1
 
-    def parse_binary_module(self, s_expr: SList):
+    def parse_binary_module(self, s_expr: SList) -> Module:
         logger.debug(f"Loading binary module at {s_expr.loc}")
         # We have (module binary "")
 
@@ -282,32 +295,32 @@ class WastExecutor:
             mod_instance = None
         return mod_instance
 
-    def evaluate(self, target):
-        if target[0] == "invoke":
+    def evaluate(self, target: SExpression):
+        if target[0].is_symbol("invoke"):
             return self.invoke(target)
-        elif target[0] == "get":
+        elif target[0].is_symbol("get"):
             return self.do_get(target)
         else:
             raise NotImplementedError(str(target[0]))
 
-    def invoke(self, target):
+    def invoke(self, target: SExpression):
         """Invoke a function."""
         # print(target)
-        assert target[0] == "invoke"
+        assert target[0].is_symbol("invoke")
         # TODO: how to handle names like @#$%^&*?
         if (
-            target[1].startswith("$")
+            target[1].get_value().startswith("$")
             and len(target) > 2
-            and isinstance(target[2], str)
+            and isinstance(target[2].get_value(), str)
         ):
-            module_id = target[1]
+            module_id = target[1].get_value()
             instance = self.get_instance(module_id)
-            func_name = target[2]
+            func_name = target[2].get_value()
             args = target[3:]
         else:
             module_id = None
             instance = self.get_instance()
-            func_name = target[1]
+            func_name = target[1].get_value()
             args = target[2:]
 
         args = [self.parse_expr(a) for a in args]
@@ -319,15 +332,15 @@ class WastExecutor:
         elif any(nan_or_inf(a) for a in args):
             self.logger.warning("Not invoking method %s(%s)", func_name, args)
         else:
-            self.logger.debug("Invoking " + repr(target))
+            self.logger.debug(f"Invoking {target!r} at line {target.loc}")
             return instance.exports[func_name](*args)
 
     def register_instance(self, s_expr):
         """register module for cross module imports."""
-        assert s_expr[0] == "register"
-        name = s_expr[1]
+        assert s_expr[0].is_symbol("register")
+        name = s_expr[1].get_string()
         self.logger.debug("Registering module %s", name)
-        module_ref = s_expr[2]
+        module_ref = s_expr[2].get_symbol()
         instance = self.get_instance(module_ref)
         if name in self._registered_instances:
             raise ValueError("Module {} already registered".format(name))
@@ -372,17 +385,22 @@ class WastExecutor:
             instance = self.named_module_instances[name]
         return instance
 
-    def parse_expr(self, s_expr):
-        if s_expr[0] in ["i32.const", "i64.const"]:
-            bits = int(s_expr[0][1:3])
-            return make_int(s_expr[1], bits=bits)
-        elif s_expr[0] in ["f32.const", "f64.const"]:
-            return make_float(s_expr[1])
+    @staticmethod
+    def parse_expr(s_expr):
+        opcode = s_expr[0].get_symbol()
+        if opcode in ["i32.const", "i64.const"]:
+            bits = int(opcode[1:3])
+            value = s_expr[1].get_symbol()
+            return make_int(value, bits=bits)
+        elif opcode in ["f32.const", "f64.const"]:
+            value = s_expr[1].get_symbol()
+            return make_float(value)
         else:
-            raise NotImplementedError(str(s_expr))
+            raise NotImplementedError(f"{opcode=}")
 
     def assert_equal(self, v1, v2):
         # print(v1, v2, type(v1), type(v2))
+        logger.debug(f"Comparing {v1} == {v2}")
         if isinstance(v1, int) and isinstance(v2, int):
             assert v1 == v2
         elif isinstance(v1, float) and isinstance(v2, float):

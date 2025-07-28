@@ -82,7 +82,7 @@ def check_id(id):
 
 class WASMComponent:
     """Base class for representing components of a WASM module, from the
-    Module to Imports, Funct and Instruction. These components can be
+    Imports to Funct and Instruction. These components can be
     shown as text or written as bytes.
 
     Each component can be instantiated using:
@@ -105,11 +105,6 @@ class WASMComponent:
                 return self._from_tuple(arg)
             elif isinstance(arg, str) and "(" in arg:
                 return self._from_string(arg)
-            elif isinstance(arg, bytes):
-                return self._from_bytes(arg)
-            elif hasattr(arg, "read"):
-                assert not hasattr(arg, "read_module")
-                return self._from_file(arg)
 
         # Else, more direct instantiation
         self._from_args(*input)
@@ -132,12 +127,6 @@ class WASMComponent:
 
     def _from_tuple(self, t):
         # Implement this to be able to consume str
-        raise NotImplementedError()
-
-    def _from_bytes(self, b):
-        self._from_file(BytesIO(b))
-
-    def _from_file(self, f):
         raise NotImplementedError()
 
     # To ...
@@ -221,7 +210,7 @@ class Ref:
             return cls(space, name=value)
 
 
-class Module(WASMComponent):
+class Module:
     """Class to represent a WASM module; the toplevel unit of code.
 
     The Module is a collection of definitions, which can be provided as
@@ -230,20 +219,42 @@ class Module(WASMComponent):
 
     __slots__ = ("id", "definitions")  # id is only for documentation purposes
 
-    def _from_args(self, *definitions):
-        from .text import load_tuple
+    def __init__(self, *input):
+        # Special input?
+        if len(input) == 1:
+            arg = input[0]
+            if isinstance(arg, tuple):
+                self._from_tuple(arg)
+            elif isinstance(arg, str) and "(" in arg:
+                self._from_string(arg)
+            elif isinstance(arg, bytes):
+                self._from_bytes(arg)
+            elif isinstance(arg, SExpression):
+                self._from_s_expr(arg)
+            elif hasattr(arg, "read"):
+                assert not hasattr(arg, "read_module")
+                self._from_file(arg)
+            else:
+                self._from_tuple(input)
+        else:
+            # Else, more direct instantiation
+            self._from_tuple(input)
 
-        load_tuple(self, definitions)
+    def _from_args(self, *definitions):
+        self._from_tuple(definitions)
 
     def _from_tuple(self, t):
         """Initialize from tuple."""
+        from .text import load_tuple
 
-        from .text import load_tuple, load_s_expr
+        assert isinstance(t, tuple)
+        load_tuple(self, t)
 
-        if isinstance(t, SExpression):
-            load_s_expr(self, t)
-        else:
-            load_tuple(self, t)
+    def _from_s_expr(self, s_expr: SExpression):
+        from .text import load_s_expr
+
+        assert isinstance(s_expr, SExpression)
+        load_s_expr(self, s_expr)
 
     def _from_string(self, text):
         from .text import load_from_s_tokens
@@ -254,6 +265,9 @@ class Module(WASMComponent):
 
         tokens = tokenize_sexpr(text)
         load_from_s_tokens(self, tokens)
+
+    def _from_bytes(self, b):
+        self._from_file(BytesIO(b))
 
     def _from_file(self, f):
         from .binary.reader import BinaryFileReader

@@ -110,6 +110,7 @@ def load_from_s_tokens(module, tokens):
 
 class WatTupleLoader(RecursiveDescentParser):
     def __init__(self, module):
+        super().__init__()
         self.module = module
         self.definitions = defaultdict(list)
         self._type_hash = {}  # (params, results) -> ref
@@ -510,11 +511,11 @@ class WatTupleLoader(RecursiveDescentParser):
         return data
 
     def parse_offset_expression(self):
-        in_offset = self.munch("(", "offset")
-        assert self.at_instruction()
-        offset = self._load_instruction_list()
-        if in_offset:
+        if self.munch("(", "offset"):
+            offset = self._load_instruction_list()
             self.expect(")")
+        else:
+            offset = self._load_instruction()
         return offset
 
     def load_func(self):
@@ -560,7 +561,9 @@ class WatTupleLoader(RecursiveDescentParser):
         instructions = []
         # We can have instructions without parenthesis! OMG
         is_braced = self.munch("(")
-        opcode = self.take()
+        tok = self.next_token()
+        opcode = tok.val
+        opcode_loc = tok.loc
 
         if opcode == "if":
             block_id = self._parse_optional_id()
@@ -631,6 +634,8 @@ class WatTupleLoader(RecursiveDescentParser):
             instructions.append(components.Instruction(opcode))
 
         else:
+            if opcode not in OPCODES:
+                self.error("Expected instruction", loc=opcode_loc)
             args = self._gather_opcode_arguments(opcode)
             i = components.Instruction(opcode, *args)
 

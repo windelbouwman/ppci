@@ -60,6 +60,9 @@ class BinaryFileWriter(BaseIoWriter):
                 if section_name == "start":
                     assert len(section_defs) == 1, "Expected 0 or 1 start defs"
                     f2.write_definition(section_defs[0])
+                elif section_name == "datacount":
+                    assert len(section_defs) == 1, "Expected 1 data count def"
+                    f2.write_definition(section_defs[0])
                 elif section_name == "custom":
                     for d in section_defs:
                         f3 = BinaryFileWriter(BytesIO())
@@ -109,6 +112,7 @@ class BinaryFileWriter(BaseIoWriter):
             components.Elem: self.write_elem_definition,
             components.Func: self.write_func_definition,
             components.Data: self.write_data_definition,
+            components.DataCount: self.write_data_count_definition,
             components.Custom: self.write_custom_definition,
         }
         mp[type(definition)](definition)
@@ -328,17 +332,20 @@ class BinaryFileWriter(BaseIoWriter):
         self.write_vu32(len(body))  # number of bytes in body
         self.write(body)
 
-    def write_data_definition(self, data_definition):
+    def write_data_definition(self, data: components.Data):
         """Write out a `data` definition."""
-        assert data_definition.ref.space == "memory"
-        self.write_ref(data_definition.ref)
+        assert data.ref.space == "memory"
+        self.write_ref(data.ref)
 
         # Encode offset as expression followed by end instruction
-        self.write_expression(data_definition.offset)
+        self.write_expression(data.offset)
 
         # Encode as u32 length followed by data:
-        self.write_vu32(len(data_definition.data))
-        self.write(data_definition.data)
+        self.write_vu32(len(data.data))
+        self.write(data.data)
+
+    def write_data_count_definition(self, data_count: components.DataCount):
+        self.write_vu32(data_count.n)
 
     def write_custom_definition(self, custom):
         self.write_str(custom.name)
