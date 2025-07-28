@@ -430,7 +430,7 @@ class CPreProcessor:
         args, commas = self.parse_arguments()
 
         # Check amount of arguments:
-        if macro.variadic:
+        if macro.variadic or macro.named_variadic:
             # macro.variadic, len(macro.args)
             req_args = len(macro.args)
             if len(args) < req_args:
@@ -545,6 +545,8 @@ class CPreProcessor:
         # Spiffy variadic macro!
         if macro.variadic:
             repl_map["__VA_ARGS__"] = args[-1]
+        elif macro.named_variadic:
+            repl_map[macro.named_variadic] = args[-1]
 
         # print(repl_map)
         if self.verbose:
@@ -864,6 +866,7 @@ class CPreProcessor:
 
         # Handle function like macros:
         variadic = False
+        named_variadic = False
         token = self.next_token(expand=False)
         if token:
             if token.typ == "(" and not token.space:
@@ -874,7 +877,13 @@ class CPreProcessor:
                         variadic = True
                         break
                     elif self.token.typ == "ID":
-                        args.append(self.consume("ID", expand=False).val)
+                        mname = self.consume("ID", expand=False).val
+                        if self.token.typ == "...":
+                            named_variadic = mname
+                            self.consume("...", expand=False)
+                            break
+                        else:
+                            args.append(mname)
                     else:
                         break
 
@@ -897,7 +906,7 @@ class CPreProcessor:
             # Patch first token spaces:
             value[0] = value[0].copy(space="")
         value_txt = "".join(map(str, value))
-        macro = Macro(name.val, value, args=args, variadic=variadic)
+        macro = Macro(name.val, value, args=args, variadic=variadic, named_variadic=named_variadic)
         if self.verbose:
             self.logger.debug("Defining %s=%s", name.val, value_txt)
         self.define(macro)
