@@ -202,6 +202,9 @@ class CLexerTestCase(unittest.TestCase):
     def test_invalid_suffix(self):
         with self.assertRaises(CompilerError) as cm:
             self.tokenize("0xe+1")
+        self.assertEqual(
+            "invalid suffix on integer constant", cm.exception.msg
+        )
 
     def test_float_constant(self):
         """Test floating point constant

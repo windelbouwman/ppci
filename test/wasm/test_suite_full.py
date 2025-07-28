@@ -25,24 +25,18 @@ import glob
 import math
 import os.path
 import logging
-import io
 from functools import reduce
 from fnmatch import fnmatch
 from operator import add
-import warnings
 import argparse
 
-from ppci.wasm import read_wat, Module, instantiate, components
+from ppci.wasm import Module, instantiate, components
 from ppci.common import CompilerError, logformat
-from ppci.lang.sexpr import parse_sexpr, parse_s_expressions
-from ppci.lang.sexpr import SExpression, SSymbol, SList
+from ppci.lang.sexpr import parse_s_expressions
+from ppci.lang.sexpr import SExpression, SList
 from ppci.utils.reporting import html_reporter
 from ppci.wasm.util import datastring2bytes
 from ppci.wasm.util import make_int, make_float
-
-
-# Load spec test-suite iterator
-from ._spec_suite import get_spec_suite_dir, get_test_script_parts
 
 
 logging.getLogger().setLevel(logging.DEBUG)

@@ -46,7 +46,7 @@ class ArchiveFileTestCase(unittest.TestCase):
         )  # undefined
         lib2 = archive([obj4, obj5])
 
-        obj = link([obj1], libraries=[lib1, lib2])
+        link([obj1], libraries=[lib1, lib2])
 
 
 if __name__ == "__main__":

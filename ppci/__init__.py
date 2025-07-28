@@ -23,7 +23,7 @@ python2_message = """
 Dear python user, it appears you tried to use PPCI with a python
 version below 3. PPCI requires python 3 or higher to function properly.
 
-Please refer install python 3 via either your packagemanager or via www.python.org
+Please install python 3 via either your packagemanager or via www.python.org
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!! PYTHON VERSION ERROR !!!!!!!!!!!!!!!!!!!!!!!!!!!
 

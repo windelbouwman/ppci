@@ -2,7 +2,7 @@
 Test WASM Table and Element definition classes.
 """
 
-from ppci.api import is_platform_supported, get_current_arch
+from ppci.api import is_platform_supported
 from ppci.wasm import Module, Table, run_wasm_in_node, has_node
 from ppci.wasm import instantiate
 from ppci.utils.reporting import html_reporter
@@ -15,11 +15,11 @@ def dedent(code):
 def tst_table0():
     assert Table("(table funcref)").id == "$0"
     assert Table("(table funcref)").min == 0
-    assert Table("(table funcref)").max == None
+    assert Table("(table funcref)").max is None
 
     assert Table("(table 1 funcref)").id == "$0"
     assert Table("(table 1 funcref)").min == 1
-    assert Table("(table 1 funcref)").max == None
+    assert Table("(table 1 funcref)").max is None
 
     assert Table("(table 1 2 funcref)").id == "$0"
     assert Table("(table 1 2 funcref)").min == 1

@@ -82,7 +82,7 @@ def has_qemu():
         try:
             subprocess.check_call([qemu_app, "--version"])
             return True
-        except:
+        except:  # noqa
             return False
 
 

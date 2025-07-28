@@ -67,8 +67,6 @@ class TypesTestCase(unittest.TestCase):
         self.assertIs(int32_type, common_type)
 
     def test_common_type2(self):
-        arch = ExampleArch()
-        context = Context(arch.info)
         uint16_type = self.context.get_type("uint16_t")
         int16_type = self.context.get_type("int16_t")
         # TODO: tbd, what is the result of uint16_t and int16_t?

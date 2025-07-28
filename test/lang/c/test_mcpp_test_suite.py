@@ -23,11 +23,9 @@ import unittest
 import glob
 import os.path
 import io
-import warnings
 
 from ppci.api import preprocess
 from ppci.lang.c import COptions
-from ppci.common import CompilerError
 
 this_dir = os.path.dirname(os.path.abspath(__file__))
 

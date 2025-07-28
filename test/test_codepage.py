@@ -1,6 +1,7 @@
 import unittest
 import io
 import ctypes
+import importlib
 from .helper_util import make_filename
 from ppci.api import cc, get_current_arch, is_platform_supported
 from ppci.utils.codepage import load_code_as_module
@@ -8,13 +9,8 @@ from ppci.utils.codepage import load_obj
 from ppci.utils.reporting import html_reporter
 
 
-def has_numpy():
-    try:
-        import numpy as np
-
-        return True
-    except ImportError:
-        return False
+def has_numpy() -> bool:
+    return bool(importlib.util.find_spec("numpy"))
 
 
 @unittest.skipUnless(is_platform_supported(), "skipping codepage tests")

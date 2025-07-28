@@ -2,8 +2,8 @@ import io
 import unittest
 
 from .sample_helpers import add_samples, build
-from ..helper_util import has_qemu, qemu, relpath, source_files
-from ..helper_util import do_long_tests, do_iverilog, make_filename
+from ..helper_util import has_qemu, qemu, relpath
+from ..helper_util import do_long_tests, make_filename
 
 
 @unittest.skipUnless(do_long_tests("arm"), "skipping slow tests")
@@ -56,7 +56,7 @@ class TestSamplesOnVexpress(unittest.TestCase):
         bsp_c3 = relpath("..", "examples", "realview-pb-a8", "arch.c3")
         startercode = io.StringIO(self.startercode)
         base_filename = make_filename(self.id())
-        obj = build(
+        build(
             base_filename,
             src,
             bsp_c3,
@@ -153,7 +153,7 @@ class TestSamplesOnCortexM3O2(unittest.TestCase):
         bsp_c3 = relpath("..", "examples", "lm3s6965evb", "bare", "arch.c3")
         startercode = io.StringIO(self.startercode)
         base_filename = make_filename(self.id())
-        obj = build(
+        build(
             base_filename,
             src,
             bsp_c3,

@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 from ppci.api import construct, objcopy, disasm, link
 from ppci.build.tasks import TaskError
-import ppci.build.buildtasks
+import ppci.build.buildtasks  # noqa:F401 this import has side effects.
 
 
 class ApiTestCase(unittest.TestCase):
