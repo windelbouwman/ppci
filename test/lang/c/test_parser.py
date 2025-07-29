@@ -1,11 +1,6 @@
 import io
 import unittest
-
-try:
-    # Use mock library for assert_called method
-    import mock
-except:
-    from unittest import mock
+from unittest import mock
 
 
 from ppci.lang.common import SourceLocation
@@ -53,7 +48,7 @@ class CParserTestCase(unittest.TestCase):
 
     def test_empty(self):
         """Test the obvious empty case!"""
-        cu = self.parse([])
+        self.parse([])
         self.assertSequenceEqual(
             [mock.call.begin(), mock.call.finish_compilation_unit()],
             self.semantics.mock_calls,
@@ -62,7 +57,7 @@ class CParserTestCase(unittest.TestCase):
     def test_global_int(self):
         """Test the parsing of a global integer"""
         tokens = [("int", "int"), ("ID", "A"), (";", ";")]
-        cu = self.parse(tokens)
+        self.parse(tokens)
         # TODO: this would be nice, but is very hard as of now:
         # self.semantics.on_variable_declaration.assert_called_with(
         #    None, None, 'A', [],
@@ -90,7 +85,7 @@ class CParserTestCase(unittest.TestCase):
             (";", ";"),
             ("}", "}"),
         ]
-        cu = self.parse(tokens)
+        self.parse(tokens)
         self.semantics.on_function_declaration.assert_called()
         self.semantics.on_binop.assert_called()
         self.semantics.on_return.assert_called()
@@ -145,7 +140,7 @@ class CParserTestCase(unittest.TestCase):
 
     def test_expression_precedence(self):
         self.given_source("*l==*r && *l")
-        expr = self.parser.parse_expression()
+        self.parser.parse_expression()
         self.semantics.on_binop.assert_called()
         self.semantics.on_unop.assert_called()
 
@@ -154,20 +149,20 @@ class CParserTestCase(unittest.TestCase):
         self.semantics.on_number.side_effect = [1, 2]
         self.semantics.on_binop.side_effect = [","]
         self.given_source("(int)1,2")
-        expr = self.parser.parse_expression()
+        self.parser.parse_expression()
         # TODO: assert precedence in some clever way
         self.semantics.on_binop.assert_called()
         self.semantics.on_cast.assert_called()
 
     def test_ternary_expression_precedence_case1(self):
         self.given_source("a ? b ? c : d : e")
-        expr = self.parser.parse_expression()
+        self.parser.parse_expression()
         self.assertEqual(5, self.semantics.on_variable_access.call_count)
         self.assertEqual(2, self.semantics.on_ternop.call_count)
 
     def test_ternary_expression_precedence_case2(self):
         self.given_source("a ? b : c ? d : e")
-        expr = self.parser.parse_expression()
+        self.parser.parse_expression()
         self.assertEqual(5, self.semantics.on_variable_access.call_count)
         self.assertEqual(2, self.semantics.on_ternop.call_count)
 

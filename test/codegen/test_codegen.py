@@ -4,7 +4,6 @@ import unittest
 import io
 from ppci import ir
 from ppci.irutils import Builder, Writer
-from ppci.codegen.dagsplit import DagSplitter
 from ppci.codegen.irdag import SelectionGraphBuilder
 from ppci.codegen.irdag import FunctionInfo, prepare_function_info
 from ppci.arch.example import ExampleArch
@@ -106,8 +105,7 @@ class IrDagTestCase(unittest.TestCase):
         debug_db = DebugDb()
         prepare_function_info(target, function_info, function)
         dag_builder = SelectionGraphBuilder(target)
-        sgraph = dag_builder.build(function, function_info, debug_db)
-        dag_splitter = DagSplitter(target)
+        dag_builder.build(function, function_info, debug_db)
 
     def test_bug1(self):
         """
@@ -175,8 +173,7 @@ class IrDagTestCase(unittest.TestCase):
         debug_db = DebugDb()
         prepare_function_info(target, function_info, function)
         dag_builder = SelectionGraphBuilder(target)
-        sgraph = dag_builder.build(function, function_info, debug_db)
-        dag_splitter = DagSplitter(target)
+        dag_builder.build(function, function_info, debug_db)
 
         # print(function_info.value_map)
         for b in function:

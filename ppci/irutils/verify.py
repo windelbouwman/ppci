@@ -104,9 +104,7 @@ class Verifier:
             raise ValueError("Block is empty: {}".format(block))
         if not block.last_instruction.is_terminator:
             raise ValueError(
-                "The last instruction of {} is not a terminator instruction".format(
-                    block
-                )
+                f"Last instruction of {block} is not a terminator"
             )
         assert all(not i.is_terminator for i in block.instructions[:-1])
         assert all(isinstance(p, ir.Block) for p in block.predecessors)

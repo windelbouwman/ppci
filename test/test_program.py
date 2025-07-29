@@ -45,7 +45,7 @@ class ProgramTestCase(unittest.TestCase):
     def test_namespace1(self):
         """Test that all public program classes are either sourcecode, ir or machinecode."""
         for cls in self.get_public_program_classes():
-            assert issubclass(cls, main_classes), ob
+            assert issubclass(cls, main_classes)
 
     def test_namespace2(self):
         """Test that at least all public classes are known by Program itself."""

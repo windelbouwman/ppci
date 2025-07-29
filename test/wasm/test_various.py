@@ -2,10 +2,8 @@ import io
 import os
 import unittest
 
-from ppci.arch.arch_info import TypeInfo
-from ppci import api, ir
+from ppci import api
 from ppci.wasm import wasm_to_ir, ir_to_wasm, read_wasm, read_wat
-from ppci.lang.python import python_to_wasm
 from ppci.wasm.util import sanitize_name
 
 

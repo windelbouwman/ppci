@@ -1,8 +1,7 @@
 import unittest
 
 from .sample_helpers import add_samples, build
-from ..helper_util import has_qemu, qemu, relpath, source_files
-from ..helper_util import do_long_tests, do_iverilog, make_filename
+from ..helper_util import relpath, make_filename
 
 
 @unittest.skip("TODO")

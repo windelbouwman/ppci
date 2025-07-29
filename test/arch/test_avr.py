@@ -17,9 +17,9 @@ class AvrArchitectureTestCase(unittest.TestCase):
         frame = Frame("foo")
         pushed = []
         popped = []
-        vcall = VCall("bar")
-        vcall.live_in = {r17, r19r18}
-        vcall.live_out = {r17, r19r18}
+        # vcall = VCall("bar")
+        # vcall.live_in = {r17, r19r18}
+        # vcall.live_out = {r17, r19r18}
         regs = [r17, r19r18, r20, r25, r26]
         for instruction in arch.gen_save_registers(frame, regs):
             if isinstance(instruction, Push):

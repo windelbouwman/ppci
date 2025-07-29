@@ -135,6 +135,7 @@ class HandLexerBase:
     def make_token(self, typ, val):
         location = self._start_loc
         assert location
+        location.length = len(val)
         return Token(typ, val, location)
 
     def ignore(self):

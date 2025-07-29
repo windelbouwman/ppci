@@ -13,8 +13,8 @@ Or just as a script:
 
 """
 
-from hypothesis import given, assume, settings, strategies as st
-from hypothesis.strategies import integers, composite
+from hypothesis import given, settings, strategies as st
+from hypothesis.strategies import composite
 from ppci.wasm import Module, instantiate
 
 # Create wasm module strategy?

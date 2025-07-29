@@ -3,7 +3,6 @@ import unittest
 from .sample_helpers import add_samples, build
 from ..helper_util import has_qemu, qemu, relpath
 from ..helper_util import do_long_tests, make_filename
-from ppci.format import uboot_image
 
 
 @unittest.skipUnless(do_long_tests("microblaze"), "skipping slow tests")

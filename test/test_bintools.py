@@ -13,7 +13,6 @@ from ppci.arch.example import Mov, R0, R1, ExampleArch
 
 class OutstreamTestCase(unittest.TestCase):
     def test_dummy_stream(self):
-        arch = ExampleArch()
         stream = DummyOutputStream()
         stream.select_section("code")
         stream.emit(Mov(R1, R0))
@@ -21,7 +20,6 @@ class OutstreamTestCase(unittest.TestCase):
     @patch("sys.stdout", new_callable=io.StringIO)
     def test_text_stream(self, mock_stdout):
         """Test output to stdout"""
-        arch = ExampleArch()
         stream = TextOutputStream()
         stream.select_section("code")
         stream.emit(Mov(R1, R0))

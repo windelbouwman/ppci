@@ -89,16 +89,16 @@ def print_message(
             print("{:5} :{}".format(r, txt), file=file)
 
         # print source line containing error:
-        base_txt = "      :"
         if r == row:
+            base_txt = "      :"
             if length < 1:
                 length = 1
             marker = "^" * length
-            indent = (col - 1) + length // 2
-            indent_txt = base_txt + " " * indent
-            print(f"{indent_txt}{marker}", file=file)
-            print(f"{indent_txt}|", file=file)
-            print(f"{indent_txt}+---- {message}", file=file)
+            indent1_txt = base_txt + " " * (col - 1)
+            indent2_txt = indent1_txt + " " * (length // 2)
+            print(f"{indent1_txt}{marker}", file=file)
+            print(f"{indent2_txt}|", file=file)
+            print(f"{indent2_txt}+---- {message}", file=file)
 
 
 SourceRange = namedtuple("SourceRange", ["p1", "p2"])

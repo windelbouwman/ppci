@@ -33,7 +33,7 @@ class Parser(RecursiveDescentParser):
     def add_symbol(self, sym):
         """Add a symbol to the current scope"""
         if self.current_scope.has_symbol(sym.name, include_parent=False):
-            self.error("Redefinition of {0}".format(sym.name), loc=sym.loc)
+            self.error(f"Redefinition of {sym.name}", loc=sym.loc)
         else:
             self.current_scope.add_symbol(sym)
 
@@ -385,7 +385,7 @@ class Parser(RecursiveDescentParser):
             self.peek in self.op_binding_powers
             and self.op_binding_powers[self.peek][0] >= rbp
         ):
-            operator = self.consume()
+            operator = self.next_token()
             precedence, associativity = self.op_binding_powers[operator.typ]
             if associativity == self.LEFT_ASSOCIATIVITY:
                 next_precedence = precedence + 1
@@ -425,7 +425,7 @@ class Parser(RecursiveDescentParser):
     def parse_unary_expression(self):
         """Handle unary plus, minus and pointer magic"""
         if self.peek in ["&", "*", "-", "+", "not"]:
-            operation = self.consume()
+            operation = self.next_token()
             inner_expression = self.parse_cast_expression()
             if operation.val == "*":
                 return ast.Deref(inner_expression, operation.loc)

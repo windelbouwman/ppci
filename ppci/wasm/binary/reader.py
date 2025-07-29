@@ -354,13 +354,15 @@ class BinaryFileReader:
     def read_elem_definition(self):
         """Read an `elem` definition."""
         ref = self.read_space_ref("table")
-        offset = self.read_expression()
+        if ref.index == 0:
+            offset = self.read_expression()
+            count = self.read_uint()
+            refs = [self.read_space_ref("func") for _ in range(count)]
+            return components.Elem(ref, offset, refs)
+        else:
+            raise NotImplementedError("Post MVP feature")
 
-        count = self.read_uint()
-        refs = [self.read_space_ref("func") for _ in range(count)]
-        return components.Elem(ref, offset, refs)
-
-    def read_func_definition(self, index):
+    def read_func_definition(self, index) -> components.Func:
         """Read a function with locals and instructions."""
         # First read on the function body block:
         body_data = self.read_length_prefixed_bytes()
@@ -382,12 +384,15 @@ class BinaryFileReader:
         self.add_definition("func", func)
         return func
 
-    def read_data_definition(self):
+    def read_data_definition(self) -> components.Data:
         """Read a data definition."""
         ref = self.read_space_ref("memory")
-        offset = self.read_expression()
-        data = self.read_length_prefixed_bytes()
-        return components.Data(ref, offset, data)
+        if ref.index == 0:
+            offset = self.read_expression()
+            data = self.read_length_prefixed_bytes()
+            return components.Data(ref, offset, data)
+        else:
+            raise NotImplementedError("Post MVP feature")
 
     def read_data_count_definition(self):
         n = self.read_int()

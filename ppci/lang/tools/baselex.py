@@ -78,9 +78,8 @@ class SimpleLexer(Lexer, metaclass=LexMeta):
         char = self.txt[self.pos]
         column = self.pos - self.line_start
         loc = SourceLocation(self.filename, self.line, column, 1)
-        raise CompilerError(
-            "Unexpected char: {0} (0x{1:X})".format(char, ord(char)), loc=loc
-        )
+        message = f"Unexpected char: {char} (0x{ord(char):X})"
+        raise CompilerError(message, loc=loc)
 
     def tokenize(self, txt, eof=False):
         """Generator that generates lexical tokens from text.
@@ -154,10 +153,8 @@ class BaseLexer(Lexer):
             char = txt[self.pos]
             column = self.pos - self.line_start
             loc = SourceLocation(self.filename, self.line, column, 1)
-            raise CompilerError(
-                "Unexpected char: {0} (0x{1:X})".format(char, ord(char)),
-                loc=loc,
-            )
+            message = f"Unexpected char: {char} (0x{ord(char):X})"
+            raise CompilerError(message, loc=loc)
         if eof:
             loc = SourceLocation(self.filename, self.line, 0, 0)
             yield Token(EOF, EOF, loc)

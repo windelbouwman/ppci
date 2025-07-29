@@ -7,7 +7,8 @@ identical IR-module from it.
 
 This can be useful in these scenario's:
 
-- Compilation caching: store the IR-code and load from disk when required later on.
+- Compilation caching: store the IR-code and load from disk when required
+  later on.
 - Distributed compilation: transfer IR-code across processes.
 
 .. doctest::
@@ -15,15 +16,18 @@ This can be useful in these scenario's:
     >>> import io
     >>> from ppci.api import c_to_ir
     >>> from ppci.irutils import to_json, from_json
-    >>> c_src = "int add(int a, int b) { return a + b; }"   # Define some C-code
-    >>> mod = c_to_ir(io.StringIO(c_src), "x86_64")         # turn C-code into IR-code
+    >>> # Define some C-code:
+    >>> c_src = "int add(int a, int b) { return a + b; }"
+    >>> # turn C-code into IR-code:
+    >>> mod = c_to_ir(io.StringIO(c_src), "x86_64")
     >>> mod.stats()
     'functions: 1, blocks: 2, instructions: 11'
-    >>> json_txt = to_json(mod)                             # Turn module into JSON
-    >>> mod2 = from_json(json_txt)                          # Load module from JSON.
+    >>> # Turn module into JSON:
+    >>> json_txt = to_json(mod)
+    >>> # Load module from JSON:
+    >>> mod2 = from_json(json_txt)
     >>> mod2.stats()
     'functions: 1, blocks: 2, instructions: 11'
-
 
 """
 

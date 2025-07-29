@@ -216,7 +216,7 @@ class CParser(RecursiveDescentParser):
                 if typ or type_specifiers:
                     break  # We already have a type.
                 else:
-                    type_name = self.consume()
+                    type_name = self.next_token()
                     typ = self.semantics.on_typename(
                         type_name.val, type_name.loc
                     )
@@ -1085,7 +1085,7 @@ class CParser(RecursiveDescentParser):
 
         # print('prio=', prio, self.peek)
         while self._binop_take(self.peek, priority):
-            op = self.consume()
+            op = self.next_token()
             op_prio = self.prio_map[op.val][1]
             if op.val == "?":
                 # Eat middle part:
@@ -1108,19 +1108,19 @@ class CParser(RecursiveDescentParser):
                 identifier.val, identifier.loc
             )
         elif self.peek == "NUMBER":
-            number = self.consume()
+            number = self.next_token()
             expr = self.semantics.on_number(number.val, number.loc)
         elif self.peek == "FLOAT":
-            number = self.consume()
+            number = self.next_token()
             expr = self.semantics.on_float(number.val, number.loc)
         elif self.peek == "CHAR":
-            char = self.consume()
+            char = self.next_token()
             expr = self.semantics.on_char(char.val, char.loc)
         elif self.peek == "STRING":
-            txt = self.consume()
+            txt = self.next_token()
             expr = self.semantics.on_string(txt.val, txt.loc)
         elif self.peek in ["!", "*", "+", "-", "~", "&", "--", "++"]:
-            op = self.consume()
+            op = self.next_token()
             if op.val in ["--", "++"]:
                 operator = op.val + "x"
             else:
@@ -1195,7 +1195,7 @@ class CParser(RecursiveDescentParser):
         # Postfix operations (have the highest precedence):
         while self.peek in ["--", "++", "[", ".", "->", "("]:
             if self.peek in ["--", "++"]:
-                op = self.consume()
+                op = self.next_token()
                 expr = self.semantics.on_unop("x" + op.val, expr, op.loc)
             elif self.peek == "[":
                 location = self.consume("[").loc

@@ -155,7 +155,7 @@ class SExpressionParser(RecursiveDescentParser):
             elif self.peek == "(":
                 val = self.parse_sexpr()
             else:
-                tok = self.consume()
+                tok = self.next_token()
                 if tok.typ == "string":
                     val = SString(tok.val, tok.loc)
                 elif tok.typ == "word":
@@ -178,6 +178,11 @@ def parse_sexpr(text: str, multiple=False) -> "SExpression":
     if len(expressions) != 1:
         raise ValueError("Expected a single S-expression")
     return expressions[0]
+
+
+def parse_sexpr_as_tuple(text: str):
+    """Parse text into a tuple."""
+    return parse_sexpr(text).as_tuple()
 
 
 def parse_s_expressions(text: str) -> tuple["SExpression"]:
@@ -203,6 +208,9 @@ class SList(SExpression):
         super().__init__(loc)
         self.values = values
 
+    def __len__(self) -> int:
+        return len(self.values)
+
     def __getitem__(self, index):
         return self.values[index]
 
@@ -217,33 +225,41 @@ class SList(SExpression):
         return tuple(values)
 
 
-class SSymbol(SExpression):
+class SValue(SExpression):
     def __init__(self, value: str, loc):
         super().__init__(loc)
         self.value = value
+
+    def get_value(self) -> str:
+        return self.value
+
+
+class SSymbol(SValue):
+    def __init__(self, value: str, loc):
+        super().__init__(value, loc)
 
     def is_symbol(self, value: str) -> bool:
         return self.value == value
 
+    def get_symbol(self) -> str:
+        return self.value
 
-class SString(SExpression):
+
+class SString(SValue):
     """String  S-expression"""
 
     def __init__(self, value: str, loc):
-        super().__init__(loc)
-        self.value = value
+        super().__init__(value, loc)
 
     def get_string(self) -> str:
         return self.value
 
 
-class SInteger(SExpression):
+class SInteger(SValue):
     def __init__(self, value: int, loc):
-        super().__init__(loc)
-        self.value = value
+        super().__init__(value, loc)
 
 
-class SFloat(SExpression):
+class SFloat(SValue):
     def __init__(self, value: float, loc):
-        super().__init__(loc)
-        self.value = value
+        super().__init__(value, loc)

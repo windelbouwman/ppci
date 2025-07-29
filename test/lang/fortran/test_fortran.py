@@ -42,7 +42,7 @@ class FortranTestCase(unittest.TestCase):
 
     def do(self, src):
         # print('======')
-        prog = self.parser.parse(src)
+        self.parser.parse(src)
         # self.printer.print(prog)
         # print('======')
 

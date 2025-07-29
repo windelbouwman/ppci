@@ -4,6 +4,7 @@ import math
 import unittest
 from ppci.wasm import instantiate, Module
 from ppci.api import is_platform_supported
+
 # from ppci.utils.reporting import html_reporter
 
 # The below snippet is from the wasm spec test suite.

@@ -1004,7 +1004,7 @@ class Parser(RecursiveDescentParser):
         """
         lhs = self.parse_primary_expression()
         while self._should_take(priority):
-            operator = self.consume()
+            operator = self.next_token()
             op = operator.val
             location = operator.loc
             operator_priority = self.operator_priorities[op]
@@ -1070,7 +1070,7 @@ class Parser(RecursiveDescentParser):
             rhs = self.parse_primary_expression()
             expr = expressions.Unop("not", rhs, rhs.typ, location)
         elif self.peek in ["+", "-"]:
-            operator = self.consume()
+            operator = self.next_token()
             rhs = self.parse_primary_expression()
             expr = expressions.Unop(operator.typ, rhs, rhs.typ, operator.loc)
         elif self.peek == "NUMBER":
