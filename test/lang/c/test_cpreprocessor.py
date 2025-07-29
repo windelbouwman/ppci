@@ -556,7 +556,7 @@ class CPreProcessorTestCase(unittest.TestCase):
         E"""
         self.preprocess(src, expected)
     
-    def test_variadic_macro(self):
+    def test_named_variadic_macro(self):
         """Check the behavior of variadic macros"""
         src = r"""#define A(NAME...) a NAME b
         A(B)

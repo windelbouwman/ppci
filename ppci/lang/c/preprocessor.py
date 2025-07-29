@@ -430,7 +430,7 @@ class CPreProcessor:
         args, commas = self.parse_arguments()
 
         # Check amount of arguments:
-        if macro.variadic or macro.named_variadic:
+        if macro.variadic:
             # macro.variadic, len(macro.args)
             req_args = len(macro.args)
             if len(args) < req_args:
@@ -544,9 +544,7 @@ class CPreProcessor:
 
         # Spiffy variadic macro!
         if macro.variadic:
-            repl_map["__VA_ARGS__"] = args[-1]
-        elif macro.named_variadic:
-            repl_map[macro.named_variadic] = args[-1]
+            repl_map[macro.variadic] = args[-1]
 
         # print(repl_map)
         if self.verbose:
@@ -865,8 +863,7 @@ class CPreProcessor:
         name = self.consume("ID", expand=False)
 
         # Handle function like macros:
-        variadic = False
-        named_variadic = False
+        variadic = None
         token = self.next_token(expand=False)
         if token:
             if token.typ == "(" and not token.space:
@@ -874,16 +871,16 @@ class CPreProcessor:
                 while True:
                     if self.token.typ == "...":
                         self.consume("...", expand=False)
-                        variadic = True
+                        variadic = "__VA_ARGS__"
                         break
                     elif self.token.typ == "ID":
-                        mname = self.consume("ID", expand=False).val
+                        idname = self.consume("ID", expand=False).val
                         if self.token.typ == "...":
-                            named_variadic = mname
+                            variadic = idname
                             self.consume("...", expand=False)
                             break
                         else:
-                            args.append(mname)
+                            args.append(idname)
                     else:
                         break
 
@@ -906,7 +903,7 @@ class CPreProcessor:
             # Patch first token spaces:
             value[0] = value[0].copy(space="")
         value_txt = "".join(map(str, value))
-        macro = Macro(name.val, value, args=args, variadic=variadic, named_variadic=named_variadic)
+        macro = Macro(name.val, value, args=args, variadic=variadic)
         if self.verbose:
             self.logger.debug("Defining %s=%s", name.val, value_txt)
         self.define(macro)

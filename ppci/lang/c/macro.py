@@ -13,13 +13,12 @@ class Macro(BaseMacro):
     """Macro define"""
 
     def __init__(
-        self, name, value, args=None, protected=False, variadic=False, named_variadic=False
+        self, name, value, args=None, protected=False, variadic=None
     ):
         super().__init__(name, protected=protected)
         self.value = value
         self.args = args
         self.variadic = variadic
-        self.named_variadic=named_variadic
 
 
 class FunctionMacro(BaseMacro):
