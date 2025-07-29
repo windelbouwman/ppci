@@ -544,7 +544,7 @@ class CPreProcessor:
 
         # Spiffy variadic macro!
         if macro.variadic:
-            repl_map["__VA_ARGS__"] = args[-1]
+            repl_map[macro.variadic] = args[-1]
 
         # print(repl_map)
         if self.verbose:
@@ -863,7 +863,7 @@ class CPreProcessor:
         name = self.consume("ID", expand=False)
 
         # Handle function like macros:
-        variadic = False
+        variadic = None
         token = self.next_token(expand=False)
         if token:
             if token.typ == "(" and not token.space:
@@ -871,10 +871,16 @@ class CPreProcessor:
                 while True:
                     if self.token.typ == "...":
                         self.consume("...", expand=False)
-                        variadic = True
+                        variadic = "__VA_ARGS__"
                         break
                     elif self.token.typ == "ID":
-                        args.append(self.consume("ID", expand=False).val)
+                        idname = self.consume("ID", expand=False).val
+                        if self.token.typ == "...":
+                            variadic = idname
+                            self.consume("...", expand=False)
+                            break
+                        else:
+                            args.append(idname)
                     else:
                         break
 

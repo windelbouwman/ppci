@@ -556,6 +556,17 @@ class CPreProcessorTestCase(unittest.TestCase):
         E"""
         self.preprocess(src, expected)
 
+    def test_named_variadic_macro(self):
+        """Check the behavior of variadic macros"""
+        src = r"""#define A(NAME...) a NAME b
+        A(B)
+        E"""
+        expected = """# 1 "dummy.t"
+
+        a B b
+        E"""
+        self.preprocess(src, expected)
+
     def test_argument_prescan(self):
         """When argument is used in concatenation, do not expand it"""
         src = r"""#define AFTERX(x) X_ ## x
