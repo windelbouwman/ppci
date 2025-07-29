@@ -12,9 +12,7 @@ class BaseMacro:
 class Macro(BaseMacro):
     """Macro define"""
 
-    def __init__(
-        self, name, value, args=None, protected=False, variadic=None
-    ):
+    def __init__(self, name, value, args=None, protected=False, variadic=None):
         super().__init__(name, protected=protected)
         self.value = value
         self.args = args
