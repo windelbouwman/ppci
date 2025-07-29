@@ -1,4 +1,4 @@
-""" Helper script to build 8cc
+"""Helper script to build 8cc
 
 8cc is a small c99 compiler written in c99.
 
@@ -28,28 +28,28 @@ from ppci.format.elf import write_elf
 from ppci.lang.c import COptions
 from ppci.common import CompilerError, logformat
 
-home = os.environ['HOME']
-_8cc_folder = os.path.join(home, 'GIT', '8cc')
+home = os.environ["HOME"]
+_8cc_folder = os.path.join(home, "GIT", "8cc")
 this_dir = os.path.abspath(os.path.dirname(__file__))
-report_filename = os.path.join(this_dir, 'report_8cc.html')
-libc_folder = os.path.join(this_dir, '..', 'librt', 'libc')
-libc_includes = os.path.join(libc_folder, 'include')
-linux_include_dir = '/usr/include'
-arch = 'x86_64'
+report_filename = os.path.join(this_dir, "report_8cc.html")
+libc_folder = os.path.join(this_dir, "..", "librt", "libc")
+libc_includes = os.path.join(libc_folder, "include")
+linux_include_dir = "/usr/include"
+arch = "x86_64"
 coptions = COptions()
 include_paths = [
     libc_includes,
     _8cc_folder,
     linux_include_dir,
-    ]
+]
 coptions.add_include_paths(include_paths)
-coptions.add_define('BUILD_DIR', '"{}"'.format(_8cc_folder))
+coptions.add_define("BUILD_DIR", '"{}"'.format(_8cc_folder))
 
 
 def do_compile(filename, reporter):
-    with open(filename, 'r') as f:
+    with open(filename, "r") as f:
         obj = api.cc(f, arch, coptions=coptions, reporter=reporter)
-    print(filename, 'compiled into', obj)
+    print(filename, "compiled into", obj)
     return obj
 
 
@@ -58,54 +58,54 @@ def main():
     failed = 0
     passed = 0
     sources = [
-        'cpp.c',
-        'debug.c',
-        'dict.c',
-        'gen.c',
-        'lex.c',
-        'vector.c',
-        'parse.c',
-        'buffer.c',
-        'map.c',
-        'error.c',
-        'path.c',
-        'file.c',
-        'set.c',
-        'encoding.c',
+        "cpp.c",
+        "debug.c",
+        "dict.c",
+        "gen.c",
+        "lex.c",
+        "vector.c",
+        "parse.c",
+        "buffer.c",
+        "map.c",
+        "error.c",
+        "path.c",
+        "file.c",
+        "set.c",
+        "encoding.c",
     ]
     objs = []
     with html_reporter(report_filename) as reporter:
         for filename in sources:
             filename = os.path.join(_8cc_folder, filename)
-            print('==> Compiling', filename)
+            print("==> Compiling", filename)
             try:
                 obj = do_compile(filename, reporter)
             except CompilerError as ex:
-                print('Error:', ex.msg, ex.loc)
+                print("Error:", ex.msg, ex.loc)
                 ex.print()
                 print_exc()
                 failed += 1
             except Exception as ex:
-                print('General exception:', ex)
+                print("General exception:", ex)
                 print_exc()
                 failed += 1
             else:
                 objs.append(obj)
-                print('Great success!')
+                print("Great success!")
                 passed += 1
 
     t2 = time.time()
     elapsed = t2 - t1
-    print(passed, 'passed,', failed, 'failed in', elapsed, 'seconds')
+    print(passed, "passed,", failed, "failed in", elapsed, "seconds")
 
     obj = api.link(objs)
-    with open('8cc.exe', 'wb') as f:
-        write_elf(obj, f, type='executable')
+    with open("8cc.exe", "wb") as f:
+        write_elf(obj, f, type="executable")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--verbose', '-v', action='count', default=0)
+    parser.add_argument("--verbose", "-v", action="count", default=0)
     args = parser.parse_args()
     if args.verbose > 0:
         level = logging.DEBUG

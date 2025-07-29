@@ -8,13 +8,14 @@ class RegisterModel(QtCore.QAbstractTableModel):
         self._registers = self.debugger.debugger.registers
         self._register_values = {}
         self.debugger.stopped.connect(self.on_stopped)
-        self.headers = ('Register', 'Value')
+        self.headers = ("Register", "Value")
 
     def on_stopped(self):
         from_index = self.index(0, 1)
         to_index = self.index(len(self._registers) - 1, 1)
         self._register_values = self.debugger.debugger.get_register_values(
-            self._registers)
+            self._registers
+        )
         self.dataChanged.emit(from_index, to_index)
 
     def rowCount(self, parent):
@@ -43,7 +44,7 @@ class RegisterModel(QtCore.QAbstractTableModel):
                         value = self._register_values[register]
                     else:
                         value = 0
-                    return '0x{0:X}'.format(value)
+                    return "0x{0:X}".format(value)
 
     def setData(self, index, value, role):
         if index.isValid():

@@ -1,4 +1,4 @@
-""" Widget that provides raw gdb interaction.
+"""Widget that provides raw gdb interaction.
 
 Possible use cases:
 
@@ -18,7 +18,7 @@ class GdbConsole(QtWidgets.QWidget):
         # Layout widgets:
         l = QtWidgets.QVBoxLayout(self)
         l2 = QtWidgets.QHBoxLayout()
-        l2.addWidget(QtWidgets.QLabel('Raw GDB RSP command:'))
+        l2.addWidget(QtWidgets.QLabel("Raw GDB RSP command:"))
         self.gdb_command = QtWidgets.QLineEdit()
         l2.addWidget(self.gdb_command)
         l.addLayout(l2)

@@ -12,14 +12,14 @@ class MemoryView(QtWidgets.QWidget):
         # Layout widgets:
         l = QtWidgets.QVBoxLayout(self)
         l2 = QtWidgets.QHBoxLayout()
-        l2.addWidget(QtWidgets.QLabel('Address'))
+        l2.addWidget(QtWidgets.QLabel("Address"))
         self.addressLine = QtWidgets.QLineEdit()
-        self.addressLine.setInputMask('Hhhhhhhhhhhhhhhh')
+        self.addressLine.setInputMask("Hhhhhhhhhhhhhhhh")
         l2.addWidget(self.addressLine)
-        upButton = QtWidgets.QPushButton('up')
+        upButton = QtWidgets.QPushButton("up")
         l2.addWidget(upButton)
         upButton.clicked.connect(self.do_up)
-        downButton = QtWidgets.QPushButton('down')
+        downButton = QtWidgets.QPushButton("down")
         downButton.clicked.connect(self.do_down)
         l2.addWidget(downButton)
         l.addLayout(l2)
@@ -47,7 +47,7 @@ class MemoryView(QtWidgets.QWidget):
         return int(txt, 16)
 
     def set_address(self, address):
-        self.addressLine.setText('{:016X}'.format(address))
+        self.addressLine.setText("{:016X}".format(address))
         self.refresh()
 
     address = property(get_address, set_address)

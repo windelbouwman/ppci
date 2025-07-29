@@ -1,4 +1,4 @@
-""" This contains a set of benchmarks to benchmark the ppci
+"""This contains a set of benchmarks to benchmark the ppci
 compiler internals.
 
 This can be used to verify a certain change yields a performance
@@ -29,7 +29,7 @@ def test_compile_8cc(benchmark):
 
 
 def compile_nos_for_riscv():
-    """ Compile nOS for riscv architecture. """
+    """Compile nOS for riscv architecture."""
     logging.basicConfig(level=logging.INFO)
     murax_folder = os.path.join(this_dir, "..", "examples", "riscvmurax")
     arch = api.get_arch("riscv")
@@ -74,46 +74,46 @@ def get_sources(folder, extension):
 
 
 def compile_8cc():
-    """ Compile the 8cc compiler.
+    """Compile the 8cc compiler.
 
     8cc homepage:
     https://github.com/rui314/8cc
     """
 
-    home = os.environ['HOME']
-    _8cc_folder = os.path.join(home, 'GIT', '8cc')
-    libc_includes = os.path.join(this_dir, '..', 'librt', 'libc', 'include')
-    linux_include_dir = '/usr/include'
-    arch = api.get_arch('x86_64')
+    home = os.environ["HOME"]
+    _8cc_folder = os.path.join(home, "GIT", "8cc")
+    libc_includes = os.path.join(this_dir, "..", "librt", "libc", "include")
+    linux_include_dir = "/usr/include"
+    arch = api.get_arch("x86_64")
     coptions = COptions()
     include_paths = [
         libc_includes,
         _8cc_folder,
         linux_include_dir,
-        ]
+    ]
     coptions.add_include_paths(include_paths)
-    coptions.add_define('BUILD_DIR', '"{}"'.format(_8cc_folder))
+    coptions.add_define("BUILD_DIR", '"{}"'.format(_8cc_folder))
 
     sources = [
-        'cpp.c',
-        'debug.c',
-        'dict.c',
-        'gen.c',
-        'lex.c',
-        'vector.c',
-        'parse.c',
-        'buffer.c',
-        'map.c',
-        'error.c',
-        'path.c',
-        'file.c',
-        'set.c',
-        'encoding.c',
+        "cpp.c",
+        "debug.c",
+        "dict.c",
+        "gen.c",
+        "lex.c",
+        "vector.c",
+        "parse.c",
+        "buffer.c",
+        "map.c",
+        "error.c",
+        "path.c",
+        "file.c",
+        "set.c",
+        "encoding.c",
     ]
     objs = []
     for filename in sources:
         source_path = os.path.join(_8cc_folder, filename)
-        with open(source_path, 'r') as f:
+        with open(source_path, "r") as f:
             objs.append(api.cc(f, arch, coptions=coptions))
 
     # TODO: maybe link it?

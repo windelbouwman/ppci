@@ -1,4 +1,3 @@
-
 import logging
 from qtwrapper import QtCore, QtWidgets
 from qtwrapper import Qt
@@ -16,7 +15,7 @@ class PartialVariable:
         self._children = None
 
     def __repr__(self):
-        return '{} @ 0x{:016X}'.format(self.name, self.address)
+        return "{} @ 0x{:016X}".format(self.name, self.address)
 
     @property
     def children(self):
@@ -26,20 +25,21 @@ class PartialVariable:
                 pass
             elif isinstance(self.typ, DebugArrayType):
                 for row in range(self.typ.size):
-                    name = '[{}]'.format(row)
+                    name = "[{}]".format(row)
                     offset = row * self.typ.element_type.sizeof()
                     addr = self.address + offset
                     pv = PartialVariable(
-                        name, self.typ.element_type, addr, row, self)
+                        name, self.typ.element_type, addr, row, self
+                    )
                     self._children.append(pv)
             elif isinstance(self.typ, DebugStructType):
                 for row, field in enumerate(self.typ.fields):
-                    name = '{}'.format(field.name)
+                    name = "{}".format(field.name)
                     addr = self.address + field.offset
                     pv = PartialVariable(name, field.typ, addr, row, self)
                     self._children.append(pv)
             elif isinstance(self.typ, DebugPointerType):
-                name = '*{}'.format(self.name)
+                name = "*{}".format(self.name)
                 typ = self.typ.pointed_type
                 addr = 0  # TODO load self.address
                 pv = PartialVariable(name, typ, addr, 0, self)
@@ -53,12 +53,13 @@ class PartialVariable:
 
 
 class VariableModel(QtCore.QAbstractItemModel):
-    """ Model that contains a view on the current values of variables """
+    """Model that contains a view on the current values of variables"""
+
     def __init__(self, qdebugger, roots):
         super().__init__()
         self.qdebugger = qdebugger
         self.qdebugger.stopped.connect(self.on_stopped)
-        self.headers = ('Name', 'Value', 'Type', 'Address')
+        self.headers = ("Name", "Value", "Type", "Address")
         self.roots = roots
         self._value_cache = {}
 
@@ -71,7 +72,7 @@ class VariableModel(QtCore.QAbstractItemModel):
             self.dataChanged.emit(from_index, to_index)
 
     def load_value(self, address, typ):
-        """ Load a value from memory, and cache the result """
+        """Load a value from memory, and cache the result"""
         key = (address, typ)
         if key in self._value_cache:
             value = self._value_cache[key]
@@ -135,7 +136,7 @@ class VariableModel(QtCore.QAbstractItemModel):
             elif col == 2:
                 return str(var.typ)
             elif col == 3:
-                return '0x{:X}'.format(var.address)
+                return "0x{:X}".format(var.address)
             else:
                 raise NotImplementedError()
 
@@ -150,23 +151,27 @@ def calc_roots(debugger, variables):
 
 
 class VariablesView(QtWidgets.QTreeView):
-    """ A widgets displaying current values of variables """
+    """A widgets displaying current values of variables"""
+
     def __init__(self, debugger):
         super().__init__()
-        roots = calc_roots(debugger.debugger, debugger.debugger.obj.debug_info.variables)
+        roots = calc_roots(
+            debugger.debugger, debugger.debugger.obj.debug_info.variables
+        )
         model = VariableModel(debugger, roots)
         self.setModel(model)
 
 
 class LocalsView(QtWidgets.QTreeView):
-    """ A widgets displaying current values of locals """
+    """A widgets displaying current values of locals"""
+
     def __init__(self, debugger):
         super().__init__()
         self._cur_func = None
         self.qdebugger = debugger
         self.qdebugger.stopped.connect(self.on_stopped)
-        #model = VariableModel(debugger)
-        #self.setModel(model)
+        # model = VariableModel(debugger)
+        # self.setModel(model)
         # TODO!
 
     def on_stopped(self):
@@ -177,8 +182,8 @@ class LocalsView(QtWidgets.QTreeView):
         # if cur_func != self._cur_func:
         self._cur_func = cur_func
         if cur_func:
-                logging.debug('Now in %s', cur_func)
-                self.set_new_model(cur_func)
+            logging.debug("Now in %s", cur_func)
+            self.set_new_model(cur_func)
 
     def set_new_model(self, cur_func):
         roots = calc_roots(self.qdebugger.debugger, cur_func.variables)

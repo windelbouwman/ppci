@@ -14,10 +14,10 @@ class DebugToolbar(QtWidgets.QToolBar):
             self.addAction(a)
             return a
 
-        self.runAction = genAction('Run', self.qdebugger.run, Qt.Key_F5)
-        self.stopAction = genAction('Stop', self.qdebugger.stop)
-        self.stepAction = genAction('Step', self.qdebugger.step, Qt.Key_F10)
-        self.resetAction = genAction('Reset', self.doReset)
+        self.runAction = genAction("Run", self.qdebugger.run, Qt.Key_F5)
+        self.stopAction = genAction("Stop", self.qdebugger.stop)
+        self.stepAction = genAction("Step", self.qdebugger.step, Qt.Key_F10)
+        self.resetAction = genAction("Reset", self.doReset)
 
         # Attach signals:
         self.qdebugger.halted.connect(self.runAction.setEnabled)

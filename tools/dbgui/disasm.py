@@ -8,10 +8,12 @@ class DisAsmModel(QtCore.QAbstractTableModel):
         self.debugger = debugger
         self.debugger.stopped.connect(self.on_stopped)
         self.instructions = []
-        self.headers = ['Address', 'Bytes', 'Instruction']
+        self.headers = ["Address", "Bytes", "Instruction"]
         self.txts = []
-        self.txts.append(lambda i: '0x{:08x}'.format(getattr(i, 'address', 0)))
-        self.txts.append(lambda i: binascii.hexlify(i.encode()).decode('ascii'))
+        self.txts.append(lambda i: "0x{:08x}".format(getattr(i, "address", 0)))
+        self.txts.append(
+            lambda i: binascii.hexlify(i.encode()).decode("ascii")
+        )
         self.txts.append(lambda i: str(i))
         # self.on_state_changed()
 

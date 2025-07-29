@@ -1,4 +1,4 @@
-""" Helper script to build links
+"""Helper script to build links
 
 Version: links-2.17
 
@@ -27,16 +27,16 @@ from ppci.lang.c import COptions
 from ppci.common import CompilerError, logformat
 from ppci.utils.reporting import html_reporter
 
-links_folder = os.environ['LINKS_FOLDER']
+links_folder = os.environ["LINKS_FOLDER"]
 this_dir = os.path.abspath(os.path.dirname(__file__))
-report_filename = os.path.join(this_dir, 'report_links.html')
-libc_path = os.path.join(this_dir, '..', 'librt', 'libc')
-libc_includes = os.path.join(libc_path, 'include')
-arch = 'x86_64'
+report_filename = os.path.join(this_dir, "report_links.html")
+libc_path = os.path.join(this_dir, "..", "librt", "libc")
+libc_includes = os.path.join(libc_path, "include")
+arch = "x86_64"
 
 
 def do_compile(filename, coptions, reporter):
-    with open(filename, 'r') as f:
+    with open(filename, "r") as f:
         obj = cc(f, arch, coptions=coptions, reporter=reporter)
     return obj
 
@@ -45,46 +45,46 @@ def main():
     t1 = time.time()
     failed = 0
     passed = 0
-    sources = glob.iglob(os.path.join(links_folder, '*.c'))
+    sources = glob.iglob(os.path.join(links_folder, "*.c"))
     objs = []
     coptions = COptions()
     include_paths = [
         libc_includes,
         links_folder,
-        '/usr/include',
-        ]
+        "/usr/include",
+    ]
     coptions.add_include_paths(include_paths)
     with html_reporter(report_filename) as reporter:
         for filename in sources:
             filename = os.path.join(links_folder, filename)
-            print('      ======================')
-            print('    ========================')
-            print('  ==> Compiling', filename)
+            print("      ======================")
+            print("    ========================")
+            print("  ==> Compiling", filename)
             try:
                 obj = do_compile(filename, coptions, reporter)
                 objs.append(obj)
             except CompilerError as ex:
-                print('Error:', ex.msg, ex.loc)
+                print("Error:", ex.msg, ex.loc)
                 ex.print()
                 print_exc()
                 failed += 1
             except Exception as ex:
-                print('General exception:', ex)
+                print("General exception:", ex)
                 print_exc()
                 failed += 1
             else:
-                print('Great success!')
+                print("Great success!")
                 passed += 1
 
     t2 = time.time()
     elapsed = t2 - t1
-    print('Passed:', passed, 'failed:', failed, 'in', elapsed, 'seconds')
+    print("Passed:", passed, "failed:", failed, "in", elapsed, "seconds")
     obj = link(objs)
     print(obj)
 
 
-if __name__ == '__main__':
-    verbose = '-v' in sys.argv
+if __name__ == "__main__":
+    verbose = "-v" in sys.argv
     if verbose:
         level = logging.DEBUG
     else:

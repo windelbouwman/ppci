@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 """
-    A widget to log a python logger.
+A widget to log a python logger.
 """
 
 import sys
@@ -13,14 +13,14 @@ from qtwrapper import QtCore, QtWidgets, Qt
 
 def formatTime(t):
     t2 = datetime.datetime.fromtimestamp(t)
-    return t2.strftime('%Y-%m-%d %H:%M:%S')
+    return t2.strftime("%Y-%m-%d %H:%M:%S")
 
 
 class LogModel(QtCore.QAbstractTableModel):
     def __init__(self):
         super().__init__()
         self.entries = []
-        self.headers = ['Time', 'Level', 'Logger', 'Message']
+        self.headers = ["Time", "Level", "Logger", "Message"]
         self.formatter = logging.Formatter()
 
     def rowCount(self, parent):
@@ -51,7 +51,8 @@ class LogModel(QtCore.QAbstractTableModel):
 
 
 class MyHandler(logging.Handler):
-    """ Custom log handler that appends log messages to logview """
+    """Custom log handler that appends log messages to logview"""
+
     def __init__(self, tv, log_model):
         super().__init__()
         self.tv = tv
@@ -65,7 +66,8 @@ class MyHandler(logging.Handler):
 
 
 class LogView(QtWidgets.QWidget):
-    """ Log view component """
+    """Log view component"""
+
     def __init__(self, parent=None):
         super().__init__(parent)
         l = QtWidgets.QVBoxLayout(self)
@@ -77,12 +79,12 @@ class LogView(QtWidgets.QWidget):
         logging.getLogger().addHandler(MyHandler(self.tv, self.log_model))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
     lv = LogView()
     lv.show()
     lv.resize(600, 200)
-    logging.error('Error!!!')
-    logging.warn('Warn here!')
-    logging.error('formatted output: %s %i', 'wow', 13)
+    logging.error("Error!!!")
+    logging.warn("Warn here!")
+    logging.error("formatted output: %s %i", "wow", 13)
     app.exec_()

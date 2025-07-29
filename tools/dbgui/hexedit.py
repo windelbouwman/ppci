@@ -12,18 +12,19 @@ def clamp(minimum, x, maximum):
 
 
 def asciiChar(v):
-    if v < 0x20 or v > 0x7e:
-        return '.'
+    if v < 0x20 or v > 0x7E:
+        return "."
     else:
         return chr(v)
 
 
 class BinViewer(QtWidgets.QWidget):
-    """ The view has an address, hex byte and ascii column """
+    """The view has an address, hex byte and ascii column"""
+
     def __init__(self, scrollArea):
         super().__init__(scrollArea)
         self.scrollArea = scrollArea
-        self.setFont(QtGui.QFont('Courier', 16))
+        self.setFont(QtGui.QFont("Courier", 16))
         self.setFocusPolicy(Qt.StrongFocus)
         self.blinkcursor = False
         self.cursorX = self.cursorY = 0
@@ -40,7 +41,8 @@ class BinViewer(QtWidgets.QWidget):
     def updateCursor(self):
         self.blinkcursor = not self.blinkcursor
         self.update(
-            self.cursorX, self.cursorY, self.charWidth, self.charHeight)
+            self.cursorX, self.cursorY, self.charWidth, self.charHeight
+        )
 
     def setCursorPosition(self, position):
         position = clamp(0, int(position), len(self.Data) * 2 - 1)
@@ -73,8 +75,9 @@ class BinViewer(QtWidgets.QWidget):
         # Background:
         painter.fillRect(er, self.palette().color(QtGui.QPalette.Base))
         painter.fillRect(
-            QtCore.QRect(
-                self.xposAddr, er.top(), 8 * chw, er.bottom() + 1), Qt.gray)
+            QtCore.QRect(self.xposAddr, er.top(), 8 * chw, er.bottom() + 1),
+            Qt.gray,
+        )
         painter.setPen(Qt.gray)
         x = self.xposAscii - (GAP / 2)
         painter.drawLine(x, er.top(), x, er.bottom())
@@ -92,7 +95,8 @@ class BinViewer(QtWidgets.QWidget):
         for index in range(firstIndex, lastIndex, BYTES_PER_LINE):
             painter.setPen(Qt.black)
             painter.drawText(
-                self.xposAddr, ypos, '{0:08X}'.format(index + self.Offset))
+                self.xposAddr, ypos, "{0:08X}".format(index + self.Offset)
+            )
             xpos = self.xposHex
             xposAscii = self.xposAscii
             for colIndex in range(BYTES_PER_LINE):
@@ -101,7 +105,7 @@ class BinViewer(QtWidgets.QWidget):
                     bo = self.originalData[index + colIndex]
                     pen_color = Qt.black if b == bo else Qt.red
                     painter.setPen(pen_color)
-                    painter.drawText(xpos, ypos, '{0:02X}'.format(b))
+                    painter.drawText(xpos, ypos, "{0:02X}".format(b))
                     painter.drawText(xposAscii, ypos, asciiChar(b))
                     xpos += 3 * chw
                     xposAscii += chw
@@ -110,7 +114,8 @@ class BinViewer(QtWidgets.QWidget):
         # cursor
         if self.blinkcursor:
             painter.fillRect(
-                self.cursorX, self.cursorY + chh - 2, chw, 2, Qt.black)
+                self.cursorX, self.cursorY + chh - 2, chw, 2, Qt.black
+            )
 
     def keyPressEvent(self, event):
         if event.matches(QtGui.QKeySequence.MoveToNextChar):
@@ -128,7 +133,7 @@ class BinViewer(QtWidgets.QWidget):
             rows = int(self.scrollArea.viewport().height() / self.charHeight)
             self.CursorPosition -= (rows - 1) * 2 * BYTES_PER_LINE
         char = event.text().lower()
-        if char and char in '0123456789abcdef':
+        if char and char in "0123456789abcdef":
             i = int(self.CursorPosition / 2)
             hb = self.CursorPosition % 2
             v = int(char, 16)
@@ -139,12 +144,15 @@ class BinViewer(QtWidgets.QWidget):
                 self.data[i] = (self.data[i] & 0xF0) | v
             self.CursorPosition += 1
         self.scrollArea.ensureVisible(
-            self.cursorX, self.cursorY + self.charHeight / 2,
-            4, self.charHeight / 2 + 4)
+            self.cursorX,
+            self.cursorY + self.charHeight / 2,
+            4,
+            self.charHeight / 2 + 4,
+        )
         self.update()
 
     def setCursorPositionAt(self, pos):
-        """ Calculate cursor position at a certain point """
+        """Calculate cursor position at a certain point"""
         if pos.x() > self.xposHex and pos.x() < self.xposAscii:
             x = round((2 * (pos.x() - self.xposHex)) / (self.charWidth * 3))
             y = int(pos.y() / self.charHeight) * 2 * BYTES_PER_LINE
@@ -155,10 +163,12 @@ class BinViewer(QtWidgets.QWidget):
 
     def adjust(self):
         self.charHeight = self.fontMetrics().height()
-        self.charWidth = self.fontMetrics().width('x')
+        self.charWidth = self.fontMetrics().width("x")
         self.xposAddr = GAP
         self.xposHex = self.xposAddr + 8 * self.charWidth + GAP
-        self.xposAscii = self.xposHex + (BYTES_PER_LINE * 3 - 1) * self.charWidth + GAP
+        self.xposAscii = (
+            self.xposHex + (BYTES_PER_LINE * 3 - 1) * self.charWidth + GAP
+        )
         self.xposEnd = self.xposAscii + self.charWidth * BYTES_PER_LINE + GAP
         self.setMinimumWidth(self.xposEnd)
         if self.isVisible():
@@ -166,7 +176,9 @@ class BinViewer(QtWidgets.QWidget):
             self.scrollArea.setMinimumWidth(self.xposEnd + sbw + 5)
         r = len(self.Data) % BYTES_PER_LINE
         r = 1 if r > 0 else 0
-        self.setMinimumHeight((int(len(self.Data) / BYTES_PER_LINE) + r) * self.charHeight + 4)
+        self.setMinimumHeight(
+            (int(len(self.Data) / BYTES_PER_LINE) + r) * self.charHeight + 4
+        )
         self.scrollArea.setMinimumHeight(self.charHeight * 8)
         self.update()
 
@@ -198,7 +210,7 @@ class HexEdit(QtWidgets.QScrollArea):
 class HexEditor(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
-        uic.loadUi(abspath('hexeditor.ui'), baseinstance=self)
+        uic.loadUi(abspath("hexeditor.ui"), baseinstance=self)
         self.he = HexEdit()
         self.setCentralWidget(self.he)
         self.actionOpen.triggered.connect(self.doOpen)
@@ -213,12 +225,12 @@ class HexEditor(QtWidgets.QMainWindow):
         self.actionSaveAs.setEnabled(s)
 
     def doOpen(self):
-      filename = QtWidgets.QFileDialog.getOpenFileName(self)
-      if filename:
-         with open(filename, 'rb') as f:
-            self.he.bv.Data = f.read()
-         self.fileName = filename
-      self.updateControls()
+        filename = QtWidgets.QFileDialog.getOpenFileName(self)
+        if filename:
+            with open(filename, "rb") as f:
+                self.he.bv.Data = f.read()
+            self.fileName = filename
+        self.updateControls()
 
     def doSave(self):
         self.updateControls()
@@ -226,15 +238,15 @@ class HexEditor(QtWidgets.QMainWindow):
     def doSaveAs(self):
         filename = QFileDialog.getSaveFileName(self)
         if filename:
-            with open(filename, 'wb') as f:
+            with open(filename, "wb") as f:
                 f.write(self.he.bv.Data)
             self.fileName = filename
         self.updateControls()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
     he = HexEditor()
     he.show()
-    #he.bv.Data = bytearray(range(100)) * 8 + b'x'
+    # he.bv.Data = bytearray(range(100)) * 8 + b'x'
     app.exec()

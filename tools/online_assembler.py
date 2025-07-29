@@ -1,4 +1,4 @@
-""" Helper to assemble code from a web page. """
+"""Helper to assemble code from a web page."""
 
 import flask
 import subprocess
@@ -34,17 +34,18 @@ function do_compile() {
 
 app = flask.Flask(__name__)
 
-@app.route('/')
+
+@app.route("/")
 def main():
     return main_html
 
 
-@app.route('/compile', methods=['POST'])
+@app.route("/compile", methods=["POST"])
 def compile():
-    source = flask.request.form['source']
+    source = flask.request.form["source"]
     _, tmp = tempfile.mkstemp()
     print(tmp)
-    with open(tmp, 'w') as f:
+    with open(tmp, "w") as f:
         f.write(source)
     # res2 = asm_x86(tmp)
     res2 = asm_arm(tmp)
@@ -52,20 +53,24 @@ def compile():
 
 
 def asm_x86(tmp):
-    res = subprocess.run(['nasm', '-f', 'elf64', tmp])
+    res = subprocess.run(["nasm", "-f", "elf64", tmp])
     print(res)
-    res2 = subprocess.run(['objdump', '-d', tmp + '.o'], stdout=subprocess.PIPE)
+    res2 = subprocess.run(
+        ["objdump", "-d", tmp + ".o"], stdout=subprocess.PIPE
+    )
     print(res2)
     return res2
 
 
 def asm_arm(tmp):
-    res = subprocess.run(['arm-none-eabi-as', tmp])
+    res = subprocess.run(["arm-none-eabi-as", tmp])
     print(res)
-    res2 = subprocess.run(['arm-none-eabi-objdump', '-d'], stdout=subprocess.PIPE)
+    res2 = subprocess.run(
+        ["arm-none-eabi-objdump", "-d"], stdout=subprocess.PIPE
+    )
     print(res2)
     return res2
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     app.run()

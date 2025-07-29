@@ -1,4 +1,4 @@
-""" Wrapper around the ppci.binutils.dbg.Debugger object.
+"""Wrapper around the ppci.binutils.dbg.Debugger object.
 
 Main purpose is to fire Qt signals when something happens on the target.
 """
@@ -7,11 +7,12 @@ from qtwrapper import QtCore, pyqtSignal
 
 
 class QDebugger(QtCore.QObject):
-    """ Thin wrapper around the Debugger object.
+    """Thin wrapper around the Debugger object.
 
     This class is mainly an adapter between the GUI logic and the lower level
     classes.
     """
+
     stopped = pyqtSignal()
     started = pyqtSignal()
     halted = pyqtSignal(bool)

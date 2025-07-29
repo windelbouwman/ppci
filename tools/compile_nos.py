@@ -1,4 +1,4 @@
-""" Helper script to build nOS
+"""Helper script to build nOS
 
 nOS is a RTOS for microcontrollers.
 
@@ -26,29 +26,29 @@ from ppci.utils.reporting import html_reporter
 from ppci.lang.c import COptions
 from ppci.common import CompilerError, logformat
 
-home = os.environ['HOME']
-nos_folder = os.path.join(home, 'GIT', 'nOS')
-nos_inc_folder = os.path.join(nos_folder, 'inc')
-nos_src_folder = os.path.join(nos_folder, 'src')
+home = os.environ["HOME"]
+nos_folder = os.path.join(home, "GIT", "nOS")
+nos_inc_folder = os.path.join(nos_folder, "inc")
+nos_src_folder = os.path.join(nos_folder, "src")
 this_dir = os.path.abspath(os.path.dirname(__file__))
-report_filename = os.path.join(this_dir, 'report_nos.html')
-libc_path = os.path.join(this_dir, '..', 'librt', 'libc')
-libc_includes = os.path.join(libc_path, 'include')
-arch = 'msp430'
+report_filename = os.path.join(this_dir, "report_nos.html")
+libc_path = os.path.join(this_dir, "..", "librt", "libc")
+libc_includes = os.path.join(libc_path, "include")
+arch = "msp430"
 coptions = COptions()
-coptions.enable('freestanding')
+coptions.enable("freestanding")
 include_paths = [
     libc_includes,
     nos_inc_folder,
-    os.path.join(nos_inc_folder, 'port', 'GCC', 'MSP430')
+    os.path.join(nos_inc_folder, "port", "GCC", "MSP430"),
 ]
 coptions.add_include_paths(include_paths)
 
 
 def do_compile(filename, reporter):
-    with open(filename, 'r') as f:
+    with open(filename, "r") as f:
         obj = cc(f, arch, coptions=coptions, reporter=reporter)
-    print(filename, 'compiled into', obj)
+    print(filename, "compiled into", obj)
     return obj
 
 
@@ -57,29 +57,29 @@ def main():
     failed = 0
     passed = 0
     with html_reporter(report_filename) as reporter:
-        for filename in glob.iglob(os.path.join(nos_src_folder, '*.c')):
-            print('==> Compiling', filename)
+        for filename in glob.iglob(os.path.join(nos_src_folder, "*.c")):
+            print("==> Compiling", filename)
             try:
                 do_compile(filename, reporter)
             except CompilerError as ex:
-                print('Error:', ex.msg, ex.loc)
+                print("Error:", ex.msg, ex.loc)
                 ex.print()
                 print_exc()
                 failed += 1
             except Exception as ex:
-                print('General exception:', ex)
+                print("General exception:", ex)
                 print_exc()
                 failed += 1
             else:
-                print('Great success!')
+                print("Great success!")
                 passed += 1
 
     t2 = time.time()
     elapsed = t2 - t1
-    print(passed, 'passed,', failed, 'failed in', elapsed, 'seconds')
+    print(passed, "passed,", failed, "failed in", elapsed, "seconds")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     verbose = False
     if verbose:
         level = logging.DEBUG

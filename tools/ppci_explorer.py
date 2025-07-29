@@ -1,4 +1,4 @@
-""" Compile code from the browser and run it in the browser.
+"""Compile code from the browser and run it in the browser.
 
 Idea from the compiler explorer project:
 
@@ -73,7 +73,7 @@ class DisplayErrorsProcessor(Processor):
 
 
 class PpciExplorer:
-    """ Ppci explorer. """
+    """Ppci explorer."""
 
     cache_filename = "ppci_explorer_source.txt"
 
@@ -197,7 +197,7 @@ class PpciExplorer:
         )
 
     def do_compile(self):
-        """ Try a compilation. """
+        """Try a compilation."""
         self.errors_processor.errors.clear()
         try:
             self.output_buffer.text = self.compile(self.source_buffer.text)
@@ -214,7 +214,7 @@ class PpciExplorer:
             self.output_buffer.text = stderr.getvalue()
 
     def compile(self, source):
-        """ Compile the given source with current settings. """
+        """Compile the given source with current settings."""
         srcfile = io.StringIO(source)
         outfile = io.StringIO()
         if self.stage == "ast":
@@ -234,27 +234,27 @@ class PpciExplorer:
         return outfile.getvalue()
 
     def cycle_stage(self, _):
-        """ Cycle between AST, ir or assembly. """
+        """Cycle between AST, ir or assembly."""
         self.stage = next(self.stages)
         self.do_compile()
 
     def next_architecture(self, _):
-        """ Cycle into the next architecture. """
+        """Cycle into the next architecture."""
         self.arch = next(self.archs)
         self.do_compile()
 
     def toggle_optimize(self, _):
-        """ Toggle optimization. """
+        """Toggle optimization."""
         self.optimize = not self.optimize
         self.do_compile()
 
     def toggle_log(self, _):
-        """ Toggle logging. """
+        """Toggle logging."""
         self.show_log = not self.show_log
 
 
 def ppci_explorer():
-    """ Run the ppci explorer. """
+    """Run the ppci explorer."""
     explorer = PpciExplorer()
     explorer.application.run()
 

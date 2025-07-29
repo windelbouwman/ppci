@@ -1,4 +1,4 @@
-""" Helper script to build libmad
+"""Helper script to build libmad
 
 Version: libmad-0.15.1b
 

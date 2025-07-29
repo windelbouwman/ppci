@@ -1,4 +1,4 @@
-""" Helper script to build lcc.
+"""Helper script to build lcc.
 
 https://github.com/drh/lcc
 

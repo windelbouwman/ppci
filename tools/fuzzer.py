@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 """
-    Tool that randomly generates code and feeds it through the code generator.
+Tool that randomly generates code and feeds it through the code generator.
 """
 
 import random
@@ -17,12 +17,12 @@ class Generator:
         self.verifier = Verifier()
 
     def gen_module(self):
-        module = ir.Module('fuzz')
+        module = ir.Module("fuzz")
         self.builder.module = module
 
         # Generate some functions
         for i in range(random.randrange(6, 20)):
-            self.gen_function('fzfnc{}'.format(i))
+            self.gen_function("fzfnc{}".format(i))
 
         f = io.StringIO()
         self.verifier.verify(module)
@@ -44,17 +44,18 @@ class Generator:
         self.builder.emit(ir.Exit())
 
     def gen_ins(self, i):
-        c1 = self.builder.emit(ir.Const(i, 'cnsta{}'.format(i), ir.i32))
-        c2 = self.builder.emit(ir.Const(i+2, 'cnstb{}'.format(i), ir.i32))
-        self.builder.emit(ir.Binop(c1, '+', c2, 'op{}'.format(i), ir.i32))
+        c1 = self.builder.emit(ir.Const(i, "cnsta{}".format(i), ir.i32))
+        c2 = self.builder.emit(ir.Const(i + 2, "cnstb{}".format(i), ir.i32))
+        self.builder.emit(ir.Binop(c1, "+", c2, "op{}".format(i), ir.i32))
 
 
 def go():
     generator = Generator()
     module = generator.gen_module()
 
-    obj = ir_to_object([module], 'arm')
+    obj = ir_to_object([module], "arm")
     print(obj)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     go()

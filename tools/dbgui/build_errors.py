@@ -9,9 +9,9 @@ class BuildErrors(QtWidgets.QTreeView):
         model = QtGui.QStandardItemModel()
         self.setModel(model)
         self.clicked.connect(self.itemSelected)
-        self.errorIcon = get_icon('error.png')
+        self.errorIcon = get_icon("error.png")
         self.model = QtGui.QStandardItemModel()
-        self.model.setHorizontalHeaderLabels(['Message', 'Row', 'Column'])
+        self.model.setHorizontalHeaderLabels(["Message", "Row", "Column"])
         self.header().setStretchLastSection(True)
         self.setModel(self.model)
 
@@ -21,10 +21,10 @@ class BuildErrors(QtWidgets.QTreeView):
         for e in errorlist:
             item = QtGui.QStandardItem(self.errorIcon, str(e.msg))
             item.setData(e)
-            row = str(e.loc.row) if e.loc else ''
+            row = str(e.loc.row) if e.loc else ""
             irow = QtGui.QStandardItem(row)
             irow.setData(e)
-            col = str(e.loc.col) if e.loc else ''
+            col = str(e.loc.col) if e.loc else ""
             icol = QtGui.QStandardItem(col)
             icol.setData(e)
             self.model.appendRow([item, irow, icol])
