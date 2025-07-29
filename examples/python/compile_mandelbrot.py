@@ -1,7 +1,8 @@
-""" Epic demo of compiling some python code together with some C code
+"""Epic demo of compiling some python code together with some C code
 into a linux executable file.
 
 """
+
 import io
 import logging
 
@@ -12,23 +13,25 @@ from ppci.utils.reporting import html_reporter
 
 # logging.basicConfig(level=logging.INFO)
 
-def puts(txt: str):
-	pass
 
-with html_reporter('mandelbrot_compilation_report.html') as reporter:
-    with open('mandelbrot.py', 'r') as f:
-        mod = python_to_ir(f, imports = {'puts': puts})
-    
-    with open('mandelbrot.py', 'r') as f:
+def puts(txt: str):
+    pass
+
+
+with html_reporter("mandelbrot_compilation_report.html") as reporter:
+    with open("mandelbrot.py", "r") as f:
+        mod = python_to_ir(f, imports={"puts": puts})
+
+    with open("mandelbrot.py", "r") as f:
         src = list(f)
-    
+
     reporter.annotate_source(src, mod)
 
 
 verify_module(mod)
 # print_module(mod)
 
-obj_py = ir_to_object([mod], 'x86_64')
+obj_py = ir_to_object([mod], "x86_64")
 # print(obj_py)
 
 c_glue = """
@@ -93,7 +96,7 @@ MEMORY ram LOCATION=0x20000000 SIZE=0xA000 {
 }
 """
 
-obj_glue = cc(io.StringIO(c_glue), 'x86_64')
+obj_glue = cc(io.StringIO(c_glue), "x86_64")
 
 obj = link([obj_py, obj_glue], layout=io.StringIO(layout))
 print(obj)

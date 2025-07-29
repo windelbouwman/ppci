@@ -23,7 +23,7 @@ jobs:
     - name: Install dependencies
       run: pip install black flake8 pytest
     - name: Check code style
-      run: black --check ppci test
+      run: black --check .
     - name: Static code analysis
       run: flake8 ppci test
     - name: Test with pytest

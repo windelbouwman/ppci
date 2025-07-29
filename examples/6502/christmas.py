@@ -1,7 +1,4 @@
-""" Create a nice christmas card.
-
-
-"""
+"""Create a nice christmas card."""
 
 import sys
 import os
@@ -51,17 +48,17 @@ def get_pix(qr_image, x, y):
 
 def make_qr_data(text):
     qr_image = qrcode.make(
-        text, box_size=1, border=0,
-        error_correction=qrcode.ERROR_CORRECT_M)
+        text, box_size=1, border=0, error_correction=qrcode.ERROR_CORRECT_M
+    )
     qr_pet = []
     print(qr_image.size)
     for y in range(25):
         for x in range(40):
             pattern = (
-                get_pix(qr_image, x*2, y*2),
-                get_pix(qr_image, x*2+1, y*2),
-                get_pix(qr_image, x*2, y*2+1),
-                get_pix(qr_image, x*2+1, y*2+1),
+                get_pix(qr_image, x * 2, y * 2),
+                get_pix(qr_image, x * 2 + 1, y * 2),
+                get_pix(qr_image, x * 2, y * 2 + 1),
+                get_pix(qr_image, x * 2 + 1, y * 2 + 1),
             )
             p = charmap[pattern]
             qr_pet.append(p)
@@ -69,20 +66,20 @@ def make_qr_data(text):
 
 
 def make_sprite():
-    im = Image.open('/home/windel/snowflake.png')
+    im = Image.open("/home/windel/snowflake.png")
     assert im.size == (24, 21)
     sprite_data = []
     for y in range(21):
         for x in range(3):
             b = 0
             for x2 in range(8):
-                v = im.getpixel((x*8+x2, y))
+                v = im.getpixel((x * 8 + x2, y))
                 b = (b << 1) | v
             sprite_data.append(b)
     return bytes(sprite_data)
 
 
-march = api.get_arch('mcs6500')
+march = api.get_arch("mcs6500")
 
 
 class Sprite:
@@ -229,31 +226,31 @@ oj = api.asm(f, march)
 print(oj)
 
 layout = Layout()
-ram = Memory('ram')
+ram = Memory("ram")
 ram.location = 0x890
 ram.size = 0x1000
-ram.add_input(Section('code'))
+ram.add_input(Section("code"))
 layout.add_memory(ram)
 
 oj = api.link([oj], layout=layout)
 
-asm_bin = oj.get_image('ram').data
+asm_bin = oj.get_image("ram").data
 print(oj, asm_bin)
 
 if len(sys.argv) > 1:
     message = sys.argv[1]
 else:
-    message = 'You can provide a message via an argument'
+    message = "You can provide a message via an argument"
 
 
-with open('c64disk/card.prg', 'wb') as f:
+with open("c64disk/card.prg", "wb") as f:
     load_address = 0x801
     sys_address = 0x890
     sprite_address = 0x2000
     qr_address = 0x2080
-    address_text = str(sys_address).encode('ascii')
+    address_text = str(sys_address).encode("ascii")
     program = []
-    program.append(BasicLine(1000, bytes([0x9e]) + address_text))
+    program.append(BasicLine(1000, bytes([0x9E]) + address_text))
     write_basic_program(program, f)
     pos = f.tell() - 2
     max_basic_size = sys_address - load_address

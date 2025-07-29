@@ -77,10 +77,12 @@ def c_to_wasm(filename, verbose=False):
 
 def c3_to_wasm(filename, verbose=False):
     """Take c3 to wasm"""
-    bsp = io.StringIO("""
+    bsp = io.StringIO(
+        """
        module bsp;
        public function void putc(byte c);
-       """)
+       """
+    )
     ir_module = c3_to_ir([bsp, libio_filename, filename], [], arch)
 
     # ir_modules.insert(0, ir_modules.pop(-1))  # Shuffle bsp forwards
@@ -168,25 +170,25 @@ with open(html_filename, "w") as f:
 
         wasm_text = str(list(wasm_module.to_bytes()))
         print(
-            """<script>
-        function print_charcode{0}(i) {{
+            f"""<script>
+        function print_charcode{nr}(i) {{
           var c = String.fromCharCode(i);
-          var el = document.getElementById('wasm_output{0}');
+          var el = document.getElementById('wasm_output{nr}');
           el.innerHTML += c;
         }}
 
-        var providedfuncs{0} = {{
-          bsp_putc: print_charcode{0},
+        var providedfuncs{nr} = {{
+          bsp_putc: print_charcode{nr},
         }};
 
-        function compile_wasm{0}() {{
-          var wasm_data = new Uint8Array({1});
+        function compile_wasm{nr}() {{
+          var wasm_data = new Uint8Array({wasm_text});
           var module = new WebAssembly.Module(wasm_data);
-          var inst = new WebAssembly.Instance(module, {{js: providedfuncs{0}}});
+          var inst = new WebAssembly.Instance(module, {{js: providedfuncs{nr}}});
           inst.exports.main_main();
-          console.log('calling' + {0});
+          console.log('calling' + {nr});
         }}
-        </script>""".format(nr, wasm_text),
+        </script>""",
             file=f,
         )
         fns.append("compile_wasm{}".format(nr))

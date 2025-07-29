@@ -1,4 +1,4 @@
-""" Example to show how to construct a dynamically share object.
+"""Example to show how to construct a dynamically share object.
 
 DLL in windows world, SO in unix world.
 
@@ -32,11 +32,9 @@ int barf(int x, double y)
 """
 
 
-
-obj = api.cc(io.StringIO(c_src), 'x86_64')
+obj = api.cc(io.StringIO(c_src), "x86_64")
 
 print(obj)
 
-with open('barf.o', 'wb') as f:
-    write_elf(obj, f, type='relocatable')
-
+with open("barf.o", "wb") as f:
+    write_elf(obj, f, type="relocatable")

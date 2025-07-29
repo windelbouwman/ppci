@@ -23,19 +23,23 @@ src = """
   )
 )
 """
-m = Module(
-src
+m = Module(src)
 
-)
-
-obj = api.wasmcompile(src, 'x86_64', opt_level=0)
-api.objcopy(obj, None, 'elf', 'fac_f32.o')
+obj = api.wasmcompile(src, "x86_64", opt_level=0)
+api.objcopy(obj, None, "elf", "fac_f32.o")
 
 
 print(m.to_string())
 
-inst = instantiate(m, target='native')
-inst2 = instantiate(m, target='python')
+inst = instantiate(m, target="native")
+inst2 = instantiate(m, target="python")
 
 for number in [1.0, 5.0, 10.0]:
-    print('number', number, 'fac', inst.exports['fac-f32'](number), 'fac_python', inst2.exports['fac-f32'](number))
+    print(
+        "number",
+        number,
+        "fac",
+        inst.exports["fac-f32"](number),
+        "fac_python",
+        inst2.exports["fac-f32"](number),
+    )

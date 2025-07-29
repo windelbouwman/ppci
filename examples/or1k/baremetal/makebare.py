@@ -1,4 +1,4 @@
-""" Bare metal example for open risc.
+"""Bare metal example for open risc.
 
 Run the result with qemu-system-or1k:
 
@@ -93,19 +93,19 @@ MEMORY ram LOCATION=0x001000 SIZE=0x800 {
 }
 """
 
-obj1 = api.asm(io.StringIO(boot_src), 'or1k')
-with html_reporter('report.html') as reporter:
+obj1 = api.asm(io.StringIO(boot_src), "or1k")
+with html_reporter("report.html") as reporter:
     obj2 = api.c3c(
-        [io.StringIO(src)], [], march='or1k', opt_level=2,
-        reporter=reporter)
+        [io.StringIO(src)], [], march="or1k", opt_level=2, reporter=reporter
+    )
 
-print('Bootcode:', obj1)
-print('Program code:', obj2)
+print("Bootcode:", obj1)
+print("Program code:", obj2)
 obj = api.link([obj1, obj2], layout=io.StringIO(layout))
-print('Total:', obj)
+print("Total:", obj)
 # api.objcopy(obj, 'flash', 'bin', 'baremetal.bin')
 
 # Create uboot image:
-data = obj.get_image('flash').data
-with open('baremetal.bin', 'wb') as f:
+data = obj.get_image("flash").data
+with open("baremetal.bin", "wb") as f:
     write_uboot_image(f, data)

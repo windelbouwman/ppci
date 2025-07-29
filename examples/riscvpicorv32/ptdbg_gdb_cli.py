@@ -11,11 +11,12 @@ from ppci.binutils.dbg.gdb.transport import TCP
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.DEBUG, filename='debugger.log')
+    logging.basicConfig(level=logging.DEBUG, filename="debugger.log")
     arch = get_arch("riscv")
     transport = TCP(4567)
     debug_driver = GdbDebugDriver(
-        arch, transport=transport, pcresval=0, swbrkpt=True)
+        arch, transport=transport, pcresval=0, swbrkpt=True
+    )
     debugger = Debugger(arch, debug_driver)
     # debugger.stop()
     obj = get_object("firmware.oj")

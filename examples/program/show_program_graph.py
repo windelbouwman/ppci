@@ -1,4 +1,4 @@
-""" Show graph structure of how programs can be compiled into one another,
+"""Show graph structure of how programs can be compiled into one another,
 using HTML.
 """
 
@@ -9,7 +9,7 @@ import webbrowser
 from ppci.programs import get_program_classes_html
 
 
-total_html = """
+total_html = f"""
 <!DOCTYPE html>
 <html>
 <head>
@@ -17,13 +17,13 @@ total_html = """
     <title>PPCI program class graph</title>
 </head>
 <body>
-{}
+{get_program_classes_html()}
 </body>
 </html>
-""".format(get_program_classes_html())
+"""
 
-filename = os.path.join(tempfile.gettempdir(), 'ppci_program_graph.html')
-with open(filename, 'wb') as f:
+filename = os.path.join(tempfile.gettempdir(), "ppci_program_graph.html")
+with open(filename, "wb") as f:
     f.write(total_html.encode())
 
 webbrowser.open(filename)

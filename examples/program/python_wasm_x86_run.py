@@ -1,5 +1,4 @@
-""" Primes example, now using high-level compiler pipeline.
-"""
+"""Primes example, now using high-level compiler pipeline."""
 
 from time import perf_counter
 
@@ -42,7 +41,9 @@ return i
 debug_db = debuginfo.DebugDb()
 
 # Create X86Code instance, specifying all steps
-native1 = PythonProgram(py3, debugdb=debug_db).to_wasm().to_ir().to_x86(win=True)
+native1 = (
+    PythonProgram(py3, debugdb=debug_db).to_wasm().to_ir().to_x86(win=True)
+)
 
 # native_arm = native1.previous().to_arm()
 
@@ -58,7 +59,9 @@ native = native1
 # ValueError: No compile chain possible from python to bf.
 
 # Turn IR into Python, for testing
-native.previous('ir').to('python').run(globals())  # this injects main() in globals
+native.previous("ir").to("python").run(
+    globals()
+)  # this injects main() in globals
 
 
 ## Reporting
@@ -67,19 +70,19 @@ native.previous('ir').to('python').run(globals())  # this injects main() in glob
 print(native.chain)
 
 # Show source code
-print('========== Python ==========')
+print("========== Python ==========")
 print(native.source.get_report())
 
 # Show WASM
-print('========== WASM ==========')
-print(native.previous('wasm').get_report())
+print("========== WASM ==========")
+print(native.previous("wasm").get_report())
 
 # Show IR
-print('========== IR ==========')
+print("========== IR ==========")
 print(native.previous().get_report())
 
 
-## Running 
+## Running
 
 # Run in memory, using API that is the same for all MachineCode representations
 
@@ -88,4 +91,4 @@ t0 = perf_counter()
 result = native.run_in_process()
 
 etime = perf_counter() - t0
-print('native says {} in {} s'.format(result, etime))
+print("native says {} in {} s".format(result, etime))

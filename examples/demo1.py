@@ -1,4 +1,3 @@
-
 def a(x: int, y: int) -> int:
     t = x + y
     if x > 10:

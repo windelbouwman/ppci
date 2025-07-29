@@ -6,11 +6,11 @@ from sphinx.ext.graphviz import graphviz
 
 import pylint  # ensure that pyreverse is available
 
-__version__ = '0.1'
+__version__ = "0.1"
 
 
 def list_option(txt):
-    return [p.strip() for p in txt.split(',')]
+    return [p.strip() for p in txt.split(",")]
 
 
 class UmlDirective(Directive):
@@ -18,7 +18,7 @@ class UmlDirective(Directive):
     optional_arguments = 0
     has_content = False
     option_spec = {
-        'classes': list_option,
+        "classes": list_option,
     }
 
     def run(self):
@@ -28,25 +28,25 @@ class UmlDirective(Directive):
         save_dir = os.getcwd()
         tmp_dir = tempfile.mkdtemp()
         os.chdir(tmp_dir)
-        basename = 'foo'
-        cmd = ['pyreverse', '-p', basename]
-        classes = self.options.get('classes', [])
+        basename = "foo"
+        cmd = ["pyreverse", "-p", basename]
+        classes = self.options.get("classes", [])
         for c in classes:
-            raise NotImplementedError('classes option')
-            cmd.extend(['-c', c])
+            raise NotImplementedError("classes option")
+            cmd.extend(["-c", c])
         cmd.append(module)
         subprocess.check_call(cmd)
-        with open('classes_{}.dot'.format(basename)) as f:
+        with open("classes_{}.dot".format(basename)) as f:
             dotcode = f.read()
         os.chdir(save_dir)
 
         # create graphviz node:
         node = graphviz()
-        node['code'] = dotcode
-        node['options'] = {}
+        node["code"] = dotcode
+        node["options"] = {}
         return [node]
 
 
 def setup(app):
-    app.add_directive('uml', UmlDirective)
-    return {'version': __version__}
+    app.add_directive("uml", UmlDirective)
+    return {"version": __version__}

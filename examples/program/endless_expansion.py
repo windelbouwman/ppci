@@ -1,4 +1,3 @@
-
 """
 Test if a program can be expanded endlessly by going ir->wasm->ir->wasm-> ...
 """
@@ -17,11 +16,13 @@ c = a + b
 """
 
 prog = PythonProgram(py3)
-for i in range(7):  # todo: With more cycles there is a recursionerror in dagsplit.py
+for i in range(
+    7
+):  # todo: With more cycles there is a recursionerror in dagsplit.py
     print(prog.get_report())
     prog = prog.to_wasm()
     print(prog.get_report())
     prog = prog.to_ir()
     # prog.optimize(level=2)
     print(prog.get_report())
-    print('Iteration:', i, 'ir code stats:', prog.items[0].stats())
+    print("Iteration:", i, "ir code stats:", prog.items[0].stats())

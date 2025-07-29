@@ -1,4 +1,4 @@
-""" Create a simple microblaze program which spits out an 'A' character
+"""Create a simple microblaze program which spits out an 'A' character
 to the UART.
 
 """
@@ -8,7 +8,7 @@ from ppci.api import asm, get_arch, objcopy, link
 from ppci.binutils.layout import get_layout
 from ppci.arch.microblaze import instructions, registers
 
-arch = get_arch('microblaze')
+arch = get_arch("microblaze")
 
 # See also:
 # https://github.com/edgarigl/tbm/blob/master/arch-microblaze/head.S
@@ -44,12 +44,12 @@ bri end_label  ; Endless loop!
 section data
 """
 
-layout = get_layout('../layout.mmp')
+layout = get_layout("../layout.mmp")
 obj = asm(io.StringIO(src), arch)
 obj = link([obj], layout=layout)
 print(obj)
 
-objcopy(obj, 'flash', 'bin', 'baremetal.bin')
+objcopy(obj, "flash", "bin", "baremetal.bin")
 
 addik = instructions.Addik(registers.R5, registers.R0, 0x41)
 print(addik.encode().hex())

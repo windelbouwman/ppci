@@ -83,14 +83,14 @@ def analyze_sources(source_dir, defines):
         c_lexer = CLexer()
         formatter = HtmlFormatter(lineanchors="fubar", linenos="inline")
         print(
-            """<html>
+            f"""<html>
         <head>
         <style>
-        {}
+        {formatter.get_style_defs()}
         </style>
         </head>
         <body>
-        """.format(formatter.get_style_defs()),
+        """,
             file=f,
         )
 

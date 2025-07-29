@@ -1,4 +1,3 @@
-
 import io
 from ppci.api import cc, link, asm
 from ppci.format.srecord import write_srecord
@@ -12,11 +11,12 @@ int add(int x, int y) {
 
 """
 
-obj = cc(io.StringIO(source), 'm68k')
+obj = cc(io.StringIO(source), "m68k")
 obj = link([obj])
 print(obj)
 
-print("""
+print(
+    f"""
 Please now open the online disassembler:
 
 https://onlinedisassembler.com/odaweb/
@@ -24,20 +24,20 @@ https://onlinedisassembler.com/odaweb/
 Select m68k:68000
 
 and paste:
-{}
+{obj.get_section("code").data.hex()}
 
-""".format(obj.get_section('code').data.hex()))
+"""
+)
 
 # TODO:
-with open('demo.srec', 'w') as f:
+with open("demo.srec", "w") as f:
     write_srecord(obj, f)
 
 
-obj = asm('amiga_hello_world.asm', 'm68k')
+obj = asm("amiga_hello_world.asm", "m68k")
 obj = link([obj])
 print(obj)
 
-print(obj.get_section('code').data.hex())
+print(obj.get_section("code").data.hex())
 
-write_hunk('demo', obj.get_section('code').data)
-
+write_hunk("demo", obj.get_section("code").data)

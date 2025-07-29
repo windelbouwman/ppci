@@ -65,7 +65,7 @@ while n < max:
 return i
 """
 
-## Run in memory 
+## Run in memory
 
 arch = get_current_arch()
 
@@ -75,14 +75,14 @@ print(wasm_module.to_string())
 wasm_module.show_interface()
 
 # Convert wasm to ppci
-ppci_module = wasm_to_ir(wasm_module, arch.info.get_type_info('ptr'))
+ppci_module = wasm_to_ir(wasm_module, arch.info.get_type_info("ptr"))
 
 # Optimizer fails, or makes it slower ;)
 # optimize(ppci_module, 2)
 
 this_dir = os.path.dirname(os.path.abspath(__file__))
 # Generate a report:
-html_report = os.path.join(this_dir, 'compilation_report.html')
+html_report = os.path.join(this_dir, "compilation_report.html")
 with reporting.html_reporter(html_report) as reporter:
     # Write IR code
     f = StringIO()
@@ -101,19 +101,22 @@ native_module = codepage.load_obj(ob)
 t0 = perf_counter()
 result = native_module.main()
 etime = perf_counter() - t0
-print(f'native says {result} in {etime} s')
+print(f"native says {result} in {etime} s")
 
 # Generate html page:
 export_wasm_example(
-    os.path.join(this_dir, 'prime_demo_page.html'), py3, wasm_module)
+    os.path.join(this_dir, "prime_demo_page.html"), py3, wasm_module
+)
 
 # Convert PPCI IR to (ugly) Python to skip codegen
 if True:
     f = StringIO()
     ir_to_python([ppci_module], f)
-    py_code = 'def main():\n' + '\n'.join(['    ' + line for line in py3.splitlines()])
+    py_code = "def main():\n" + "\n".join(
+        ["    " + line for line in py3.splitlines()]
+    )
     exec(py_code)
     t0 = perf_counter()
     result = main()
     etime = perf_counter() - t0
-    print(f'python says {result} in {etime}')
+    print(f"python says {result} in {etime}")

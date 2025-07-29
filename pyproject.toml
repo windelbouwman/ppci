@@ -68,6 +68,10 @@ line-length = 79
 line-length = 79
 cache-dir = ".cache/ruff"
 
+[tool.ruff.lint]
+extend-select = ["Q"]  # TODO: "B"
+extend-ignore = ["E203", "E501"]
+
 [tool.pytest]
 junit_family = "xunit1"
 
