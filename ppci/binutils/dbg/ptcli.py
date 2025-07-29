@@ -149,13 +149,14 @@ class PtDebugCli:
             content=BufferControl(buffer=self.register_buffer), width=20
         )
 
-        title_text = "Welcome to the ppci debugger version {} running in prompt_toolkit {}".format(
-            ppci_version, ptk_version
+        title_text = (
+            f"Welcome to the ppci debugger version {ppci_version}"
+            f" running in prompt_toolkit {ptk_version}"
         )
 
         help_text = (
             "F4=stop F5=run F6=step F7=set breakpoint"
-            + " F8=clear breakpoint F10=exit"
+            " F8=clear breakpoint F10=exit"
         )
 
         # Application layout:

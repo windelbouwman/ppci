@@ -314,7 +314,8 @@ class CodeGenerator:
                     parameter = param_map[sym]
 
                     # For paramaters, allocate space and copy the value into
-                    # memory. Later, the mem2reg pass will extract these values.
+                    # memory. Later, the mem2reg pass will extract these
+                    # values.
                     # Move parameter into local copy:
                     self.emit(ir.Store(parameter, variable))
                 self.var_map[sym] = variable

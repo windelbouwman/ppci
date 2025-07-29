@@ -105,7 +105,9 @@ class InitCursor:
             self.level.go_next()
 
     def select_field(self, field_name, location):
-        """Select the given field name taking anonymous structs into account."""
+        """Select the given field name taking anonymous structs
+        into account.
+        """
         assert not self.is_toplevel
         typ = self.level.typ
         assert typ.is_struct_or_union

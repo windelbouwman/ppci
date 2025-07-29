@@ -52,8 +52,6 @@ while n < max:
 return i
 """
 
-## Run in memory
-
 
 def xx_test_compiling():
     # Convert Python to wasm

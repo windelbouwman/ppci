@@ -574,7 +574,8 @@ class Parser(RecursiveDescentParser):
             else:  # self.peek == ':=':
                 statement = self.parse_assignment(symbol, location)
             # else:
-            #    self.error('Expected assignment or procedure call', loc=location)
+            #    self.error('Expected assignment or procedure call',
+            # loc=location)
         elif self.peek == "NUMBER":
             # label!
             label = self.consume("NUMBER")
@@ -693,7 +694,7 @@ class Parser(RecursiveDescentParser):
             field_width = self.parse_expression()
             if self.has_consumed(":"):
                 # TODO: handle digits
-                _frac_digits = self.parse_expression()
+                self.parse_expression()
         else:
             # Assume 10 digits field width with integer values
             # 20 with real values.
@@ -938,7 +939,10 @@ class Parser(RecursiveDescentParser):
                         )
                     array_typ = lhs.typ
                     # if len(indici) > len(array_typ.dimensions):
-                    #     self.error('Too many indici ({}) for array dimensions ({})'.format(len(indici), len(array_typ.dimensions)), loc=location)
+                    #     self.error(
+                    # 'Too many indici ({}) for array dimensions ({})'
+                    # .format(len(indici), len(array_typ.dimensions)),
+                    # loc=location)
                     indexed_typ = array_typ.indexed(1)
                     lhs = expressions.Index(
                         lhs, index, indexed_typ, index.location

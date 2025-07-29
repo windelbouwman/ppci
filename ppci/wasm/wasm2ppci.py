@@ -1340,7 +1340,8 @@ class WasmToIrCompiler:
                 self.push_value(value)
             else:
                 assert len(signature.results) > 1
-                # allocate a memory slab, and inject a pointer to it as first argument.
+                # allocate a memory slab, and inject a
+                # pointer to it as first argument.
                 data_area_size = len(signature.results) * 8
                 data_area_alignment = 8
                 data_area = self.emit(

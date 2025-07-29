@@ -78,9 +78,9 @@ class BinaryFileWriter(BaseIoWriter):
                     for index, d in enumerate(section_defs):
                         # Funcs need their param index/name space
                         # Note that id in Type.params can be int/str, not None
-                        if section_name == "func":
-                            typedefs = definitions["type"]
-                            _typedef = typedefs[d.ref.index]
+                        # if section_name == "func":
+                        #     typedefs = definitions["type"]
+                        #     _typedef = typedefs[d.ref.index]
                         # Write it!
                         f2.write_definition(d)
 

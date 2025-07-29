@@ -166,11 +166,7 @@ class WasiApi:
         self, argc_ptr: ir.i32, argv_buf_size_ptr: ir.i32
     ) -> ir.i32:
         """Get sizes of arguments passed to the WASI program."""
-        self._trace(
-            "args_sizes_get(argc_ptr={}, {})".format(
-                argc_ptr, argv_buf_size_ptr
-            )
-        )
+        self._trace(f"args_sizes_get({argc_ptr=}, {argv_buf_size_ptr=})")
         blob, offsets = self._encoded_args
         argc = len(offsets)
         buf_size = len(blob)
@@ -179,7 +175,7 @@ class WasiApi:
         return ESUCCESS
 
     def args_get(self, argv: ir.i32, argv_buf: ir.i32) -> ir.i32:
-        self._trace("args_get(argv={}, {})".format(argv, argv_buf))
+        self._trace(f"args_get({argv=}, {argv_buf=})")
         blob, offsets = self._encoded_args
 
         # Table with pointers:
@@ -195,7 +191,7 @@ class WasiApi:
     def clock_time_get(
         self, id: ir.i32, precision: ir.i64, timestamp_ptr: ir.i32
     ) -> ir.i32:
-        self._trace("clock_time_get(id={})".format(id))
+        self._trace(f"clock_time_get({id=})")
         nanos = int(time.time() * 1e9)
         self._write_mem_u64(timestamp_ptr, nanos)
         return ESUCCESS
@@ -204,9 +200,7 @@ class WasiApi:
         self, environc_ptr: ir.i32, environ_buf_size_ptr: ir.i32
     ) -> ir.i32:
         self._trace(
-            "environ_sizes_get(environc_ptr={}, environ_buf_size_ptr={})".format(
-                environc_ptr, environ_buf_size_ptr
-            )
+            f"environ_sizes_get({environc_ptr=}, {environ_buf_size_ptr=})"
         )
         blob, offsets = self._encoded_env
 
@@ -215,11 +209,7 @@ class WasiApi:
         return ESUCCESS
 
     def environ_get(self, environ: ir.i32, environ_buf: ir.i32) -> ir.i32:
-        self._trace(
-            "environ_get(environ={}, environ_buf={})".format(
-                environ, environ_buf
-            )
-        )
+        self._trace(f"environ_get({environ=}, {environ_buf=})")
         blob, offsets = self._encoded_env
 
         # Fill table with pointers:
@@ -232,7 +222,7 @@ class WasiApi:
         return ESUCCESS
 
     def fd_prestat_get(self, fd: ir.i32, buf: ir.i32) -> ir.i32:
-        self._trace("fd_prestat_get(fd={}, buf={})".format(fd, buf))
+        self._trace(f"fd_prestat_get({fd=}, {buf=})")
         if fd in self._available_fd:
             path_str = self._available_fd[fd]
             if isinstance(path_str, str):
@@ -248,9 +238,7 @@ class WasiApi:
     def fd_prestat_dir_name(
         self, fd: ir.i32, path: ir.i32, path_len: ir.i32
     ) -> ir.i32:
-        self._trace(
-            "fd_prestat_dir_name(fd={}, {}, {})".format(fd, path, path_len)
-        )
+        self._trace(f"fd_prestat_dir_name({fd=}, {path=}, {path_len=})")
         if fd in self._available_fd:
             path_str = self._available_fd[fd]
             if isinstance(path_str, str):
@@ -264,7 +252,7 @@ class WasiApi:
             return EBADF
 
     def fd_fdstat_get(self, fd: ir.i32, fdstat: ir.i32) -> ir.i32:
-        self._trace("fd_fdstat_get(fd={}, fdstat={})".format(fd, fdstat))
+        self._trace(f"fd_fdstat_get({fd=}, {fdstat=})")
         # assert fd == 0
         if fd in self._available_fd:
             path_str = self._available_fd[fd]
@@ -315,9 +303,7 @@ class WasiApi:
     def fd_read(
         self, fd: ir.i32, iovs: ir.i32, iovs_len: ir.i32, nread: ir.i32
     ) -> ir.i32:
-        self._trace(
-            "fd_read(fd={}, iovs={}, iovs_len={})".format(fd, iovs, iovs_len)
-        )
+        self._trace(f"fd_read({fd=}, {iovs=}, {iovs_len=})")
 
         # Check fd:
         if fd == 0:
@@ -345,9 +331,7 @@ class WasiApi:
     def fd_seek(
         self, fd: ir.i32, offset: ir.i64, whence: ir.i32, new_pos_ptr: ir.i32
     ) -> ir.i32:
-        self._trace(
-            "fd_seek(fd={}, offset={}, whence={})".format(fd, offset, whence)
-        )
+        self._trace(f"fd_seek({fd=}, {offset=}, {whence=})")
         if fd in self._available_fd:
             py_f = self._available_fd[fd]
             if hasattr(py_f, "seek"):
@@ -364,7 +348,7 @@ class WasiApi:
     def fd_write(
         self, fd: ir.i32, iovs: ir.i32, iovs_len: ir.i32, n_written: ir.i32
     ) -> ir.i32:
-        self._trace("fd_write(fd={}, iovs_len={})".format(fd, iovs_len))
+        self._trace(f"fd_write(fd={fd=}, iovs_len={iovs_len=})")
 
         # Check fd:
         if fd == 1 or fd == 2:
@@ -406,7 +390,7 @@ class WasiApi:
         """Similar to mkdirat in POSIX"""
         path = self._read_string(path_buf, path_len)
 
-        self._trace("path_create_directory(fd={}, path={})".format(fd, path))
+        self._trace(f"path_create_directory({fd=}, {path=})")
 
         # Check if we have a base folder:
         if fd not in self._available_fd:
@@ -437,11 +421,7 @@ class WasiApi:
     ) -> ir.i32:
         """Return attributes of file or directory. Similar to POSIX stat."""
         path = self._read_string(path_buf, path_len)
-        self._trace(
-            "path_filestat_get(fd={}, flags={}, path={}, buf={})".format(
-                fd, flags, path, buf
-            )
-        )
+        self._trace(f"path_filestat_get({fd=}, {flags=}, {path=}, {buf=})")
 
         # Check if we have a base folder:
         if fd not in self._available_fd:
@@ -500,14 +480,8 @@ class WasiApi:
     ) -> ir.i32:
         path = self._read_string(path_buf, path_len)
         self._trace(
-            "path_open(fd={}, dirflags={}, path={}, oflags={}, fs_rights_base={}, fs_rights_inheriting={})".format(
-                fd,
-                dirflags,
-                path,
-                oflags,
-                fs_rights_base,
-                fs_rights_inheriting,
-            )
+            f"path_open({fd=}, {dirflags=}, {path=}, {oflags=}, "
+            f"{fs_rights_base=}, ={fs_rights_inheriting=})"
         )
         # Check if we have a base folder:
         if fd not in self._available_fd:
@@ -565,9 +539,7 @@ class WasiApi:
         self, fd: ir.i32, path_buf: ir.i32, path_len: ir.i32
     ) -> ir.i32:
         path = self._read_string(path_buf, path_len)
-        self.logger.error(
-            "TODO: path_unlink_file(fd={}, path={})".format(fd, path)
-        )
+        self.logger.error(f"TODO: path_unlink_file({fd=}, path={path=})")
 
         # Check if we have a base folder:
         if fd not in self._available_fd:
@@ -606,7 +578,7 @@ class WasiApi:
         TODO: this does not work with native code, since the
         exception does not propagate through the native code.
         """
-        self._trace("proc_exit(code={})".format(code))
+        self._trace(f"proc_exit({code=})")
         raise ProcExit(code)
 
     def random_get(self, buf: ir.i32, buf_len: ir.i32) -> ir.i32:

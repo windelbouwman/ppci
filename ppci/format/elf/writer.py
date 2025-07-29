@@ -164,7 +164,8 @@ class ElfWriter:
         if self.e_type == ET_EXEC:
             if self.obj.entry_symbol_id is None:
                 logger.warning(
-                    "ELF file without an entry symbol specified. This file might crash."
+                    "ELF file without an entry symbol specified."
+                    "This file might crash."
                 )
                 self.elf_header.e_entry = 0
             else:

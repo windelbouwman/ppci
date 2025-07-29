@@ -201,7 +201,8 @@ class CContext:
             bit_offsets[field] = bit_offset
 
             if field.name is None:
-                # If the field is anonymous, fill the offsets of named subfields:
+                # If the field is anonymous,
+                # fill the offsets of named subfields:
                 assert field.typ.is_struct_or_union
                 _, sub_field_bit_offsets = self.layout_struct(field.typ)
                 for (

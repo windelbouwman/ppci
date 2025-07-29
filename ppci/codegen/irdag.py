@@ -379,7 +379,10 @@ class SelectionGraphBuilder:
             input_registers.append(reg_loc)
 
         if len(node.output_values) > 0:
-            issue = "Output registers on asm cannot be greater than the number of input"
+            issue = (
+                "Output registers on asm cannot be greater than "
+                "the number of input"
+            )
             assert len(node.output_values) <= len(node.input_values), issue
         elif len(node.output_values) > 3:
             assert False, "Currently, asm uses at most 3 output registers"

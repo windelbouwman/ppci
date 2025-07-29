@@ -3,6 +3,8 @@ import io
 from ppci.api import ws_to_ir
 from ppci.common import CompilerError
 
+# Prevent error from flake, since this is whitespace language:
+# flake8: noqa: W291, W293
 
 # Below the example as of wikipedia:
 hello_world_source = """   \t  H\t   

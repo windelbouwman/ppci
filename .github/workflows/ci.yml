@@ -23,16 +23,9 @@ jobs:
     - name: Install dependencies
       run: pip install black flake8 pytest
     - name: Check code style
-      run: |
-        black --check ppci
-        black --check test
+      run: black --check ppci test
     - name: Static code analysis
-      run: |
-        # stop the build if there are Python syntax errors or undefined names
-        flake8 ppci --select=E9,F63,F7,F82,F81
-        flake8 test --select=E9,F63,F7,F82,F81
-        # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
-        flake8 ppci --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+      run: flake8 ppci test
     - name: Test with pytest
       run: pytest
 

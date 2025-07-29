@@ -364,7 +364,7 @@ class ObjectFile:
         )
 
     def serialize(self):
-        """Serialize the object into a dictionary structure suitable for json."""
+        """Serialize the object into a dictionary structure for json."""
         return serialize(self)
 
     def save(self, output_file):

@@ -228,7 +228,7 @@ class PythonToIrCompiler:
             if statement.value:
                 self.error(
                     statement,
-                    "Cannot return a value from a function without return type.",
+                    "Cannot return a value from a procedure.",
                 )
             self.builder.emit_exit()
         else:
@@ -566,10 +566,10 @@ class PythonToIrCompiler:
             (float, int) -> float
             (int, int) -> int
         """
-        _type_ranks = {
-            float: 10,
-            int: 5,
-        }
+        # _type_ranks = {
+        #     float: 10,
+        #     int: 5,
+        # }
         pass
 
     def coerce(self, value, ty):

@@ -27,8 +27,8 @@ Some key concepts in the domain of register allocation are:
 **Interference graph**
 
 Each instruction in the instruction list may use or define certain registers.
-A register is live between a definition and a use of that register. Registers that
-are live at the same point in the program interfere with each other.
+A register is live between a definition and a use of that register. Registers
+that are live at the same point in the program interfere with each other.
 An interference graph is a graph in which each node represents a register
 and each edge represents interference between those two registers.
 
@@ -70,8 +70,8 @@ However, if we coalesce too many moves, the graph can become uncolorable, and
 spilling has to be done. To prevent spilling, coalescing must be done
 in a controlled manner.
 
-A conservative approach to the coalescing is the following: if the merged node has fewer than
-K neighbours, then the nodes can be coalesced. The reason for
+A conservative approach to the coalescing is the following: if the merged node
+has fewer than K neighbours, then the nodes can be coalesced. The reason for
 this is that when all nodes that can be colored are removed and the merged
 node and its non-colored neighbours remain, the merged node can be colored.
 This ensures that the coalescing of the nodes does not have a negative

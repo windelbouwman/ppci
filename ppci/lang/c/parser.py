@@ -996,7 +996,7 @@ class CParser(RecursiveDescentParser):
         See also: https://gcc.gnu.org/onlinedocs/gcc/Extended-Asm.html
         """
         location = self.consume("asm").loc
-        _valid_qualifiers = ["volatile", "inline", "goto"]
+        # _valid_qualifiers = ["volatile", "inline", "goto"]
         # while self.peek in
         # TODO qualifiers
         self.consume("(")

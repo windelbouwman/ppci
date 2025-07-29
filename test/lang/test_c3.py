@@ -13,16 +13,16 @@ class LexerTestCase(unittest.TestCase):
 
     def setUp(self):
         diag = DiagnosticsManager()
-        self.l = Lexer(diag)
+        self.lexer = Lexer(diag)
 
     def test_unexpected_character(self):
         snippet = io.StringIO(""" var s \u6c34 """)
         with self.assertRaises(CompilerError):
-            list(self.l.lex(snippet))
+            list(self.lexer.lex(snippet))
 
     def check(self, snippet, toks):
         """Convenience function"""
-        toks2 = list(tok.typ for tok in self.l.lex(io.StringIO(snippet)))
+        toks2 = list(tok.typ for tok in self.lexer.lex(io.StringIO(snippet)))
         self.assertSequenceEqual(toks, toks2)
 
     def test_block_comment(self):

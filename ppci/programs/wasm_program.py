@@ -57,6 +57,6 @@ class WasmProgram(IntermediateProgram):
         """
 
         # todo: cannot pass the debugdb here
-        # TODO: It is lame to pass platform dependence information into ir-code.
+        # TODO: lame to pass platform dependence information into ir-code.
         ptr_info = TypeInfo(4, 4)
         return self._new("ir", [wasm_to_ir(c, ptr_info) for c in self.items])

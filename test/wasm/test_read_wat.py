@@ -13,7 +13,8 @@ TEXT1 = r"""
   (data (i32.const 12) " \00")
 
   (import "env" "memory" (memory 1))
-  (import "env" "_fwrite" (func $__fwrite (param i32 i32 i32 i32) (result i32)))
+  (import "env" "_fwrite"
+    (func $__fwrite (param i32 i32 i32 i32) (result i32)))
   (import "env" "_stdout" (global $stdoutPtr i32))
   (export "main" (func $main))
 
@@ -22,7 +23,8 @@ TEXT1 = r"""
     (local.set $head (local.get $s))
     (loop $loop
       (block $done
-        (br_if $done (i32.eq (i32.const 0) (i32.load8_u offset=0 (local.get $head))))
+        (br_if $done
+          (i32.eq (i32.const 0) (i32.load8_u offset=0 (local.get $head))))
         (local.set $head (i32.add (local.get $head) (i32.const 1)))
         ;; Would it be worth unrolling offset 1,2,3?
         (br $loop)
@@ -75,7 +77,8 @@ TEXT1 = r"""
 
 TEXT2 = """
 (module
-  (import "env" "_fwrite" (func $__fwrite (param i32 i32 i32 i32) (result i32)))
+  (import "env" "_fwrite"
+    (func $__fwrite (param i32 i32 i32 i32) (result i32)))
   (import "env" "_stdout" (global $stdoutPtr i32))
   (import "env" "memory" (memory 1))
   (export "main" (func $main))
