@@ -853,6 +853,12 @@ class CFrontendTestCase(unittest.TestCase):
         """
         self.do(src)
 
+    def test_builtin_va_list(self):
+        src = """
+        typedef __builtin_va_list va_list;
+        """
+        self.do(src)
+
 
 if __name__ == "__main__":
     unittest.main()
