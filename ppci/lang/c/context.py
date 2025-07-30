@@ -53,6 +53,7 @@ class CContext:
             BasicType.FLOAT: (4, 4),
             BasicType.DOUBLE: (double_size, double_alignment),
             BasicType.LONGDOUBLE: (10, 10),
+            BasicType.VA_LIST: (ptr_size, ptr_size),
         }
 
         int_map = {2: "h", 4: "i", 8: "q"}

@@ -70,6 +70,7 @@ class CParser(RecursiveDescentParser):
             "long",
             "signed",
             "unsigned",
+            "__builtin_va_list",
         }
 
         self.keywords = {

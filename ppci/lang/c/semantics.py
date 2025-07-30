@@ -40,6 +40,7 @@ class CSemantics:
         self.long_type = self.get_type(["long"])
         self.char_type = self.get_type(["char"])
         self.intptr_type = self.int_type.pointer_to()
+        self.va_list_type = self.get_type(["__builtin_va_list"])
 
         # Choose proper integer type for difference:
         if self.context.sizeof(self.int_type) == self.context.sizeof(
@@ -994,7 +995,7 @@ class CSemantics:
 
     def on_builtin_va_start(self, arg_pointer, location):
         """Check va_start builtin function"""
-        if not self.equal_types(arg_pointer.typ, self.intptr_type):
+        if not self.equal_types(arg_pointer.typ, self.va_list_type):
             self.error("Invalid type for va_start", arg_pointer.location)
         if not arg_pointer.lvalue:
             self.error("Expected lvalue", arg_pointer.location)
@@ -1002,7 +1003,7 @@ class CSemantics:
 
     def on_builtin_va_arg(self, arg_pointer, typ, location):
         """Check va_arg builtin function"""
-        if not self.equal_types(arg_pointer.typ, self.intptr_type):
+        if not self.equal_types(arg_pointer.typ, self.va_list_type):
             self.error("Invalid type for va_arg", arg_pointer.location)
         if not arg_pointer.lvalue:
             self.error("Expected lvalue", arg_pointer.location)
@@ -1010,11 +1011,11 @@ class CSemantics:
 
     def on_builtin_va_copy(self, dest, src, location):
         """Check va_copy builtin function"""
-        if not self.equal_types(dest.typ, self.intptr_type):
+        if not self.equal_types(dest.typ, self.va_list_type):
             self.error("Invalid type for va_copy", dest.location)
         if not dest.lvalue:
             self.error("Expected lvalue", dest.location)
-        if not self.equal_types(src.typ, self.intptr_type):
+        if not self.equal_types(src.typ, self.va_list_type):
             self.error("Invalid type for va_copy", src.location)
         return expressions.BuiltInVaCopy(dest, src, location)
 
