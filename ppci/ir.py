@@ -237,7 +237,7 @@ class Value:
         # Has a name and a type?
         super().__init__()
         if not isinstance(name, str):
-            raise TypeError("name must be a string, got {}".format(type(name)))
+            raise TypeError(f"name must be a string, got {type(name)}")
         self.name = name
         if not isinstance(ty, Typ):
             raise TypeError("ty argument must be an instance of Typ")
@@ -316,7 +316,7 @@ class ExternalProcedure(ExternalSubRoutine):
 
     def __repr__(self):
         args = ", ".join(map(str, self.argument_types))
-        return "external procedure {}({})".format(self.name, args)
+        return f"external procedure {self.name}({args})"
 
 
 class ExternalFunction(ExternalSubRoutine):
@@ -337,7 +337,7 @@ class ExternalVariable(External):
     """External global variable."""
 
     def __str__(self):
-        return "external variable {}".format(self.name)
+        return f"external variable {self.name}"
 
 
 class SubRoutine(GlobalValue):
@@ -784,9 +784,7 @@ class LocalValue(Value, Instruction):
         """Add this value to another one"""
         if not isinstance(other, Value):
             raise TypeError(
-                "Expected other to be of Value type, not {}".format(
-                    type(other)
-                )
+                f"Expected other to be of Value type, not {type(other)}"
             )
         assert self.ty is other.ty
         return Binop(self, "+", other, "add", self.ty)
@@ -951,10 +949,10 @@ class Unop(LocalValue):
     def __init__(self, operation, a, name, ty):
         super().__init__(name, ty)
         if operation not in self.ops:
-            raise TypeError("operation should be one of {}".format(Binop.ops))
+            raise TypeError(f"operation should be one of {self.ops}")
 
         if a.ty is not ty:
-            raise TypeError("Unop type mismatch {} != {}".format(a.ty, ty))
+            raise TypeError(f"Unop type mismatch {a.ty} != {ty}")
 
         self.operation = operation
         self.a = a
@@ -975,13 +973,13 @@ class Binop(LocalValue):
     def __init__(self, a, operation, b, name, ty):
         super().__init__(name, ty)
         if operation not in Binop.ops:
-            raise TypeError("operation should be one of {}".format(Binop.ops))
+            raise TypeError(f"operation should be one of {Binop.ops}")
 
         if a.ty is not ty:
-            raise TypeError("Binop type mismatch {} != {}".format(a.ty, ty))
+            raise TypeError(f"Binop type mismatch {a.ty} != {ty}")
 
         if b.ty is not ty:
-            raise TypeError("Binop type mismatch {} != {}".format(b.ty, ty))
+            raise TypeError(f"Binop type mismatch {b.ty} != {ty}")
 
         self.a = a
         self.b = b
@@ -1048,9 +1046,7 @@ class Phi(LocalValue):
         """Set the value for the phi node when entering through block"""
         if value.ty != self.ty:
             raise ValueError(
-                "Type mismatch {} where {} was expected".format(
-                    value.ty, self.ty
-                )
+                f"Type mismatch {value.ty} where {self.ty} was expected"
             )
         if block in self.inputs:
             self.del_use(self.inputs[block])
@@ -1074,20 +1070,16 @@ class Alloc(LocalValue):
         super().__init__(name, BlobDataTyp(amount, alignment))
 
         if not isinstance(amount, int):
-            raise TypeError(
-                "amount must be an int, not {}".format(type(amount))
-            )
+            raise TypeError(f"amount must be an int, not {type(amount)}")
 
         if not amount:
             raise ValueError(
-                "Expecting at least 1 byte to allocate, not {}", amount
+                f"Expecting at least 1 byte to allocate, not {amount}"
             )
         self.amount = amount
 
         if not isinstance(alignment, int):
-            raise TypeError(
-                "alignment must be int, not {}".format(type(alignment))
-            )
+            raise TypeError(f"alignment must be int, not {type(alignment)}")
         self.alignment = alignment
 
     def __str__(self):
@@ -1107,7 +1099,7 @@ class CopyBlob(Instruction):
         self.dst = dst
         self.src = src
         if not isinstance(amount, int):
-            raise TypeError("amount must be int, not {}".format(type(amount)))
+            raise TypeError(f"amount must be int, not {type(amount)}")
         self.amount = amount
 
     def __str__(self):
@@ -1126,9 +1118,7 @@ class Variable(GlobalValue):
         self.amount = amount
 
         if not isinstance(alignment, int):
-            raise TypeError(
-                "alignment must be int, not {}".format(type(alignment))
-            )
+            raise TypeError(f"alignment must be int, not {type(alignment)}")
         self.alignment = alignment
 
         if value is not None:
@@ -1136,9 +1126,7 @@ class Variable(GlobalValue):
                 value = (value,)
             elif not isinstance(value, tuple):
                 raise TypeError(
-                    "value must be None, bytes or a tuple, not {}".format(
-                        value
-                    )
+                    f"value must be None, bytes or a tuple, not {value}"
                 )
         # if isinstance(value, bytes):
         #     assert len(value) == amount
@@ -1176,12 +1164,12 @@ class Load(LocalValue):
         super().__init__(name, ty)
         assert address.ty is ptr
         if not isinstance(ty, (BasicTyp, PointerTyp)):
-            raise ValueError("Can only load basic types, not {}".format(ty))
+            raise ValueError(f"Can only load basic types, not {ty}")
         self.address = address
         self.volatile = volatile
 
     def __str__(self):
-        return "{} {} = load {}".format(self.ty, self.name, self.address.name)
+        return f"{self.ty} {self.name} = load {self.address.name}"
 
 
 class Store(Instruction):
@@ -1194,11 +1182,11 @@ class Store(Instruction):
         super().__init__()
         if address.ty is not ptr:
             raise TypeError(
-                "Expected address of type ptr, but got {}".format(address.ty)
+                f"Expected address of type ptr, but got {address.ty}"
             )
 
         if not isinstance(value, Value):
-            raise TypeError("Expected a value, got {}".format(value))
+            raise TypeError(f"Expected a value, got {value}")
 
         # if not isinstance(value.ty, (BasicTyp, PointerTyp)):
         #    raise ValueError(
@@ -1211,7 +1199,7 @@ class Store(Instruction):
     def __str__(self):
         val = self.value.name
         address = self.address.name
-        return "store {}, {}".format(val, address)
+        return f"store {val}, {address}"
 
 
 class InlineAsm(Instruction):
@@ -1285,7 +1273,7 @@ class Return(FinalInstruction):
         self.targets = []
 
     def __str__(self):
-        return "return {}".format(self.result.name)
+        return f"return {self.result.name}"
 
 
 def block_use(name):
@@ -1356,7 +1344,7 @@ class Jump(JumpBase):
         self.target = target
 
     def __str__(self):
-        return "jmp {}".format(self.target.name)
+        return f"jmp {self.target.name}"
 
 
 class CJump(JumpBase):
@@ -1371,7 +1359,7 @@ class CJump(JumpBase):
     def __init__(self, a, cond, b, lab_yes, lab_no):
         super().__init__()
         if cond not in CJump.conditions:
-            raise ValueError("Invalid condition {}".format(cond))
+            raise ValueError(f"Invalid condition {cond}")
         self.a = a
         self.cond = cond
         self.b = b
@@ -1405,4 +1393,4 @@ class JumpTable(JumpBase):
         raise NotImplementedError("TODO")
 
     def __str__(self):
-        return "jmp_table {}".format(self.v.name)
+        return f"jmp_table {self.v.name}"

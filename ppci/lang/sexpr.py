@@ -151,7 +151,8 @@ class SExpressionParser(RecursiveDescentParser):
         loc = self.consume("(").loc
         while self.peek != ")":
             if self.peek == "EOF":
-                self.error("Unexpected end of file")
+                tok = self.next_token()
+                self.error("Unexpected end of file", tok.loc)
             elif self.peek == "(":
                 val = self.parse_sexpr()
             else:

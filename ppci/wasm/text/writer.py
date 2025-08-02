@@ -163,8 +163,11 @@ class TextWriter:
 
     def write_elem_definition(self, elemdef: components.Elem):
         self.emit("(", "elem")
+        self.gen_id(elemdef.id)
         if not elemdef.ref.is_zero:
+            self.emit("(", "table")
             self.emit(str(elemdef.ref))
+            self.emit(")")
         offset = " ".join(i.to_string() for i in elemdef.offset)
         self.emit(offset)
         for i in elemdef.refs:

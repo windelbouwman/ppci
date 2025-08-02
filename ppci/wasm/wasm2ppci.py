@@ -61,6 +61,12 @@ class WasmToIrCompiler:
         self._opcode_dispatch["global.get"] = self.gen_global_get
         self._opcode_dispatch["global.set"] = self.gen_global_set
 
+        self._opcode_dispatch["table.get"] = self.gen_table_get
+        self._opcode_dispatch["table.set"] = self.gen_table_set
+
+        self._opcode_dispatch["ref.null"] = self.gen_ref_null
+        self._opcode_dispatch["ref.is_null"] = self.gen_ref_is_null
+
         for opcode in BINOPS:
             self._opcode_dispatch[opcode] = self.gen_binop
 
@@ -187,7 +193,8 @@ class WasmToIrCompiler:
         self._runtime_functions = {}  # Function required during runtime
         self.export_names = {}  # mapping of id's to exported function names
         self.start_function_ref = None
-        self.tables = []  # Function pointer tables
+        self.tables = []  # table variables
+        self.elems = []  # Table initializers
 
         # List of global variable initialization expressions:
         self.global_inits = []
@@ -299,7 +306,7 @@ class WasmToIrCompiler:
             assert definition.info[0] == "funcref"
             self.table_var = ir.ExternalVariable("func_table")
             self.builder.module.add_external(self.table_var)
-            self.tables.append((self.table_var, []))
+            self.tables.append(self.table_var)
         elif definition.kind == "global":
             self.logger.debug("global import")
             # TODO: think of nicer names:
@@ -366,17 +373,15 @@ class WasmToIrCompiler:
         self.functions.append((ppci_function, signature))
         self.gen_functions.append((ppci_function, signature, definition))
 
-    def gen_table_definition(self, definition):
+    def gen_table_definition(self, definition: components.Table):
         """Create room for a table of function pointers."""
-        assert not hasattr(self, "table_var")
-
-        if definition.kind != "funcref":
+        if definition.kind not in ["funcref", "externref"]:
             raise NotImplementedError("Non function pointer tables")
 
-        if definition.max is not None:
-            max_size = max(definition.min, definition.max)
-        else:
+        if definition.max is None:
             max_size = definition.min
+        else:
+            max_size = max(definition.min, definition.max)
 
         size = max_size * self.ptr_info.size
         assert size >= 0
@@ -386,21 +391,23 @@ class WasmToIrCompiler:
             # Reserve at least a single memory location.
             size = self.ptr_info.size
 
-        self.table_var = ir.Variable(
-            "func_table",
+        name = str(definition.id).replace("$", "_")
+        table_name = f"table_{name}"
+        table_var = ir.Variable(
+            table_name,
             ir.Binding.GLOBAL,
             size,
             self.ptr_info.alignment,
         )
-        self.builder.module.add_variable(self.table_var)
-        self.tables.append((self.table_var, []))
+        self.builder.module.add_variable(table_var)
+        self.tables.append(table_var)
 
-    def gen_elem_definition(self, definition):
-        offset = definition.offset
+    def gen_elem_definition(self, elem: components.Elem):
+        offset = elem.offset
         # TODO: what to do when offset is non-negative?
         # assert offset == 0
-        refs = definition.refs
-        self.tables[0][1].append((offset, refs))
+        refs = elem.refs
+        self.elems.append((elem.ref, offset, refs))
 
     def gen_global_definition(self, definition):
         """Generate room for a global variable."""
@@ -410,7 +417,8 @@ class WasmToIrCompiler:
         size = struct.calcsize(fmt)
         # assume init is (f64.const xx):
         # value = struct.pack(fmt, definition.init.args[0])
-        name = "global_{}".format(str(definition.id).replace("$", "_"))
+        name = str(definition.id).replace("$", "_")
+        name = f"global_{name}"
         binding = ir.Binding.GLOBAL
         g2 = ir.Variable(name, binding, size, size)
         self.builder.module.add_variable(g2)
@@ -484,38 +492,24 @@ class WasmToIrCompiler:
         """Initialization function to fill table with elements."""
         # Fill function pointer tables:
         # TODO: we might be able to do this at link time?
-        for table_variable, elems in self.tables:
-            # TODO: what if alignment is bigger than size?
-            assert self.ptr_info.size == self.ptr_info.alignment
-            ptr_size = self.emit(
-                ir.Const(self.ptr_info.size, "ptr_size", ir.ptr)
-            )
+        # TODO: what if alignment is bigger than size?
+        assert self.ptr_info.size == self.ptr_info.alignment
+        ptr_size = self.emit(ir.Const(self.ptr_info.size, "ptr_size", ir.ptr))
 
-            # Loop over elems which initialize table:
-            for offset, functions in elems:
-                # Start at the bottom of the variable table:
-                address = table_variable
+        # Loop over elems which initialize tables:
+        for ref, offset, functions in self.elems:
+            table_var = self.tables[ref.index]
+            index = self.gen_expression(offset)
+            assert index.ty is ir.i32
+            address = self.gen_table_addr(table_var, index)
 
-                # Add offset:
-                offset_value = self.gen_expression(offset)
-                assert offset_value.ty is ir.i32
-                offset_value = self.emit(
-                    ir.Cast(offset_value, "offset", ir.ptr)
-                )
-                offset_value = self.emit(
-                    ir.mul(offset_value, ptr_size, "offset", ir.ptr)
-                )
+            for func in functions:
+                # Lookup function
+                value = self.functions[func.index][0]
+                self.emit(ir.Store(value, address))
                 address = self.emit(
-                    ir.add(address, offset_value, "table_address", ir.ptr)
+                    ir.add(address, ptr_size, "table_address", ir.ptr)
                 )
-
-                for func in functions:
-                    # Lookup function
-                    value = self.functions[func.index][0]
-                    self.emit(ir.Store(value, address))
-                    address = self.emit(
-                        ir.add(address, ptr_size, "table_address", ir.ptr)
-                    )
 
     def emit(self, ppci_inst):
         """Emits the given instruction to the builder."""
@@ -528,22 +522,45 @@ class WasmToIrCompiler:
         self.logger.debug("creating block %s", block_name)
         return self.builder.new_block(block_name)
 
-    TYP_MAP = {"i32": ir.i32, "i64": ir.i64, "f32": ir.f32, "f64": ir.f64}
+    TYP_MAP = {
+        "i32": ir.i32,
+        "i64": ir.i64,
+        "f32": ir.f32,
+        "f64": ir.f64,
+        "externref": ir.ptr,
+        "funcref": ir.ptr,
+    }
 
     def get_ir_type(self, wasm_type):
         wasm_type = wasm_type.split(".")[0]
         return self.TYP_MAP[wasm_type]
 
+    def get_type_size(self, wasm_type: str):
+        size_map = {
+            "i32": 4,
+            "i64": 8,
+            "f32": 4,
+            "f64": 8,
+            "externref": self.ptr_info.size,
+            "funcref": self.ptr_info.size,
+        }
+        return size_map[wasm_type]
+
     def get_debug_type(self, name):
         if self.debug_db.contains(name):
             return self.debug_db.get(name)
         else:
+            ptr_dbg_type = debuginfo.DebugBaseType(
+                "void*", self.ptr_info.size, self.ptr_info.size
+            )
             dbg_type_map = {
                 "f32": debuginfo.DebugBaseType("float", 4, 1),
                 "f64": debuginfo.DebugBaseType("double", 8, 1),
                 "i32": debuginfo.DebugBaseType("int32_t", 4, 1),
                 "i64": debuginfo.DebugBaseType("int64_t", 8, 1),
                 "void": debuginfo.DebugBaseType("void", 0, 1),
+                "externref": ptr_dbg_type,
+                "funcref": ptr_dbg_type,
             }
             dbg_typ = dbg_type_map[name]
             self.debug_db.enter(name, dbg_typ)
@@ -591,7 +608,7 @@ class WasmToIrCompiler:
                 )
             )
             ppci_function.add_parameter(ir_arg)
-            size = ir_typ.size
+            size = self.get_type_size(a_typ[1])
             alignment = size
             alloc = self.emit(ir.Alloc("alloc{}".format(i), size, alignment))
             addr = self.emit(ir.AddressOf(alloc, "local{}".format(i)))
@@ -956,6 +973,37 @@ class WasmToIrCompiler:
         )
         self.push_value(value)
 
+    def gen_ref_null(self, instruction):
+        value = self.emit(ir.Const(0, "null", ir.ptr))
+        self.push_value(value)
+
+    def gen_ref_is_null(self, instruction):
+        """Check if value is null"""
+        value = self.pop_value(ir_typ=ir.ptr)
+        null = self.emit(ir.Const(0, "null", ir.ptr))
+        self._eval_condition_to_i32(value, "==", null)
+
+    def _eval_condition_to_i32(self, a, op, b):
+        ja_block = self.builder.new_block()
+        nein_block = self.builder.new_block()
+        immer = self.builder.new_block()
+        self.emit(ir.CJump(a, op, b, ja_block, nein_block))
+
+        self.builder.set_block(ja_block)
+        ja_value = self.emit(ir.Const(1, "yes", ir.i32))
+        self.emit(ir.Jump(immer))
+
+        self.builder.set_block(nein_block)
+        nein_value = self.emit(ir.Const(0, "no", ir.i32))
+        self.emit(ir.Jump(immer))
+
+        self.builder.set_block(immer)
+        phi = ir.Phi("ternary", ja_value.ty)
+        phi.set_incoming(ja_block, ja_value)
+        phi.set_incoming(nein_block, nein_value)
+        self.emit(phi)
+        self.push_value(phi)
+
     def gen_local_set(self, instruction):
         opcode = instruction.opcode
         ty, local_var = self.locals[instruction.args[0].index]
@@ -978,6 +1026,20 @@ class WasmToIrCompiler:
         ty, addr = self.globalz[instruction.args[0].index]
         value = self.pop_value(ir_typ=ty)
         self.emit(ir.Store(value, addr))
+
+    def gen_table_get(self, instruction):
+        table_var = self.tables[instruction.args[0].index]
+        index = self.pop_value()
+        address = self.gen_table_addr(table_var, index)
+        value = self.emit(ir.Load(address, "table_get", ir.ptr))
+        self.push_value(value)
+
+    def gen_table_set(self, instruction):
+        table_var = self.tables[instruction.args[0].index]
+        value = self.pop_value()
+        index = self.pop_value()
+        address = self.gen_table_addr(table_var, index)
+        self.emit(ir.Store(value, address))
 
     def gen_floor_instruction(self, instruction):
         opcode = instruction.opcode
@@ -1293,24 +1355,21 @@ class WasmToIrCompiler:
         ir_function, signature = self.functions[idx]
         self._gen_call_helper(ir_function, signature)
 
+    def gen_table_addr(self, table_var, index: ir.Value):
+        ptr_size = self.emit(ir.Const(self.ptr_info.size, "ptr_size", ir.i32))
+        offset = self.emit(ir.mul(index, ptr_size, "offset", ir.i32))
+        offset = self.emit(ir.Cast(offset, "offset", ir.ptr))
+        address = self.emit(ir.add(table_var, offset, "address", ir.ptr))
+        return address
+
     def gen_call_indirect_instruction(self, instruction):
         """Call another function by pointer!"""
         type_id = instruction.args[0].index
         signature = self.wasm_types[type_id]
+        table_idx = instruction.args[1].index
+        table_var = self.tables[table_idx]
         func_index = self.pop_value()
-        ptr_size = self.emit(ir.Const(self.ptr_info.size, "ptr_size", ir.i32))
-        element_offset = self.emit(
-            ir.Cast(
-                self.emit(
-                    ir.mul(func_index, ptr_size, "element_offset", ir.i32)
-                ),
-                "element_offset",
-                ir.ptr,
-            )
-        )
-        element_address = self.emit(
-            ir.add(self.table_var, element_offset, "element_address", ir.ptr)
-        )
+        element_address = self.gen_table_addr(table_var, func_index)
         func_ptr = self.emit(ir.Load(element_address, "func_ptr", ir.ptr))
         # TODO: how to check function type during runtime?
 

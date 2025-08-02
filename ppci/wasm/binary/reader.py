@@ -39,6 +39,7 @@ class BinaryFileReader:
             "table": {},
             "memory": {},
             "global": {},
+            "elem": {},
         }
 
         # todo: we may assign id's inside the _from_reader() methods,
@@ -358,7 +359,10 @@ class BinaryFileReader:
             offset = self.read_expression()
             count = self.read_uint()
             refs = [self.read_space_ref("func") for _ in range(count)]
-            return components.Elem(ref, offset, refs)
+            id = self.gen_id("elem")
+            definition = components.Elem(id, ref, offset, refs)
+            self.add_definition("elem", definition)
+            return definition
         else:
             raise NotImplementedError("Post MVP feature")
 

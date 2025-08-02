@@ -32,7 +32,7 @@ class Register:
                 reg = self.from_num(self.color)
             else:
                 reg = "-"
-            return "{}[{}]".format(self.name, reg)
+            return f"{self.name}[{reg}]"
         else:
             return self.name
 

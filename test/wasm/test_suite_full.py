@@ -188,7 +188,6 @@ class WastExecutor:
         else:
             # print('Unknown directive', s_expr[0])
             raise NotImplementedError(f"{command=}")
-            pass
 
     def parse_module(self, s_expr: SList):
         """Parse a module from an s_expression"""
@@ -381,6 +380,7 @@ class WastExecutor:
 
     @staticmethod
     def parse_expr(s_expr):
+        """Evaluate a S-expression"""
         opcode = s_expr[0].get_symbol()
         if opcode in ["i32.const", "i64.const"]:
             bits = int(opcode[1:3])
@@ -389,6 +389,11 @@ class WastExecutor:
         elif opcode in ["f32.const", "f64.const"]:
             value = s_expr[1].get_symbol()
             return make_float(value)
+        elif opcode == "ref.extern":
+            value = int(s_expr[1].get_symbol())
+            return value
+        elif opcode == "ref.null":
+            return 0
         else:
             raise NotImplementedError(f"{opcode=}")
 

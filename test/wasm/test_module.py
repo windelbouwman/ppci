@@ -13,7 +13,6 @@ def test_module1():
     instructions1 = [
         (
             "loop",
-            None,
             "emptyblock",
             # print iter
             ("local.get", 0),

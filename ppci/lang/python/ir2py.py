@@ -43,7 +43,7 @@ class IrToPythonCompiler:
         self.output_file = output_file
         self.reporter = reporter
         self.stack_size = 0
-        self.func_ptr_map = {}
+        self.func_ptr_map = {None: None}  # Start with null-entry
         self._level = 0
 
     def print(self, level, *args):
@@ -87,6 +87,7 @@ class IrToPythonCompiler:
         self.emit("_irpy_stack = bytearray()")
         self.emit("HEAP_START = 0x10000000")
         self.emit("_irpy_func_pointers = list()")
+        self.emit("_irpy_func_pointers.append(None)  # Null-entry")
         self.emit("_irpy_externals = {}")
         self.emit("")
 
