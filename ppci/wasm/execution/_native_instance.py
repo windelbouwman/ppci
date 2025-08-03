@@ -65,6 +65,9 @@ class NativeModuleInstance(ModuleInstance):
 
         imports["wasm_rt_memory_grow"] = self.memory_grow
         imports["wasm_rt_memory_size"] = self.memory_size
+        imports["wasm_rt_memory_init"] = self.memory_init
+        imports["wasm_rt_memory_copy"] = self.memory_copy
+        imports["wasm_rt_memory_fill"] = self.memory_fill
 
         for name, imp_obj in imports2.items():
             assert name not in imports
@@ -89,49 +92,10 @@ class NativeModuleInstance(ModuleInstance):
     def _run_init(self):
         self._code_module._run_init()
 
-    def memory_size(self) -> int:
-        """return memory size in pages"""
-        return self._memory_data_page.size // PAGE_SIZE
-
-    def memory_grow(self, amount: int) -> int:
-        """Grow memory and return the old size.
-
-        Current strategy:
-        - claim new memory
-        - copy all data
-        - free old memory
-        - update wasm memory base pointer
-        """
-        max_size = self._memories[0].max_size
-        old_size = self.memory_size()
-        new_size = old_size + amount
-
-        # Keep memory within sensible bounds:
-        if new_size >= 0x10000:
-            return -1
-
-        if max_size is not None and new_size > max_size:
-            return -1
-
-        # Read old data:
-        self._memory_data_page.seek(0)
-        old_data = self._memory_data_page.read(old_size * PAGE_SIZE)
-
-        # Create new page and fill with old data:
-        self._memory_data_page = MemoryPage(new_size * PAGE_SIZE)
-        self._memory_data_page.seek(0)
-        self._memory_data_page.write(old_data)
-
-        # Update pointer:
-        self.set_mem_base_ptr(self._memory_data_page.addr)
-        return old_size
-
     def memory_create(self, min_size, max_size):
         assert len(self._memories) == 0
-        self._memory_data_page = MemoryPage(min_size * PAGE_SIZE)
         mem0 = NativeWasmMemory(self, min_size, max_size)
         self._memories.append(mem0)
-        self.set_mem_base_ptr(self._memory_data_page.addr)
 
     def set_mem_base_ptr(self, base_addr):
         """Set memory base address"""
@@ -157,19 +121,54 @@ class NativeWasmMemory(WasmMemory):
     def __init__(self, instance, min_size, max_size):
         super().__init__(min_size, max_size)
         self._instance = instance
+        self._memory_data_page = MemoryPage(min_size * PAGE_SIZE)
+        self._instance.set_mem_base_ptr(self._memory_data_page.addr)
 
-    def memory_size(self) -> int:
+    def grow(self, amount: int) -> int:
+        """Grow memory and return the old size.
+
+        Current strategy:
+        - claim new memory
+        - copy all data
+        - free old memory
+        - update wasm memory base pointer
+        """
+        max_size = self.max_size
+        old_size = self.size()
+        new_size = old_size + amount
+
+        # Keep memory within sensible bounds:
+        if new_size >= 0x10000:
+            return -1
+
+        if max_size is not None and new_size > max_size:
+            return -1
+
+        # Read old data:
+        self._memory_data_page.seek(0)
+        old_data = self._memory_data_page.read(old_size * PAGE_SIZE)
+
+        # Create new page and fill with old data:
+        self._memory_data_page = MemoryPage(new_size * PAGE_SIZE)
+        self._memory_data_page.seek(0)
+        self._memory_data_page.write(old_data)
+
+        # Update pointer:
+        self._instance.set_mem_base_ptr(self._memory_data_page.addr)
+        return old_size
+
+    def size(self) -> int:
         """return memory size in pages"""
         return self._memory_data_page.size // PAGE_SIZE
 
-    def write(self, address: int, data):
+    def write(self, address: int, data: bytes):
         """Write some data to memory"""
-        self._instance._memory_data_page.seek(address)
-        self._instance._memory_data_page.write(data)
+        self._memory_data_page.seek(address)
+        self._memory_data_page.write(data)
 
     def read(self, address: int, size: int) -> bytes:
-        self._instance._memory_data_page.seek(address)
-        data = self._instance._memory_data_page.read(size)
+        self._memory_data_page.seek(address)
+        data = self._memory_data_page.read(size)
         assert len(data) == size
         return data
 

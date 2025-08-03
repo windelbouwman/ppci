@@ -117,7 +117,13 @@ instruction_table = [
         ("i32", "i32", "i32"),
         (),
     ),
-    ("memory.fill", (0xFC, 11), (ArgType.U32, ArgType.U8)),
+    (
+        "memory.fill",
+        (0xFC, 11),
+        (ArgType.U8,),
+        ("i32", "i32", "i32"),
+        (),
+    ),
     (
         "i32.const",
         0x41,

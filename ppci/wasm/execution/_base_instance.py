@@ -19,14 +19,19 @@ class ModuleInstance(abc.ABC):
     def _run_init(self):
         raise NotImplementedError()
 
-    def memory_size(self) -> int:
-        """return memory size in pages"""
-        # TODO: idea is to have multiple memories and query the memory:
-        memory_index = 0
-        memory = self._memories[memory_index]
-        return memory.memory_size()
+    def memory_grow(self, memory_idx: int, amount: int) -> int:
+        """Grow memory and return the old size"""
+        memory = self._memories[memory_idx]
+        return memory.grow(amount)
 
-    def memory_init(self, data_idx, memory_idx, dst, src, n):
+    def memory_size(self, memory_idx: int) -> int:
+        """return memory size in pages"""
+        memory = self._memories[memory_idx]
+        return memory.size()
+
+    def memory_init(
+        self, data_idx: int, memory_idx: int, dst: int, src: int, n: int
+    ) -> None:
         """Perform memcpy-ish operation"""
         logger.debug(
             f"memory_init {data_idx=}, {memory_idx=}, {dst=}, {src=}, {n=}"
@@ -36,11 +41,18 @@ class ModuleInstance(abc.ABC):
         blob = data[src : src + n]
         memory.write(dst, blob)
 
-    def memory_copy(self, memory_idx, memory_idx2, dst, src, n):
+    def memory_copy(
+        self, memory_idx: int, memory_idx2: int, dst: int, src: int, n: int
+    ) -> None:
         """Memcpy operation"""
         assert memory_idx == memory_idx2
         memory = self._memories[memory_idx]
         blob = memory.read(src, n)
+        memory.write(dst, blob)
+
+    def memory_fill(self, memory_idx: int, dst: int, val: int, n: int) -> None:
+        memory = self._memories[memory_idx]
+        blob = bytes([val] * n)
         memory.write(dst, blob)
 
     @abc.abstractmethod
@@ -134,6 +146,14 @@ class WasmMemory(abc.ABC):
         data = self.read(address, size)
         assert len(data) == size
         return data
+
+    @abc.abstractmethod
+    def grow(self, amount: int) -> int:
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def size(self) -> int:
+        raise NotImplementedError()
 
     @abc.abstractmethod
     def write(self, address, data):

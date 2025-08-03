@@ -49,6 +49,7 @@ class PythonModuleInstance(ModuleInstance):
         imports["wasm_rt_memory_size"] = self.memory_size
         imports["wasm_rt_memory_init"] = self.memory_init
         imports["wasm_rt_memory_copy"] = self.memory_copy
+        imports["wasm_rt_memory_fill"] = self.memory_fill
 
         # Link all imports:
         for name, obj in imports.items():
@@ -75,37 +76,9 @@ class PythonModuleInstance(ModuleInstance):
         # Allow only a single memory:
         assert len(self._memories) == 0
 
-        # Allocate room on top of python heap:
-        self.mem0_start = self._py_module._irpy_heap_top()
-        initial_data = bytes(min_size * PAGE_SIZE)
-        self._py_module._irpy_heap.extend(initial_data)
-
-        # Store pointer to heap top:
-        mem0_ptr_ptr = self._py_module.wasm_mem0_address
-        self._py_module.store_i32(mem0_ptr_ptr, self.mem0_start)
-
         # Create memory object:
         mem0 = PythonWasmMemory(self, min_size, max_size)
         self._memories.append(mem0)
-
-    def memory_grow(self, amount):
-        """Grow memory and return the old size"""
-        max_size = self._memories[0].max_size
-        assert max_size is not None
-        old_size = self.memory_size()
-        new_size = old_size + amount
-        if new_size > max_size:
-            return -1
-        else:
-            self._py_module._irpy_heap.extend(bytes(amount * PAGE_SIZE))
-            return old_size
-
-    def memory_size(self):
-        """return memory size in pages"""
-        size = (
-            self._py_module._irpy_heap_top() - self.mem0_start
-        ) // PAGE_SIZE
-        return size
 
     def get_func_by_index(self, index: int):
         exported_name = self._wasm_function_names[index]
@@ -124,12 +97,41 @@ class PythonWasmMemory(WasmMemory):
         super().__init__(min_size, max_size)
         self._module = instance
 
+        # Allocate room on top of python heap:
+        self._mem0_start = self._module._py_module._irpy_heap_top()
+        initial_data = bytes(min_size * PAGE_SIZE)
+        self._module._py_module._irpy_heap.extend(initial_data)
+
+        # Store pointer to heap top:
+        mem0_ptr_ptr = self._module._py_module.wasm_mem0_address
+        self._module._py_module.store_i32(mem0_ptr_ptr, self._mem0_start)
+
+    def grow(self, amount):
+        """Grow memory and return the old size"""
+        max_size = self.max_size
+        assert max_size is not None
+        old_size = self.size()
+        new_size = old_size + amount
+        if new_size > max_size:
+            return -1
+
+        new_data = bytes(amount * PAGE_SIZE)
+        self._module._py_module._irpy_heap.extend(new_data)
+        return old_size
+
+    def size(self) -> int:
+        """return memory size in pages"""
+        size = (
+            self._module._py_module._irpy_heap_top() - self._mem0_start
+        ) // PAGE_SIZE
+        return size
+
     def write(self, address: int, data: bytes):
-        address = self._module.mem0_start + address
+        address = self._mem0_start + address
         self._module._py_module.write_mem(address, data)
 
     def read(self, address: int, size: int) -> bytes:
-        address = self._module.mem0_start + address
+        address = self._mem0_start + address
         data = self._module._py_module.read_mem(address, size)
         assert len(data) == size
         return data

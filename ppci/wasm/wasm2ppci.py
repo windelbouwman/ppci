@@ -1577,7 +1577,6 @@ class WasmToIrCompiler:
         args0 = []
         assert len(args_in) == len(args)
         for ai, a in zip(args_in, args):
-            print(args)
             if ai == ArgType.DATAIDX:
                 assert isinstance(a, components.Ref)
                 assert a.space == "data"
