@@ -63,7 +63,7 @@ def test_memory1():
         i32.const 1
         i32.load8_u
         call $print)
-      (data i32.const 0 "\04\03\02")
+      (data $0 i32.const 0 "\04\03\02")
     )
     """
     )

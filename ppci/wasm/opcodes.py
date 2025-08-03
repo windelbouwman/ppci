@@ -21,6 +21,7 @@ class ArgType(enum.Enum):
     LABELIDX = 25
     GLOBALIDX = 26
     ELEMIDX = 27
+    DATAIDX = 28
 
 
 class Space(enum.Enum):
@@ -101,9 +102,21 @@ instruction_table = [
     ("i64.store32", 0x3E, (ArgType.U32, ArgType.U32)),
     ("memory.size", 0x3F, (ArgType.U8,), (), ("i32",)),
     ("memory.grow", 0x40, (ArgType.U8,), ("i32",), ("i32",)),
-    # memory.init
-    # memory.drop
-    ("memory.copy", (0xFC, 10), (ArgType.U32, ArgType.U8, ArgType.U8)),
+    (
+        "memory.init",
+        (0xFC, 8),
+        (ArgType.DATAIDX, ArgType.U8),
+        ("i32", "i32", "i32"),
+        (),
+    ),
+    ("data.drop", (0xFC, 9), (ArgType.DATAIDX,)),
+    (
+        "memory.copy",
+        (0xFC, 10),
+        (ArgType.U8, ArgType.U8),
+        ("i32", "i32", "i32"),
+        (),
+    ),
     ("memory.fill", (0xFC, 11), (ArgType.U32, ArgType.U8)),
     (
         "i32.const",

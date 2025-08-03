@@ -35,7 +35,7 @@ from ppci.common import CompilerError, logformat
 from ppci.lang.sexpr import parse_s_expressions
 from ppci.lang.sexpr import SExpression, SList
 from ppci.utils.reporting import html_reporter
-from ppci.wasm.util import datastring2bytes
+from ppci.wasm.util import datastring2bytes, unescape
 from ppci.wasm.util import make_int, make_float
 
 
@@ -185,6 +185,8 @@ class WastExecutor:
             logger.debug("TODO: assert_invalid")
         elif command == "assert_malformed":
             logger.debug("TODO: assert_invalid")
+        elif command == "assert_exhaustion":
+            logger.debug("TODO: assert_exhaustion")
         else:
             # print('Unknown directive', s_expr[0])
             raise NotImplementedError(f"{command=}")
@@ -196,10 +198,19 @@ class WastExecutor:
         elif len(s_expr) > 2 and s_expr[2].is_symbol("binary"):
             m1 = self.parse_binary_module(s_expr)
             m1.id = s_expr[1].get_symbol()
+        elif len(s_expr) > 1 and s_expr[1].is_symbol("quote"):
+            m1 = self.parse_quoted_module(s_expr)
         else:
             m1 = self.parse_text_module(s_expr)
         self.logger.debug("loaded wasm module %s (id=%s)", m1, m1.id)
         return m1
+
+    def parse_quoted_module(self, s_expr: SList):
+        """Parse quoted module like: (module quote ....)"""
+        strings = [unescape(s.value) for s in s_expr.values[2:]]
+        # TODO: we might want to tokenize here, and re-use locations
+        full_source = "(module " + reduce(add, strings) + ")"
+        return Module(full_source)
 
     def parse_text_module(self, s_expr: SList):
         logger.debug(f"Loading text module at {s_expr.loc}")
@@ -323,9 +334,9 @@ class WastExecutor:
                 "Skipping invoke, since no module instance was found"
             )
         elif any(nan_or_inf(a) for a in args):
-            self.logger.warning("Not invoking method %s(%s)", func_name, args)
+            self.logger.warning(f"Not invoking method {func_name}({args})")
         else:
-            self.logger.debug(f"Invoking {target!r} at line {target.loc}")
+            self.logger.debug(f"Invoking {func_name} at line {target.loc}")
             return instance.exports[func_name](*args)
 
     def register_instance(self, s_expr):

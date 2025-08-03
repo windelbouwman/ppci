@@ -13,6 +13,7 @@ class ModuleInstance(abc.ABC):
     def __init__(self):
         self.exports = Exports()
         self._memories = []
+        self._datas = []
 
     @abc.abstractmethod
     def _run_init(self):
@@ -24,6 +25,23 @@ class ModuleInstance(abc.ABC):
         memory_index = 0
         memory = self._memories[memory_index]
         return memory.memory_size()
+
+    def memory_init(self, data_idx, memory_idx, dst, src, n):
+        """Perform memcpy-ish operation"""
+        logger.debug(
+            f"memory_init {data_idx=}, {memory_idx=}, {dst=}, {src=}, {n=}"
+        )
+        data = self._datas[data_idx]
+        memory = self._memories[memory_idx]
+        blob = data[src : src + n]
+        memory.write(dst, blob)
+
+    def memory_copy(self, memory_idx, memory_idx2, dst, src, n):
+        """Memcpy operation"""
+        assert memory_idx == memory_idx2
+        memory = self._memories[memory_idx]
+        blob = memory.read(src, n)
+        memory.write(dst, blob)
 
     @abc.abstractmethod
     def memory_create(self, min_size, max_size):
@@ -40,13 +58,16 @@ class ModuleInstance(abc.ABC):
                     max_size = 0x10000
                 self.memory_create(min_size, max_size)
             elif isinstance(definition, components.Data):
-                assert len(definition.offset) == 1
-                assert definition.offset[0].opcode == "i32.const"
-                offset = definition.offset[0].args[0]
-                memory_index = definition.ref.index
-                assert isinstance(memory_index, int)
-                data = definition.data
-                initializations.append((memory_index, offset, data))
+                if definition.mode:
+                    ref, offset = definition.mode
+                    assert len(offset) == 1
+                    assert offset[0].opcode == "i32.const"
+                    offset = offset[0].args[0]
+                    memory_index = ref.index
+                    assert isinstance(memory_index, int)
+                    data = definition.data
+                    initializations.append((memory_index, offset, data))
+                self._datas.append(definition.data)
 
         # Initialize various parts:
         for memory_index, offset, data in initializations:

@@ -149,6 +149,7 @@ class Ref:
     """This is a reference to an object in one of the 5 spaces.
 
     space must be one of 'type', 'func', 'memory', 'table', 'global', 'local'
+    'elem, 'data'
     index can be none
     """
 
@@ -163,6 +164,8 @@ class Ref:
             "global",
             "local",
             "label",
+            "elem",
+            "data",
         )
         if space not in valid_spaces:
             raise ValueError(f"space must be one of {valid_spaces}")
@@ -784,22 +787,32 @@ class Data(Definition):
 
     Attributes:
 
+    * id: the id of this data segment in the data name/index space.
+    * mode: A combo of ref/offset
+    * data: the binary data as a bytes object.
+
+    Active mode:
     * ref: the memory id that this data applies to.
     * offset: the byte offset, expressed as an instruction (i.e. i32.const)
-    * data: the binary data as a bytes object.
+
+    Passive mode:
+    * None
     """
 
-    __slots__ = ("ref", "offset", "data")
+    __slots__ = ("id", "mode", "data")
 
-    def _from_args(self, ref, offset, data):
-        # Check
-        assert isinstance(offset, list)
+    def _from_args(self, id, mode, data):
+        if mode:
+            ref, offset = mode
+            assert isinstance(offset, list)
+            ref = check_id(ref)
+            assert isinstance(ref, Ref)
+            self.mode = (ref, offset)
+        else:
+            self.mode = None
         if not isinstance(data, bytes):
             raise TypeError("data must be bytes")
-        # Set
-        self.ref = check_id(ref)
-        assert isinstance(self.ref, Ref)
-        self.offset = offset
+        self.id = check_id(id)
         self.data = data
 
     def to_string(self):

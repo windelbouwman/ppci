@@ -47,6 +47,8 @@ class PythonModuleInstance(ModuleInstance):
         # Magical python memory interface, add it now:
         imports["wasm_rt_memory_grow"] = self.memory_grow
         imports["wasm_rt_memory_size"] = self.memory_size
+        imports["wasm_rt_memory_init"] = self.memory_init
+        imports["wasm_rt_memory_copy"] = self.memory_copy
 
         # Link all imports:
         for name, obj in imports.items():

@@ -40,6 +40,7 @@ class BinaryFileReader:
             "memory": {},
             "global": {},
             "elem": {},
+            "data": {},
         }
 
         # todo: we may assign id's inside the _from_reader() methods,
@@ -390,13 +391,21 @@ class BinaryFileReader:
 
     def read_data_definition(self) -> components.Data:
         """Read a data definition."""
-        ref = self.read_space_ref("memory")
-        if ref.index == 0:
-            offset = self.read_expression()
-            data = self.read_length_prefixed_bytes()
-            return components.Data(ref, offset, data)
+        x = self.read_uint()
+        if x == 1:
+            mode = None  # passive mode
         else:
-            raise NotImplementedError("Post MVP feature")
+            if x == 0:
+                ref = Ref("memory", index=0)
+            else:
+                ref = self.read_space_ref("memory")
+            offset = self.read_expression()
+            mode = (ref, offset)
+        data = self.read_length_prefixed_bytes()
+        id = self.gen_id("data")
+        definition = components.Data(id, mode, data)
+        self.add_definition("data", definition)
+        return definition
 
     def read_data_count_definition(self):
         n = self.read_int()

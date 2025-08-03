@@ -334,11 +334,17 @@ class BinaryFileWriter(BaseIoWriter):
 
     def write_data_definition(self, data: components.Data):
         """Write out a `data` definition."""
-        assert data.ref.space == "memory"
-        self.write_ref(data.ref)
+        if data.mode:
+            ref, offset = data.mode
+            assert ref.space == "memory"
+            if ref.index > 0:
+                self.write_vu32(2)
+            self.write_ref(ref)
 
-        # Encode offset as expression followed by end instruction
-        self.write_expression(data.offset)
+            # Encode offset as expression followed by end instruction
+            self.write_expression(offset)
+        else:
+            self.write_vu32(1)  # passive mode
 
         # Encode as u32 length followed by data:
         self.write_vu32(len(data.data))

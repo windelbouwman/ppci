@@ -9,6 +9,7 @@ from ..binutils import debuginfo
 from ..arch.arch_info import TypeInfo
 from . import components
 from .opcodes import STORE_OPS, LOAD_OPS, BINOPS, CMPOPS, STACK_IO
+from .opcodes import OPERANDS, ArgType
 from .util import sanitize_name
 
 
@@ -54,6 +55,8 @@ class WasmToIrCompiler:
 
         for opcode in LOAD_OPS:
             self._opcode_dispatch[opcode] = self.gen_load
+
+        self._opcode_dispatch["data.drop"] = self.gen_data_drop
 
         self._opcode_dispatch["local.set"] = self.gen_local_set
         self._opcode_dispatch["local.tee"] = self.gen_local_set
@@ -106,6 +109,9 @@ class WasmToIrCompiler:
             "i32.rotr",
             "memory.grow",
             "memory.size",
+            "memory.fill",
+            "memory.copy",
+            "memory.init",
             "i32.extend8_s",
             "i32.extend16_s",
             "i64.extend8_s",
@@ -1174,6 +1180,9 @@ class WasmToIrCompiler:
         address = self.emit(ir.add(mem0, address, "address", ir.ptr))
         return address
 
+    def gen_data_drop(self, instruction):
+        pass
+
     @property
     def is_reachable(self):
         """Determine if the current position is reachable"""
@@ -1481,7 +1490,7 @@ class WasmToIrCompiler:
 
     def gen_instruction_fallback(self, instruction):
         opcode = instruction.opcode
-        self._runtime_call(opcode)
+        self._runtime_call(opcode, args=instruction.args)
 
     def gen_return_instruction(self, instruction):
         """Generate code for return instruction.
@@ -1553,7 +1562,7 @@ class WasmToIrCompiler:
             targetblock = block.continue_block
         return targetblock
 
-    def _runtime_call(self, opcode):
+    def _runtime_call(self, opcode, args=()):
         """Generate runtime function call.
 
         This is required for functions such 'sqrt' as which do not have
@@ -1563,8 +1572,27 @@ class WasmToIrCompiler:
         rt_func_name = "wasm_rt_" + func_name
 
         # Determine argument and return types:
+        arg_types0 = []
+        args_in = OPERANDS[opcode]
+        args0 = []
+        assert len(args_in) == len(args)
+        for ai, a in zip(args_in, args):
+            print(args)
+            if ai == ArgType.DATAIDX:
+                assert isinstance(a, components.Ref)
+                assert a.space == "data"
+                arg = self.emit(ir.Const(a.index, "idx", ir.i32))
+                arg_types0.append(ir.i32)
+            elif ai == ArgType.U8:
+                assert isinstance(a, int)
+                arg = self.emit(ir.Const(a, "idx", ir.i32))
+                arg_types0.append(ir.i32)
+            else:
+                raise NotImplementedError(str(ai))
+            args0.append(arg)
+
         stack_in, stack_out = STACK_IO[opcode]
-        arg_types = [self.get_ir_type(t) for t in stack_in]
+        arg_types1 = [self.get_ir_type(t) for t in stack_in]
         if stack_out:
             assert len(stack_out) == 1
             ir_typ = self.get_ir_type(stack_out[0])
@@ -1575,6 +1603,7 @@ class WasmToIrCompiler:
         if rt_func_name in self._runtime_functions:
             rt_func = self._runtime_functions[rt_func_name]
         else:
+            arg_types = arg_types0 + arg_types1
             if ir_typ is None:
                 rt_func = ir.ExternalProcedure(rt_func_name, arg_types)
             else:
@@ -1583,11 +1612,12 @@ class WasmToIrCompiler:
             self.builder.module.add_external(rt_func)
 
         # Grab arguments from stack:
-        args = []
-        for arg_ir_typ in reversed(arg_types):
+        args1 = []
+        for arg_ir_typ in reversed(arg_types1):
             arg = self.pop_value(ir_typ=arg_ir_typ)
-            args.append(arg)
-        args.reverse()
+            args1.append(arg)
+        args1.reverse()
+        args = args0 + args1
 
         if ir_typ is None:
             value = self.emit(ir.ProcedureCall(rt_func, args))

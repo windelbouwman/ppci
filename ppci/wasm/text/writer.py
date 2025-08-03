@@ -176,12 +176,15 @@ class TextWriter:
 
     def write_data_definition(self, datadef: components.Data):
         self.emit("(", "data")
-        if not datadef.ref.is_zero:
-            self.emit(str(datadef.ref))
-        # self.emit(' ')
-        # self.gen_id(datadef.id)
-        offset = " ".join(i.to_string() for i in datadef.offset)
-        self.emit(offset)
+        self.gen_id(datadef.id)
+        if datadef.mode:
+            ref, offset = datadef.mode
+            if not ref.is_zero:
+                self.emit(str(ref))
+            # self.emit(' ')
+            # self.gen_id(datadef.id)
+            offset = " ".join(i.to_string() for i in offset)
+            self.emit(offset)
         self.emit('"' + bytes2datastring(datadef.data) + '"')
         self.emit(")")
 

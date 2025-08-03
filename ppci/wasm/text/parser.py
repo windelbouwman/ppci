@@ -468,7 +468,9 @@ class WatTupleLoader(RecursiveDescentParser):
             self.add_definition(components.Memory(id, min, max))
             offset = [components.Instruction("i32.const", 0)]
             memory_ref = self._make_ref("memory", id)
-            self.add_definition(components.Data(memory_ref, offset, data))
+            mode = (memory_ref, offset)
+            data_id = self.gen_id("data")
+            self.add_definition(components.Data(data_id, mode, data))
         else:
             min, max = self.parse_limits()
             self.add_definition(components.Memory(id, min, max))
@@ -512,13 +514,25 @@ class WatTupleLoader(RecursiveDescentParser):
             self.add_definition(components.Global(id, typ, mutable, init))
 
     def parse_data(self):
-        """Load data"""
-        ref = self._parse_use_or_default("memory", default=0)
-        offset = self.parse_offset_expression()
-        data = self.parse_data_blobs()
-        self.add_definition(components.Data(ref, offset, data))
+        """Load data segment"""
+        id = self._parse_optional_id(default=self.gen_id("data"))
+        if self.peek == ")":
+            mode = None
+            data = bytes()
+        else:
+            if self.peek == "string":
+                # Passive block
+                mode = None
+            else:
+                # Active block
+                ref = self._parse_use_or_default("memory", default=0)
+                offset = self.parse_offset_expression()
+                mode = (ref, offset)
+            data = self.parse_data_blobs()
+        definition = components.Data(id, mode, data)
+        self.add_definition(definition)
 
-    def parse_data_blobs(self):
+    def parse_data_blobs(self) -> bytes:
         data = bytearray()
         while not self.match(")"):
             txt = self.take()
@@ -528,8 +542,7 @@ class WatTupleLoader(RecursiveDescentParser):
                 assert isinstance(txt, str)
                 blob = datastring2bytes(txt)
             data.extend(blob)
-        data = bytes(data)
-        return data
+        return bytes(data)
 
     def parse_offset_expression(self):
         if self.munch("(", "offset"):
@@ -738,6 +751,8 @@ class WatTupleLoader(RecursiveDescentParser):
                     arg = self._parse_ref("table", default=0)
                 elif op == ArgType.ELEMIDX:
                     arg = self._parse_ref("elem")
+                elif op == ArgType.DATAIDX:
+                    arg = self._parse_ref("data")
                 elif op == ArgType.HEAPTYPE:
                     arg = self._parse_heaptype()
                 elif op == ArgType.I32:
