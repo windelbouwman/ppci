@@ -15,23 +15,34 @@ logger = logging.getLogger("elf")
 
 
 class ElfRelocation:
-    def __init__(self, header):
+    def __init__(self, header, bits=64):
         self.header = header
+        self.bits = bits
+        self.parse_info()
 
     def __getitem__(self, key):
         if key == "type":
-            #
+            return self.type
         elif key == "symbol_id":
-            #
+            return self.symbol_id
         elif key == "section":
-            #
+            return self.section
         elif key == "offset":
             return header.r_offset
         elif key == "addend" and self.header.r_addend:
             return self.header.r_addend
 
     def parse_info(self):
-        self.symbol_id = self.header.r_info >> 8
+        if self.bits == 64:
+            self.symbol_id = self.header.r_info >> 32
+            self.type = self.header.r_info & 0xffffffff
+        else:
+            self.symbol_id = self.header.r_info >> 8
+            self.type = self.header.r_info & 0xff
+    
+    def connect_section(self, symbole_table):
+        symbole = symbole_table[self.symbol_id]
+        self.section = symbole.st_shndx
 
 class ElfSection:
     def __init__(self, header):
@@ -126,11 +137,17 @@ class ElfFile:
             if typ == SectionHeaderType.REL:
                 f.seek(section.header.sh_offset)
                 rh = elf_file.header_types.RelocationTableEntry.read(f)
-                elf_file.relocations.append(ElfRelocations(rh))
+                elf_file.relocations.append(ElfRelocations(rh, bits=bits))
             elif typ == SectionHeaderType.RELA:
                 f.seek(section.header.sh_offset)
                 rh = elf_file.header_types.RelocationTableEntryWA.read(f)
-                elf_file.relocations.append(ElfRelocations(rh))
+                elf_file.relocations.append(ElfRelocations(rh, bits=bits))
+            elif typ == SectionHeaderType.SHT_SYMTAB:
+                elf_file.symbole_table = elf_file.read_symbole_tab(section)
+        
+        if "symbole_table" in vars(elf_file):
+            for relocation in elf_file.relocations:
+                relocation.connect_section(elf_file.symbole_table)
         return elf_file
 
     def read_strtab(self, f):
