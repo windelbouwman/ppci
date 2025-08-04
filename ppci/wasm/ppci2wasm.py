@@ -203,7 +203,8 @@ class IrToWasmCompiler:
             table_ref = components.Ref("table", index=0)
             print(indexes)
             offset = [components.Instruction("i32.const", 0)]
-            self.add_definition(components.Elem(0, table_ref, offset, indexes))
+            mode = table_ref, offset
+            self.add_definition(components.Elem(0, mode, indexes))
 
         module = components.Module()
         module.definitions = self.gather_definitions()

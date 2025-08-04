@@ -171,6 +171,8 @@ class WatTupleLoader(RecursiveDescentParser):
             "table": {},
             "memory": {},
             "global": {},
+            "elem": {},
+            "data": {},
         }
 
         # TODO: maybe this is not needed at this point?
@@ -179,9 +181,18 @@ class WatTupleLoader(RecursiveDescentParser):
             id_map = id_maps[d.kind]
             id_map[d.id] = len(id_map)
 
-        for space in ["type", "global", "memory", "table", "func"]:
+        for space in [
+            "type",
+            "global",
+            "memory",
+            "table",
+            "func",
+            "elem",
+            "data",
+        ]:
+            id_map = id_maps[space]
             for d in self.definitions[space]:
-                id_maps[space][d.id] = len(id_maps[space])
+                id_map[d.id] = len(id_map)
 
         # resolve any unresolved items:
         for item in self.resolve_backlog:
@@ -246,6 +257,8 @@ class WatTupleLoader(RecursiveDescentParser):
         if self.munch("(", space):
             value = self._parse_ref(space)
             self.consume(")")
+        elif default is None:
+            self.error("Expected space usage")
         else:
             value = self._make_ref(space, default)
         return value
@@ -377,50 +390,94 @@ class WatTupleLoader(RecursiveDescentParser):
         self._parse_inline_export("table", id)
         if self.match("(", "import"):  # handle inline imports
             modname, name = self._parse_inline_import()
-            info = self._parse_table_type()
+            info = self.parse_table_type()
             self.add_definition(
                 components.Import(modname, name, "table", id, info)
             )
         elif self.match("funcref") or self.match("externref"):
-            kind = self.next_token().val
-            # Table types can be funcref or externref
+            kind = self.parse_reftype()
             # We have embedded data
             self.expect("(", "elem")
-            refs = self.parse_ref_list()
+            if self.match("(", "item") or self.at_instruction():
+                refs = self.parse_item_list()
+            else:
+                refs = self.parse_ref_list()
             self.expect(")")
             offset = [components.Instruction("i32.const", 0)]
             min = max = len(refs)
             self.add_definition(components.Table(id, kind, min, max))
             table_ref = self._make_ref("table", id)
+            mode = table_ref, offset
             eid = self.gen_id("elem")
-            self.add_definition(components.Elem(eid, table_ref, offset, refs))
+            self.add_definition(components.Elem(eid, mode, refs))
         else:
-            kind, min, max = self._parse_table_type()
+            kind, min, max = self.parse_table_type()
             self.add_definition(components.Table(id, kind, min, max))
 
-    def _parse_table_type(self):
+    def parse_table_type(self):
+        """Parse table limits followed by reftype"""
         min, max = self.parse_limits()
-        tok = self.next_token()
-        kind = tok.val
-        if kind == "funcref" or kind == "externref":
-            info = (kind, min, max)
-            return info
-        else:
-            self.error("Expected funcref", tok.loc)
+        reftype = self.parse_reftype()
+        info = (reftype, min, max)
+        return info
 
     def parse_elem(self):
         """Load an element to fill a table"""
         id = self._parse_optional_id(default=self.gen_id("elem"))
-        ref = self._parse_use_or_default("table", default=0)
-        offset = self.parse_offset_expression()
-        if self.munch("func") or (ref.index == 0 and self._at_ref()):
-            # List of function references
-            refs = self.parse_ref_list()
-            while self._at_id():
-                refs.append(self.take())
+        if self.match("(", "table"):
+            ref = self._parse_use_or_default("table")
+            offset = self.parse_offset_expression()
+            mode = ref, offset
+        elif self.match("(", "offset"):
+            ref = components.Ref("table", index=0)
+            offset = self.parse_offset_expression()
+            mode = ref, offset
+        elif self.at_instruction():
+            ref = components.Ref("table", index=0)
+            offset = self.parse_offset_expression()
+            mode = ref, offset
+        elif self.match("declare"):
+            self.expect("declare")
+            mode = None  # Declare mode
         else:
-            raise NotImplementedError("new-style elems")
-        self.add_definition(components.Elem(id, ref, offset, refs))
+            mode = None  # passive mode
+
+        reftype, refs = self.parse_elem_list()
+        self.add_definition(components.Elem(id, mode, refs))
+
+    def parse_elem_list(self):
+        tok = self.next_token()
+        if tok.val == "funcref" or tok.val == "externref":
+            reftype = tok.val
+            refs = self.parse_item_list()
+        elif tok.val == "func":
+            reftype = "funcref"
+            refs = self.parse_ref_list()
+        elif is_ref(tok.val):
+            self.backup_token(tok)
+            reftype = "funcref"
+            refs = self.parse_ref_list()
+        elif tok.typ == ")":
+            self.backup_token(tok)
+            reftype = "funcref"
+            refs = []
+        else:
+            self.error("Expected funcref/externref/func", tok.loc)
+        return reftype, refs
+
+    def parse_item_list(self):
+        refs = []
+        while True:
+            if self.match("(", "item"):
+                self.expect("(", "item")
+                ref = self._load_instruction()
+                self.expect(")")
+            elif self.at_instruction():
+                ref = self._load_instruction()
+            else:
+                break
+            refs.append(ref)
+        return refs
 
     def parse_ref_list(self):
         """Parse $1 $2 $foo $bar"""
@@ -706,7 +763,7 @@ class WatTupleLoader(RecursiveDescentParser):
                 block_type = ref
         return block_type
 
-    def _parse_reftype(self):
+    def parse_reftype(self):
         tok = self.next_token()
         reftype = tok.val
         if reftype in ["funcref", "externref"]:
@@ -728,57 +785,62 @@ class WatTupleLoader(RecursiveDescentParser):
         if ".load" in opcode or ".store" in opcode:
             args = self._parse_load_store_arguments(opcode)
         elif opcode == "call_indirect":
+            # Note: table_ref and type_ref are swapped in binary format:
+            table_ref = self._parse_ref("table", default=0)
             type_ref = self._parse_type_use()
-            table_ref = components.Ref("table", index=0)
             args = (type_ref, table_ref)
             # TODO: compare unbound func signature with type?
         else:
             operands = OPERANDS[opcode]
+            args = self._parse_operands(operands)
 
-            args = []
-            for op in operands:
-                if op == ArgType.LABELIDX:
-                    arg = self._parse_ref("label")
-                elif op == ArgType.LOCALIDX:
-                    arg = self._parse_ref("local")
-                elif op == ArgType.GLOBALIDX:
-                    arg = self._parse_ref("global")
-                elif op == ArgType.FUNCIDX:
-                    arg = self._parse_ref("func")
-                elif op == ArgType.TYPEIDX:
-                    arg = self._parse_ref("type")
-                elif op == ArgType.TABLEIDX:
-                    arg = self._parse_ref("table", default=0)
-                elif op == ArgType.ELEMIDX:
-                    arg = self._parse_ref("elem")
-                elif op == ArgType.DATAIDX:
-                    arg = self._parse_ref("data")
-                elif op == ArgType.HEAPTYPE:
-                    arg = self._parse_heaptype()
-                elif op == ArgType.I32:
-                    arg = make_int(self.take(), bits=32)
-                elif op == ArgType.I64:
-                    arg = make_int(self.take(), bits=64)
-                elif op == ArgType.F32:
-                    arg = make_float(self.take())
-                elif op == ArgType.F64:
-                    arg = make_float(self.take())
-                elif op == ArgType.U32:
-                    arg = self.take()
-                elif op == "br_table":
-                    # Take all ints and strings as jump labels:
-                    targets = []
-                    while self._at_ref():
-                        targets.append(self._parse_ref("label"))
-                    arg = targets
-                elif op == ArgType.U8:
-                    # one day, this byte argument might be used
-                    # to indicate which memory to access.
-                    arg = 0
-                else:
-                    raise NotImplementedError(str(op))
+        return args
 
-                args.append(arg)
+    def _parse_operands(self, operands):
+        args = []
+        for op in operands:
+            if op == ArgType.LABELIDX:
+                arg = self._parse_ref("label")
+            elif op == ArgType.LOCALIDX:
+                arg = self._parse_ref("local")
+            elif op == ArgType.GLOBALIDX:
+                arg = self._parse_ref("global")
+            elif op == ArgType.FUNCIDX:
+                arg = self._parse_ref("func")
+            elif op == ArgType.TYPEIDX:
+                arg = self._parse_ref("type")
+            elif op == ArgType.TABLEIDX:
+                arg = self._parse_ref("table", default=0)
+            elif op == ArgType.ELEMIDX:
+                arg = self._parse_ref("elem")
+            elif op == ArgType.DATAIDX:
+                arg = self._parse_ref("data")
+            elif op == ArgType.HEAPTYPE:
+                arg = self._parse_heaptype()
+            elif op == ArgType.I32:
+                arg = make_int(self.take(), bits=32)
+            elif op == ArgType.I64:
+                arg = make_int(self.take(), bits=64)
+            elif op == ArgType.F32:
+                arg = make_float(self.take())
+            elif op == ArgType.F64:
+                arg = make_float(self.take())
+            elif op == ArgType.U32:
+                arg = self.take()
+            elif op == "br_table":
+                # Take all ints and strings as jump labels:
+                targets = []
+                while self._at_ref():
+                    targets.append(self._parse_ref("label"))
+                arg = targets
+            elif op == ArgType.U8:
+                # one day, this byte argument might be used
+                # to indicate which memory to access.
+                arg = 0
+            else:
+                raise NotImplementedError(str(op))
+
+            args.append(arg)
         return args
 
     def _parse_load_store_arguments(self, opcode):

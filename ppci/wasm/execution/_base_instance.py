@@ -115,6 +115,13 @@ class ModuleInstance(abc.ABC):
                 self.exports._function_map[definition.name] = item
 
 
+class WasmTable(abc.ABC):
+    """Base class for an exported wasm table"""
+
+    def __init__(self):
+        pass
+
+
 class WasmMemory(abc.ABC):
     """Base class for exported wasm memory."""
 
@@ -199,3 +206,6 @@ class Exports:
             return self._function_map[name]
         else:
             raise AttributeError('Name "{}" was not exported'.format(name))
+
+    def __iter__(self):
+        return iter(self._function_map)

@@ -68,6 +68,7 @@ class WasmToIrCompiler:
         self._opcode_dispatch["table.set"] = self.gen_table_set
 
         self._opcode_dispatch["ref.null"] = self.gen_ref_null
+        self._opcode_dispatch["ref.func"] = self.gen_ref_func
         self._opcode_dispatch["ref.is_null"] = self.gen_ref_is_null
 
         for opcode in BINOPS:
@@ -409,11 +410,11 @@ class WasmToIrCompiler:
         self.tables.append(table_var)
 
     def gen_elem_definition(self, elem: components.Elem):
-        offset = elem.offset
-        # TODO: what to do when offset is non-negative?
-        # assert offset == 0
-        refs = elem.refs
-        self.elems.append((elem.ref, offset, refs))
+        if elem.mode:
+            ref, offset = elem.mode
+            # TODO: what to do when offset is non-negative?
+            # assert offset == 0
+            self.elems.append((ref, offset, elem.refs))
 
     def gen_global_definition(self, definition):
         """Generate room for a global variable."""
@@ -503,15 +504,21 @@ class WasmToIrCompiler:
         ptr_size = self.emit(ir.Const(self.ptr_info.size, "ptr_size", ir.ptr))
 
         # Loop over elems which initialize tables:
-        for ref, offset, functions in self.elems:
+        for ref, offset, items in self.elems:
             table_var = self.tables[ref.index]
             index = self.gen_expression(offset)
             assert index.ty is ir.i32
             address = self.gen_table_addr(table_var, index)
 
-            for func in functions:
-                # Lookup function
-                value = self.functions[func.index][0]
+            for item in items:
+                if isinstance(item, components.Ref):
+                    assert item.space == "func"
+                    # Lookup function
+                    value = self.functions[item.index][0]
+                elif isinstance(item, list):
+                    value = self.gen_expression(item)
+                else:
+                    raise NotImplementedError(str(type(item)))
                 self.emit(ir.Store(value, address))
                 address = self.emit(
                     ir.add(address, ptr_size, "table_address", ir.ptr)
@@ -981,6 +988,12 @@ class WasmToIrCompiler:
 
     def gen_ref_null(self, instruction):
         value = self.emit(ir.Const(0, "null", ir.ptr))
+        self.push_value(value)
+
+    def gen_ref_func(self, instruction):
+        ref = instruction.args[0]
+        assert ref.space == "func"
+        value = self.functions[ref.index][0]
         self.push_value(value)
 
     def gen_ref_is_null(self, instruction):

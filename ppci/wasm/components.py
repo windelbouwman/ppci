@@ -752,21 +752,28 @@ class Elem(Definition):
     Attributes:
 
     * id: the id of this element in the elem name/index space.
+    * mode: active, passive or declarative
+    * refs: a list of function references.
+
+    Passive mode: None
+    Active mode:
     * ref: the table id that this element applies to.
     * offset: the element offset, expressed as an instruction list
       (i.e. [i32.const, end])
-    * refs: a list of function references.
     """
 
-    __slots__ = ("id", "ref", "offset", "refs")
+    __slots__ = ("id", "mode", "refs")
 
-    def _from_args(self, id, ref, offset, refs):
-        assert isinstance(offset, list)
+    def _from_args(self, id, mode, refs):
         assert isinstance(refs, (tuple, list))
-        assert isinstance(ref, Ref)
         self.id = check_id(id)
-        self.ref = check_id(ref)
-        self.offset = offset
+        if mode:
+            ref, offset = mode
+            assert isinstance(ref, Ref)
+            assert isinstance(offset, list)
+            ref = check_id(ref)
+            mode = ref, offset
+        self.mode = mode
         self.refs = refs
 
     def to_string(self):

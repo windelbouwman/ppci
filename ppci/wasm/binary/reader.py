@@ -355,17 +355,25 @@ class BinaryFileReader:
 
     def read_elem_definition(self):
         """Read an `elem` definition."""
-        ref = self.read_space_ref("table")
-        if ref.index == 0:
+        x = self.read_uint()
+        # We can interpret x as a bitfield:
+        # is_passive = x & 1 == 1
+        # has_table_index = x & 2 == 2
+        # use_element_expression = x & 4 == 4
+        if x == 0:
+            ref = Ref("table", index=0)
             offset = self.read_expression()
+            mode = ref, offset
             count = self.read_uint()
             refs = [self.read_space_ref("func") for _ in range(count)]
-            id = self.gen_id("elem")
-            definition = components.Elem(id, ref, offset, refs)
-            self.add_definition("elem", definition)
-            return definition
+        elif x == 1:
+            raise NotImplementedError("Post MVP feature")
         else:
             raise NotImplementedError("Post MVP feature")
+        id = self.gen_id("elem")
+        definition = components.Elem(id, mode, refs)
+        self.add_definition("elem", definition)
+        return definition
 
     def read_func_definition(self, index) -> components.Func:
         """Read a function with locals and instructions."""

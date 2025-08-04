@@ -50,27 +50,23 @@ def instantiate(
         if isinstance(definition, Import):
             modname, name = definition.modname, definition.name
             if modname not in imports:
-                raise ValueError(
-                    'imported module "{}" not found'.format(modname)
-                )
+                raise ValueError(f'imported module "{modname}" not found')
             if name not in imports[modname]:
                 raise ValueError(
-                    'imported object "{}" not found in "{}"'.format(
-                        name, modname
-                    )
+                    f'imported object "{name}" not found in "{modname}"'
                 )
-            symbols["{}_{}".format(modname, name)] = imports[modname][name]
+            symbols[f"{modname}_{name}"] = imports[modname][name]
 
     # Inject wasm runtime functions:
     for func_name, func in create_runtime().items():
-        symbols["wasm_rt_{}".format(func_name)] = func
+        symbols[f"wasm_rt_{func_name}"] = func
 
     if target == "native":
         instance = native_instantiate(module, symbols, reporter, cache_file)
     elif target == "python":
         instance = python_instantiate(module, symbols, reporter, cache_file)
     else:
-        raise ValueError("Unknown instantiation target {}".format(target))
+        raise ValueError(f"Unknown instantiation target {target}")
 
     # Initialize memory:
     instance.load_memory(module)

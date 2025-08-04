@@ -82,6 +82,7 @@ class IrToPythonCompiler:
         self.emit("")
         self.emit("import struct")
         self.emit("import math")
+        # self.emit("import irpyrt")
         self.emit("")
         self.emit("_irpy_heap = bytearray()")
         self.emit("_irpy_stack = bytearray()")
@@ -398,7 +399,7 @@ class IrToPythonCompiler:
             self.reset_stack()
             self.emit("return")
         elif isinstance(ins, ir.Undefined):
-            self.emit("{} = 0".format(ins.name))
+            self.emit(f"{ins.name} = 0")
         else:  # pragma: no cover
             self.emit("not implemented: {}".format(ins))
             raise NotImplementedError(str(type(ins)))
@@ -409,9 +410,9 @@ class IrToPythonCompiler:
         if self._shape_style:
             raise NotImplementedError("TODO")
             # self.fill_phis(block)
-            self.emit("if {} {} {}:".format(a, ins.cond, b))
+            self.emit(f"if {a} {ins.cond} {b}:")
         else:
-            self.emit("if {} {} {}:".format(a, ins.cond, b))
+            self.emit(f"if {a} {ins.cond} {b}:")
             with self.indented():
                 self.emit_jump(ins.lab_yes)
             self.emit("else:")
@@ -485,7 +486,7 @@ class IrToPythonCompiler:
     def _fetch_callee(self, callee):
         """Retrieves a callee and puts it into _fptr variable"""
         if isinstance(callee, ir.SubRoutine):
-            expr = "{}".format(callee.name)
+            expr = str(callee.name)
         elif isinstance(callee, ir.ExternalSubRoutine):
             expr = f"_irpy_externals['{callee.name}']"
         else:
@@ -498,7 +499,7 @@ class IrToPythonCompiler:
             fidx = self.func_ptr_map[value]
             expr = str(fidx)
         elif isinstance(value, ir.ExternalVariable):
-            expr = "_irpy_externals['{}']".format(value.name)
+            expr = f"_irpy_externals['{value.name}']"
         else:
             expr = value.name
         return expr

@@ -47,9 +47,9 @@ logger = logging.getLogger()
 # TODO: at some point we should be able to process all snippets?
 # Black list of test files
 black_list = [
-    "linking",  # Requires linking. This does not work yet.
+    # "linking",  # Requires linking. This does not work yet.
     "imports",  # Import support is too limited for now.
-    "elem",  # Importing of table not implemented
+    # "elem",  # Importing of table not implemented
     # 'float_exprs',  # TODO: what is the issue here?
     # 'float_memory',  # TODO: handle signalling nan's
     # 'float_literals',  # TODO: handle nan's of all types.
@@ -285,9 +285,11 @@ class WastExecutor:
                 }
             }
 
-            for reg_name, reg_instance in self._registered_instances.items():
-                imports[reg_name] = {}
-                # TODO: use reg_instance.exports
+            for mod_name, reg_instance in self._registered_instances.items():
+                imports[mod_name] = {}
+                for export_name in reg_instance.exports:
+                    obj = reg_instance.exports[export_name]
+                    imports[mod_name][export_name] = obj
 
             mod_instance = instantiate(
                 m1, imports=imports, target=self.target, reporter=self.reporter
@@ -344,7 +346,7 @@ class WastExecutor:
         assert s_expr[0].is_symbol("register")
         name = s_expr[1].get_string()
         self.logger.debug("Registering module %s", name)
-        module_ref = s_expr[2].get_symbol()
+        module_ref = s_expr[2].get_symbol() if len(s_expr) > 2 else None
         instance = self.get_instance(module_ref)
         if name in self._registered_instances:
             raise ValueError("Module {} already registered".format(name))

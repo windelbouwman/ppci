@@ -9,7 +9,8 @@ from ... import ir
 from ..components import Table
 from .. import wasm_to_ir
 from ..util import PAGE_SIZE
-from ._base_instance import ModuleInstance, WasmMemory, WasmGlobal
+from ._base_instance import ModuleInstance
+from ._base_instance import WasmMemory, WasmGlobal, WasmTable
 
 logger = logging.getLogger("instantiate")
 
@@ -166,3 +167,9 @@ class PythonWasmGlobal(WasmGlobal):
         }
         f = mp[self.name[0]]
         f(address, value)
+
+
+class PythonWasmTable(WasmTable):
+    def __init__(self, instance):
+        super().__init__()
+        self._instance = instance
