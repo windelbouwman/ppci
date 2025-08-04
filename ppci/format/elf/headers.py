@@ -334,25 +334,44 @@ class HeaderTypes:
             assert self.SymbolTableEntry.size == 16
 
         if bits == 64:
-            self.RelocationTableEntry = header.mk_header(
-                "RelocationTableEntry",
+            self.RelocationTableEntryWA = header.mk_header(
+                "RelocationTableEntryWA",
                 [
                     header.Uint64("r_offset"),
                     header.Uint64("r_info"),
                     header.Int64("r_addend"),
                 ],
             )
-            assert self.RelocationTableEntry.size == 24
+            assert self.RelocationTableEntryWA.size == 24
         else:
-            self.RelocationTableEntry = header.mk_header(
-                "RelocationTableEntry",
+            self.RelocationTableEntryWA = header.mk_header(
+                "RelocationTableEntryWA",
                 [
                     header.Uint32("r_offset"),
                     header.Uint32("r_info"),
                     header.Int32("r_addend"),
                 ],
             )
-            assert self.RelocationTableEntry.size == 12
+            assert self.RelocationTableEntryWA.size == 12
+        
+        if bits == 64:
+            self.RelocationTableEntry = header.mk_header(
+                "RelocationTableEntry",
+                [
+                    header.Uint64("r_offset"),
+                    header.Uint64("r_info"),
+                ],
+            )
+            assert self.RelocationTableEntry.size == 16
+        else:
+            self.RelocationTableEntry = header.mk_header(
+                "RelocationTableEntry",
+                [
+                    header.Uint32("r_offset"),
+                    header.Uint32("r_info"),
+                ],
+            )
+            assert self.RelocationTableEntry.size == 8
 
         if bits == 64:
             self.DynamicEntry = header.mk_header(
