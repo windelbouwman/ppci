@@ -60,6 +60,10 @@ class SectionHeaderType(enum.IntEnum):
     NUM = 0x13
     LOOS = 0x60000000
 
+    @classmethod
+    def _missing_(cls, value):
+        return cls.NULL
+
 
 class SectionHeaderFlag(enum.IntEnum):
     WRITE = 0x1
