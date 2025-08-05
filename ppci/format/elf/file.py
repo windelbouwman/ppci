@@ -67,8 +67,8 @@ class ElfSymbol:
             return str(hex(self.header.st_value))
 
     def parse_info(self):
-        self.binding = header.st_info >> 4
-        self.type = header.st_info & 0xf
+        self.binding = self.header.st_info >> 4
+        self.type = self.header.st_info & 0xf
 
 class ElfSection:
     def __init__(self, header):
@@ -167,14 +167,14 @@ class ElfFile:
             if typ == SectionHeaderType.REL:
                 f.seek(section.header["sh_offset"])
                 rh = elf_file.header_types.RelocationTableEntry.read(f)
-                elf_file.relocations.append(ElfRelocations(rh, bits=bits))
+                elf_file.relocations.append(ElfRelocation(rh, bits=bits))
             elif typ == SectionHeaderType.RELA:
                 f.seek(section.header.sh_offset)
                 rh = elf_file.header_types.RelocationTableEntryWA.read(f)
-                elf_file.relocations.append(ElfRelocations(rh, bits=bits))
-            elif typ == SectionHeaderType.SYMTAB:
-                elf_file.symbole_table = elf_file.read_symbole_tab(section)
-            elif typ == SectionHeaderType.STRTAB and section.name == ".strtab":
+                elf_file.relocations.append(ElfRelocation(rh, bits=bits))
+            elif typ in [SectionHeaderType.SYMTAB, SectionHeaderType.DYNSYM]:
+                elf_file.symbole_table = elf_file.read_symtab(section)
+            elif typ == SectionHeaderType.STRTAB and section.name in [".strtab", ".dynstr"]:
                 elf_file.symstrtab = section.read_data(f)
         
         if "symbole_table" in vars(elf_file):
@@ -188,7 +188,7 @@ class ElfFile:
     def read_strtab(self, f):
         self.strtab = self.sections[self.elf_header.e_shstrndx].read_data(f)
 
-    def read_symbol_table(self, sym_section):
+    def read_symtab(self, sym_section):
         f = io.BytesIO(sym_section.data)
         count = (
             len(sym_section.data) // self.header_types.SymbolTableEntry.size
@@ -198,8 +198,15 @@ class ElfFile:
         ]
         return table
 
-    def get_str(self, offset, strtab):
+    def read_symbol_table(self, f):
+        return [s.header for s in self.symbole_table]
+
+    def get_str(self, offset, *strtab):
         """Get a string indicated by numeric value"""
+        if len(strtab) == 0:
+            strtab = self.strtab
+        else:
+            strtab = strtab[0]
         end = strtab.find(0, offset)
         return strtab[offset:end].decode("utf8")
 
