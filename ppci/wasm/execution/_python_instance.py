@@ -15,6 +15,29 @@ from ._base_instance import WasmMemory, WasmGlobal, WasmTable
 logger = logging.getLogger("instantiate")
 
 
+def create_py_module(modname: str, pysrc: str) -> ModuleType:
+    """Create a loaded python module from source"""
+    pycode = compile(pysrc, "<string>", "exec")
+    py_module = ModuleType(modname)
+    # py_module.__dict__.upd
+    exec(pycode, py_module.__dict__)
+    return py_module
+
+
+def get_irpy_rt() -> ModuleType:
+    """Return singleton runtime instance"""
+    if hasattr(get_irpy_rt, "_instance"):
+        return getattr(get_irpy_rt, "_instance")
+    from ...lang.python.ir2py import irpy_runtime_code
+
+    f = io.StringIO()
+    irpy_runtime_code(f)
+    pysrc = f.getvalue()
+    py_module = create_py_module("irpy_rt", pysrc)
+    setattr(get_irpy_rt, "_instance", py_module)
+    return py_module
+
+
 def python_instantiate(
     module, imports, reporter, cache_file
 ) -> "PythonModuleInstance":
@@ -26,13 +49,16 @@ def python_instantiate(
     ppci_module = wasm_to_ir(module, ptr_info, reporter=reporter)
     verify_module(ppci_module)
     f = io.StringIO()
-    ir_to_python([ppci_module], f, reporter=reporter)
+    ir_to_python([ppci_module], f, reporter=reporter, runtime=False)
     pysrc = f.getvalue()
     pycode = compile(pysrc, "<string>", "exec")
-    _py_module = ModuleType("gen")
-    exec(pycode, _py_module.__dict__)
+    py_module = ModuleType("gen")
+    rt_module = get_irpy_rt()
+    rt = rt_module.rt.clone()
+    py_module.rt = rt
+    exec(pycode, py_module.__dict__)
 
-    instance = PythonModuleInstance(_py_module, imports)
+    instance = PythonModuleInstance(py_module, imports)
     instance._wasm_function_names = ppci_module._wasm_function_names
     instance._wasm_global_names = ppci_module._wasm_global_names
     return instance
@@ -58,14 +84,22 @@ class PythonModuleInstance(ModuleInstance):
                 # print(name, obj)
                 ptr_size = 4
                 table_byte_size = obj.max * ptr_size
-                table_addr = self._py_module._irpy_heap_top()
-                self._py_module._irpy_heap.extend(bytes(table_byte_size))
+                table_addr = self._py_module.rt.heap_top()
+                self._py_module.rt._heap.extend(bytes(table_byte_size))
                 obj = table_addr
-                magic_key = "func_table"
-                assert magic_key not in self._py_module._irpy_externals
-                self._py_module._irpy_externals[magic_key] = table_addr
+                self.define("func_table", table_addr)
+            elif callable(obj):
+                self.define(name, obj)
+            elif isinstance(obj, PythonWasmGlobal):
+                # self.define(name, obj.)
+                pass
+            else:
+                raise NotImplementedError(f"Cannot link: {obj}")
 
-            self._py_module._irpy_externals[name] = obj
+    def define(self, name: str, obj):
+        """Define a symbol"""
+        assert name not in self._py_module.rt.externals
+        self._py_module.rt.externals[name] = obj
 
     def _run_init(self):
         self._py_module._run_init()
@@ -84,11 +118,11 @@ class PythonModuleInstance(ModuleInstance):
     def get_func_by_index(self, index: int):
         exported_name = self._wasm_function_names[index]
         # TODO: handle multiple return values.
-        return getattr(self._py_module, exported_name)
+        return self._py_module.rt.externals[exported_name]
 
     def get_global_by_index(self, index: int):
-        global_name = self._wasm_global_names[index]
-        return PythonWasmGlobal(global_name, self)
+        ty, name = self._wasm_global_names[index]
+        return PythonWasmGlobal(ty, name, self)
 
 
 class PythonWasmMemory(WasmMemory):
@@ -99,13 +133,13 @@ class PythonWasmMemory(WasmMemory):
         self._module = instance
 
         # Allocate room on top of python heap:
-        self._mem0_start = self._module._py_module._irpy_heap_top()
+        self._mem0_start = self._module._py_module.rt.heap_top()
         initial_data = bytes(min_size * PAGE_SIZE)
-        self._module._py_module._irpy_heap.extend(initial_data)
+        self._module._py_module.rt.heap.extend(initial_data)
 
         # Store pointer to heap top:
         mem0_ptr_ptr = self._module._py_module.wasm_mem0_address
-        self._module._py_module.store_i32(mem0_ptr_ptr, self._mem0_start)
+        self._module._py_module.rt.store_i32(mem0_ptr_ptr, self._mem0_start)
 
     def grow(self, amount):
         """Grow memory and return the old size"""
@@ -117,55 +151,53 @@ class PythonWasmMemory(WasmMemory):
             return -1
 
         new_data = bytes(amount * PAGE_SIZE)
-        self._module._py_module._irpy_heap.extend(new_data)
+        self._module._py_module.rt.heap.extend(new_data)
         return old_size
 
     def size(self) -> int:
         """return memory size in pages"""
         size = (
-            self._module._py_module._irpy_heap_top() - self._mem0_start
+            self._module._py_module.rt.heap_top() - self._mem0_start
         ) // PAGE_SIZE
         return size
 
     def write(self, address: int, data: bytes):
         address = self._mem0_start + address
-        self._module._py_module.write_mem(address, data)
+        self._module._py_module.rt.write_mem(address, data)
 
     def read(self, address: int, size: int) -> bytes:
         address = self._mem0_start + address
-        data = self._module._py_module.read_mem(address, size)
+        data = self._module._py_module.rt.read_mem(address, size)
         assert len(data) == size
         return data
 
 
 # TODO: we might implement the descriptor protocol in some way?
 class PythonWasmGlobal(WasmGlobal):
-    def __init__(self, name, instance):
-        super().__init__(name)
+    def __init__(self, ty, name, instance):
+        super().__init__(ty, name)
         self.instance = instance
 
     def _get_ptr(self):
-        addr = getattr(self.instance._py_module, self.name[1].name)
+        addr = self.instance._py_module.rt.externals[self.name]
         return addr
 
     def read(self):
-        addr = self._get_ptr()
-        # print('Reading', self.name, addr)
+        address = self._get_ptr()
         mp = {
-            ir.i32: self.instance._py_module.load_i32,
-            ir.i64: self.instance._py_module.load_i64,
+            ir.i32: self.instance._py_module.rt.load_i32,
+            ir.i64: self.instance._py_module.rt.load_i64,
         }
-        f = mp[self.name[0]]
-        return f(addr)
+        f = mp[self.ty]
+        return f(address)
 
     def write(self, value):
         address = self._get_ptr()
-        # print("Writing", self.name, addr)
         mp = {
-            ir.i32: self.instance._py_module.store_i32,
-            ir.i64: self.instance._py_module.store_i64,
+            ir.i32: self.instance._py_module.rt.store_i32,
+            ir.i64: self.instance._py_module.rt.store_i64,
         }
-        f = mp[self.name[0]]
+        f = mp[self.ty]
         f(address, value)
 
 

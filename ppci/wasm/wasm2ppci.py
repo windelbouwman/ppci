@@ -219,7 +219,7 @@ class WasmToIrCompiler:
         self.gen_init_procedure()
 
         function_names = [f[0].name for f in self.functions]
-        global_names = [g for g in self.globalz]
+        global_names = [(ty, g.name) for ty, g in self.globalz]
 
         # TODO: hack to pass this information alongside module
         self.builder.module._wasm_function_names = function_names
@@ -274,10 +274,10 @@ class WasmToIrCompiler:
     def gen_import_definition(self, definition):
         """Generate code for import"""
         # name = definition.name
+        name = f"{definition.modname}_{definition.name}"
         if definition.kind == "func":
             # index = definition.id
             sig = self.wasm_types[definition.info[0].index]
-            name = "{}_{}".format(definition.modname, definition.name)
             arg_types = [self.get_ir_type(p[1]) for p in sig.params]
 
             if sig.results:
@@ -306,18 +306,15 @@ class WasmToIrCompiler:
             assert self.memory_base_address is None
             self.memory_base_address = ir.ExternalVariable("wasm_mem0_address")
             self.builder.module.add_external(self.memory_base_address)
-
         elif definition.kind == "table":
-            assert not hasattr(self, "table_var")
-            self.logger.debug("table import")
+            self.logger.debug(f"table import {name}")
             assert definition.info[0] == "funcref"
-            self.table_var = ir.ExternalVariable("func_table")
-            self.builder.module.add_external(self.table_var)
-            self.tables.append(self.table_var)
+            table_var = ir.ExternalVariable(name)
+            self.builder.module.add_external(table_var)
+            self.tables.append(table_var)
         elif definition.kind == "global":
-            self.logger.debug("global import")
-            # TODO: think of nicer names:
-            global_var = ir.ExternalVariable("global0")
+            self.logger.debug(f"global import {name}")
+            global_var = ir.ExternalVariable(name)
             self.builder.module.add_external(global_var)
             ir_typ = self.get_ir_type(definition.info[0])
             self.globalz.append((ir_typ, global_var))

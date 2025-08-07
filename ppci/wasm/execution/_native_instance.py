@@ -111,8 +111,8 @@ class NativeModuleInstance(ModuleInstance):
         return getattr(self._code_module, exported_name)
 
     def get_global_by_index(self, index: int):
-        global_name = self._wasm_global_names[index]
-        return NativeWasmGlobal(global_name, self._code_module)
+        ty, name = self._wasm_global_names[index]
+        return NativeWasmGlobal(ty, name, self._code_module)
 
 
 class NativeWasmMemory(WasmMemory):
@@ -174,22 +174,19 @@ class NativeWasmMemory(WasmMemory):
 
 
 class NativeWasmGlobal(WasmGlobal):
-    def __init__(self, name, code_obj):
-        super().__init__(name)
+    def __init__(self, ty, name, code_obj):
+        super().__init__(ty, name)
         self._code_obj = code_obj
 
     def _get_ptr(self):
-        # print('Getting address of', self.name)
-        vpointer = getattr(self._code_obj, self.name[1].name)
+        vpointer = getattr(self._code_obj, self.name)
         return vpointer
 
     def read(self):
         addr = self._get_ptr()
-        # print('Reading', self.name, addr)
         value = addr.contents.value
         return value
 
     def write(self, value):
         addr = self._get_ptr()
-        # print('Writing', self.name, addr, value)
         addr.contents.value = value

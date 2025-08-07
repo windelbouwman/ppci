@@ -17,9 +17,6 @@ to the location where the code was cloned.
 Then, invoke this script with either pytest or run this script with python.
 """
 
-# COOL IDEA: use python-requests to download the suite on demand to
-# some temporary folder!
-
 import unittest
 import glob
 import math
@@ -90,14 +87,14 @@ black_list_expr = {
 
 
 def perform_test(filename, target):
-    logger.info("Loading %s", filename)
+    logger.info(f"Loading {filename}")
     base_name = os.path.splitext(os.path.split(filename)[1])[0]
     with open(filename, "rt", encoding="utf-8") as f:
         source_text = f.read()
 
     html_report = os.path.splitext(filename)[0] + "_" + target + ".html"
     with html_reporter(html_report) as reporter:
-        reporter.message("Test spec file {}".format(filename))
+        reporter.message(f"Test spec file {filename}")
         try:
             s_expressions = parse_s_expressions(source_text)
             expressions2ignore = black_list_expr.get(base_name, [])
@@ -187,6 +184,8 @@ class WastExecutor:
             logger.debug("TODO: assert_invalid")
         elif command == "assert_exhaustion":
             logger.debug("TODO: assert_exhaustion")
+        elif command == "assert_unlinkable":
+            logger.debug("TODO: assert_exhaustion")
         else:
             # print('Unknown directive', s_expr[0])
             raise NotImplementedError(f"{command=}")
@@ -267,38 +266,35 @@ class WastExecutor:
 
     def _instantiate(self, m1):
         """Instantiate a module."""
+
         # Next step: Instantiate:
-        if self.target:
+        def my_print() -> None:
+            pass
 
-            def my_print() -> None:
-                pass
+        def print_i32(x: int) -> None:
+            pass
 
-            def print_i32(x: int) -> None:
-                pass
-
-            imports = {
-                "spectest": {
-                    "print_i32": print_i32,
-                    "print": my_print,
-                    #    'global_i32': 777,
-                    "table": components.Table("$table", "funcref", 10, 20),
-                }
+        imports = {
+            "spectest": {
+                "print_i32": print_i32,
+                "print": my_print,
+                #    'global_i32': 777,
+                "table": components.Table("$table", "funcref", 10, 20),
             }
+        }
 
-            for mod_name, reg_instance in self._registered_instances.items():
-                imports[mod_name] = {}
-                for export_name in reg_instance.exports:
-                    obj = reg_instance.exports[export_name]
-                    imports[mod_name][export_name] = obj
+        for mod_name, reg_instance in self._registered_instances.items():
+            imports[mod_name] = {}
+            for export_name in reg_instance.exports:
+                obj = reg_instance.exports[export_name]
+                imports[mod_name][export_name] = obj
 
-            mod_instance = instantiate(
-                m1, imports=imports, target=self.target, reporter=self.reporter
-            )
-            self.logger.debug("Instantiated wasm module %s", mod_instance)
-            if m1.id:
-                self.named_module_instances[m1.id] = mod_instance
-        else:
-            mod_instance = None
+        mod_instance = instantiate(
+            m1, imports=imports, target=self.target, reporter=self.reporter
+        )
+        self.logger.debug("Instantiated wasm module %s", mod_instance)
+        if m1.id:
+            self.named_module_instances[m1.id] = mod_instance
         return mod_instance
 
     def evaluate(self, target: SExpression):
@@ -320,15 +316,14 @@ class WastExecutor:
             and isinstance(target[2].get_value(), str)
         ):
             module_id = target[1].get_value()
-            instance = self.get_instance(module_id)
             func_name = target[2].get_value()
             args = target[3:]
         else:
             module_id = None
-            instance = self.get_instance()
             func_name = target[1].get_value()
             args = target[2:]
 
+        instance = self.get_instance(module_id)
         args = [self.parse_expr(a) for a in args]
 
         if not instance:
@@ -345,32 +340,28 @@ class WastExecutor:
         """register module for cross module imports."""
         assert s_expr[0].is_symbol("register")
         name = s_expr[1].get_string()
-        self.logger.debug("Registering module %s", name)
+        self.logger.debug(f"Registering module {name}")
         module_ref = s_expr[2].get_symbol() if len(s_expr) > 2 else None
         instance = self.get_instance(module_ref)
         if name in self._registered_instances:
-            raise ValueError("Module {} already registered".format(name))
+            raise ValueError(f"Module {name} already registered")
         else:
             self._registered_instances[name] = instance
 
     def do_get(self, target):
         """Get the value of a global variable."""
-        assert target[0] == "get"
-        if (
-            target[1].startswith("$")
-            and len(target) > 2
-            and isinstance(target[2], str)
-        ):
-            module_id = target[1]
-            instance = self.get_instance(module_id)
-            var_name = target[2]
-            assert len(target) == 3
+        assert target[0].is_symbol("get")
+        # name = target[1].get_string()
+        if len(target) == 3:
+            module_id = target[1].get_symbol()
+            assert module_id.startswith("$")
+            var_name = target[2].get_string()
         else:
-            module_id = None
-            instance = self.get_instance()
-            var_name = target[1]
             assert len(target) == 2
-        self.logger.debug("Getting global variable %s", var_name)
+            module_id = None
+            var_name = target[1].get_string()
+        instance = self.get_instance(module_id)
+        self.logger.debug(f"Getting global variable {var_name}")
         global_var = instance.exports[var_name]
         return global_var.read()
 
@@ -488,12 +479,12 @@ def get_wast_files(wasm_spec_directory, include_pattern="*"):
 
     # Check if we have a folder:
     if not os.path.isdir(core_test_directory):
-        raise ValueError("{} is not a directory".format(core_test_directory))
+        raise ValueError(f"{core_test_directory} is not a directory")
 
     # Check if we have the right folder:
     validation_file = os.path.join(core_test_directory, "f32.wast")
     if not os.path.exists(validation_file):
-        raise ValueError("{} not found".format(validation_file))
+        raise ValueError(f"{validation_file} not found")
 
     for filename in sorted(
         glob.iglob(os.path.join(core_test_directory, "*.wast"))

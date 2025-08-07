@@ -112,7 +112,7 @@ class ModuleInstance(abc.ABC):
                     item = None
                 else:  # pragma: no cover
                     raise NotImplementedError(definition.kind)
-                self.exports._function_map[definition.name] = item
+                self.exports._add(definition.name, item)
 
 
 class WasmTable(abc.ABC):
@@ -174,7 +174,8 @@ class WasmMemory(abc.ABC):
 class WasmGlobal(abc.ABC):
     """Base class for an exported wasm global."""
 
-    def __init__(self, name):
+    def __init__(self, ty, name):
+        self.ty = ty
         self.name = name
 
     @property
@@ -195,17 +196,24 @@ class Exports:
     """Container for exported functions"""
 
     def __init__(self):
-        self._function_map = {}
+        self._map = {}
 
     def __getitem__(self, key):
         assert isinstance(key, str)
-        return self._function_map[key]
+        return self._map[key]
 
     def __getattr__(self, name):
-        if name in self._function_map:
-            return self._function_map[name]
+        if name in self._map:
+            return self._map[name]
         else:
-            raise AttributeError('Name "{}" was not exported'.format(name))
+            raise AttributeError(f'Name "{name}" was not exported')
 
     def __iter__(self):
-        return iter(self._function_map)
+        return iter(self._map)
+
+    def _add(self, name, item):
+        if name in self._map:
+            raise ValueError(f"{name} already exported")
+        if name == "_add":
+            raise ValueError("Reserved export name: _add")
+        self._map[name] = item
