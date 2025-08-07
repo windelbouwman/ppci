@@ -377,11 +377,21 @@ class ObjectFile:
     @staticmethod
     def load(input_file):
         """Load object file from file"""
-        if isinstance(input_file, (io.StringIO, io.TextIOWrapper)) and input_file.readable():
+        if is_json(input_file):
             return deserialize(json.load(input_file))
         else:
             return deserialize(ElfFile.load(input_file))
 
+def is_json(file):
+    if file.seekable() and file.readable():
+        start = file.read(4)
+        file.seek(0)
+        if isinstance(start, bytes):
+            return not b"ELF" in start
+        else:
+            return not "ELF" in start
+    else:
+        return True
 
 def print_object(obj):
     """Display an object in a user friendly manner"""
