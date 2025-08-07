@@ -28,9 +28,14 @@ class ElfRelocation:
         elif key == "section":
             return self.section
         elif key == "offset":
-            return header.r_offset
-        elif key == "addend" and self.header.r_addend:
-            return self.header.r_addend
+            return hex(self.header.r_offset)
+        elif key == "addend":
+            if self.header.r_addend:
+                return hex(self.header.r_addend)
+            else:
+                return hex(0)
+        else:
+            raise IndexError
 
     def parse_info(self):
         if self.bits == 64:
@@ -56,15 +61,17 @@ class ElfSymbol:
         elif key == "id":
             return self.i
         elif key == "name":
-            self.name
+            return self.name
         elif key == "section":
             return self.section.name
         elif key == "size":
             return self.header.st_size
         elif key == "typ":
-            return SymbolTableType(self.typ).name.lower()
+            return SymbolTableType(self.type).name.lower()
         elif key == "value":
             return str(hex(self.header.st_value))
+        else:
+            raise IndexError
 
     def parse_info(self):
         self.binding = self.header.st_info >> 4
@@ -75,14 +82,16 @@ class ElfSection:
         self.header = header
 
     def __getitem__(self, key):
-        if key == "name" and self.name:
+        if key == "name":
             return self.name
         elif key == "address":
-            return self.header.sh_addr
+            return hex(self.header.sh_addr)
         elif key == "data":
             return self.data
         elif key == "alignment":
-            return self.header.sh_addralign
+            return hex(self.header.sh_addralign)
+        else:
+            raise IndexError
 
     def read_data(self, f):
         """Read this elf section's data from file"""
@@ -125,6 +134,11 @@ class ElfFile:
             return self.symbole_table
         elif key == "images":
             return []
+        else:
+            raise IndexError
+    
+    def __contains__(self, key):
+        return key in ["arch", "entry_symbol_id", "sections", "relocations", "symbols"]
 
     @staticmethod
     def load(f):
