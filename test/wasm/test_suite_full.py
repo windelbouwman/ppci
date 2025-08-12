@@ -27,7 +27,7 @@ from fnmatch import fnmatch
 from operator import add
 import argparse
 
-from ppci.wasm import Module, instantiate, components
+from ppci.wasm import Module, instantiate, components, WasmTrapException
 from ppci.common import CompilerError, logformat
 from ppci.lang.sexpr import parse_s_expressions
 from ppci.lang.sexpr import SExpression, SList
@@ -124,10 +124,6 @@ class WastExecutor:
         self.reporter = reporter
         self.s_expr_blacklist = s_expr_blacklist
 
-        # Parsed modules:
-        self.last_mod = None
-        self.named_modules = {}
-
         # Module instances:
         self.mod_instance = None
         self.named_module_instances = {}
@@ -147,37 +143,14 @@ class WastExecutor:
         command = s_expr[0].get_symbol()
         if command == "module":
             self.load_module(s_expr)
-
         elif command == "invoke":
-            # TODO: invoke test functions defined in wast files
             self.invoke(s_expr)
-
         elif command == "register":
-            # TODO: register module for cross module imports.
             self.register_instance(s_expr)
-
         elif command == "assert_return":
-            invoke_target = s_expr[1]
-            expected_values = [self.parse_expr(e) for e in s_expr[2:]]
-
-            if len(expected_values) == 0:
-                self.evaluate(invoke_target)
-            elif len(expected_values) == 1:
-                expected_value = expected_values[0]
-                if nan_or_inf(expected_value):
-                    self.logger.warning(
-                        "Not executing due to nan-or-inf %s", s_expr
-                    )
-                else:
-                    result = self.evaluate(invoke_target)
-                    self.assert_equal(result, expected_value)
-            else:
-                # TODO: implement multi return functions!
-                self.logger.warning(
-                    "Skipping multiple return function %s", invoke_target
-                )
+            self.assert_return(s_expr)
         elif command == "assert_trap":
-            logger.debug("TODO: assert_trap")
+            self.assert_trap(s_expr)
         elif command == "assert_invalid":
             logger.debug("TODO: assert_invalid")
         elif command == "assert_malformed":
@@ -257,17 +230,14 @@ class WastExecutor:
         assert data2 == data3
         return m1
 
-    def load_module(self, s_expr):
+    def load_module(self, s_expr: SList):
+        assert s_expr[0].is_symbol("module")
         m1 = self.parse_module(s_expr)
-        self.last_mod = m1
-        if m1.id:
-            self.named_modules[m1.id] = m1
-        self.mod_instance = None
+        self.mod_instance = self._instantiate(m1)
 
-    def _instantiate(self, m1):
+    def _instantiate(self, m1: Module):
         """Instantiate a module."""
 
-        # Next step: Instantiate:
         def my_print() -> None:
             pass
 
@@ -278,7 +248,18 @@ class WastExecutor:
             "spectest": {
                 "print_i32": print_i32,
                 "print": my_print,
-                #    'global_i32': 777,
+                "global_i32": components.Global(
+                    "$global_32",
+                    "i32",
+                    True,
+                    [components.Instruction("i32.const", 17)],
+                ),
+                "global_i64": components.Global(
+                    "$global_64",
+                    "i64",
+                    True,
+                    [components.Instruction("i64.const", 7)],
+                ),
                 "table": components.Table("$table", "funcref", 10, 20),
             }
         }
@@ -305,9 +286,50 @@ class WastExecutor:
         else:
             raise NotImplementedError(str(target[0]))
 
+    def assert_return(self, s_expr: SExpression):
+        """Invoke a function, and check it's result."""
+        assert s_expr[0].is_symbol("assert_return")
+        invoke_target = s_expr[1]
+        expected_values = [self.parse_expr(e) for e in s_expr[2:]]
+
+        if len(expected_values) == 0:
+            self.evaluate(invoke_target)
+        elif len(expected_values) == 1:
+            expected_value = expected_values[0]
+            if nan_or_inf(expected_value):
+                self.logger.warning(
+                    "Not executing due to nan-or-inf %s", s_expr
+                )
+            else:
+                result = self.evaluate(invoke_target)
+                self.assert_equal(result, expected_value)
+        else:
+            # TODO: implement multi return functions!
+            self.logger.warning(
+                "Skipping multiple return function %s", invoke_target
+            )
+
+    def assert_trap(self, s_expr):
+        logger.debug("assert_trap")
+        return  # TODO
+        assert s_expr[0].is_symbol("assert_trap")
+        message = s_expr[2].get_string()
+
+        s_expr2 = s_expr[1]
+        command = s_expr2[0].get_value()
+        try:
+            if command == "invoke":
+                self.invoke(s_expr2)
+            else:
+                raise NotImplementedError(f"{command=}")
+        except WasmTrapException as ex:
+            logger.debug(f"Exception raised, as expected: {ex}")
+            assert str(ex) == message
+        else:
+            raise ValueError(f"Expected a trap exception: {message}")
+
     def invoke(self, target: SExpression):
         """Invoke a function."""
-        # print(target)
         assert target[0].is_symbol("invoke")
         # TODO: how to handle names like @#$%^&*?
         if (
@@ -368,18 +390,10 @@ class WastExecutor:
     def get_instance(self, name=None):
         """Get a wasm module instance."""
         if name is None:
-            if not self.mod_instance and self.last_mod:
-                self.mod_instance = self._instantiate(self.last_mod)
             instance = self.mod_instance
         else:
-            if (
-                name not in self.named_module_instances
-                and name in self.named_modules
-            ):
-                self.named_module_instances[name] = self._instantiate(
-                    self.named_modules[name]
-                )
             instance = self.named_module_instances[name]
+        assert self.mod_instance
         return instance
 
     @staticmethod

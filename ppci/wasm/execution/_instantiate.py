@@ -68,12 +68,17 @@ def instantiate(
     else:
         raise ValueError(f"Unknown instantiation target {target}")
 
+    # Init globals and elements by invoking run init:
+    instance.invoke("_run_init")
+
+    instance.load_tables(module)
+
     # Initialize memory:
     instance.load_memory(module)
 
     instance.populate_exports(module)
 
-    # Call magic function _run_init which initializes tables and optionally
     # calls start function as defined by the wasm start section.
-    instance._run_init()
+    if instance._wasm_info.start_name is not None:
+        instance.invoke(instance._wasm_info.start_name)
     return instance

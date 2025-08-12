@@ -33,6 +33,17 @@ def wasm_to_ir(
     return ppci_module
 
 
+class WasmMetaInfo:
+    def __init__(
+        self, function_names, global_names, table_names, elem_names, start_name
+    ):
+        self.function_names = function_names
+        self.global_names = global_names
+        self.table_names = table_names
+        self.elem_names = elem_names
+        self.start_name = start_name
+
+
 class WasmToIrCompiler:
     """Convert WASM instructions into PPCI IR instructions."""
 
@@ -108,6 +119,13 @@ class WasmToIrCompiler:
             "i32.popcnt",
             "i32.rotl",
             "i32.rotr",
+            "table.init",
+            "table.drop",
+            "table.copy",
+            "table.size",
+            "table.grow",
+            "table.fill",
+            "elem.drop",
             "memory.grow",
             "memory.size",
             "memory.fill",
@@ -220,10 +238,22 @@ class WasmToIrCompiler:
 
         function_names = [f[0].name for f in self.functions]
         global_names = [(ty, g.name) for ty, g in self.globalz]
+        table_names = [t.name for t in self.tables]
+        elem_names = [v.name for v, _ in self.elems]
+        start_func_name = None
+        if self.start_function_ref is not None:
+            assert self.start_function_ref.space == "func"
+            start_func_name = function_names[self.start_function_ref.index]
 
         # TODO: hack to pass this information alongside module
-        self.builder.module._wasm_function_names = function_names
-        self.builder.module._wasm_global_names = global_names
+        info = WasmMetaInfo(
+            function_names,
+            global_names,
+            table_names,
+            elem_names,
+            start_func_name,
+        )
+        self.builder.module._wasm_info = info
 
         return self.builder.module
 
@@ -232,39 +262,28 @@ class WasmToIrCompiler:
         if isinstance(definition, components.Type):
             # assert len(self.wasm_types) == definition.id
             self.wasm_types.append(definition)
-
         elif isinstance(definition, components.Import):
             self.gen_import_definition(definition)
-
         elif isinstance(definition, components.Export):
             self.gen_export_definition(definition)
-
         elif isinstance(definition, components.Start):
             # Generate a procedure which calls the start procedure:
             self.start_function_ref = definition.ref
-
         elif isinstance(definition, components.Func):
             self.gen_func_definition(definition)
-
         elif isinstance(definition, components.Table):
             self.gen_table_definition(definition)
-
         elif isinstance(definition, components.Elem):
             self.gen_elem_definition(definition)
-
         elif isinstance(definition, components.Global):
             self.gen_global_definition(definition)
-
         elif isinstance(definition, components.Memory):
             self.gen_memory_definition(definition)
-
         elif isinstance(definition, components.Data):
             # Data is intended for the runtime to handle.
             pass
-
         elif isinstance(definition, components.Custom):
             pass
-
         else:  # pragma: no cover
             self.logger.error(
                 "Definition %s not implemented", definition.__name__
@@ -382,18 +401,8 @@ class WasmToIrCompiler:
         if definition.kind not in ["funcref", "externref"]:
             raise NotImplementedError("Non function pointer tables")
 
-        if definition.max is None:
-            max_size = definition.min
-        else:
-            max_size = max(definition.min, definition.max)
-
-        size = max_size * self.ptr_info.size
+        size = self.ptr_info.size
         assert size >= 0
-        if size == 0:
-            # TODO: is this a hack?
-            # What does it mean to have a table with no entries?
-            # Reserve at least a single memory location.
-            size = self.ptr_info.size
 
         name = str(definition.id).replace("$", "_")
         table_name = f"table_{name}"
@@ -407,16 +416,28 @@ class WasmToIrCompiler:
         self.tables.append(table_var)
 
     def gen_elem_definition(self, elem: components.Elem):
-        if elem.mode:
-            ref, offset = elem.mode
-            # TODO: what to do when offset is non-negative?
-            # assert offset == 0
-            self.elems.append((ref, offset, elem.refs))
+        name = str(elem.id).replace("$", "_")
+        elem_name = f"elem_{name}"
+        size = self.ptr_info.size * len(elem.refs)
+        elem_var = ir.Variable(
+            elem_name,
+            ir.Binding.GLOBAL,
+            size,
+            self.ptr_info.alignment,
+        )
+        self.builder.module.add_variable(elem_var)
+        self.elems.append((elem_var, elem.refs))
 
     def gen_global_definition(self, definition):
         """Generate room for a global variable."""
         ir_typ = self.get_ir_type(definition.typ)
-        fmts = {ir.i32: "<i", ir.i64: "<q", ir.f32: "f", ir.f64: "d"}
+        fmts = {
+            ir.i32: "<i",
+            ir.i64: "<q",
+            ir.f32: "f",
+            ir.f64: "d",
+            ir.ptr: "<I",
+        }
         fmt = fmts[ir_typ]
         size = struct.calcsize(fmt)
         # assume init is (f64.const xx):
@@ -452,8 +473,8 @@ class WasmToIrCompiler:
     def gen_init_procedure(self):
         """Generate an initialization procedure.
 
-        - Initializes eventual function tables.
-        - Calls an optionalstart procedure.
+        - Initialize globals
+        - Initializes element sections.
         """
         ppci_function = self.builder.new_procedure(
             "_run_init", ir.Binding.GLOBAL
@@ -464,12 +485,7 @@ class WasmToIrCompiler:
         ppci_function.entry = entryblock
 
         self.gen_init_globals()
-        self.gen_init_tables()
-
-        # Call optional start function:
-        if self.start_function_ref is not None:
-            target, _ = self.functions[self.start_function_ref.index]
-            self.emit(ir.ProcedureCall(target, []))
+        self.gen_init_elem_tables()
 
         self.emit(ir.Exit())
 
@@ -492,8 +508,8 @@ class WasmToIrCompiler:
             value = self.gen_expression(init)
             self.emit(ir.Store(value, g2))
 
-    def gen_init_tables(self):
-        """Initialization function to fill table with elements."""
+    def gen_init_elem_tables(self):
+        """Initialization function to fill table initial elements."""
         # Fill function pointer tables:
         # TODO: we might be able to do this at link time?
         # TODO: what if alignment is bigger than size?
@@ -501,11 +517,8 @@ class WasmToIrCompiler:
         ptr_size = self.emit(ir.Const(self.ptr_info.size, "ptr_size", ir.ptr))
 
         # Loop over elems which initialize tables:
-        for ref, offset, items in self.elems:
-            table_var = self.tables[ref.index]
-            index = self.gen_expression(offset)
-            assert index.ty is ir.i32
-            address = self.gen_table_addr(table_var, index)
+        for elem_var, items in self.elems:
+            address = elem_var
 
             for item in items:
                 if isinstance(item, components.Ref):
@@ -518,7 +531,7 @@ class WasmToIrCompiler:
                     raise NotImplementedError(str(type(item)))
                 self.emit(ir.Store(value, address))
                 address = self.emit(
-                    ir.add(address, ptr_size, "table_address", ir.ptr)
+                    ir.add(address, ptr_size, "elem_address", ir.ptr)
                 )
 
     def emit(self, ppci_inst):
@@ -1375,10 +1388,19 @@ class WasmToIrCompiler:
         self._gen_call_helper(ir_function, signature)
 
     def gen_table_addr(self, table_var, index: ir.Value):
+        # a table variable points to a structure with:
+        # - data pointer
+        # - size (i32)
+        table_meta_address = self.emit(
+            ir.Load(table_var, "table_meta_addr", ir.ptr)
+        )
+        table_address = self.emit(
+            ir.Load(table_meta_address, "table_address", ir.ptr)
+        )
         ptr_size = self.emit(ir.Const(self.ptr_info.size, "ptr_size", ir.i32))
         offset = self.emit(ir.mul(index, ptr_size, "offset", ir.i32))
         offset = self.emit(ir.Cast(offset, "offset", ir.ptr))
-        address = self.emit(ir.add(table_var, offset, "address", ir.ptr))
+        address = self.emit(ir.add(table_address, offset, "address", ir.ptr))
         return address
 
     def gen_call_indirect_instruction(self, instruction):
@@ -1595,6 +1617,11 @@ class WasmToIrCompiler:
             elif ai == ArgType.U8:
                 assert isinstance(a, int)
                 arg = self.emit(ir.Const(a, "idx", ir.i32))
+                arg_types0.append(ir.i32)
+            elif ai == ArgType.TABLEIDX:
+                assert isinstance(a, components.Ref)
+                assert a.space == "table"
+                arg = self.emit(ir.Const(a.index, "idx", ir.i32))
                 arg_types0.append(ir.i32)
             else:
                 raise NotImplementedError(str(ai))

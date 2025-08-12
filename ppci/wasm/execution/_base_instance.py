@@ -12,12 +12,43 @@ class ModuleInstance(abc.ABC):
 
     def __init__(self):
         self.exports = Exports()
+        self._tables = []
         self._memories = []
         self._datas = []
+        self._elems = []
 
     @abc.abstractmethod
-    def _run_init(self):
+    def invoke(self, name, *args):
         raise NotImplementedError()
+
+    def table_grow(self, table_idx: int, val: int, size: int) -> int:
+        logger.debug(f"table_grow({table_idx=}, {size=}, {val=})")
+        table = self._tables[table_idx]
+        return table.grow(val, size)
+
+    def table_size(self, table_idx: int) -> int:
+        logger.debug(f"table_size({table_idx=})")
+        table = self._tables[table_idx]
+        return table.size()
+
+    def table_init(self, table_idx: int) -> None:
+        logger.debug(f"table_init({table_idx=})")
+        # _table = self._tables[table_idx]
+        raise NotImplementedError()
+        return 0
+
+    def table_copy(self, table_idx: int) -> None:
+        logger.debug(f"table_copy({table_idx=})")
+        # _table = self._tables[table_idx]
+        raise NotImplementedError()
+        return 0
+
+    def table_fill(self, table_idx: int, i: int, val: int, n: int) -> None:
+        logger.debug(f"table_fill({table_idx=}, {i=}, {val=}, {n=})")
+        table = self._tables[table_idx]
+        for x in range(n):
+            index = i + x
+            table.set_item(index, val)
 
     def memory_grow(self, memory_idx: int, amount: int) -> int:
         """Grow memory and return the old size"""
@@ -59,6 +90,23 @@ class ModuleInstance(abc.ABC):
     def memory_create(self, min_size, max_size):
         raise NotImplementedError()
 
+    @abc.abstractmethod
+    def create_table(self, size, max_size):
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def set_table_ptr(self, index, table):
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def create_elem(self):
+        raise NotImplementedError()
+
+    def eval_expression(self, expr):
+        assert len(expr) == 1
+        assert expr[0].opcode == "i32.const"
+        return expr[0].args[0]
+
     def load_memory(self, wasm_module):
         """Create memory and load initial data."""
         initializations = []
@@ -72,10 +120,9 @@ class ModuleInstance(abc.ABC):
             elif isinstance(definition, components.Data):
                 if definition.mode:
                     ref, offset = definition.mode
-                    assert len(offset) == 1
-                    assert offset[0].opcode == "i32.const"
-                    offset = offset[0].args[0]
+                    offset = self.eval_expression(offset)
                     memory_index = ref.index
+                    assert ref.space == "memory"
                     assert isinstance(memory_index, int)
                     data = definition.data
                     initializations.append((memory_index, offset, data))
@@ -85,6 +132,32 @@ class ModuleInstance(abc.ABC):
         for memory_index, offset, data in initializations:
             memory = self._memories[memory_index]
             memory.write(offset, data)
+
+    def load_tables(self, wasm_module):
+        """Create tables and initialize them."""
+        elems = []
+        for definition in wasm_module:
+            if isinstance(definition, components.Table):
+                index = len(self._tables)
+                size = definition.min
+                table = self.create_table(size, definition.max)
+                self._tables.append(table)
+                self.set_table_ptr(index, table)
+            elif isinstance(definition, components.Elem):
+                elems.append(definition)
+                self.create_elem()
+
+        for index, elem in enumerate(elems):
+            if elem.mode:
+                # copy elements into table
+                ref, offset = elem.mode
+                assert ref.space == "table"
+                offset = self.eval_expression(offset)
+                table = self._tables[ref.index]
+                elem_instance = self._elems[index]
+                for i, ref in enumerate(elem.refs):
+                    ptr = elem_instance.get_item(i)
+                    table.set_item(offset + i, ptr)
 
     @abc.abstractmethod
     def get_func_by_index(self, index: int):
@@ -102,27 +175,54 @@ class ModuleInstance(abc.ABC):
                     item = self.get_func_by_index(definition.ref.index)
                     # TODO: handle multiple return values, maybe here?
                 elif definition.kind == "global":
-                    logger.debug("global exported")
+                    logger.debug(f"global exported: {definition.name}")
                     item = self.get_global_by_index(definition.ref.index)
                 elif definition.kind == "memory":
                     logger.debug("memory exported")
                     item = self._memories[definition.ref.index]
                 elif definition.kind == "table":
-                    logger.error("table not yet exported")
-                    item = None
+                    logger.debug(f"exporting table as {definition.name}")
+                    item = self._tables[definition.ref.index]
                 else:  # pragma: no cover
                     raise NotImplementedError(definition.kind)
                 self.exports._add(definition.name, item)
 
 
-class WasmTable(abc.ABC):
-    """Base class for an exported wasm table"""
+class ElemInstance(abc.ABC):
+    """Runtime element instance"""
 
     def __init__(self):
         pass
 
+    @abc.abstractmethod
+    def get_item(self, index: int):
+        raise NotImplementedError()
 
-class WasmMemory(abc.ABC):
+
+class TableInstance(abc.ABC):
+    """Base class for an exported wasm table"""
+
+    def __init__(self, max_size):
+        self._max_size = max_size
+
+    @abc.abstractmethod
+    def size(self) -> int:
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def grow(self, val, amount: int) -> int:
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def get_item(self, index: int):
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def set_item(self, index: int, value):
+        raise NotImplementedError()
+
+
+class MemoryInstance(abc.ABC):
     """Base class for exported wasm memory."""
 
     def __init__(self, min_size, max_size):
@@ -171,7 +271,7 @@ class WasmMemory(abc.ABC):
         raise NotImplementedError()
 
 
-class WasmGlobal(abc.ABC):
+class GlobalInstance(abc.ABC):
     """Base class for an exported wasm global."""
 
     def __init__(self, ty, name):
@@ -217,3 +317,7 @@ class Exports:
         if name == "_add":
             raise ValueError("Reserved export name: _add")
         self._map[name] = item
+
+
+class WasmTrapException(Exception):
+    pass

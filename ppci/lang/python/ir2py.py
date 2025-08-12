@@ -526,7 +526,7 @@ class IrToPythonCompiler:
         return expr
 
     def fetch_value(self, value):
-        if isinstance(value, ir.SubRoutine):
+        if isinstance(value, (ir.SubRoutine, ir.ExternalSubRoutine)):
             # Function pointer!
             expr = f"rt.f_ptrs_by_name['{value.name}']"
         elif isinstance(value, ir.ExternalVariable):
