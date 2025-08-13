@@ -27,7 +27,7 @@ from ..format.elf.file import ElfFile
 def get_object(obj):
     """Try hard to load an object"""
     if not isinstance(obj, ObjectFile):
-        f = get_file(obj)
+        f = get_file(obj, mode="rb")
         obj = ObjectFile.load(f)
         f.close()
     return obj
@@ -377,21 +377,24 @@ class ObjectFile:
     @staticmethod
     def load(input_file):
         """Load object file from file"""
-        if is_json(input_file):
+        # if is_json(input_file):
+        #    return deserialize(json.load(input_file))
+        # else:
+        #    return deserialize(ElfFile.load(input_file))
+        if isinstance(input_file, (io.StringIO)):
             return deserialize(json.load(input_file))
-        else:
-            return deserialize(ElfFile.load(input_file))
 
-def is_json(file):
-    if file.seekable() and file.readable():
-        start = file.read(4)
-        file.seek(0)
-        if isinstance(start, bytes):
-            return not b"ELF" in start
+        if hasattr(input_file, "mode") and input_file.mode == "r":
+            input_file.close()
+            input_file = open(input_file.name, "rb")
+
+        start = input_file.read(4)
+        input_file.seek(0)
+        if b"ELF" in start:
+            return deserialize(ElfFile.load(input_file))
         else:
-            return not "ELF" in start
-    else:
-        return True
+            return deserialize(json.load(input_file))
+
 
 def print_object(obj):
     """Display an object in a user friendly manner"""

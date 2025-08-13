@@ -357,7 +357,7 @@ class HeaderTypes:
                 ],
             )
             assert self.RelocationTableEntryWA.size == 12
-        
+
         if bits == 64:
             self.RelocationTableEntry = header.mk_header(
                 "RelocationTableEntry",

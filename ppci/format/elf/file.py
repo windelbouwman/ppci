@@ -8,7 +8,13 @@ import io
 import logging
 
 from ...arch.arch_info import Endianness
-from .headers import ElfMachine, HeaderTypes, SectionHeaderType, SymbolTableBinding, SymbolTableType
+from .headers import (
+    ElfMachine,
+    HeaderTypes,
+    SectionHeaderType,
+    SymbolTableBinding,
+    SymbolTableType,
+)
 
 
 logger = logging.getLogger("elf")
@@ -40,14 +46,15 @@ class ElfRelocation:
     def parse_info(self):
         if self.bits == 64:
             self.symbol_id = self.header.r_info >> 32
-            self.type = self.header.r_info & 0xffffffff
+            self.type = self.header.r_info & 0xFFFFFFFF
         else:
             self.symbol_id = self.header.r_info >> 8
-            self.type = self.header.r_info & 0xff
-    
+            self.type = self.header.r_info & 0xFF
+
     def connect_section(self, symbole_table, sections):
         symbole = symbole_table[self.symbol_id].header
         self.section = sections[symbole.st_shndx].name
+
 
 class ElfSymbol:
     def __init__(self, header, i):
@@ -75,7 +82,8 @@ class ElfSymbol:
 
     def parse_info(self):
         self.binding = self.header.st_info >> 4
-        self.type = self.header.st_info & 0xf
+        self.type = self.header.st_info & 0xF
+
 
 class ElfSection:
     def __init__(self, header):
@@ -89,7 +97,12 @@ class ElfSection:
         elif key == "data":
             return self.data
         elif key == "alignment":
-            return hex(self.header.sh_addralign)
+            if self.header.sh_addralign == 0:
+                return (
+                    "0x1"  # set the alignment to 1 if there is none specified
+                )
+            else:
+                return hex(self.header.sh_addralign)
         else:
             raise IndexError
 
@@ -125,20 +138,33 @@ class ElfFile:
         if key == "arch":
             return self.e_machine.name.lower()
         elif key == "entry_symbol_id":
-            return self.elf_header.e_entry # TODO: do not return when e_entry is 0
+            return (
+                self.elf_header.e_entry
+            )  # TODO: do not return when e_entry is 0
         elif key == "sections":
             return self.sections
         elif key == "relocations":
             return self.relocations
         elif key == "symbols":
-            return self.symbole_table
+            if hasattr(self, "symbole_table"):
+                return self.symbole_table
+            else:
+                return []
         elif key == "images":
             return []
         else:
             raise IndexError
-    
+
     def __contains__(self, key):
-        return key in ["arch", "entry_symbol_id", "sections", "relocations", "symbols"]
+        if key == "entry_symbol_id" and self.elf_header.e_entry == 0:
+            return False
+        return key in [
+            "arch",
+            "entry_symbol_id",
+            "sections",
+            "relocations",
+            "symbols",
+        ]
 
     @staticmethod
     def load(f):
@@ -176,7 +202,9 @@ class ElfFile:
         elf_file.read_strtab(f)
         for section in elf_file.sections:
             section.read_data(f)
-            section.name = elf_file.get_str(section.header["sh_name"], elf_file.strtab)
+            section.name = elf_file.get_str(
+                section.header["sh_name"], elf_file.strtab
+            )
             typ = SectionHeaderType(section.header["sh_type"])
             if typ == SectionHeaderType.REL:
                 f.seek(section.header["sh_offset"])
@@ -188,15 +216,23 @@ class ElfFile:
                 elf_file.relocations.append(ElfRelocation(rh, bits=bits))
             elif typ in [SectionHeaderType.SYMTAB, SectionHeaderType.DYNSYM]:
                 elf_file.symbole_table = elf_file.read_symtab(section)
-            elif typ == SectionHeaderType.STRTAB and section.name in [".strtab", ".dynstr"]:
+            elif typ == SectionHeaderType.STRTAB and section.name in [
+                ".strtab",
+                ".dynstr",
+            ]:
                 elf_file.symstrtab = section.read_data(f)
-        
+
         if "symbole_table" in vars(elf_file):
             for relocation in elf_file.relocations:
-                relocation.connect_section(elf_file.symbole_table, elf_file.sections)
+                relocation.connect_section(
+                    elf_file.symbole_table, elf_file.sections
+                )
             for symbol in elf_file.symbole_table:
-                symbol.name = elf_file.get_str(symbol.header["st_name"], elf_file.symstrtab)
-                symbol.section = elf_file.sections[symbol.header.st_shndx]
+                symbol.name = elf_file.get_str(
+                    symbol.header["st_name"], elf_file.symstrtab
+                )
+                if symbol.header.st_shndx < len(elf_file.sections):
+                    symbol.section = elf_file.sections[symbol.header.st_shndx]
         return elf_file
 
     def read_strtab(self, f):
@@ -208,7 +244,8 @@ class ElfFile:
             len(sym_section.data) // self.header_types.SymbolTableEntry.size
         )
         table = [
-            ElfSymbol(self.header_types.SymbolTableEntry.read(f), i) for i in range(count)
+            ElfSymbol(self.header_types.SymbolTableEntry.read(f), i)
+            for i in range(count)
         ]
         return table
 
