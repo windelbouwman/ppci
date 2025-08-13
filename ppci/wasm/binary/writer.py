@@ -206,6 +206,9 @@ class BinaryFileWriter(BaseIoWriter):
             self.write(bytes([opcode]))
             self.write_vu32(arg)
         else:
+            if opcode == 0x1C:
+                if not instruction.args[0]:
+                    opcode = 0x1B
             self.write(bytes([opcode]))
 
         # Prep args for accessing named identifiers
@@ -223,6 +226,11 @@ class BinaryFileWriter(BaseIoWriter):
                 self.write_vu32(len(arg) - 1)
                 for x in arg:
                     self.write_ref(x)
+            elif o == "result_types":
+                if opcode == 0x1C:
+                    self.write_vu32(len(arg))
+                    for x in arg:
+                        self.write_type(x)
             else:
                 raise TypeError("Unknown instruction arg %r" % o)
 

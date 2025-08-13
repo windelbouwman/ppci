@@ -282,6 +282,8 @@ class WasmToIrCompiler:
         elif isinstance(definition, components.Data):
             # Data is intended for the runtime to handle.
             pass
+        elif isinstance(definition, components.DataCount):
+            pass
         elif isinstance(definition, components.Custom):
             pass
         else:  # pragma: no cover
@@ -322,12 +324,10 @@ class WasmToIrCompiler:
             self.builder.module.add_external(extern_ir_function)
             self.functions.append((extern_ir_function, sig))
         elif definition.kind == "memory":
-            assert self.memory_base_address is None
-            self.memory_base_address = ir.ExternalVariable("wasm_mem0_address")
-            self.builder.module.add_external(self.memory_base_address)
+            self.gen_global_mem0_pointer()
         elif definition.kind == "table":
             self.logger.debug(f"table import {name}")
-            assert definition.info[0] == "funcref"
+            assert definition.info[0] in ["funcref", "externref"]
             table_var = ir.ExternalVariable(name)
             self.builder.module.add_external(table_var)
             self.tables.append(table_var)
@@ -460,6 +460,9 @@ class WasmToIrCompiler:
         self.debug_db.enter(g2, db_variable_info)
 
     def gen_memory_definition(self, definition):
+        self.gen_global_mem0_pointer()
+
+    def gen_global_mem0_pointer(self):
         # Create a global pointer to the memory base address:
         assert self.memory_base_address is None
         self.memory_base_address = ir.Variable(

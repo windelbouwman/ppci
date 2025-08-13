@@ -219,9 +219,11 @@ class TextWriter:
                 args = ("(type %s)" % args[0],)
             else:
                 args = (
-                    "(type %s)" % args[0],
-                    "(const.i64 %i)" % args[1].index,
+                    f"(type {args[0]})",
+                    f"(const.i64 {args[1].index})",
                 )
+        elif opcode == "select":
+            args = (f"(result {t})" for t in args[0])
         subtext = self._get_sub_string(args)
         if "\n" in subtext:
             return "(" + opcode + "\n" + subtext + "\n)"

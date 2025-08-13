@@ -51,16 +51,15 @@ def native_instantiate(module, imports, reporter, cache_file):
             with shelve.open(cache_file) as s:
                 s["obj"] = obj
                 s["ppci_module"] = ppci_module
-    instance = NativeModuleInstance(obj, imports)
-    instance._wasm_info = ppci_module._wasm_info
+    instance = NativeModuleInstance(obj, imports, ppci_module._wasm_info)
     return instance
 
 
 class NativeModuleInstance(ModuleInstance):
     """Wasm module loaded as natively compiled code"""
 
-    def __init__(self, obj, imports2):
-        super().__init__()
+    def __init__(self, obj, imports2, wasm_info):
+        super().__init__(wasm_info)
         imports = {}
 
         imports["wasm_rt_table_grow"] = self.table_grow
@@ -68,6 +67,7 @@ class NativeModuleInstance(ModuleInstance):
         imports["wasm_rt_table_init"] = self.table_init
         imports["wasm_rt_table_copy"] = self.table_copy
         imports["wasm_rt_table_fill"] = self.table_fill
+        imports["wasm_rt_elem_drop"] = self.elem_drop
 
         imports["wasm_rt_memory_grow"] = self.memory_grow
         imports["wasm_rt_memory_size"] = self.memory_size
@@ -130,7 +130,7 @@ class NativeModuleInstance(ModuleInstance):
         exported_name = self._wasm_info.function_names[index]
         return getattr(self._code_module, exported_name)
 
-    def get_global_by_index(self, index: int):
+    def create_global(self, index: int):
         ty, name = self._wasm_info.global_names[index]
         return NativeGlobalInstance(ty, name, self._code_module)
 

@@ -1,6 +1,4 @@
-"""
-
-2nd attempt to parse WAT (wasm text) as parsed s-expressions.
+"""Parse WAT (wasm text).
 
 More or less a python version of this code:
 https://github.com/WebAssembly/wabt/blob/master/src/wast-parser.cc
@@ -279,7 +277,7 @@ class WatParser(RecursiveDescentParser):
         """Parse an optional use, defaulting to 0"""
         if self.munch("(", space):
             value = self._parse_ref(space)
-            self.consume(")")
+            self.expect(")")
         elif default is None:
             self.error("Expected space usage")
         else:
@@ -378,8 +376,7 @@ class WatParser(RecursiveDescentParser):
             info = (ref,)
         elif kind == "table":
             min, max = self.parse_limits()
-            table_kind = self.take()
-            assert table_kind == "funcref"
+            table_kind = self.parse_reftype()
             info = (table_kind, min, max)
         elif kind == "memory":
             min, max = self.parse_limits()
@@ -820,6 +817,10 @@ class WatParser(RecursiveDescentParser):
                 table_ref = self._make_ref("table", 0)
             elem_ref = self._parse_ref("elem")
             args = (table_ref, elem_ref)
+        elif opcode == "select":
+            # Parse optional result type of select instruction
+            result_type = self._parse_result_list()
+            args = (result_type,)
         else:
             operands = OPERANDS[opcode]
             args = self._parse_operands(operands)

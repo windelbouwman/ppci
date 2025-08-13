@@ -45,8 +45,7 @@ logger = logging.getLogger()
 # Black list of test files
 black_list = [
     # "linking",  # Requires linking. This does not work yet.
-    "imports",  # Import support is too limited for now.
-    # "elem",  # Importing of table not implemented
+    # "imports",  # Import support is too limited for now.
     # 'float_exprs',  # TODO: what is the issue here?
     # 'float_memory',  # TODO: handle signalling nan's
     # 'float_literals',  # TODO: handle nan's of all types.
@@ -238,31 +237,7 @@ class WastExecutor:
     def _instantiate(self, m1: Module):
         """Instantiate a module."""
 
-        def my_print() -> None:
-            pass
-
-        def print_i32(x: int) -> None:
-            pass
-
-        imports = {
-            "spectest": {
-                "print_i32": print_i32,
-                "print": my_print,
-                "global_i32": components.Global(
-                    "$global_32",
-                    "i32",
-                    True,
-                    [components.Instruction("i32.const", 17)],
-                ),
-                "global_i64": components.Global(
-                    "$global_64",
-                    "i64",
-                    True,
-                    [components.Instruction("i64.const", 7)],
-                ),
-                "table": components.Table("$table", "funcref", 10, 20),
-            }
-        }
+        imports = {"spectest": create_spectest_imports()}
 
         for mod_name, reg_instance in self._registered_instances.items():
             imports[mod_name] = {}
@@ -436,6 +411,62 @@ class WastExecutor:
             return True
         else:
             raise NotImplementedError(str(v1) + "=" + str(v2))
+
+
+def create_spectest_imports():
+    def my_print() -> None:
+        pass
+
+    def print_i32(x: int) -> None:
+        pass
+
+    def print_f32(x: float) -> None:
+        pass
+
+    def print_f64(x: float) -> None:
+        pass
+
+    def print_i32_f32(x: int, y: float) -> None:
+        pass
+
+    def print_f64_f64(x: float, y: float) -> None:
+        pass
+
+    return {
+        "print_i32": print_i32,
+        "print_i64": print_i32,
+        "print_f32": print_f32,
+        "print_f64": print_f64,
+        "print_i32_f32": print_i32_f32,
+        "print_f64_f64": print_f64_f64,
+        "print": my_print,
+        "global_i32": components.Global(
+            "$global_i32",
+            "i32",
+            True,
+            [components.Instruction("i32.const", 666)],
+        ),
+        "global_i64": components.Global(
+            "$global_i64",
+            "i64",
+            True,
+            [components.Instruction("i64.const", 666)],
+        ),
+        "global_f32": components.Global(
+            "$global_f32",
+            "f32",
+            True,
+            [components.Instruction("f32.const", 666.6)],
+        ),
+        "global_f64": components.Global(
+            "$global_f64",
+            "f64",
+            True,
+            [components.Instruction("f64.const", 666.6)],
+        ),
+        "table": components.Table("$table", "funcref", 10, 20),
+        "memory": components.Memory("$memory", 1, 2),
+    }
 
 
 def nan_or_inf(x):

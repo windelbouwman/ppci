@@ -8,8 +8,10 @@ logger = logging.getLogger("instantiate")
 class ModuleInstance(abc.ABC):
     """Web assembly module instance"""
 
-    def __init__(self):
+    def __init__(self, wasm_info):
+        self._wasm_info = wasm_info
         self.exports = Exports()
+        self._globals = []
         self._tables = []
         self._memories = []
         self._datas = []
@@ -108,13 +110,18 @@ class ModuleInstance(abc.ABC):
         self, memory_idx: int, memory_idx2: int, dst: int, src: int, n: int
     ) -> None:
         """Memcpy operation"""
+        logger.debug(
+            f"memory_copy({memory_idx=}, {memory_idx2=}, {dst=}, {src=}, {n=})"
+        )
         assert memory_idx == memory_idx2
         memory = self._memories[memory_idx]
         blob = memory.read(src, n)
         memory.write(dst, blob)
 
     def memory_fill(self, memory_idx: int, dst: int, val: int, n: int) -> None:
+        logger.debug(f"memory_fill({memory_idx=}, {dst=}, {val=}, {n=})")
         memory = self._memories[memory_idx]
+        val = val & 0xFF
         blob = bytes([val] * n)
         memory.write(dst, blob)
 
@@ -136,8 +143,19 @@ class ModuleInstance(abc.ABC):
 
     def eval_expression(self, expr):
         assert len(expr) == 1
-        assert expr[0].opcode == "i32.const"
-        return expr[0].args[0]
+        instruction = expr[0]
+        if instruction.opcode == "i32.const":
+            val = instruction.args[0]
+        elif instruction.opcode == "i64.const":
+            val = instruction.args[0]
+        elif instruction.opcode == "global.get":
+            (global_ref,) = instruction.args
+            global_idx = global_ref.index
+            g = self._globals[global_idx]
+            val = g.read()
+        else:
+            raise NotImplementedError(str(instruction))
+        return val
 
     def load_memory(self, wasm_module):
         """Create memory and load initial data."""
@@ -164,6 +182,12 @@ class ModuleInstance(abc.ABC):
         for memory_index, offset, data in initializations:
             memory = self._memories[memory_index]
             memory.write(offset, data)
+
+    def load_globals(self, wasm_module):
+        for definition in wasm_module:
+            if isinstance(definition, components.Global):
+                index = len(self._globals)
+                self._globals.append(self.create_global(index))
 
     def load_tables(self, wasm_module):
         """Create tables and initialize them."""
@@ -198,7 +222,7 @@ class ModuleInstance(abc.ABC):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def get_global_by_index(self, index: int):
+    def create_global(self, index: int):
         raise NotImplementedError()
 
     def populate_exports(self, module):
@@ -210,7 +234,7 @@ class ModuleInstance(abc.ABC):
                     # TODO: handle multiple return values, maybe here?
                 elif definition.kind == "global":
                     logger.debug(f"global exported: {definition.name}")
-                    item = self.get_global_by_index(definition.ref.index)
+                    item = self._globals[definition.ref.index]
                 elif definition.kind == "memory":
                     logger.debug("memory exported")
                     item = self._memories[definition.ref.index]

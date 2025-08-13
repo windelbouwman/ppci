@@ -264,6 +264,13 @@ class BinaryFileReader:
                     idx = self.read_space_ref("label")
                     vec.append(idx)
                 arg = vec
+            elif operand == "result_types":
+                if binopcode == 0x1C:
+                    count = self.read_uint()
+                    vec = [self.read_type() for _ in range(count)]
+                else:
+                    vec = []
+                arg = vec
             else:  # pragma: no cover
                 raise NotImplementedError(operand)
             args.append(arg)

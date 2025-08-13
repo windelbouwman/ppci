@@ -71,6 +71,7 @@ def instantiate(
     # Init globals and elements by invoking run init:
     instance.invoke("_run_init")
 
+    instance.load_globals(module)
     instance.load_tables(module)
 
     # Initialize memory:

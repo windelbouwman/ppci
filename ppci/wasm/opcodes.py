@@ -64,6 +64,7 @@ instruction_table = [
     ("ref.func", 0xD2, (ArgType.FUNCIDX,)),
     ("drop", 0x1A),
     ("select", 0x1B),
+    ("select", 0x1C, ("result_types",)),
     ("local.get", 0x20, (ArgType.LOCALIDX,)),
     ("local.set", 0x21, (ArgType.LOCALIDX,)),
     ("local.tee", 0x22, (ArgType.LOCALIDX,)),

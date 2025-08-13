@@ -6,7 +6,7 @@ from types import ModuleType
 from ...arch.arch_info import TypeInfo
 from ...irutils import verify_module
 from ... import ir
-from ..components import Table, Global
+from ..components import Table, Global, Memory
 from .. import wasm_to_ir
 from ..util import PAGE_SIZE
 from ._base_instance import ModuleInstance, WasmTrapException
@@ -58,16 +58,15 @@ def python_instantiate(
     py_module.rt = rt
     exec(pycode, py_module.__dict__)
 
-    instance = PythonModuleInstance(py_module, imports)
-    instance._wasm_info = ppci_module._wasm_info
+    instance = PythonModuleInstance(py_module, imports, ppci_module._wasm_info)
     return instance
 
 
 class PythonModuleInstance(ModuleInstance):
     """Wasm module loaded a generated python module"""
 
-    def __init__(self, py_module, imports):
-        super().__init__()
+    def __init__(self, py_module, imports, wasm_info):
+        super().__init__(wasm_info)
         self._py_module = py_module
 
         # Magical python memory interface, add it now:
@@ -89,7 +88,9 @@ class PythonModuleInstance(ModuleInstance):
             if isinstance(obj, Table):
                 table = self.create_table(obj.min, obj.max)
                 self._tables.append(table)
-                self.define(name, table._get_ptr())
+                table_ptr = self.malloc(4)
+                self.store_ptr(table_ptr, table._get_ptr())
+                self.define(name, table_ptr)
             elif isinstance(obj, PythonWasmFunc):
                 self.define(name, obj._f)
                 ptr = obj._get_ptr()
@@ -97,13 +98,21 @@ class PythonModuleInstance(ModuleInstance):
             elif isinstance(obj, Global):
                 addr = self.malloc(8)
                 self.define(name, addr)
+                index = len(self._globals)
+                g = self.create_global(index)
+                v = self.eval_expression(obj.init)
+                g.write(v)
+                self._globals.append(g)
             elif isinstance(obj, PythonGlobalInstance):
-                addr = obj._get_ptr()
-                self.define(name, addr)
+                self.define(name, obj._get_ptr())
+                self._globals.append(obj)
             elif isinstance(obj, PythonTableInstance):
-                addr = obj._get_ptr()
                 self._tables.append(obj)
-                self.define(name, addr)
+                table_ptr = self.malloc(4)
+                self.store_ptr(table_ptr, obj._get_ptr())
+                self.define(name, table_ptr)
+            elif isinstance(obj, Memory):
+                self.memory_create(obj.min, obj.max)
             elif callable(obj):
                 self.define(name, obj)
             else:
@@ -122,7 +131,7 @@ class PythonModuleInstance(ModuleInstance):
 
     def invoke(self, name, *args):
         """Invoke the function 'name'"""
-        f = getattr(self._py_module, name)
+        f = self._py_module.rt.externals[name]
         f(*args)
 
     def memory_create(self, min_size, max_size):
@@ -170,7 +179,7 @@ class PythonModuleInstance(ModuleInstance):
         f = self._py_module.rt.externals[exported_name]
         return PythonWasmFunc(f, exported_name, self)
 
-    def get_global_by_index(self, index: int) -> "PythonGlobalInstance":
+    def create_global(self, index: int) -> "PythonGlobalInstance":
         ty, name = self._wasm_info.global_names[index]
         return PythonGlobalInstance(ty, name, self)
 
