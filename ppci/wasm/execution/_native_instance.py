@@ -113,13 +113,10 @@ class NativeModuleInstance(ModuleInstance):
         table_addr = table._meta_page.addr
         self._code_module._data_page.write_fmt(table_ptr, "Q", table_addr)
 
-    def create_elem(self):
-        index = len(self._elems)
+    def create_elem(self, index: int, size: int) -> "NativeElemInstance":
         name = self._wasm_info.elem_names[index]
         offset = self._code_module.get_symbol_offset(name)
-        self._elems.append(
-            NativeElemInstance(offset, self._code_module._data_page)
-        )
+        return NativeElemInstance(offset, self._code_module._data_page, size)
 
     def set_mem_base_ptr(self, base_addr):
         """Set memory base address"""
@@ -256,8 +253,8 @@ class NativeTableInstance(TableInstance):
 
 
 class NativeElemInstance(ElemInstance):
-    def __init__(self, offset, page):
-        super().__init__()
+    def __init__(self, offset, page, size):
+        super().__init__(size)
         self._offset = offset
         self._page = page
 

@@ -74,7 +74,7 @@ instruction_table = [
     (
         "table.init",
         (0xFC, 12),
-        (ArgType.ELEMIDX, ArgType.TABLEIDX),
+        (ArgType.TABLEIDX, ArgType.ELEMIDX),
         ("i32", "i32", "i32"),
         (),
     ),

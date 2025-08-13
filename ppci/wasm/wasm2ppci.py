@@ -666,7 +666,7 @@ class WasmToIrCompiler:
             local_id, local_typ = local
             local_id = i if local_id is None else local_id
             ir_typ = self.get_ir_type(local_typ)
-            size = ir_typ.size
+            size = self.get_type_size(local_typ)
             alignment = size
             alloc = self.emit(ir.Alloc("alloc{}".format(i), size, alignment))
             addr = self.emit(ir.AddressOf(alloc, "local{}".format(i)))
@@ -1621,6 +1621,11 @@ class WasmToIrCompiler:
             elif ai == ArgType.TABLEIDX:
                 assert isinstance(a, components.Ref)
                 assert a.space == "table"
+                arg = self.emit(ir.Const(a.index, "idx", ir.i32))
+                arg_types0.append(ir.i32)
+            elif ai == ArgType.ELEMIDX:
+                assert isinstance(a, components.Ref)
+                assert a.space == "elem"
                 arg = self.emit(ir.Const(a.index, "idx", ir.i32))
                 arg_types0.append(ir.i32)
             else:

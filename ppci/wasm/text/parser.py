@@ -32,7 +32,7 @@ def load_tuple(module, t):
     if not isinstance(t, tuple):
         raise TypeError(f"t must be tuple, not {type(t)}")
 
-    loader = WatTupleLoader(module)
+    loader = WatParser(module)
 
     if any(isinstance(e, components.Definition) for e in t):
         if not all(isinstance(e, components.Definition) for e in t):
@@ -105,11 +105,11 @@ def load_s_expr(module, s):
 
 
 def load_from_s_tokens(module, tokens):
-    loader = WatTupleLoader(module)
+    loader = WatParser(module)
     loader.parse_module(tokens)
 
 
-class WatTupleLoader(RecursiveDescentParser):
+class WatParser(RecursiveDescentParser):
     """WebAssembly text format parser."""
 
     def __init__(self, module):
@@ -117,6 +117,15 @@ class WatTupleLoader(RecursiveDescentParser):
         self.module = module
         self.definitions = defaultdict(list)
         self._type_hash = {}  # (params, results) -> ref
+        self.counters = {
+            "type": 0,
+            "func": 0,
+            "table": 0,
+            "memory": 0,
+            "global": 0,
+            "elem": 0,
+            "data": 0,
+        }
 
         self.resolve_backlog = []
         self.func_backlog = []
@@ -174,12 +183,23 @@ class WatTupleLoader(RecursiveDescentParser):
             "elem": {},
             "data": {},
         }
+        counters = {
+            "type": 0,
+            "func": 0,
+            "table": 0,
+            "memory": 0,
+            "global": 0,
+            "elem": 0,
+            "data": 0,
+        }
 
         # TODO: maybe this is not needed at this point?
         # Fill imports and other objects:
         for d in self.definitions["import"]:
             id_map = id_maps[d.kind]
-            id_map[d.id] = len(id_map)
+            assert d.id not in id_map
+            id_map[d.id] = counters[d.kind]
+            counters[d.kind] += 1
 
         for space in [
             "type",
@@ -192,7 +212,9 @@ class WatTupleLoader(RecursiveDescentParser):
         ]:
             id_map = id_maps[space]
             for d in self.definitions[space]:
-                id_map[d.id] = len(id_map)
+                assert d.id not in id_map
+                id_map[d.id] = counters[space]
+                counters[space] += 1
 
         # resolve any unresolved items:
         for item in self.resolve_backlog:
@@ -231,7 +253,8 @@ class WatTupleLoader(RecursiveDescentParser):
         logger.debug(f"Parsed {definition} {nr}")
 
     def gen_id(self, kind):
-        id = len(self.definitions[kind])
+        id = self.counters[kind]
+        self.counters[kind] += 1
         return f"${id}"
 
     # Section types:
@@ -790,6 +813,13 @@ class WatTupleLoader(RecursiveDescentParser):
             type_ref = self._parse_type_use()
             args = (type_ref, table_ref)
             # TODO: compare unbound func signature with type?
+        elif opcode == "table.init":
+            if is_ref(self.look_ahead(1).val):
+                table_ref = self._parse_ref("table")
+            else:
+                table_ref = self._make_ref("table", 0)
+            elem_ref = self._parse_ref("elem")
+            args = (table_ref, elem_ref)
         else:
             operands = OPERANDS[opcode]
             args = self._parse_operands(operands)

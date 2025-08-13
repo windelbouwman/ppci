@@ -76,6 +76,7 @@ class PythonModuleInstance(ModuleInstance):
         imports["wasm_rt_table_init"] = self.table_init
         imports["wasm_rt_table_copy"] = self.table_copy
         imports["wasm_rt_table_fill"] = self.table_fill
+        imports["wasm_rt_elem_drop"] = self.elem_drop
 
         imports["wasm_rt_memory_grow"] = self.memory_grow
         imports["wasm_rt_memory_size"] = self.memory_size
@@ -157,11 +158,10 @@ class PythonModuleInstance(ModuleInstance):
         addr = getattr(self._py_module, name)
         self.store_ptr(addr, table._get_ptr())
 
-    def create_elem(self) -> "PythonElemInstance":
-        index = len(self._elems)
+    def create_elem(self, index: int, size: int) -> "PythonElemInstance":
         name = self._wasm_info.elem_names[index]
         addr = getattr(self._py_module, name)
-        self._elems.append(PythonElemInstance(addr, self))
+        return PythonElemInstance(addr, self, size)
 
     def get_func_by_index(self, index: int):
         exported_name = self._wasm_info.function_names[index]
@@ -304,6 +304,8 @@ class PythonTableInstance(TableInstance):
         ptr_size = 4
         old_size = self._instance.load_i32(self._addr + ptr_size)
         new_size = old_size + count
+        if new_size > 0xFFFF_FFFF:
+            return -1
         if self._max_size is not None and new_size > self._max_size:
             return -1
         old_addr = self._instance.load_ptr(self._addr)
@@ -327,12 +329,12 @@ class PythonTableInstance(TableInstance):
     def get_item(self, index: int):
         base_ptr = self._get_ptr()
         data_ptr = self._instance.load_ptr(base_ptr) + 4 * index
-        self._instance.load_ptr(data_ptr)
+        return self._instance.load_ptr(data_ptr)
 
 
 class PythonElemInstance(ElemInstance):
-    def __init__(self, addr: int, instance):
-        super().__init__()
+    def __init__(self, addr: int, instance, size):
+        super().__init__(size)
         self._addr = addr
         self._instance = instance
 

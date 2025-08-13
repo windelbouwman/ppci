@@ -355,7 +355,7 @@ class WastExecutor:
         elif any(nan_or_inf(a) for a in args):
             self.logger.warning(f"Not invoking method {func_name}({args})")
         else:
-            self.logger.debug(f"Invoking {func_name} at line {target.loc}")
+            self.logger.debug(f"Invoking '{func_name}' at line {target.loc}")
             return instance.exports[func_name](*args)
 
     def register_instance(self, s_expr):

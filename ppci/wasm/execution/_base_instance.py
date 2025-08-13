@@ -8,8 +8,6 @@ logger = logging.getLogger("instantiate")
 class ModuleInstance(abc.ABC):
     """Web assembly module instance"""
 
-    """ Instantiated module """
-
     def __init__(self):
         self.exports = Exports()
         self._tables = []
@@ -23,6 +21,9 @@ class ModuleInstance(abc.ABC):
 
     def table_grow(self, table_idx: int, val: int, size: int) -> int:
         logger.debug(f"table_grow({table_idx=}, {size=}, {val=})")
+        if size < 0:
+            # When i32 is large, it's signed value is negative.
+            return -1
         table = self._tables[table_idx]
         return table.grow(val, size)
 
@@ -31,17 +32,45 @@ class ModuleInstance(abc.ABC):
         table = self._tables[table_idx]
         return table.size()
 
-    def table_init(self, table_idx: int) -> None:
-        logger.debug(f"table_init({table_idx=})")
-        # _table = self._tables[table_idx]
-        raise NotImplementedError()
-        return 0
+    def table_init(
+        self, table_idx: int, elem_idx: int, d: int, s: int, n: int
+    ) -> None:
+        logger.debug(
+            f"table_init({table_idx=}, {elem_idx=}, {d=}, {s=}, {n=})"
+        )
+        table = self._tables[table_idx]
+        elem = self._elems[elem_idx]
+        if s + n > elem.size():
+            raise ValueError("s + n > elem.size")
+        if d + n > table.size():
+            raise ValueError("d + n > table.size")
+        for index in range(n):
+            obj = elem.get_item(s + index)
+            table.set_item(d + index, obj)
 
-    def table_copy(self, table_idx: int) -> None:
-        logger.debug(f"table_copy({table_idx=})")
-        # _table = self._tables[table_idx]
-        raise NotImplementedError()
-        return 0
+    def table_copy(
+        self, x_table_idx: int, y_table_idx: int, d: int, s: int, n: int
+    ) -> None:
+        logger.debug(
+            f"table_copy({x_table_idx=}, {y_table_idx=}, {d=}, {s=}, {n=})"
+        )
+        x_table = self._tables[x_table_idx]
+        y_table = self._tables[y_table_idx]
+        if d + n > x_table.size():
+            raise ValueError("d + n > x_table.size")
+        if s + n > y_table.size():
+            raise ValueError("s + n > y_table.size")
+
+        # Regions may overlap, so check dest and source:
+        if d <= s:
+            for index in range(n):
+                obj = y_table.get_item(s + index)
+                x_table.set_item(d + index, obj)
+        else:
+            for index2 in range(n):
+                index = n - 1 - index2
+                obj = y_table.get_item(s + index)
+                x_table.set_item(d + index, obj)
 
     def table_fill(self, table_idx: int, i: int, val: int, n: int) -> None:
         logger.debug(f"table_fill({table_idx=}, {i=}, {val=}, {n=})")
@@ -49,6 +78,9 @@ class ModuleInstance(abc.ABC):
         for x in range(n):
             index = i + x
             table.set_item(index, val)
+
+    def elem_drop(self, elem_idx: int) -> None:
+        pass
 
     def memory_grow(self, memory_idx: int, amount: int) -> int:
         """Grow memory and return the old size"""
@@ -99,7 +131,7 @@ class ModuleInstance(abc.ABC):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def create_elem(self):
+    def create_elem(self, index: int, size: int):
         raise NotImplementedError()
 
     def eval_expression(self, expr):
@@ -145,7 +177,9 @@ class ModuleInstance(abc.ABC):
                 self.set_table_ptr(index, table)
             elif isinstance(definition, components.Elem):
                 elems.append(definition)
-                self.create_elem()
+                index = len(self._elems)
+                size = len(definition.refs)
+                self._elems.append(self.create_elem(index, size))
 
         for index, elem in enumerate(elems):
             if elem.mode:
@@ -191,8 +225,11 @@ class ModuleInstance(abc.ABC):
 class ElemInstance(abc.ABC):
     """Runtime element instance"""
 
-    def __init__(self):
-        pass
+    def __init__(self, size: int):
+        self._size = size
+
+    def size(self) -> int:
+        return self._size
 
     @abc.abstractmethod
     def get_item(self, index: int):
