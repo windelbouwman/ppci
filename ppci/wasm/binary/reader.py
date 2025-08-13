@@ -39,6 +39,8 @@ class BinaryFileReader:
             "table": {},
             "memory": {},
             "global": {},
+            "elem": {},
+            "data": {},
         }
 
         # todo: we may assign id's inside the _from_reader() methods,
@@ -353,14 +355,25 @@ class BinaryFileReader:
 
     def read_elem_definition(self):
         """Read an `elem` definition."""
-        ref = self.read_space_ref("table")
-        if ref.index == 0:
+        x = self.read_uint()
+        # We can interpret x as a bitfield:
+        # is_passive = x & 1 == 1
+        # has_table_index = x & 2 == 2
+        # use_element_expression = x & 4 == 4
+        if x == 0:
+            ref = Ref("table", index=0)
             offset = self.read_expression()
+            mode = ref, offset
             count = self.read_uint()
             refs = [self.read_space_ref("func") for _ in range(count)]
-            return components.Elem(ref, offset, refs)
+        elif x == 1:
+            raise NotImplementedError("Post MVP feature")
         else:
             raise NotImplementedError("Post MVP feature")
+        id = self.gen_id("elem")
+        definition = components.Elem(id, mode, refs)
+        self.add_definition("elem", definition)
+        return definition
 
     def read_func_definition(self, index) -> components.Func:
         """Read a function with locals and instructions."""
@@ -386,13 +399,21 @@ class BinaryFileReader:
 
     def read_data_definition(self) -> components.Data:
         """Read a data definition."""
-        ref = self.read_space_ref("memory")
-        if ref.index == 0:
-            offset = self.read_expression()
-            data = self.read_length_prefixed_bytes()
-            return components.Data(ref, offset, data)
+        x = self.read_uint()
+        if x == 1:
+            mode = None  # passive mode
         else:
-            raise NotImplementedError("Post MVP feature")
+            if x == 0:
+                ref = Ref("memory", index=0)
+            else:
+                ref = self.read_space_ref("memory")
+            offset = self.read_expression()
+            mode = (ref, offset)
+        data = self.read_length_prefixed_bytes()
+        id = self.gen_id("data")
+        definition = components.Data(id, mode, data)
+        self.add_definition("data", definition)
+        return definition
 
     def read_data_count_definition(self):
         n = self.read_int()

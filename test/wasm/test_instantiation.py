@@ -4,8 +4,7 @@ import math
 import unittest
 from ppci.wasm import instantiate, Module
 from ppci.api import is_platform_supported
-
-# from ppci.utils.reporting import html_reporter
+from ppci.utils.reporting import html_reporter
 
 # The below snippet is from the wasm spec test suite.
 # It detected an issue in the x86_64 backend.
@@ -113,17 +112,17 @@ class WasmInstantiationTestCase(unittest.TestCase):
             print("my add called", x, y)
             return x + y + 1
 
-        # with html_reporter("oi.html") as reporter:
-        instance = instantiate(
-            module,
-            imports={
-                "py": {
-                    "add": my_add,
-                }
-            },
-            target="python",
-            # reporter=reporter,
-        )
+        with html_reporter("oi.html") as reporter:
+            instance = instantiate(
+                module,
+                imports={
+                    "py": {
+                        "add": my_add,
+                    }
+                },
+                target="python",
+                reporter=reporter,
+            )
 
         self.assertEqual(1380, instance.exports.main(1337))
         self.assertEqual(85, instance.exports.add(42, 42))

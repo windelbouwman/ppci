@@ -67,7 +67,7 @@ class Parser(RecursiveDescentParser):
         elif self.peek == "import" and not public:
             self.parse_import()
         else:
-            self.error("Expected function, var, const or type")
+            self.error("Expected function, var, const or type", self.token.loc)
 
     def parse_import(self):
         """Parse import construct"""
@@ -464,27 +464,23 @@ class Parser(RecursiveDescentParser):
 
     def parse_primary_expression(self) -> ast.Expression:
         """Literal and parenthesis expression parsing"""
-        if self.peek == "(":
-            self.consume("(")
+        tok = self.next_token()
+        if tok.typ == "(":
             expr = self.parse_expression()
             self.consume(")")
-        elif self.peek == "NUMBER":
-            val = self.consume("NUMBER")
-            expr = ast.Literal(val.val, val.loc)
-        elif self.peek == "REAL":
-            val = self.consume("REAL")
-            expr = ast.Literal(val.val, val.loc)
-        elif self.peek == "true":
-            val = self.consume("true")
-            expr = ast.Literal(True, val.loc)
-        elif self.peek == "false":
-            val = self.consume("false")
-            expr = ast.Literal(False, val.loc)
-        elif self.peek == "STRING":
-            val = self.consume("STRING")
-            expr = ast.Literal(val.val, val.loc)
-        elif self.peek == "ID":
+        elif tok.typ == "NUMBER":
+            expr = ast.Literal(tok.val, tok.loc)
+        elif tok.typ == "REAL":
+            expr = ast.Literal(tok.val, tok.loc)
+        elif tok.typ == "true":
+            expr = ast.Literal(True, tok.loc)
+        elif tok.typ == "false":
+            expr = ast.Literal(False, tok.loc)
+        elif tok.typ == "STRING":
+            expr = ast.Literal(tok.val, tok.loc)
+        elif tok.typ == "ID":
+            self.backup_token(tok)
             expr = self.parse_designator()
         else:
-            self.error("Expected NUM, ID or (expr), got {0}".format(self.peek))
+            self.error(f"Expected NUM, ID or (expr), got {tok.typ}", tok.loc)
         return expr

@@ -149,13 +149,14 @@ class Ref:
     """This is a reference to an object in one of the 5 spaces.
 
     space must be one of 'type', 'func', 'memory', 'table', 'global', 'local'
+    'elem, 'data'
     index can be none
     """
 
     # TODO: idea:
     # wb: store reference to the object itself instead of an index?
     def __init__(self, space, index=None, name=None):
-        valid_spaces = [
+        valid_spaces = (
             "type",
             "func",
             "memory",
@@ -163,9 +164,11 @@ class Ref:
             "global",
             "local",
             "label",
-        ]
+            "elem",
+            "data",
+        )
         if space not in valid_spaces:
-            raise ValueError("space must be one of {}".format(valid_spaces))
+            raise ValueError(f"space must be one of {valid_spaces}")
         self.space = space
         if index is None and name is None:
             raise ValueError("You must provide index or name for a Ref")
@@ -180,9 +183,7 @@ class Ref:
             return str(self.index)
 
     def __repr__(self):
-        return "Ref(space={},index={},name={})".format(
-            self.space, self.index, self.name
-        )
+        return f"Ref(space={self.space},index={self.index},name={self.name})"
 
     def resolve(self, id_maps):
         if self.index is None:
@@ -525,7 +526,10 @@ class Import(Definition):
 class Table(Definition):
     """A resizable typed array of references (e.g. to functions) that could
     not otherwise be stored as raw bytes in Memory (for safety and portability
-    reasons). Only one default table can exist in v1.
+    reasons).
+
+    Only one default table can exist in v1.
+    More than one table can exist in v2.
 
     A practical use-case is to store "function pointers" for e.g. callbacks.
     Tables allow doing that without actually exposing the memory location.
@@ -540,7 +544,9 @@ class Table(Definition):
     Attributes:
 
     * id: the id of this table definition in the table name/index space.
-    * kind: the kind of data stored in the table, only 'funcref' in v1.
+    * kind: the kind of data stored in the table.
+        * only 'funcref' in v1.
+        * also 'externref' in v2.
     * min: the minimum (initial) table size.
     * max: the maximum table size, or None.
 
@@ -550,7 +556,8 @@ class Table(Definition):
 
     def _from_args(self, id, kind, min, max):
         self.id = check_id(id)
-        assert kind in ("funcref",)  # More kinds in future versions
+        # More kinds in future versions:
+        assert kind in ("funcref", "externref")
         self.kind = kind
         self.min = min
         self.max = max
@@ -744,22 +751,29 @@ class Elem(Definition):
 
     Attributes:
 
+    * id: the id of this element in the elem name/index space.
+    * mode: active, passive or declarative
+    * refs: a list of function references.
+
+    Passive mode: None
+    Active mode:
     * ref: the table id that this element applies to.
     * offset: the element offset, expressed as an instruction list
       (i.e. [i32.const, end])
-    * refs: a list of function references.
     """
 
-    __slots__ = ("ref", "offset", "refs")
+    __slots__ = ("id", "mode", "refs")
 
-    def _from_args(self, ref, offset, refs):
-        # Check
-        assert isinstance(offset, list)
+    def _from_args(self, id, mode, refs):
         assert isinstance(refs, (tuple, list))
-        # Set
-        assert isinstance(ref, Ref)
-        self.ref = check_id(ref)
-        self.offset = offset
+        self.id = check_id(id)
+        if mode:
+            ref, offset = mode
+            assert isinstance(ref, Ref)
+            assert isinstance(offset, list)
+            ref = check_id(ref)
+            mode = ref, offset
+        self.mode = mode
         self.refs = refs
 
     def to_string(self):
@@ -780,22 +794,32 @@ class Data(Definition):
 
     Attributes:
 
+    * id: the id of this data segment in the data name/index space.
+    * mode: A combo of ref/offset
+    * data: the binary data as a bytes object.
+
+    Active mode:
     * ref: the memory id that this data applies to.
     * offset: the byte offset, expressed as an instruction (i.e. i32.const)
-    * data: the binary data as a bytes object.
+
+    Passive mode:
+    * None
     """
 
-    __slots__ = ("ref", "offset", "data")
+    __slots__ = ("id", "mode", "data")
 
-    def _from_args(self, ref, offset, data):
-        # Check
-        assert isinstance(offset, list)
+    def _from_args(self, id, mode, data):
+        if mode:
+            ref, offset = mode
+            assert isinstance(offset, list)
+            ref = check_id(ref)
+            assert isinstance(ref, Ref)
+            self.mode = (ref, offset)
+        else:
+            self.mode = None
         if not isinstance(data, bytes):
             raise TypeError("data must be bytes")
-        # Set
-        self.ref = check_id(ref)
-        assert isinstance(self.ref, Ref)
-        self.offset = offset
+        self.id = check_id(id)
         self.data = data
 
     def to_string(self):

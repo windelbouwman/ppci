@@ -157,6 +157,27 @@ def datastring2bytes(s: str) -> bytes:
     return f.getvalue()
 
 
+def unescape(text: str) -> str:
+    """Remove escaped characters"""
+    f = io.StringIO()
+    i = 0
+    while i < len(text):
+        c = text[i]
+        i += 1
+        if c == "\\":
+            c = text[i]
+            i += 1
+            if c == "\\" or c == '"':
+                f.write(c)
+            else:
+                i += 1
+                code = int(text[i - 2 : i], 16)
+                f.write(chr(code))
+        else:
+            f.write(c)
+    return f.getvalue()
+
+
 def export_wasm_example(filename, code, wasm, main_js=""):
     """Generate an html file for the given code and wasm module."""
     from .components import Module

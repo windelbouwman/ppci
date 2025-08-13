@@ -41,7 +41,7 @@ def test_table1():
       (import "js" "print_ln" (func $print (type $print)))
       (table $0 2 2 funcref)
       (start $main)
-      (elem i32.const 0 $f1 $f2)
+      (elem $0 (offset i32.const 0) $f1 $f2)
       (func $f1 (type $2)
         i32.const 101
         call $print)

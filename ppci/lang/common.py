@@ -17,7 +17,7 @@ class Token:
         self.loc = loc
 
     def __repr__(self):
-        return "Token({}, {}, {})".format(self.typ, self.val, self.loc)
+        return f"Token({self.typ}, {self.val}, {self.loc})"
 
 
 class SourceLocation:

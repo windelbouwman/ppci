@@ -8,6 +8,7 @@ https://github.com/WebAssembly/wabt/blob/master/src/wast-parser.cc
 
 import logging
 from collections import defaultdict
+from collections.abc import Iterable
 from ...lang.sexpr import parse_sexpr
 from ...lang.sexpr import SList, SSymbol, SString
 from ...lang.common import SourceLocation
@@ -42,7 +43,7 @@ def load_tuple(module, t):
         module.id = None
         module.definitions = loader.gather_definitions()
     else:
-        loader.load_module(tuple_to_tokens(t))
+        loader.parse_module(tuple_to_tokens(t))
 
 
 def tuple_to_tokens(t: tuple):
@@ -105,10 +106,12 @@ def load_s_expr(module, s):
 
 def load_from_s_tokens(module, tokens):
     loader = WatTupleLoader(module)
-    loader.load_module(tokens)
+    loader.parse_module(tokens)
 
 
 class WatTupleLoader(RecursiveDescentParser):
+    """WebAssembly text format parser."""
+
     def __init__(self, module):
         super().__init__()
         self.module = module
@@ -118,8 +121,8 @@ class WatTupleLoader(RecursiveDescentParser):
         self.resolve_backlog = []
         self.func_backlog = []
 
-    def load_module(self, tokens):
-        """Load a module from series of tokens"""
+    def parse_module(self, tokens: Iterable[Token]):
+        """Parse a module from series of tokens"""
         self.init_lexer(tokens)
 
         self.expect("(")
@@ -132,25 +135,25 @@ class WatTupleLoader(RecursiveDescentParser):
         while self.munch("("):
             kind = self.take()
             if kind == "type":
-                self.load_type()
+                self.parse_type()
             elif kind == "data":
-                self.load_data()
+                self.parse_data()
             elif kind == "elem":
-                self.load_elem()
+                self.parse_elem()
             elif kind == "export":
-                self.load_export()
+                self.parse_export()
             elif kind == "func":
-                self.load_func()
+                self.parse_func()
             elif kind == "global":
-                self.load_global()
+                self.parse_global()
             elif kind == "import":
                 self.load_import()
             elif kind == "memory":
-                self.load_memory()
+                self.parse_memory()
             elif kind == "start":
-                self.load_start()
+                self.parse_start()
             elif kind == "table":
-                self.load_table()
+                self.parse_table()
             else:  # pragma: no cover
                 raise NotImplementedError(kind)
             self.expect(")")
@@ -168,6 +171,8 @@ class WatTupleLoader(RecursiveDescentParser):
             "table": {},
             "memory": {},
             "global": {},
+            "elem": {},
+            "data": {},
         }
 
         # TODO: maybe this is not needed at this point?
@@ -176,9 +181,18 @@ class WatTupleLoader(RecursiveDescentParser):
             id_map = id_maps[d.kind]
             id_map[d.id] = len(id_map)
 
-        for space in ["type", "global", "memory", "table", "func"]:
+        for space in [
+            "type",
+            "global",
+            "memory",
+            "table",
+            "func",
+            "elem",
+            "data",
+        ]:
+            id_map = id_maps[space]
             for d in self.definitions[space]:
-                id_maps[space][d.id] = len(id_maps[space])
+                id_map[d.id] = len(id_map)
 
         # resolve any unresolved items:
         for item in self.resolve_backlog:
@@ -214,14 +228,14 @@ class WatTupleLoader(RecursiveDescentParser):
         space = definition.__name__
         nr = len(self.definitions[space])
         self.definitions[space].append(definition)
-        logger.debug("Parsed %s %s", definition, nr)
+        logger.debug(f"Parsed {definition} {nr}")
 
     def gen_id(self, kind):
         id = len(self.definitions[kind])
         return f"${id}"
 
     # Section types:
-    def load_type(self):
+    def parse_type(self):
         """Load a tuple starting with 'type'"""
         id = self._parse_optional_id(default=self.gen_id("type"))
         self.expect("(", "func")
@@ -238,21 +252,27 @@ class WatTupleLoader(RecursiveDescentParser):
             id = default
         return id
 
-    def _parse_optional_ref(self, space, default=None):
-        """Parse an optional reference, defaulting to 0"""
-        if self._at_ref():
-            value = self.take()
+    def _parse_use_or_default(self, space, default=None):
+        """Parse an optional use, defaulting to 0"""
+        if self.munch("(", space):
+            value = self._parse_ref(space)
+            self.consume(")")
+        elif default is None:
+            self.error("Expected space usage")
         else:
-            value = default
-
-        value = self._make_ref(space, value)
+            value = self._make_ref(space, default)
         return value
 
-    def _parse_ref(self, space):
+    def _parse_ref(self, space, default=None):
         """Parse a reference (int or $ref) into the given space"""
-        assert self._at_ref()
-        value = self.take()
-        return self._make_ref(space, value)
+        tok = self.next_token()
+        if is_ref(tok.val):
+            return self._make_ref(space, tok.val)
+        elif default is None:
+            self.error("Expected reference ($name or integer)", tok.loc)
+        else:
+            self.backup_token(tok)
+            return self._make_ref(space, default)
 
     def _add_or_reuse_type_definition(self, params, results):
         key = tuple(params), tuple(results)
@@ -350,7 +370,7 @@ class WatTupleLoader(RecursiveDescentParser):
         self.expect(")")
         self.add_definition(components.Import(modname, name, kind, id, info))
 
-    def load_export(self):
+    def parse_export(self):
         """Parse a toplevel export"""
         name = self.take()
         self.expect("(")
@@ -359,47 +379,105 @@ class WatTupleLoader(RecursiveDescentParser):
         self.expect(")")
         self.add_definition(components.Export(name, kind, ref))
 
-    def load_start(self):
+    def parse_start(self):
         """Parse a toplevel start"""
         name = self._parse_ref("func")
         self.add_definition(components.Start(name))
 
-    def load_table(self):
+    def parse_table(self):
         """Parse a table"""
         id = self._parse_optional_id(default=self.gen_id("table"))
         self._parse_inline_export("table", id)
         if self.match("(", "import"):  # handle inline imports
             modname, name = self._parse_inline_import()
-            min, max = self.parse_limits()
-            kind = self.take()
-            info = (kind, min, max)
+            info = self.parse_table_type()
             self.add_definition(
                 components.Import(modname, name, "table", id, info)
             )
-        elif self.munch("funcref"):
+        elif self.match("funcref") or self.match("externref"):
+            kind = self.parse_reftype()
             # We have embedded data
             self.expect("(", "elem")
-            refs = self.parse_ref_list()
+            if self.match("(", "item") or self.at_instruction():
+                refs = self.parse_item_list()
+            else:
+                refs = self.parse_ref_list()
             self.expect(")")
             offset = [components.Instruction("i32.const", 0)]
             min = max = len(refs)
-            self.add_definition(components.Table(id, "funcref", min, max))
+            self.add_definition(components.Table(id, kind, min, max))
             table_ref = self._make_ref("table", id)
-            self.add_definition(components.Elem(table_ref, offset, refs))
+            mode = table_ref, offset
+            eid = self.gen_id("elem")
+            self.add_definition(components.Elem(eid, mode, refs))
         else:
-            min, max = self.parse_limits()
-            kind = self.take()
-            assert kind == "funcref"
+            kind, min, max = self.parse_table_type()
             self.add_definition(components.Table(id, kind, min, max))
 
-    def load_elem(self):
-        """Load an elem element"""
-        ref = self._parse_optional_ref("table", default=0)
-        offset = self.parse_offset_expression()
-        refs = self.parse_ref_list()
-        while self._at_id():
-            refs.append(self.take())
-        self.add_definition(components.Elem(ref, offset, refs))
+    def parse_table_type(self):
+        """Parse table limits followed by reftype"""
+        min, max = self.parse_limits()
+        reftype = self.parse_reftype()
+        info = (reftype, min, max)
+        return info
+
+    def parse_elem(self):
+        """Load an element to fill a table"""
+        id = self._parse_optional_id(default=self.gen_id("elem"))
+        if self.match("(", "table"):
+            ref = self._parse_use_or_default("table")
+            offset = self.parse_offset_expression()
+            mode = ref, offset
+        elif self.match("(", "offset"):
+            ref = components.Ref("table", index=0)
+            offset = self.parse_offset_expression()
+            mode = ref, offset
+        elif self.at_instruction():
+            ref = components.Ref("table", index=0)
+            offset = self.parse_offset_expression()
+            mode = ref, offset
+        elif self.match("declare"):
+            self.expect("declare")
+            mode = None  # Declare mode
+        else:
+            mode = None  # passive mode
+
+        reftype, refs = self.parse_elem_list()
+        self.add_definition(components.Elem(id, mode, refs))
+
+    def parse_elem_list(self):
+        tok = self.next_token()
+        if tok.val == "funcref" or tok.val == "externref":
+            reftype = tok.val
+            refs = self.parse_item_list()
+        elif tok.val == "func":
+            reftype = "funcref"
+            refs = self.parse_ref_list()
+        elif is_ref(tok.val):
+            self.backup_token(tok)
+            reftype = "funcref"
+            refs = self.parse_ref_list()
+        elif tok.typ == ")":
+            self.backup_token(tok)
+            reftype = "funcref"
+            refs = []
+        else:
+            self.error("Expected funcref/externref/func", tok.loc)
+        return reftype, refs
+
+    def parse_item_list(self):
+        refs = []
+        while True:
+            if self.match("(", "item"):
+                self.expect("(", "item")
+                ref = self._load_instruction()
+                self.expect(")")
+            elif self.at_instruction():
+                ref = self._load_instruction()
+            else:
+                break
+            refs.append(ref)
+        return refs
 
     def parse_ref_list(self):
         """Parse $1 $2 $foo $bar"""
@@ -427,7 +505,7 @@ class WatTupleLoader(RecursiveDescentParser):
             ref = components.Ref(space, index=make_int(value))
         return ref
 
-    def load_memory(self):
+    def parse_memory(self):
         """Load a memory definition"""
         id = self._parse_optional_id(default=self.gen_id("memory"))
         self._parse_inline_export("memory", id)
@@ -447,7 +525,9 @@ class WatTupleLoader(RecursiveDescentParser):
             self.add_definition(components.Memory(id, min, max))
             offset = [components.Instruction("i32.const", 0)]
             memory_ref = self._make_ref("memory", id)
-            self.add_definition(components.Data(memory_ref, offset, data))
+            mode = (memory_ref, offset)
+            data_id = self.gen_id("data")
+            self.add_definition(components.Data(data_id, mode, data))
         else:
             min, max = self.parse_limits()
             self.add_definition(components.Memory(id, min, max))
@@ -474,7 +554,7 @@ class WatTupleLoader(RecursiveDescentParser):
             mutable = False
         return (typ, mutable)
 
-    def load_global(self):
+    def parse_global(self):
         """Load a global definition"""
         id = self._parse_optional_id(default=self.gen_id("global"))
         self._parse_inline_export("global", id)
@@ -490,14 +570,26 @@ class WatTupleLoader(RecursiveDescentParser):
             init = self._load_instruction_list()
             self.add_definition(components.Global(id, typ, mutable, init))
 
-    def load_data(self):
-        """Load data"""
-        ref = self._parse_optional_ref("memory", default=0)
-        offset = self.parse_offset_expression()
-        data = self.parse_data_blobs()
-        self.add_definition(components.Data(ref, offset, data))
+    def parse_data(self):
+        """Load data segment"""
+        id = self._parse_optional_id(default=self.gen_id("data"))
+        if self.peek == ")":
+            mode = None
+            data = bytes()
+        else:
+            if self.peek == "string":
+                # Passive block
+                mode = None
+            else:
+                # Active block
+                ref = self._parse_use_or_default("memory", default=0)
+                offset = self.parse_offset_expression()
+                mode = (ref, offset)
+            data = self.parse_data_blobs()
+        definition = components.Data(id, mode, data)
+        self.add_definition(definition)
 
-    def parse_data_blobs(self):
+    def parse_data_blobs(self) -> bytes:
         data = bytearray()
         while not self.match(")"):
             txt = self.take()
@@ -507,8 +599,7 @@ class WatTupleLoader(RecursiveDescentParser):
                 assert isinstance(txt, str)
                 blob = datastring2bytes(txt)
             data.extend(blob)
-        data = bytes(data)
-        return data
+        return bytes(data)
 
     def parse_offset_expression(self):
         if self.munch("(", "offset"):
@@ -518,7 +609,7 @@ class WatTupleLoader(RecursiveDescentParser):
             offset = self._load_instruction()
         return offset
 
-    def load_func(self):
+    def parse_func(self):
         """Load a single function definition."""
         id = self._parse_optional_id(default=self.gen_id("func"))
         self._parse_inline_export("func", id)
@@ -617,8 +708,7 @@ class WatTupleLoader(RecursiveDescentParser):
 
         elif opcode == "else":
             block_id = self._parse_optional_id()
-            if block_id is not None:
-                assert block_id == self.block_stack[-1]
+            self._check_block_ids(self.block_stack[-1], block_id, opcode_loc)
 
             instructions.append(components.Instruction(opcode))
             assert not is_braced
@@ -626,10 +716,7 @@ class WatTupleLoader(RecursiveDescentParser):
         elif opcode == "end":
             block_id = self._parse_optional_id()
             matching_id = self.block_stack.pop()
-
-            # Check this label with the start label
-            if block_id is not None:
-                assert matching_id == block_id
+            self._check_block_ids(matching_id, block_id, opcode_loc)
 
             instructions.append(components.Instruction(opcode))
 
@@ -651,6 +738,11 @@ class WatTupleLoader(RecursiveDescentParser):
 
         return instructions
 
+    def _check_block_ids(self, ref_block_id, block_id, loc):
+        if block_id is not None:
+            if block_id != ref_block_id:
+                self.error("Block id mismatch", loc)
+
     def _load_block_type(self):
         """Get the block type."""
         if self.munch("emptyblock"):
@@ -671,57 +763,84 @@ class WatTupleLoader(RecursiveDescentParser):
                 block_type = ref
         return block_type
 
+    def parse_reftype(self):
+        tok = self.next_token()
+        reftype = tok.val
+        if reftype in ["funcref", "externref"]:
+            return reftype
+        else:
+            self.error("Expected ref-type", tok.loc)
+
+    def _parse_heaptype(self):
+        tok = self.next_token()
+        reftype = tok.val
+        if reftype in ["func", "extern"]:
+            return reftype
+        else:
+            self.error("Expected ref-type", tok.loc)
+
     def _gather_opcode_arguments(self, opcode):
         """Gather the arguments to a specific opcode."""
         # Process any special case arguments:
         if ".load" in opcode or ".store" in opcode:
             args = self._parse_load_store_arguments(opcode)
         elif opcode == "call_indirect":
+            # Note: table_ref and type_ref are swapped in binary format:
+            table_ref = self._parse_ref("table", default=0)
             type_ref = self._parse_type_use()
-            table_ref = components.Ref("table", index=0)
             args = (type_ref, table_ref)
             # TODO: compare unbound func signature with type?
         else:
             operands = OPERANDS[opcode]
+            args = self._parse_operands(operands)
 
-            args = []
-            for op in operands:
-                if op == ArgType.LABELIDX:
-                    arg = self._parse_ref("label")
-                elif op == ArgType.LOCALIDX:
-                    arg = self._parse_ref("local")
-                elif op == ArgType.GLOBALIDX:
-                    arg = self._parse_ref("global")
-                elif op == ArgType.FUNCIDX:
-                    arg = self._parse_ref("func")
-                elif op == ArgType.TYPEIDX:
-                    arg = self._parse_ref("type")
-                elif op == ArgType.TABLEIDX:
-                    arg = self._parse_ref("table")
-                elif op == ArgType.I32:
-                    arg = make_int(self.take(), bits=32)
-                elif op == ArgType.I64:
-                    arg = make_int(self.take(), bits=64)
-                elif op == ArgType.F32:
-                    arg = make_float(self.take())
-                elif op == ArgType.F64:
-                    arg = make_float(self.take())
-                elif op == ArgType.U32:
-                    arg = self.take()
-                elif op == "br_table":
-                    # Take all ints and strings as jump labels:
-                    targets = []
-                    while self._at_ref():
-                        targets.append(self._parse_ref("label"))
-                    arg = targets
-                elif op == ArgType.U8:
-                    # one day, this byte argument might be used
-                    # to indicate which memory to access.
-                    arg = 0
-                else:
-                    raise NotImplementedError(str(op))
+        return args
 
-                args.append(arg)
+    def _parse_operands(self, operands):
+        args = []
+        for op in operands:
+            if op == ArgType.LABELIDX:
+                arg = self._parse_ref("label")
+            elif op == ArgType.LOCALIDX:
+                arg = self._parse_ref("local")
+            elif op == ArgType.GLOBALIDX:
+                arg = self._parse_ref("global")
+            elif op == ArgType.FUNCIDX:
+                arg = self._parse_ref("func")
+            elif op == ArgType.TYPEIDX:
+                arg = self._parse_ref("type")
+            elif op == ArgType.TABLEIDX:
+                arg = self._parse_ref("table", default=0)
+            elif op == ArgType.ELEMIDX:
+                arg = self._parse_ref("elem")
+            elif op == ArgType.DATAIDX:
+                arg = self._parse_ref("data")
+            elif op == ArgType.HEAPTYPE:
+                arg = self._parse_heaptype()
+            elif op == ArgType.I32:
+                arg = make_int(self.take(), bits=32)
+            elif op == ArgType.I64:
+                arg = make_int(self.take(), bits=64)
+            elif op == ArgType.F32:
+                arg = make_float(self.take())
+            elif op == ArgType.F64:
+                arg = make_float(self.take())
+            elif op == ArgType.U32:
+                arg = self.take()
+            elif op == "br_table":
+                # Take all ints and strings as jump labels:
+                targets = []
+                while self._at_ref():
+                    targets.append(self._parse_ref("label"))
+                arg = targets
+            elif op == ArgType.U8:
+                # one day, this byte argument might be used
+                # to indicate which memory to access.
+                arg = 0
+            else:
+                raise NotImplementedError(str(op))
+
+            args.append(arg)
         return args
 
     def _parse_load_store_arguments(self, opcode):
@@ -768,8 +887,7 @@ class WatTupleLoader(RecursiveDescentParser):
 
     def _parse_inline_export(self, kind, obj_name):
         ref = self._make_ref(kind, obj_name)
-        while self.match("(", "export"):
-            self.expect("(", "export")
+        while self.munch("(", "export"):
             name = self.take()
             self.expect(")")
             self.add_definition(components.Export(name, kind, ref))
@@ -790,14 +908,16 @@ class WatTupleLoader(RecursiveDescentParser):
         return True
 
     def munch(self, *args) -> bool:
+        """If we match the given tokens, consume the tokens"""
         if self.match(*args):
-            for arg in args:
+            for _ in args:
                 self.next_token()
             return True
         else:
             return False
 
     def expect(self, *args):
+        """Consume the token types"""
         for arg in args:
             tok = self.next_token()
             if not self.is_ok_tok(tok, arg):
@@ -813,6 +933,7 @@ class WatTupleLoader(RecursiveDescentParser):
             return tok.typ == "word" and tok.val == arg
 
     def take(self):
+        """Consume the next token, and return its value"""
         tok = self.next_token()
         return tok.val
 
@@ -826,8 +947,8 @@ class WatTupleLoader(RecursiveDescentParser):
 
 
 def is_id(x):
-    # TODO: is id of None a good plan?
-    return is_dollar(x) or (x is None)
+    """Check if x can be an id"""
+    return is_dollar(x)
 
 
 def is_ref(x):

@@ -163,22 +163,32 @@ class TextWriter:
 
     def write_elem_definition(self, elemdef: components.Elem):
         self.emit("(", "elem")
-        if not elemdef.ref.is_zero:
-            self.emit(str(elemdef.ref))
-        offset = " ".join(i.to_string() for i in elemdef.offset)
-        self.emit(offset)
+        self.gen_id(elemdef.id)
+        if elemdef.mode:
+            ref, offset = elemdef.mode
+            if not ref.is_zero:
+                self.emit("(", "table")
+                self.emit(str(ref))
+                self.emit(")")
+            self.emit("(", "offset")
+            offset = " ".join(i.to_string() for i in offset)
+            self.emit(offset)
+            self.emit(")")
         for i in elemdef.refs:
             self.emit(str(i))
         self.emit(")")
 
     def write_data_definition(self, datadef: components.Data):
         self.emit("(", "data")
-        if not datadef.ref.is_zero:
-            self.emit(str(datadef.ref))
-        # self.emit(' ')
-        # self.gen_id(datadef.id)
-        offset = " ".join(i.to_string() for i in datadef.offset)
-        self.emit(offset)
+        self.gen_id(datadef.id)
+        if datadef.mode:
+            ref, offset = datadef.mode
+            if not ref.is_zero:
+                self.emit(str(ref))
+            # self.emit(' ')
+            # self.gen_id(datadef.id)
+            offset = " ".join(i.to_string() for i in offset)
+            self.emit(offset)
         self.emit('"' + bytes2datastring(datadef.data) + '"')
         self.emit(")")
 

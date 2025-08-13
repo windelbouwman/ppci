@@ -32,7 +32,7 @@ extern FILE *stdout;
 extern FILE *stderr;
 
 // Character IO:
-void putc(char c);
+int putc(int character, FILE* stream);
 //void puts(char *s);
 char getc();
 int fgetc(FILE* stream);

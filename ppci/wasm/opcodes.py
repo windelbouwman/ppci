@@ -5,8 +5,9 @@ import enum
 
 class ArgType(enum.Enum):
     TYPE = 1
-    U8 = 2
-    U32 = 3
+    HEAPTYPE = 2
+    U8 = 3
+    U32 = 4
     I32 = 10
     I64 = 11
     F32 = 12
@@ -19,6 +20,8 @@ class ArgType(enum.Enum):
     FUNCIDX = 24
     LABELIDX = 25
     GLOBALIDX = 26
+    ELEMIDX = 27
+    DATAIDX = 28
 
 
 class Space(enum.Enum):
@@ -56,6 +59,9 @@ instruction_table = [
         0x11,
         (ArgType.TYPEIDX, ArgType.TABLEIDX),
     ),  # typeidx, tableidx
+    ("ref.null", 0xD0, (ArgType.HEAPTYPE,)),
+    ("ref.is_null", 0xD1),
+    ("ref.func", 0xD2, (ArgType.FUNCIDX,)),
     ("drop", 0x1A),
     ("select", 0x1B),
     ("local.get", 0x20, (ArgType.LOCALIDX,)),
@@ -63,6 +69,38 @@ instruction_table = [
     ("local.tee", 0x22, (ArgType.LOCALIDX,)),
     ("global.get", 0x23, (ArgType.GLOBALIDX,)),
     ("global.set", 0x24, (ArgType.GLOBALIDX,)),
+    ("table.get", 0x25, (ArgType.TABLEIDX,)),
+    ("table.set", 0x26, (ArgType.TABLEIDX,)),
+    (
+        "table.init",
+        (0xFC, 12),
+        (ArgType.ELEMIDX, ArgType.TABLEIDX),
+        ("i32", "i32", "i32"),
+        (),
+    ),
+    ("elem.drop", (0xFC, 13), (ArgType.ELEMIDX,), (), ()),
+    (
+        "table.copy",
+        (0xFC, 14),
+        (ArgType.TABLEIDX, ArgType.TABLEIDX),
+        ("i32", "i32", "i32"),
+        (),
+    ),
+    (
+        "table.grow",
+        (0xFC, 15),
+        (ArgType.TABLEIDX,),
+        ("funcref", "i32"),
+        ("i32",),
+    ),
+    ("table.size", (0xFC, 16), (ArgType.TABLEIDX,), (), ("i32",)),
+    (
+        "table.fill",
+        (0xFC, 17),
+        (ArgType.TABLEIDX,),
+        ("i32", "funcref", "i32"),
+        (),
+    ),
     ("i32.load", 0x28, (ArgType.U32, ArgType.U32)),
     ("i64.load", 0x29, (ArgType.U32, ArgType.U32)),
     ("f32.load", 0x2A, (ArgType.U32, ArgType.U32)),
@@ -88,10 +126,28 @@ instruction_table = [
     ("i64.store32", 0x3E, (ArgType.U32, ArgType.U32)),
     ("memory.size", 0x3F, (ArgType.U8,), (), ("i32",)),
     ("memory.grow", 0x40, (ArgType.U8,), ("i32",), ("i32",)),
-    # memory.init
-    # memory.drop
-    ("memory.copy", (0xFC, 10), (ArgType.U32, ArgType.U8, ArgType.U8)),
-    ("memory.fill", (0xFC, 11), (ArgType.U32, ArgType.U8)),
+    (
+        "memory.init",
+        (0xFC, 8),
+        (ArgType.DATAIDX, ArgType.U8),
+        ("i32", "i32", "i32"),
+        (),
+    ),
+    ("data.drop", (0xFC, 9), (ArgType.DATAIDX,)),
+    (
+        "memory.copy",
+        (0xFC, 10),
+        (ArgType.U8, ArgType.U8),
+        ("i32", "i32", "i32"),
+        (),
+    ),
+    (
+        "memory.fill",
+        (0xFC, 11),
+        (ArgType.U8,),
+        ("i32", "i32", "i32"),
+        (),
+    ),
     (
         "i32.const",
         0x41,

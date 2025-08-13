@@ -42,23 +42,13 @@ class TestSamplesOnPython(unittest.TestCase):
             with open(sample_filename, "w") as f:
                 api.ir_to_python(ir_modules, f, reporter=reporter)
 
-                # Expose all functions as external symbols:
-                for ir_module in ir_modules:
-                    for routine in ir_module.functions:
-                        print(
-                            '_irpy_externals["{0}"] = {0}'.format(
-                                routine.name
-                            ),
-                            file=f,
-                        )
-
                 # Add glue:
                 print("", file=f)
                 print("def bsp_putc(c):", file=f)
                 print('    print(chr(c), end="")', file=f)
                 print("", file=f)
-                # print('_irpy_externals["printf"] = printf', file=f)
-                print('_irpy_externals["bsp_putc"] = bsp_putc', file=f)
+                # print('rt.externals["printf"] = printf', file=f)
+                print('rt.externals["bsp_putc"] = bsp_putc', file=f)
                 print("", file=f)
                 print("main_main()", file=f)
                 print("", file=f)

@@ -1,8 +1,10 @@
+from collections.abc import Iterable
+from ..common import Token
 from ...common import CompilerError
 
 
 def make_comma_or(parts):
-    parts = list(map(lambda x: '"{}"'.format(x), parts))
+    parts = list(map(lambda x: f'"{x}"', parts))
     if len(parts) > 1:
         last = parts[-1]
         first = parts[:-1]
@@ -20,14 +22,14 @@ class RecursiveDescentParser:
         self._look_ahead = []
         self._last_loc = None
 
-    def init_lexer(self, tokens):
+    def init_lexer(self, tokens: Iterable[Token]):
         """Initialize the parser with the given tokens (an iterator)"""
         self.tokens = tokens
         self.token = next(self.tokens, None)
         self._look_ahead = []
 
     def error(self, msg, loc=None):
-        """Raise an error at the current location"""
+        """Raise an error at the given location"""
         if loc is None:
             if self.token is None:
                 if self._last_loc is None:
@@ -43,7 +45,7 @@ class RecursiveDescentParser:
         return self.token.loc
 
     # Lexer helpers:
-    def consume(self, typ):
+    def consume(self, typ) -> Token:
         """Assert that the next token is typ, and if so, return it.
 
         If typ is a list or tuple, consume one of the given types.
@@ -52,13 +54,15 @@ class RecursiveDescentParser:
         assert typ is not None
         expected_types = typ if isinstance(typ, (list, tuple, set)) else [typ]
 
-        if self.peek in expected_types:
-            return self.next_token()
+        tok = self.next_token()
+        if tok.typ in expected_types:
+            return tok
         else:
+            self.backup_token(tok)
             expected = make_comma_or(expected_types)
-            self.error(f'Expected {expected}, got "{self.peek}"')
+            self.error(f'Expected {expected}, got "{tok.typ}"', tok.loc)
 
-    def has_consumed(self, typ):
+    def has_consumed(self, typ) -> bool:
         """Checks if the look-ahead token is of type typ, and if so
         eats the token and returns true"""
         if self.peek == typ:
@@ -66,7 +70,7 @@ class RecursiveDescentParser:
             return True
         return False
 
-    def next_token(self):
+    def next_token(self) -> Token:
         """Advance to the next token"""
         tok = self.token
         if self._look_ahead:
@@ -79,6 +83,11 @@ class RecursiveDescentParser:
 
         return tok
 
+    def backup_token(self, token: Token):
+        """Push one token back to the front of the tokens"""
+        self._look_ahead.insert(0, self.token)
+        self.token = token
+
     def not_impl(self, msg=""):  # pragma: no cover
         """Call this function when parsing reaches unimplemented parts"""
         raise CompilerError("Not implemented " + msg, loc=self.token.loc)
@@ -89,7 +98,7 @@ class RecursiveDescentParser:
         if self.token:
             return self.token.typ
 
-    def look_ahead(self, amount):
+    def look_ahead(self, amount: int):
         """Take a look at x tokens ahead"""
         if amount > 0:
             while len(self._look_ahead) < amount:

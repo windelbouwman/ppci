@@ -17,9 +17,6 @@ to the location where the code was cloned.
 Then, invoke this script with either pytest or run this script with python.
 """
 
-# COOL IDEA: use python-requests to download the suite on demand to
-# some temporary folder!
-
 import unittest
 import glob
 import math
@@ -30,12 +27,12 @@ from fnmatch import fnmatch
 from operator import add
 import argparse
 
-from ppci.wasm import Module, instantiate, components
+from ppci.wasm import Module, instantiate, components, WasmTrapException
 from ppci.common import CompilerError, logformat
 from ppci.lang.sexpr import parse_s_expressions
 from ppci.lang.sexpr import SExpression, SList
 from ppci.utils.reporting import html_reporter
-from ppci.wasm.util import datastring2bytes
+from ppci.wasm.util import datastring2bytes, unescape
 from ppci.wasm.util import make_int, make_float
 
 
@@ -47,9 +44,9 @@ logger = logging.getLogger()
 # TODO: at some point we should be able to process all snippets?
 # Black list of test files
 black_list = [
-    "linking",  # Requires linking. This does not work yet.
+    # "linking",  # Requires linking. This does not work yet.
     "imports",  # Import support is too limited for now.
-    "elem",  # Importing of table not implemented
+    # "elem",  # Importing of table not implemented
     # 'float_exprs',  # TODO: what is the issue here?
     # 'float_memory',  # TODO: handle signalling nan's
     # 'float_literals',  # TODO: handle nan's of all types.
@@ -90,14 +87,14 @@ black_list_expr = {
 
 
 def perform_test(filename, target):
-    logger.info("Loading %s", filename)
+    logger.info(f"Loading {filename}")
     base_name = os.path.splitext(os.path.split(filename)[1])[0]
     with open(filename, "rt", encoding="utf-8") as f:
         source_text = f.read()
 
     html_report = os.path.splitext(filename)[0] + "_" + target + ".html"
     with html_reporter(html_report) as reporter:
-        reporter.message("Test spec file {}".format(filename))
+        reporter.message(f"Test spec file {filename}")
         try:
             s_expressions = parse_s_expressions(source_text)
             expressions2ignore = black_list_expr.get(base_name, [])
@@ -127,10 +124,6 @@ class WastExecutor:
         self.reporter = reporter
         self.s_expr_blacklist = s_expr_blacklist
 
-        # Parsed modules:
-        self.last_mod = None
-        self.named_modules = {}
-
         # Module instances:
         self.mod_instance = None
         self.named_module_instances = {}
@@ -150,45 +143,25 @@ class WastExecutor:
         command = s_expr[0].get_symbol()
         if command == "module":
             self.load_module(s_expr)
-
         elif command == "invoke":
-            # TODO: invoke test functions defined in wast files
             self.invoke(s_expr)
-
         elif command == "register":
-            # TODO: register module for cross module imports.
             self.register_instance(s_expr)
-
         elif command == "assert_return":
-            invoke_target = s_expr[1]
-            expected_values = [self.parse_expr(e) for e in s_expr[2:]]
-
-            if len(expected_values) == 0:
-                self.evaluate(invoke_target)
-            elif len(expected_values) == 1:
-                expected_value = expected_values[0]
-                if nan_or_inf(expected_value):
-                    self.logger.warning(
-                        "Not executing due to nan-or-inf %s", s_expr
-                    )
-                else:
-                    result = self.evaluate(invoke_target)
-                    self.assert_equal(result, expected_value)
-            else:
-                # TODO: implement multi return functions!
-                self.logger.warning(
-                    "Skipping multiple return function %s", invoke_target
-                )
+            self.assert_return(s_expr)
         elif command == "assert_trap":
-            logger.debug("TODO: assert_trap")
+            self.assert_trap(s_expr)
         elif command == "assert_invalid":
             logger.debug("TODO: assert_invalid")
         elif command == "assert_malformed":
             logger.debug("TODO: assert_invalid")
+        elif command == "assert_exhaustion":
+            logger.debug("TODO: assert_exhaustion")
+        elif command == "assert_unlinkable":
+            logger.debug("TODO: assert_exhaustion")
         else:
             # print('Unknown directive', s_expr[0])
             raise NotImplementedError(f"{command=}")
-            pass
 
     def parse_module(self, s_expr: SList):
         """Parse a module from an s_expression"""
@@ -197,10 +170,19 @@ class WastExecutor:
         elif len(s_expr) > 2 and s_expr[2].is_symbol("binary"):
             m1 = self.parse_binary_module(s_expr)
             m1.id = s_expr[1].get_symbol()
+        elif len(s_expr) > 1 and s_expr[1].is_symbol("quote"):
+            m1 = self.parse_quoted_module(s_expr)
         else:
             m1 = self.parse_text_module(s_expr)
         self.logger.debug("loaded wasm module %s (id=%s)", m1, m1.id)
         return m1
+
+    def parse_quoted_module(self, s_expr: SList):
+        """Parse quoted module like: (module quote ....)"""
+        strings = [unescape(s.value) for s in s_expr.values[2:]]
+        # TODO: we might want to tokenize here, and re-use locations
+        full_source = "(module " + reduce(add, strings) + ")"
+        return Module(full_source)
 
     def parse_text_module(self, s_expr: SList):
         logger.debug(f"Loading text module at {s_expr.loc}")
@@ -248,45 +230,52 @@ class WastExecutor:
         assert data2 == data3
         return m1
 
-    def load_module(self, s_expr):
+    def load_module(self, s_expr: SList):
+        assert s_expr[0].is_symbol("module")
         m1 = self.parse_module(s_expr)
-        self.last_mod = m1
-        if m1.id:
-            self.named_modules[m1.id] = m1
-        self.mod_instance = None
+        self.mod_instance = self._instantiate(m1)
 
-    def _instantiate(self, m1):
+    def _instantiate(self, m1: Module):
         """Instantiate a module."""
-        # Next step: Instantiate:
-        if self.target:
 
-            def my_print() -> None:
-                pass
+        def my_print() -> None:
+            pass
 
-            def print_i32(x: int) -> None:
-                pass
+        def print_i32(x: int) -> None:
+            pass
 
-            imports = {
-                "spectest": {
-                    "print_i32": print_i32,
-                    "print": my_print,
-                    #    'global_i32': 777,
-                    "table": components.Table("$table", "funcref", 10, 20),
-                }
+        imports = {
+            "spectest": {
+                "print_i32": print_i32,
+                "print": my_print,
+                "global_i32": components.Global(
+                    "$global_32",
+                    "i32",
+                    True,
+                    [components.Instruction("i32.const", 17)],
+                ),
+                "global_i64": components.Global(
+                    "$global_64",
+                    "i64",
+                    True,
+                    [components.Instruction("i64.const", 7)],
+                ),
+                "table": components.Table("$table", "funcref", 10, 20),
             }
+        }
 
-            for reg_name, reg_instance in self._registered_instances.items():
-                imports[reg_name] = {}
-                # TODO: use reg_instance.exports
+        for mod_name, reg_instance in self._registered_instances.items():
+            imports[mod_name] = {}
+            for export_name in reg_instance.exports:
+                obj = reg_instance.exports[export_name]
+                imports[mod_name][export_name] = obj
 
-            mod_instance = instantiate(
-                m1, imports=imports, target=self.target, reporter=self.reporter
-            )
-            self.logger.debug("Instantiated wasm module %s", mod_instance)
-            if m1.id:
-                self.named_module_instances[m1.id] = mod_instance
-        else:
-            mod_instance = None
+        mod_instance = instantiate(
+            m1, imports=imports, target=self.target, reporter=self.reporter
+        )
+        self.logger.debug("Instantiated wasm module %s", mod_instance)
+        if m1.id:
+            self.named_module_instances[m1.id] = mod_instance
         return mod_instance
 
     def evaluate(self, target: SExpression):
@@ -297,9 +286,50 @@ class WastExecutor:
         else:
             raise NotImplementedError(str(target[0]))
 
+    def assert_return(self, s_expr: SExpression):
+        """Invoke a function, and check it's result."""
+        assert s_expr[0].is_symbol("assert_return")
+        invoke_target = s_expr[1]
+        expected_values = [self.parse_expr(e) for e in s_expr[2:]]
+
+        if len(expected_values) == 0:
+            self.evaluate(invoke_target)
+        elif len(expected_values) == 1:
+            expected_value = expected_values[0]
+            if nan_or_inf(expected_value):
+                self.logger.warning(
+                    "Not executing due to nan-or-inf %s", s_expr
+                )
+            else:
+                result = self.evaluate(invoke_target)
+                self.assert_equal(result, expected_value)
+        else:
+            # TODO: implement multi return functions!
+            self.logger.warning(
+                "Skipping multiple return function %s", invoke_target
+            )
+
+    def assert_trap(self, s_expr):
+        logger.debug("assert_trap")
+        return  # TODO
+        assert s_expr[0].is_symbol("assert_trap")
+        message = s_expr[2].get_string()
+
+        s_expr2 = s_expr[1]
+        command = s_expr2[0].get_value()
+        try:
+            if command == "invoke":
+                self.invoke(s_expr2)
+            else:
+                raise NotImplementedError(f"{command=}")
+        except WasmTrapException as ex:
+            logger.debug(f"Exception raised, as expected: {ex}")
+            assert str(ex) == message
+        else:
+            raise ValueError(f"Expected a trap exception: {message}")
+
     def invoke(self, target: SExpression):
         """Invoke a function."""
-        # print(target)
         assert target[0].is_symbol("invoke")
         # TODO: how to handle names like @#$%^&*?
         if (
@@ -308,15 +338,14 @@ class WastExecutor:
             and isinstance(target[2].get_value(), str)
         ):
             module_id = target[1].get_value()
-            instance = self.get_instance(module_id)
             func_name = target[2].get_value()
             args = target[3:]
         else:
             module_id = None
-            instance = self.get_instance()
             func_name = target[1].get_value()
             args = target[2:]
 
+        instance = self.get_instance(module_id)
         args = [self.parse_expr(a) for a in args]
 
         if not instance:
@@ -324,63 +353,52 @@ class WastExecutor:
                 "Skipping invoke, since no module instance was found"
             )
         elif any(nan_or_inf(a) for a in args):
-            self.logger.warning("Not invoking method %s(%s)", func_name, args)
+            self.logger.warning(f"Not invoking method {func_name}({args})")
         else:
-            self.logger.debug(f"Invoking {target!r} at line {target.loc}")
+            self.logger.debug(f"Invoking {func_name} at line {target.loc}")
             return instance.exports[func_name](*args)
 
     def register_instance(self, s_expr):
         """register module for cross module imports."""
         assert s_expr[0].is_symbol("register")
         name = s_expr[1].get_string()
-        self.logger.debug("Registering module %s", name)
-        module_ref = s_expr[2].get_symbol()
+        self.logger.debug(f"Registering module {name}")
+        module_ref = s_expr[2].get_symbol() if len(s_expr) > 2 else None
         instance = self.get_instance(module_ref)
         if name in self._registered_instances:
-            raise ValueError("Module {} already registered".format(name))
+            raise ValueError(f"Module {name} already registered")
         else:
             self._registered_instances[name] = instance
 
     def do_get(self, target):
         """Get the value of a global variable."""
-        assert target[0] == "get"
-        if (
-            target[1].startswith("$")
-            and len(target) > 2
-            and isinstance(target[2], str)
-        ):
-            module_id = target[1]
-            instance = self.get_instance(module_id)
-            var_name = target[2]
-            assert len(target) == 3
+        assert target[0].is_symbol("get")
+        # name = target[1].get_string()
+        if len(target) == 3:
+            module_id = target[1].get_symbol()
+            assert module_id.startswith("$")
+            var_name = target[2].get_string()
         else:
-            module_id = None
-            instance = self.get_instance()
-            var_name = target[1]
             assert len(target) == 2
-        self.logger.debug("Getting global variable %s", var_name)
+            module_id = None
+            var_name = target[1].get_string()
+        instance = self.get_instance(module_id)
+        self.logger.debug(f"Getting global variable {var_name}")
         global_var = instance.exports[var_name]
         return global_var.read()
 
     def get_instance(self, name=None):
         """Get a wasm module instance."""
         if name is None:
-            if not self.mod_instance and self.last_mod:
-                self.mod_instance = self._instantiate(self.last_mod)
             instance = self.mod_instance
         else:
-            if (
-                name not in self.named_module_instances
-                and name in self.named_modules
-            ):
-                self.named_module_instances[name] = self._instantiate(
-                    self.named_modules[name]
-                )
             instance = self.named_module_instances[name]
+        assert self.mod_instance
         return instance
 
     @staticmethod
     def parse_expr(s_expr):
+        """Evaluate a S-expression"""
         opcode = s_expr[0].get_symbol()
         if opcode in ["i32.const", "i64.const"]:
             bits = int(opcode[1:3])
@@ -389,6 +407,11 @@ class WastExecutor:
         elif opcode in ["f32.const", "f64.const"]:
             value = s_expr[1].get_symbol()
             return make_float(value)
+        elif opcode == "ref.extern":
+            value = int(s_expr[1].get_symbol())
+            return value
+        elif opcode == "ref.null":
+            return 0
         else:
             raise NotImplementedError(f"{opcode=}")
 
@@ -470,12 +493,12 @@ def get_wast_files(wasm_spec_directory, include_pattern="*"):
 
     # Check if we have a folder:
     if not os.path.isdir(core_test_directory):
-        raise ValueError("{} is not a directory".format(core_test_directory))
+        raise ValueError(f"{core_test_directory} is not a directory")
 
     # Check if we have the right folder:
     validation_file = os.path.join(core_test_directory, "f32.wast")
     if not os.path.exists(validation_file):
-        raise ValueError("{} not found".format(validation_file))
+        raise ValueError(f"{validation_file} not found")
 
     for filename in sorted(
         glob.iglob(os.path.join(core_test_directory, "*.wast"))

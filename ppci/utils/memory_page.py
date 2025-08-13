@@ -42,6 +42,17 @@ class MemoryPage:
         else:
             return bytes()
 
+    def read_fmt(self, pos, fmt):
+        size = struct.calcsize(fmt)
+        self.seek(pos)
+        data = self.read(size)
+        return struct.unpack(fmt, data)
+
+    def write_fmt(self, pos, fmt, *values):
+        data = struct.pack(fmt, *values)
+        self.seek(pos)
+        self.write(data)
+
 
 uintt = ctypes.c_uint64 if struct.calcsize("P") == 8 else ctypes.c_uint32
 

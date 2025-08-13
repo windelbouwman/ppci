@@ -3,14 +3,15 @@
 import logging
 import os
 import shelve
-import struct
 
 from ...utils.codepage import load_obj, MemoryPage
 from ...irutils import verify_module
 from .. import wasm_to_ir
 from ..components import Table
 from ..util import PAGE_SIZE
-from ._base_instance import ModuleInstance, WasmMemory, WasmGlobal
+from ._base_instance import ModuleInstance
+from ._base_instance import MemoryInstance, GlobalInstance
+from ._base_instance import TableInstance, ElemInstance
 
 
 logger = logging.getLogger("instantiate")
@@ -51,8 +52,7 @@ def native_instantiate(module, imports, reporter, cache_file):
                 s["obj"] = obj
                 s["ppci_module"] = ppci_module
     instance = NativeModuleInstance(obj, imports)
-    instance._wasm_function_names = ppci_module._wasm_function_names
-    instance._wasm_global_names = ppci_module._wasm_global_names
+    instance._wasm_info = ppci_module._wasm_info
     return instance
 
 
@@ -63,8 +63,17 @@ class NativeModuleInstance(ModuleInstance):
         super().__init__()
         imports = {}
 
+        imports["wasm_rt_table_grow"] = self.table_grow
+        imports["wasm_rt_table_size"] = self.table_size
+        imports["wasm_rt_table_init"] = self.table_init
+        imports["wasm_rt_table_copy"] = self.table_copy
+        imports["wasm_rt_table_fill"] = self.table_fill
+
         imports["wasm_rt_memory_grow"] = self.memory_grow
         imports["wasm_rt_memory_size"] = self.memory_size
+        imports["wasm_rt_memory_init"] = self.memory_init
+        imports["wasm_rt_memory_copy"] = self.memory_copy
+        imports["wasm_rt_memory_fill"] = self.memory_fill
 
         for name, imp_obj in imports2.items():
             assert name not in imports
@@ -86,14 +95,59 @@ class NativeModuleInstance(ModuleInstance):
 
         self._code_module = load_obj(obj, imports=imports)
 
-    def _run_init(self):
-        self._code_module._run_init()
+    def invoke(self, name, *args):
+        f = getattr(self._code_module, name)
+        f(*args)
 
-    def memory_size(self) -> int:
-        """return memory size in pages"""
-        return self._memory_data_page.size // PAGE_SIZE
+    def memory_create(self, min_size, max_size):
+        assert len(self._memories) == 0
+        mem0 = NativeMemoryInstance(self, min_size, max_size)
+        self._memories.append(mem0)
 
-    def memory_grow(self, amount: int) -> int:
+    def create_table(self, size, max_size):
+        return NativeTableInstance(size, max_size)
+
+    def set_table_ptr(self, index, table):
+        name = self._wasm_info.table_names[index]
+        table_ptr = self._code_module.get_symbol_offset(name)
+        table_addr = table._meta_page.addr
+        self._code_module._data_page.write_fmt(table_ptr, "Q", table_addr)
+
+    def create_elem(self):
+        index = len(self._elems)
+        name = self._wasm_info.elem_names[index]
+        offset = self._code_module.get_symbol_offset(name)
+        self._elems.append(
+            NativeElemInstance(offset, self._code_module._data_page)
+        )
+
+    def set_mem_base_ptr(self, base_addr):
+        """Set memory base address"""
+        baseptr = self._code_module.get_symbol_offset("wasm_mem0_address")
+        # print(baseptr)
+        # TODO: major hack:
+        # TODO: too many assumptions made here ...
+        self._code_module._data_page.write_fmt(baseptr, "Q", base_addr)
+
+    def get_func_by_index(self, index: int):
+        exported_name = self._wasm_info.function_names[index]
+        return getattr(self._code_module, exported_name)
+
+    def get_global_by_index(self, index: int):
+        ty, name = self._wasm_info.global_names[index]
+        return NativeGlobalInstance(ty, name, self._code_module)
+
+
+class NativeMemoryInstance(MemoryInstance):
+    """Native wasm memory emulation"""
+
+    def __init__(self, instance, min_size, max_size):
+        super().__init__(min_size, max_size)
+        self._instance = instance
+        self._memory_data_page = MemoryPage(min_size * PAGE_SIZE)
+        self._instance.set_mem_base_ptr(self._memory_data_page.addr)
+
+    def grow(self, amount: int) -> int:
         """Grow memory and return the old size.
 
         Current strategy:
@@ -102,8 +156,8 @@ class NativeModuleInstance(ModuleInstance):
         - free old memory
         - update wasm memory base pointer
         """
-        max_size = self._memories[0].max_size
-        old_size = self.memory_size()
+        max_size = self.max_size
+        old_size = self.size()
         new_size = old_size + amount
 
         # Keep memory within sensible bounds:
@@ -123,74 +177,90 @@ class NativeModuleInstance(ModuleInstance):
         self._memory_data_page.write(old_data)
 
         # Update pointer:
-        self.set_mem_base_ptr(self._memory_data_page.addr)
+        self._instance.set_mem_base_ptr(self._memory_data_page.addr)
         return old_size
 
-    def memory_create(self, min_size, max_size):
-        assert len(self._memories) == 0
-        self._memory_data_page = MemoryPage(min_size * PAGE_SIZE)
-        mem0 = NativeWasmMemory(self, min_size, max_size)
-        self._memories.append(mem0)
-        self.set_mem_base_ptr(self._memory_data_page.addr)
-
-    def set_mem_base_ptr(self, base_addr):
-        """Set memory base address"""
-        baseptr = self._code_module.get_symbol_offset("wasm_mem0_address")
-        # print(baseptr)
-        # TODO: major hack:
-        # TODO: too many assumptions made here ...
-        self._code_module._data_page.seek(baseptr)
-        self._code_module._data_page.write(struct.pack("Q", base_addr))
-
-    def get_func_by_index(self, index: int):
-        exported_name = self._wasm_function_names[index]
-        return getattr(self._code_module, exported_name)
-
-    def get_global_by_index(self, index: int):
-        global_name = self._wasm_global_names[index]
-        return NativeWasmGlobal(global_name, self._code_module)
-
-
-class NativeWasmMemory(WasmMemory):
-    """Native wasm memory emulation"""
-
-    def __init__(self, instance, min_size, max_size):
-        super().__init__(min_size, max_size)
-        self._instance = instance
-
-    def memory_size(self) -> int:
+    def size(self) -> int:
         """return memory size in pages"""
         return self._memory_data_page.size // PAGE_SIZE
 
-    def write(self, address: int, data):
+    def write(self, address: int, data: bytes):
         """Write some data to memory"""
-        self._instance._memory_data_page.seek(address)
-        self._instance._memory_data_page.write(data)
+        self._memory_data_page.seek(address)
+        self._memory_data_page.write(data)
 
     def read(self, address: int, size: int) -> bytes:
-        self._instance._memory_data_page.seek(address)
-        data = self._instance._memory_data_page.read(size)
+        self._memory_data_page.seek(address)
+        data = self._memory_data_page.read(size)
         assert len(data) == size
         return data
 
 
-class NativeWasmGlobal(WasmGlobal):
-    def __init__(self, name, code_obj):
-        super().__init__(name)
+class NativeGlobalInstance(GlobalInstance):
+    def __init__(self, ty, name, code_obj):
+        super().__init__(ty, name)
         self._code_obj = code_obj
 
     def _get_ptr(self):
-        # print('Getting address of', self.name)
-        vpointer = getattr(self._code_obj, self.name[1].name)
+        vpointer = getattr(self._code_obj, self.name)
         return vpointer
 
     def read(self):
         addr = self._get_ptr()
-        # print('Reading', self.name, addr)
         value = addr.contents.value
         return value
 
     def write(self, value):
         addr = self._get_ptr()
-        # print('Writing', self.name, addr, value)
         addr.contents.value = value
+
+
+class NativeTableInstance(TableInstance):
+    def __init__(self, size: int, max_size):
+        super().__init__(max_size)
+        ptr_size = 8
+        meta_size = ptr_size + 4 + 4
+        n_bytes = size * ptr_size
+        self._meta_page = MemoryPage(meta_size)
+        self._data_page = MemoryPage(n_bytes)
+        self._meta_page.write_fmt(0, "QI", self._data_page.addr, size)
+
+    def size(self) -> int:
+        return self._meta_page.read_fmt(8, "I")[0]
+
+    def grow(self, val, count: int) -> int:
+        ptr_size = 8
+        old_size = self._meta_page.read_fmt(8, "I")[0]
+        new_size = old_size + count
+        if self._max_size is not None:
+            if new_size > self._max_size:
+                return -1
+        new_page = MemoryPage(new_size * ptr_size)
+        for i in range(new_size):
+            offset = i * ptr_size
+            if i < old_size:
+                p = self._data_page.read_fmt(offset, "Q")[0]
+            else:
+                p = val
+            new_page.write_fmt(offset, "Q", p)
+        self._data_page = new_page
+        self._meta_page.write_fmt(0, "QI", new_page.addr, new_size)
+        return old_size
+
+    def set_item(self, index: int, value):
+        self._data_page.write_fmt(index * 8, "Q", value)
+
+    def get_item(self, index: int):
+        values = self._data_page.read_fmt(index * 8, "Q")
+        return values[0]
+
+
+class NativeElemInstance(ElemInstance):
+    def __init__(self, offset, page):
+        super().__init__()
+        self._offset = offset
+        self._page = page
+
+    def get_item(self, index: int):
+        offset = self._offset + index * 8
+        return self._page.read_fmt(offset, "Q")[0]
