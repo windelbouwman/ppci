@@ -13,9 +13,8 @@ class FortranBuilder:
         self.parser = FortranParser()
 
     def build(self, src):
-        _ast = self.parser.parse(src)
+        self.parser.parse(src)
         mods = []
-        # ast
         return mods
 
 

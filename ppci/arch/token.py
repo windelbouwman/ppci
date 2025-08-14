@@ -119,7 +119,7 @@ class Token(metaclass=TokenMeta):
     def set_bit(self, i, value):
         """Sets a specific bit in this token"""
         value = bool(value)
-        assert i in range(0, self.Info.size)
+        assert 0 <= i < self.Info.size
         mask = 1 << i
         if value:
             self.bit_value |= mask

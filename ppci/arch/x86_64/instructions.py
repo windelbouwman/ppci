@@ -1673,7 +1673,7 @@ def pattern_add64_const_2(context, tree, c0, c1):
     "con32",
     "CONSTU64",
     size=4,
-    condition=lambda x: x.value in range(0, 4294967296),
+    condition=lambda x: x.value in range(4294967296),
 )
 def pattern_const32(context, tree):
     """Small 64 bit constants as a constant"""

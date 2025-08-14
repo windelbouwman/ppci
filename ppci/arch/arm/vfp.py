@@ -11,7 +11,7 @@ class VfpToken(Token):
         size = 32
 
     cond = bit_range(28, 32)
-    x2 = bit_range(24, 28)
+    x1 = bit_range(24, 28)
     opc1 = bit_range(20, 24)
     opc2 = bit_range(16, 20)
     x2 = bit_range(8, 16)

@@ -662,7 +662,7 @@ def pattern_const32(context, tree):
     size=4,
     cycles=1,
     energy=1,
-    condition=lambda t: t.value in range(0, 0x10000),
+    condition=lambda t: t.value in range(0x10000),
 )
 @orbis32.pattern(
     "reg",
@@ -670,7 +670,7 @@ def pattern_const32(context, tree):
     size=4,
     cycles=1,
     energy=1,
-    condition=lambda t: t.value in range(0, 0x10000),
+    condition=lambda t: t.value in range(0x10000),
 )
 @orbis32.pattern(
     "reg",
@@ -678,7 +678,7 @@ def pattern_const32(context, tree):
     size=4,
     cycles=1,
     energy=1,
-    condition=lambda t: t.value in range(0, 0x10000),
+    condition=lambda t: t.value in range(0x10000),
 )
 @orbis32.pattern(
     "reg",
@@ -686,7 +686,7 @@ def pattern_const32(context, tree):
     size=4,
     cycles=1,
     energy=1,
-    condition=lambda t: t.value in range(0, 0x10000),
+    condition=lambda t: t.value in range(0x10000),
 )
 def pattern_const16(context, tree):
     # Play clever with the r0 register (always assumed 0)

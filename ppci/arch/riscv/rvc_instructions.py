@@ -554,7 +554,7 @@ class Lwv(PseudoRiscvInstruction):
         if (
             self.rd.num in range(8, 16)
             and self.rs1.num in range(8, 16)
-            and self.offset in range(0, 128)
+            and self.offset in range(128)
         ):
             yield CLw(self.rd, self.offset, self.rs1)
         elif self.rs1.num == 2 and self.offset >= 0 and self.offset < 256:

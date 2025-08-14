@@ -74,7 +74,7 @@ def continued_lines_filter(chunks):
         else:
             if text.endswith("\\"):
                 backslash = row, column, text
-            elif text.endswith("\\\r") or text.endswith("\\\n"):
+            elif text.endswith(("\\\r", "\\\n")):
                 yield row, column, text[:-2]
             else:
                 yield row, column, text

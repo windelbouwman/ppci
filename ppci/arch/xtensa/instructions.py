@@ -1266,7 +1266,7 @@ def pattern_shr_u32(context, tree, c0, c1):
     size=0,
     cycles=0,
     energy=0,
-    condition=lambda t: t.value.offset in range(0, 127),
+    condition=lambda t: t.value.offset in range(127),
 )
 def pattern_mem_fprel(context, tree):
     fp = a15

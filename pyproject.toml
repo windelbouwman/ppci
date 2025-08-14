@@ -75,7 +75,7 @@ extend-select = [
     "Q",
     # "SIM",  # flake8-simplify
     "B",      # bugbear
-    # "PIE",  # flake8-pie
+    "PIE",  # flake8-pie
 ]
 extend-ignore = [
     "E203",  # Conflicts with black formatting
@@ -85,6 +85,7 @@ extend-ignore = [
     "B019",  # Allow lru_cache on methods
     "B024",  # Allow ABC without abstract methods
     "B027",  # Allow empty methods in abstract classes.
+    "PIE790",  # Allow pass even if not required.
 ]
 
 [tool.pytest]

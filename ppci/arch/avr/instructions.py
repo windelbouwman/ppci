@@ -1107,14 +1107,14 @@ def pattern_ldr8_offset(context, tree, c0):
     "LDRI8(FPRELU16)",
     size=4,
     cycles=2,
-    condition=lambda t: t[0].value.offset in range(0, 64),
+    condition=lambda t: t[0].value.offset in range(64),
 )
 @avr_isa.pattern(
     "reg",
     "LDRU8(FPRELU16)",
     size=4,
     cycles=2,
-    condition=lambda t: t[0].value.offset in range(0, 64),
+    condition=lambda t: t[0].value.offset in range(64),
 )
 def pattern_ldr8_fprel(context, tree):
     d = context.new_reg(AvrRegister)

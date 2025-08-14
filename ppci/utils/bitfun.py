@@ -127,7 +127,7 @@ def bits_to_bytes(bits):
 
 def encode_imm32(v):
     """Bundle 32 bit value into 4 bits rotation and 8 bits value"""
-    for i in range(0, 16):
+    for i in range(16):
         v2 = rotate_left(v, i * 2)
         if (v2 & 0xFFFFFF00) == 0:
             rotation = i
