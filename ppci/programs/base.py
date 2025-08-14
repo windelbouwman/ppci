@@ -106,7 +106,7 @@ class Program(object, metaclass=ProgramMeta):
             return self._previous
         elif isinstance(which, int):
             x = self
-            for i in range(which):
+            for _ in range(which):
                 x = x.previous()
             return x
         elif isinstance(which, str):

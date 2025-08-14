@@ -69,8 +69,23 @@ line-length = 79
 cache-dir = ".cache/ruff"
 
 [tool.ruff.lint]
-extend-select = ["Q"]  # TODO: "B"
-extend-ignore = ["E203", "E501"]
+extend-select = [
+    "E",
+    "F",
+    "Q",
+    # "SIM",  # flake8-simplify
+    "B",      # bugbear
+    # "PIE",  # flake8-pie
+]
+extend-ignore = [
+    "E203",  # Conflicts with black formatting
+    "E501",  # line too long, already checked with black
+    "B009",  # allow getattr usage
+    "B010",  # allow setattr usage
+    "B019",  # Allow lru_cache on methods
+    "B024",  # Allow ABC without abstract methods
+    "B027",  # Allow empty methods in abstract classes.
+]
 
 [tool.pytest]
 junit_family = "xunit1"

@@ -1598,7 +1598,7 @@ class CCodeGenerator:
         if expr.to_typ.is_pointer and isinstance(
             expr.expr.typ, types.FunctionType
         ):
-            value
+            pass
         elif expr.to_typ.is_void:
             value = None
         else:

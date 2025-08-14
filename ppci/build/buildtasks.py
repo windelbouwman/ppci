@@ -75,11 +75,11 @@ class AssembleTask(OutputtingTask):
         try:
             obj = api.asm(source, arch, debug=debug)
         except ParserException as err:
-            raise TaskError("Error during assembly:" + str(err))
+            raise TaskError(f"Error during assembly: {err!s}") from err
         except CompilerError as err:
-            raise TaskError("Error during assembly:" + str(err))
+            raise TaskError(f"Error during assembly: {err!s}") from err
         except OSError as err:
-            raise TaskError("Error:" + str(err))
+            raise TaskError(f"Error: {err!s}") from err
 
         self.store_object(obj)
         self.logger.debug("Assembling finished")
@@ -243,7 +243,7 @@ class LinkTask(OutputtingTask):
                 debug=debug,
             )
         except CompilerError as err:
-            raise TaskError(err.msg)
+            raise TaskError(err.msg) from err
 
         self.store_object(obj)
 

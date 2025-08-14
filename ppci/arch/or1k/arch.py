@@ -71,7 +71,7 @@ class Or1kArch(Architecture):
             registers.r7,
             registers.r8,
         ]
-        for a in arg_types:
+        for _ in arg_types:
             r = regs.pop(0)
             locations.append(r)
         return locations

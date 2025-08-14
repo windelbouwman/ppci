@@ -75,7 +75,7 @@ class ExecutionContext:
 
 
 # Opcodes for line number programs:
-class Opcode(metaclass=abc.ABCMeta):
+class Opcode(abc.ABC):
     """A single line number program instruction"""
 
     fields = ()

@@ -320,13 +320,10 @@ def run_wasm_in_node(wasm, silent=False):
         res = subprocess.check_output(
             [get_node_exe(), "--use_strict", filename]
         )
-    except Exception as err:
-        if hasattr(err, "output"):
-            err = err.output.decode()
-        else:
-            err = str(err)
+    except Exception as ex:
+        err = ex.output.decode() if hasattr(ex, "output") else str(ex)
         err = err[:200] + "..." if len(err) > 200 else err
-        raise Exception(err)
+        raise Exception(err) from ex
     finally:
         try:
             os.remove(filename)

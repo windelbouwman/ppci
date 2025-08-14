@@ -8,11 +8,6 @@ class Disassembler:
 
     def __init__(self, arch):
         self.arch = arch
-        for instruction in arch.isa.instructions:
-            # print(instruction, instruction.patterns)
-            # for nl in instruction.non_leaves:
-            #    print('  ', nl.patterns)
-            pass
 
     def disasm(self, data, outs, address=0):
         """Disassemble data into an instruction stream"""

@@ -123,7 +123,7 @@ class Target:
 class Task:
     """Task that can run, and depend on other tasks"""
 
-    def __init__(self, target, kwargs, sub_elements=[]):
+    def __init__(self, target, kwargs, sub_elements=()):
         self.logger = logging.getLogger("task")
         self.target = target
         self.name = self.__class__.__name__
@@ -134,7 +134,7 @@ class Task:
             if default is not None:
                 return default
             else:
-                raise TaskError('attribute "{}" not specified'.format(name))
+                raise TaskError(f'attribute "{name}" not specified')
         return self.arguments[name]
 
     def get_property(self, name):
@@ -171,7 +171,7 @@ class Task:
         raise NotImplementedError("Implement this abstract method!")
 
     def __repr__(self):
-        return 'Task "{}"'.format(self.name)
+        return f'Task "{self.name}"'
 
 
 class TaskRunner:
@@ -185,9 +185,9 @@ class TaskRunner:
         if name in task_map:
             return task_map[name]
         else:
-            raise TaskError('Task "{}" could not be found'.format(name))
+            raise TaskError(f'Task "{name}" could not be found')
 
-    def run(self, project, targets=[]):
+    def run(self, project, targets=()):
         """Try to run a project"""
         # Determine what targets to run:
         if targets:
@@ -196,7 +196,7 @@ class TaskRunner:
             if project.default:
                 target_list = [project.default]
             else:
-                target_list = []
+                target_list = ()
 
         if not target_list:
             self.logger.info("No targets to run!")

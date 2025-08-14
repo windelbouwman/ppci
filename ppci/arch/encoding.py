@@ -88,7 +88,7 @@ class Operand(property):
             return value
 
 
-class Transform(metaclass=abc.ABCMeta):
+class Transform(abc.ABC):
     """Wrapper to transform the numeric value of a property"""
 
     def __init__(self, wrapped):

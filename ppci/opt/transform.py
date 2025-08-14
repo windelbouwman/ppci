@@ -5,7 +5,7 @@ import abc
 from .. import ir
 
 
-class ModulePass(metaclass=abc.ABCMeta):
+class ModulePass(abc.ABC):
     """Base class of all optimizing passes.
 
     Subclass this class to implement your own optimization pass.

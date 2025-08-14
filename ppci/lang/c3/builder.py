@@ -37,7 +37,7 @@ def c3_to_ir(sources, includes, march, reporter=None):
     except CompilerError as ex:
         diag.error(ex.msg, ex.loc)
         diag.print_errors()
-        raise TaskError("Compile errors")
+        raise TaskError("Compile errors") from ex
 
     reporter.message("C3 compilation listings for {}".format(sources))
     reporter.message("{} {}".format(ir_module, ir_module.stats()))

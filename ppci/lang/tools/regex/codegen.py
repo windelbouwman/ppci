@@ -45,8 +45,8 @@ def generate_code(prog, f):
         ),
         file=f,
     )
-    for nr, transition in enumerate(state_transitions):
-        print("    &transitions_state_{},".format(nr), file=f)
+    for nr, _ in enumerate(state_transitions):
+        print(f"    &transitions_state_{nr},", file=f)
     print("};", file=f)
     print(file=f)
 

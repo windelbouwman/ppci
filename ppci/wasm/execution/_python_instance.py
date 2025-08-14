@@ -285,8 +285,8 @@ class PythonWasmFunc:
     def __call__(self, *args):
         try:
             return self._f(*args)
-        except ZeroDivisionError:
-            raise WasmTrapException("integer divide by zero")
+        except ZeroDivisionError as ex:
+            raise WasmTrapException("integer divide by zero") from ex
 
     def _get_ptr(self):
         return self._instance._py_module.rt.f_ptrs_by_name[self._name]

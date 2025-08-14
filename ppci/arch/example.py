@@ -64,7 +64,7 @@ class ExampleArch(Architecture):
         """Given a set of argument types, determine locations"""
         arg_locs = []
         regs = [R0, R1, R2, R3]
-        for a in arg_types:
+        for _ in arg_types:
             r = regs.pop(0)
             arg_locs.append(r)
         return arg_locs

@@ -51,6 +51,7 @@ black_list = [
     # 'float_literals',  # TODO: handle nan's of all types.
     "skip-stack-guard-page",  # This is some stack overflow stuff?
     "func",  # TODO: this function is malformed!
+    "inline-module",  # We do not support this syntax.
 ]
 
 # Black list of specific expressions, per file

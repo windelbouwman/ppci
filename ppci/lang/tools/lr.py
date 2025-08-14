@@ -133,7 +133,7 @@ class LrParser:
             if isinstance(action, Reduce):
                 f_args = []
                 prod = self.grammar.productions[action.rule]
-                for s in prod.symbols:
+                for _ in prod.symbols:
                     stack.pop()
                     stack.pop()
                     f_args.append(r_data_stack.pop())
@@ -155,7 +155,7 @@ class LrParser:
                 # Pop last rule data off the stack:
                 f_args = []
                 param = self.grammar.productions[action.rule]
-                for s in param.symbols:
+                for _ in param.symbols:
                     stack.pop()
                     stack.pop()
                     f_args.append(r_data_stack.pop())

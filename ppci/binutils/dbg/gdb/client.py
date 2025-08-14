@@ -16,7 +16,7 @@ INTERRUPT = 2
 BRKPOINT = 5
 
 
-class GdbCommHandler(metaclass=abc.ABCMeta):
+class GdbCommHandler(abc.ABC):
     """This class deals with the logic of communication"""
 
     def shake(self, message):

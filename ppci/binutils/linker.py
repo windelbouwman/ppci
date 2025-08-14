@@ -503,7 +503,7 @@ class Linker:
         holes_map = defaultdict(list)  # section name to list of holes.
 
         # Remove old relocations by new ones.
-        for hole, relocation, reloc, new_relocs in lst:
+        for hole, relocation, _, new_relocs in lst:
             # Remove old relocation which is superceeded:
             self.dst.relocations.remove(relocation)
 

@@ -75,7 +75,7 @@ class BinaryFileWriter(BaseIoWriter):
                 else:
                     # Write how many definitions, and write each one
                     f2.write_vu32(len(section_defs))  # count
-                    for index, d in enumerate(section_defs):
+                    for d in section_defs:
                         # Funcs need their param index/name space
                         # Note that id in Type.params can be int/str, not None
                         # if section_name == "func":
@@ -321,7 +321,7 @@ class BinaryFileWriter(BaseIoWriter):
 
         # Collect locals by type
         local_entries = []  # list of (count, type) tuples
-        for loc_id, loc_type in func.locals:
+        for _, loc_type in func.locals:
             if local_entries and local_entries[-1][1] == loc_type:
                 local_entries[-1] = local_entries[-1][0] + 1, loc_type
             else:

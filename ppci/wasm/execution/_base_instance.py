@@ -213,7 +213,7 @@ class ModuleInstance(abc.ABC):
                 offset = self.eval_expression(offset)
                 table = self._tables[ref.index]
                 elem_instance = self._elems[index]
-                for i, ref in enumerate(elem.refs):
+                for i, _ in enumerate(elem.refs):
                     ptr = elem_instance.get_item(i)
                     table.set_item(offset + i, ptr)
 

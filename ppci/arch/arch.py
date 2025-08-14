@@ -10,7 +10,7 @@ from .. import ir
 
 # Idea: create several types of architectures.
 # One for real machines, one for virtual machines
-class MachineArchitecture(metaclass=abc.ABCMeta):
+class MachineArchitecture(abc.ABC):
     logger = logging.getLogger("arch")
     name = None
     desc = None

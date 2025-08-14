@@ -104,7 +104,7 @@ class CodeGenerator:
             raise NotImplementedError()
         elif isinstance(instruction, nodes.PhiNode):
             phi = ir.Phi()
-            for incoming in instruction:
+            for _ in instruction:
                 value = self.get_val()
                 block = 1
                 phi.set_incoming(block, value)

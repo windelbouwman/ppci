@@ -57,7 +57,8 @@ def _python_to_wasm_funcdefs(source):
             filename = inspect.getsourcefile(source)
             lines, linenr = inspect.getsourcelines(source)
         except Exception as err:
-            raise ValueError("Could not get source for %r: %s" % (source, err))
+            message = f"Could not get source for {source!r}: {err!s}"
+            raise ValueError(message) from err
         if getattr(source, "__name__", "") in ("", "<lambda>"):
             raise ValueError(
                 "Got anonymous function from "

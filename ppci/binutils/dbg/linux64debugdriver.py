@@ -240,7 +240,7 @@ def fork_spawn_stop(argz):
         os.execv(argz[0], argz)
 
         # This point will never be reached!
-        assert False
+        raise RuntimeError("Unreachable code")
     else:
         _, status = os.wait()
         return pid

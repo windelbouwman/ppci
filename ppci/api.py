@@ -99,10 +99,10 @@ def construct(buildfile, targets=()):
     recipe_loader = RecipeLoader()
     try:
         project = recipe_loader.load_file(buildfile)
-    except OSError:
-        raise TaskError("Could not load {}".format(buildfile))
-    except xml.parsers.expat.ExpatError:
-        raise TaskError("Invalid xml")
+    except OSError as ex:
+        raise TaskError(f"Could not load {buildfile}") from ex
+    except xml.parsers.expat.ExpatError as ex:
+        raise TaskError("Invalid xml") from ex
     finally:
         buildfile.close()
 
@@ -152,7 +152,7 @@ def asm(source, march, debug=False):
     except CompilerError as ex:
         diag.error(ex.msg, ex.loc)
         diag.print_errors()
-        raise TaskError("Errors during assembling")
+        raise TaskError("Errors during assembling") from ex
     return obj
 
 
@@ -497,7 +497,7 @@ def pycompile(source, march, reporter=None):
     return ir_to_object([ir_module], march)
 
 
-def fortrancompile(sources, target, reporter=DummyReportGenerator()):
+def fortrancompile(sources, target, reporter=None):
     """Compile fortran code to target"""
     # TODO!
     ir_modules = fortran_to_ir(sources[0])

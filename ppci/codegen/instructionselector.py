@@ -117,7 +117,7 @@ terminals = tuple(x + y for x in ops for y in data_types) + (
 )
 
 
-class ContextInterface(metaclass=abc.ABCMeta):
+class ContextInterface(abc.ABC):
     @abc.abstractmethod
     def emit(self, instruction):  # pragma: no cover
         raise NotImplementedError()

@@ -150,7 +150,7 @@ class Parser(RecursiveDescentParser):
     def parse_uses(self):
         """Parse import construct"""
         self.consume("uses")
-        self.consume("ID").val
+        self.consume("ID")
         # self.mod.imports.append(name)
         self.consume(";")
 

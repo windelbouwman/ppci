@@ -216,7 +216,7 @@ class Msp430Arch(Architecture):
         locations = []
         regs = [r12, r13, r14, r15]
         offset = 0
-        for arg_type in arg_types:
+        for _ in arg_types:
             if regs:
                 reg = regs.pop(0)
                 locations.append(reg)

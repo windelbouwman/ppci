@@ -179,7 +179,7 @@ class Generator:
         )
 
         # print(code.attributes)
-        for index in range(code.max_locals):
+        for _ in range(code.max_locals):
             size = 8  # TODO: fetch this from elsewhere.
             alignment = 8
             alloc_local = self.emit(ir.Alloc("alloc", size, alignment))

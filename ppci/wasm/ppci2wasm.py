@@ -698,7 +698,7 @@ class IrToWasmCompiler:
                 self.emit(opcode)
         elif tree.name == "CALL":
             function_name, argv, rv = tree.value
-            for ty, argument in argv:
+            for _, argument in argv:
                 self.emit("local.get", self.get_value(argument))
 
             if isinstance(function_name, str):

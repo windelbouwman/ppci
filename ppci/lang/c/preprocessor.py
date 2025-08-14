@@ -352,8 +352,8 @@ class CPreProcessor:
         while token:
             if token.first and token.typ == "#":
                 # We are inside a directive!
-                for token in self.handle_directive(token.loc):
-                    yield token
+                for token2 in self.handle_directive(token.loc):
+                    yield token2
 
                 # Ensure end of line!
                 if not self.at_line_start:

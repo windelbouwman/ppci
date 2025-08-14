@@ -8,5 +8,6 @@ def inline_function(call: ir.ProcedureCall, function: ir.SubRoutine):
         block_copy = block.copy
         dst_function.add_block(block_copy)
 
-    for value, parameter in zip(call.arguments, function.arguments):
-        block
+    # TODO: implement function inlining.
+    # for value, parameter in zip(call.arguments, function.arguments):
+    #    block
