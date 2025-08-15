@@ -733,7 +733,7 @@ def eval_expr(expr):
     for i in expr:
         consumed_types, produced_types, action = EVAL[i.opcode]
         if action is None:
-            raise RuntimeError("Cannot evaluate {}".format(i.opcode))
+            raise RuntimeError(f"Cannot evaluate {i.opcode}")
         # Gather stack values:
         values = []
         for t in consumed_types:

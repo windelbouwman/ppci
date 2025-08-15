@@ -115,7 +115,7 @@ class XaccGenerator:
         self.output_file = output_file
         self.grammar = grammar
         self.headers = headers
-        self.logger.debug("Generating parser for {}".format(grammar))
+        self.logger.debug(f"Generating parser for {grammar}")
         pb = LrParserBuilder(grammar)
         self.action_table, self.goto_table = pb.generate_tables()
         self.generate_python_script()
@@ -128,7 +128,7 @@ class XaccGenerator:
         """Generate python script with the parser table"""
         self.print("#!/usr/bin/python")
         stamp = datetime.datetime.now().ctime()
-        self.print('""" Automatically generated on {} """'.format(stamp))
+        self.print(f'""" Automatically generated on {stamp} """')
         self.print("from ppci.lang.tools.grammar import Production, Grammar")
         self.print(
             "from ppci.lang.tools.lr import LrParser, Reduce, Shift, Accept"
@@ -142,33 +142,27 @@ class XaccGenerator:
         self.print("    def __init__(self):")
         # Generate rules:
         self.print("        grammar = Grammar()")
+        self.print(f"        grammar.add_terminals({self.grammar.terminals})")
         self.print(
-            "        grammar.add_terminals({})".format(self.grammar.terminals)
-        )
-        self.print(
-            '        grammar.start_symbol = "{}"'.format(
-                self.grammar.start_symbol
-            )
+            f'        grammar.start_symbol = "{self.grammar.start_symbol}"'
         )
         for rule_number, rule in enumerate(self.grammar.productions):
-            rule.f_name = "action_{}_{}".format(rule.name, rule_number)
+            rule.f_name = f"action_{rule.name}_{rule_number}"
             self.print(
-                '        grammar.add_production("{}", {}, self.{})'.format(
-                    rule.name, rule.symbols, rule.f_name
-                )
+                f'        grammar.add_production("{rule.name}", {rule.symbols}, self.{rule.f_name})'
             )
         # Fill action table:
         self.print("        action_table = {}")
         for state in self.action_table:
             action = self.action_table[state]
-            self.print("        action_table[{}] = {}".format(state, action))
+            self.print(f"        action_table[{state}] = {action}")
         self.print("")
 
         # Fill goto table:
         self.print("        goto_table = {}")
         for state_number in self.goto_table:
             to = self.goto_table[state_number]
-            self.print("        goto_table[{}] = {}".format(state_number, to))
+            self.print(f"        goto_table[{state_number}] = {to}")
         self.print("")
         self.print(
             "        super().__init__(grammar, action_table, goto_table)"
@@ -179,11 +173,11 @@ class XaccGenerator:
         for rule in self.grammar.productions:
             num_symbols = len(rule.symbols)
             if num_symbols > 0:
-                arg_names = ["arg{}".format(n + 1) for n in range(num_symbols)]
+                arg_names = [f"arg{n + 1}" for n in range(num_symbols)]
                 args = ", ".join(arg_names)
-                self.print("    def {}(self, {}):".format(rule.f_name, args))
+                self.print(f"    def {rule.f_name}(self, {args}):")
             else:
-                self.print("    def {}(self):".format(rule.f_name))
+                self.print(f"    def {rule.f_name}(self):")
 
             self.print("        res = None")
             if rule.f is None:
@@ -195,11 +189,9 @@ class XaccGenerator:
             else:
                 raise NotImplementedError()
             for n in range(num_symbols):
-                semantics = semantics.replace(
-                    "${}".format(n + 1), "arg{}".format(n + 1)
-                )
+                semantics = semantics.replace(f"${n + 1}", f"arg{n + 1}")
             # semantics = semantics.replace('$$', 'res')
-            self.print("        {}".format(semantics))
+            self.print(f"        {semantics}")
             self.print("        return res")
             self.print("")
 

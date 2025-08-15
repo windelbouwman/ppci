@@ -14,6 +14,4 @@ class CompilationUnit:
         self.declarations = declarations
 
     def __repr__(self):
-        return "Compilation unit with {} declarations".format(
-            len(self.declarations)
-        )
+        return f"Compilation unit with {len(self.declarations)} declarations"

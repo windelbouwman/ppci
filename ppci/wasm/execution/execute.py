@@ -59,4 +59,4 @@ def execute_wasm(
             # Assume WASI
             instance.exports["_start"]()
     except wasi.ProcExit as ex:
-        logger.info("Process quit: {}".format(ex.exit_code))
+        logger.info(f"Process quit: {ex.exit_code}")

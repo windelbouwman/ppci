@@ -58,9 +58,9 @@ class C3Program(SourceCodeProgram):
             diag.print_errors()
             raise TaskError("Compile errors") from ex
 
-        reporter.message("C3 compilation listings for {}".format(sources))
+        reporter.message(f"C3 compilation listings for {sources}")
         for ir_module in ir_modules:
-            reporter.message("{} {}".format(ir_module, ir_module.stats()))
+            reporter.message(f"{ir_module} {ir_module.stats()}")
             reporter.dump_ir(ir_module)
 
         return self._new("ir", ir_modules)

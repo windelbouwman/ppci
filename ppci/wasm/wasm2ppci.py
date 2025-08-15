@@ -309,9 +309,7 @@ class WasmToIrCompiler:
                     )
                 else:
                     raise ValueError(
-                        "Cannot handle {} return values".format(
-                            len(sig.results)
-                        )
+                        f"Cannot handle {len(sig.results)} return values"
                     )
             else:
                 extern_ir_function = ir.ExternalProcedure(name, arg_types)
@@ -376,7 +374,7 @@ class WasmToIrCompiler:
         elif isinstance(definition.id, str):
             name = "named_{}".format(sanitize_name(definition.id.lstrip("$")))
         else:
-            name = "_unnamed_{}".format(definition.id)
+            name = f"_unnamed_{definition.id}"
 
         # Create ir-function:
         binding = ir.Binding.GLOBAL
@@ -627,17 +625,17 @@ class WasmToIrCompiler:
         # First locals are the function arguments:
         for i, a_typ in enumerate(signature.params):
             ir_typ = self.get_ir_type(a_typ[1])
-            ir_arg = ir.Parameter("param{}".format(i), ir_typ)
+            ir_arg = ir.Parameter(f"param{i}", ir_typ)
             dbg_arg_types.append(
                 debuginfo.DebugParameter(
-                    "arg{}".format(i), self.get_debug_type(a_typ[1])
+                    f"arg{i}", self.get_debug_type(a_typ[1])
                 )
             )
             ppci_function.add_parameter(ir_arg)
             size = self.get_type_size(a_typ[1])
             alignment = size
-            alloc = self.emit(ir.Alloc("alloc{}".format(i), size, alignment))
-            addr = self.emit(ir.AddressOf(alloc, "local{}".format(i)))
+            alloc = self.emit(ir.Alloc(f"alloc{i}", size, alignment))
+            addr = self.emit(ir.AddressOf(alloc, f"local{i}"))
             self.locals.append((ir_typ, addr))
             # Store parameter into local variable:
             self.emit(ir.Store(ir_arg, addr))
@@ -671,8 +669,8 @@ class WasmToIrCompiler:
             ir_typ = self.get_ir_type(local_typ)
             size = self.get_type_size(local_typ)
             alignment = size
-            alloc = self.emit(ir.Alloc("alloc{}".format(i), size, alignment))
-            addr = self.emit(ir.AddressOf(alloc, "local{}".format(i)))
+            alloc = self.emit(ir.Alloc(f"alloc{i}", size, alignment))
+            addr = self.emit(ir.AddressOf(alloc, f"local{i}"))
 
             # Initialize local variable to zero:
             zero_init = self.emit(ir.Const(0, "local_init", ir_typ))
@@ -684,7 +682,7 @@ class WasmToIrCompiler:
         final_phis = []
         for i, result in enumerate(signature.results):
             ir_typ = self.get_ir_type(result)
-            final_phi = ir.Phi("function_result_{}".format(i), ir_typ)
+            final_phi = ir.Phi(f"function_result_{i}", ir_typ)
             final_phis.append(final_phi)
         body_block = self.new_block()
         final_block = self.new_block()
@@ -788,12 +786,12 @@ class WasmToIrCompiler:
         param_types, result_types = self.get_block_signature(instruction)
 
         param_phis = [
-            ir.Phi("block_param_{}".format(nr), self.get_ir_type(param_type))
+            ir.Phi(f"block_param_{nr}", self.get_ir_type(param_type))
             for nr, param_type in enumerate(param_types)
         ]
 
         result_phis = [
-            ir.Phi("block_result_{}".format(nr), self.get_ir_type(result_type))
+            ir.Phi(f"block_result_{nr}", self.get_ir_type(result_type))
             for nr, result_type in enumerate(result_types)
         ]
         return param_phis, result_phis
@@ -1116,7 +1114,7 @@ class WasmToIrCompiler:
             "shr_s": ">>",
         }
         op = op_map[opname]
-        name = "op_{}".format(opname)
+        name = f"op_{opname}"
         ir_typ = self.get_ir_type(itype)
         b = self.pop_value(ir_typ=ir_typ)
         a = self.pop_value(ir_typ=ir_typ)
@@ -1469,7 +1467,7 @@ class WasmToIrCompiler:
                     value = self.emit(
                         ir.Load(
                             multi_return_ptr,
-                            "return_value_{}".format(nr),
+                            f"return_value_{nr}",
                             ir_typ,
                         )
                     )

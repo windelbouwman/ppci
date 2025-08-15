@@ -48,10 +48,10 @@ class Context:
             for imp in mod.imports:
                 if self.has_module(imp):
                     if mod.inner_scope.has_symbol(imp):
-                        raise SemanticError("Redefine of {}".format(imp))
+                        raise SemanticError(f"Redefine of {imp}")
                     mod.inner_scope.add_symbol(self.get_module(imp))
                 else:
-                    raise SemanticError("Cannot import {}".format(imp))
+                    raise SemanticError(f"Cannot import {imp}")
 
     def resolve_symbol(self, ref):
         """Find out what is designated with x"""
@@ -67,10 +67,10 @@ class Context:
                 sym = scope.get_symbol(name)
                 if not sym.public:
                     raise SemanticError(
-                        "Cannot access private {}".format(name), ref.loc
+                        f"Cannot access private {name}", ref.loc
                     )
             else:
-                raise SemanticError("{} undefined".format(name), ref.loc)
+                raise SemanticError(f"{name} undefined", ref.loc)
         elif isinstance(ref, ast.Identifier):
             # Simple identifier, try to lookup!
             scope = ref.scope
@@ -78,7 +78,7 @@ class Context:
             if scope.has_symbol(name):
                 sym = scope[name]
             else:
-                raise SemanticError("{} undefined".format(name), ref.loc)
+                raise SemanticError(f"{name} undefined", ref.loc)
         else:  # pragma: no cover
             raise NotImplementedError(str(ref))
 
@@ -91,7 +91,7 @@ class Context:
         if const not in self.const_map:
             if const in self.const_workset:
                 varnames = ", ".join(wc.name for wc in self.const_workset)
-                msg = "Constant loop detected involving: {}".format(varnames)
+                msg = f"Constant loop detected involving: {varnames}"
                 raise SemanticError(msg, const.loc)
             self.const_workset.add(const)
             self.const_map[const] = self.eval_const(const.value)
@@ -129,18 +129,16 @@ class Context:
                 return int(a)
             else:  # pragma: no cover
                 raise NotImplementedError(
-                    "Casting to {} not implemented".format(expr.to_type)
+                    f"Casting to {expr.to_type} not implemented"
                 )
         elif isinstance(expr, ast.Identifier):
             target = self.resolve_symbol(expr)
             if isinstance(target, ast.Constant):
                 return self.get_constant_value(target)
             else:
-                raise SemanticError("Cannot evaluate {}".format(expr), None)
+                raise SemanticError(f"Cannot evaluate {expr}", None)
         else:
-            raise SemanticError(
-                "Cannot evaluate constant {}".format(expr), None
-            )
+            raise SemanticError(f"Cannot evaluate constant {expr}", None)
 
     def pack_string(self, txt):
         """Pack a string an int as length followed by text data"""
@@ -245,9 +243,7 @@ class Context:
 
         # Handle non-pointers:
         # key = (typ_a, typ_b)
-        raise SemanticError(
-            "Types {} and {} do not commute".format(typ_a, typ_b), loc
-        )
+        raise SemanticError(f"Types {typ_a} and {typ_b} do not commute", loc)
 
     def get_type(self, typ, reveil_defined=True):
         """Get type given by str, identifier or type.
@@ -329,5 +325,5 @@ class Context:
                 # Try by name in case of defined types:
                 return a.name == b.name
             else:  # pragma: no cover
-                raise NotImplementedError("{} not implemented".format(type(a)))
+                raise NotImplementedError(f"{type(a)} not implemented")
         return False

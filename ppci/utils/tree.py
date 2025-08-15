@@ -21,14 +21,14 @@ class Tree:
     def __repr__(self):
         if self.children:
             ch = ", ".join(str(c) for c in self.children)
-            children = "({})".format(ch)
+            children = f"({ch})"
         else:
             children = ""
         if self.value is not None:
-            val = "[{}]".format(self.value)
+            val = f"[{self.value}]"
         else:
             val = ""
-        return "{}{}{}".format(self.name, val, children)
+        return f"{self.name}{val}{children}"
 
     def __getitem__(self, index):
         return self.children[index]

@@ -119,7 +119,7 @@ class LlvmIrParser(RecursiveDescentParser):
                 argument.set_name(arg_info.name)
             else:
                 # The parameter had no name, so number it?
-                name = "%{}".format(len(self.numbered_vals))
+                name = f"%{len(self.numbered_vals)}"
                 argument.set_name(name)
                 self.numbered_vals.append((name, argument))
         return function
@@ -608,7 +608,7 @@ class LlvmIrParser(RecursiveDescentParser):
             v = self.consume().val
             return predicates[v]
         else:
-            self.error("Expected one of {}".format(predicates.keys()))
+            self.error(f"Expected one of {predicates.keys()}")
 
     def parse_alloca(self):
         self.consume("alloca")
@@ -776,7 +776,7 @@ class PerFunctionState:
             self.forward[name] = val
 
         if ty is not val.ty:
-            self.parser.error("{} != {}".format(ty, val.ty))
+            self.parser.error(f"{ty} != {val.ty}")
         return val
 
     def get_bb(self, name):
@@ -799,9 +799,7 @@ class PerFunctionState:
             sentinel = self.forward.pop(name)
             if sentinel.ty is not instruction.ty:
                 self.parser.error(
-                    "Instruction forward referenced with type {}".format(
-                        sentinel.ty
-                    )
+                    f"Instruction forward referenced with type {sentinel.ty}"
                 )
             sentinel.replace_all_uses_with(instruction)
 

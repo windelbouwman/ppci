@@ -7,9 +7,7 @@ from prompt_toolkit import __version__ as ptk_version
 # Check version of prompt toolkit:
 if not ptk_version.startswith("3."):
     print(
-        "We require prompt toolkit version 3.x, we currently have: {}".format(
-            ptk_version
-        )
+        f"We require prompt toolkit version 3.x, we currently have: {ptk_version}"
     )
 
 from prompt_toolkit import Application
@@ -73,9 +71,7 @@ class DisplayVariablesProcessor(Processor):
         tokens = list(transformation_input.fragments)
         row = transformation_input.lineno + 1
         if row in self.variables:
-            tokens.append(
-                ("class:title", "  // {}".format(self.variables[row]))
-            )
+            tokens.append(("class:title", f"  // {self.variables[row]}"))
         return Transformation(tokens)
 
 
@@ -213,19 +209,13 @@ class PtDebugCli:
 
     def get_status_tokens(self):
         tokens = []
-        tokens.append(
-            ("class:status", "STATUS={} ".format(self.debugger.status))
-        )
-        tokens.append(
-            ("class:status", "PC={:08X} ".format(self.debugger.get_pc()))
-        )
+        tokens.append(("class:status", f"STATUS={self.debugger.status} "))
+        tokens.append(("class:status", f"PC={self.debugger.get_pc():08X} "))
         if self.debugger.has_symbols:
             loc = self.debugger.find_pc()
             if loc:
                 filename, row = loc
-                tokens.append(
-                    ("class:status", "LOCATION={}:{}".format(filename, row))
-                )
+                tokens.append(("class:status", f"LOCATION={filename}:{row}"))
         return tokens
 
     def on_stop(self):
@@ -245,7 +235,7 @@ class PtDebugCli:
         self.locals_processor.variables.clear()
         for name, var in localz.items():
             value = self.debugger.eval_variable(var)
-            var_text = "{} = {}".format(name, value)
+            var_text = f"{name} = {value}"
             self.locals_processor.variables[var.loc.row] = var_text
 
     def has_source(self):

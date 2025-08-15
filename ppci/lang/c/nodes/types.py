@@ -321,7 +321,7 @@ class StructType(StructOrUnionType):
     def __repr__(self):
         if self.complete:
             field_names = self.get_field_names()
-            return "Structured-type field_names={}".format(field_names)
+            return f"Structured-type field_names={field_names}"
         else:
             return "Incomplete structured"
 
@@ -337,9 +337,9 @@ class Field:
 
     def __repr__(self):
         if self.bitsize is None:
-            return "Struct-field .{}".format(self.name)
+            return f"Struct-field .{self.name}"
         else:
-            return "Struct-field .{} : {}".format(self.name, self.bitsize)
+            return f"Struct-field .{self.name} : {self.bitsize}"
 
     @property
     def is_anonymous(self):
@@ -397,4 +397,4 @@ class BasicType(CType):
         self.type_id = type_id
 
     def __repr__(self):
-        return "Basic type {}".format(self.type_id)
+        return f"Basic type {self.type_id}"

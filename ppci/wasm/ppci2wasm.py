@@ -39,7 +39,7 @@ def ir_to_wasm(ir_module: ir.Module, reporter=None) -> components.Module:
     """
 
     if reporter:
-        reporter.message("{} exporting ir to wasm:".format(ir_module))
+        reporter.message(f"{ir_module} exporting ir to wasm:")
         reporter.dump_ir(ir_module)
 
     ir_to_wasm_compiler = IrToWasmCompiler(reporter=reporter)
@@ -149,7 +149,7 @@ class IrToWasmCompiler:
         ):
             if self.has_function(ir_function.name):
                 raise ValueError(
-                    "Function {} already defined".format(ir_function.name)
+                    f"Function {ir_function.name} already defined"
                 )
             else:
                 # Determine function signature:

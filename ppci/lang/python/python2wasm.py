@@ -214,7 +214,7 @@ class PythonFuncToWasmCompiler:
                 self.instructions.append(("f64.neg",))
             else:
                 self.syntax_error(
-                    node, "Unsupported unary operator: {}".format(node.op)
+                    node, f"Unsupported unary operator: {node.op}"
                 )
 
         elif isinstance(node, ast.BinOp):

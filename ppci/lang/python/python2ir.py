@@ -127,7 +127,7 @@ class PythonToIrCompiler:
         arg_types = []
         for arg in df.args.args:
             if not arg.annotation:
-                self.error(arg, "Need type annotation for {}".format(arg.arg))
+                self.error(arg, f"Need type annotation for {arg.arg}")
             aty = self.get_ty(arg.annotation)
             arg_types.append(aty)
             arg_name = arg.arg
@@ -307,7 +307,7 @@ class PythonToIrCompiler:
         else:
             self.error(
                 statement.iter,
-                "Does not support {} arguments".format(len(ra)),
+                f"Does not support {len(ra)} arguments",
             )
 
         entry_block = self.builder.block
@@ -553,8 +553,8 @@ class PythonToIrCompiler:
             if ty is None:
                 self.error(node, "Undefined variable")
             else:
-                mem = self.emit(ir.Alloc("alloc_{}".format(name), 8, 8))
-                addr = self.emit(ir.AddressOf(mem, "addr_{}".format(name)))
+                mem = self.emit(ir.Alloc(f"alloc_{name}", 8, 8))
+                addr = self.emit(ir.AddressOf(mem, f"addr_{name}"))
                 var = Var(addr, True, ty)
                 self.local_map[name] = var
         return var
@@ -578,7 +578,7 @@ class PythonToIrCompiler:
 
     def not_impl(self, node):  # pragma: no cover
         print(dir(node))
-        self.error(node, "Cannot do {}".format(node))
+        self.error(node, f"Cannot do {node}")
 
     def node_location(self, node):
         """Create a source code location for the given node."""
@@ -614,7 +614,7 @@ class PythonToIrCompiler:
         if type_name in self.type_mapping:
             return self.type_mapping[type_name]
         else:
-            self.error(annotation, "Unhandled type: {}".format(type_name))
+            self.error(annotation, f"Unhandled type: {type_name}")
 
     def enter_loop(self, continue_block, break_block):
         self.block_stack.append((continue_block, break_block))

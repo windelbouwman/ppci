@@ -166,10 +166,10 @@ class Linker:
         information to a reporter.
         """
         for section in self.dst.sections:
-            self.reporter.message("{} at {}".format(section, section.address))
+            self.reporter.message(f"{section} at {section.address}")
 
         for image in self.dst.images:
-            self.reporter.message("{} at {}".format(image, image.address))
+            self.reporter.message(f"{image} at {image.address}")
 
         symbols = [
             (s, self.dst.get_symbol_id_value(s.id) if s.defined else -1)
@@ -178,9 +178,7 @@ class Linker:
         symbols.sort(key=lambda x: x[1])
         for symbol, address in symbols:
             self.reporter.message(
-                "Symbol {} {} at 0x{:X}".format(
-                    symbol.binding, symbol.name, address
-                )
+                f"Symbol {symbol.binding} {symbol.name} at 0x{address:X}"
             )
 
         self.reporter.message("Linking complete")
@@ -285,9 +283,7 @@ class Linker:
                     new_symbol.section = section
                 else:
                     # TODO: accumulate errors..
-                    raise CompilerError(
-                        "Multiple defined symbol: {}".format(name)
-                    )
+                    raise CompilerError(f"Multiple defined symbol: {name}")
         else:
             new_symbol = self.inject_symbol(
                 name, "global", section, value, typ, size
@@ -327,7 +323,7 @@ class Linker:
                     current_address += section.size
                     image.add_section(section)
                 elif isinstance(memory_input, SectionData):
-                    section_name = "_${}_".format(memory_input.section_name)
+                    section_name = f"_${memory_input.section_name}_"
                     # Each section must be unique:
                     assert not self.dst.has_section(section_name)
 
@@ -346,7 +342,7 @@ class Linker:
                 elif isinstance(memory_input, SymbolDefinition):
                     # Create a new section, and place it at current spot:
                     symbol_name = memory_input.symbol_name
-                    section_name = "_${}_".format(symbol_name)
+                    section_name = f"_${symbol_name}_"
 
                     # Each section must be unique:
                     assert not self.dst.has_section(section_name)
@@ -367,9 +363,7 @@ class Linker:
             # Check that the memory fits!
             if image.size > mem.size:
                 raise CompilerError(
-                    "Memory exceeds size ({} > {})".format(
-                        image.size, mem.size
-                    )
+                    f"Memory exceeds size ({image.size} > {mem.size})"
                 )
             self.dst.add_image(image)
 
@@ -420,7 +414,7 @@ class Linker:
 
         if undefined_symbols:
             undefined = ", ".join(undefined_symbols)
-            raise CompilerError("Undefined references: {}".format(undefined))
+            raise CompilerError(f"Undefined references: {undefined}")
 
     def do_relaxations(self):
         """Linker relaxation. Just relax ;).
@@ -468,8 +462,8 @@ class Linker:
                 size = reloc.size()
                 end = begin + size
                 data = reloc_section.data[begin:end]
-                assert len(data) == size, "len({}) ({}-{}) != {}".format(
-                    data, begin, end, size
+                assert len(data) == size, (
+                    f"len({data}) ({begin}-{end}) != {size}"
                 )
 
                 # Apply code patch:
@@ -616,9 +610,7 @@ class Linker:
     def do_relocations(self):
         """Perform the correct relocation as listed"""
         self.logger.debug(
-            "Performing {} linker relocations".format(
-                len(self.dst.relocations)
-            )
+            f"Performing {len(self.dst.relocations)} linker relocations"
         )
         for reloc in self.dst.relocations:
             self._do_relocation(reloc)
@@ -644,9 +636,7 @@ class Linker:
         size = reloc.size()
         end = begin + size
         data = section.data[begin:end]
-        assert len(data) == size, "len({}) ({}-{}) != {}".format(
-            data, begin, end, size
-        )
+        assert len(data) == size, f"len({data}) ({begin}-{end}) != {size}"
         data = reloc.apply(sym_value, data, reloc_value)
         assert len(data) == size
         section.data[begin:end] = data

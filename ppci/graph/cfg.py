@@ -421,4 +421,4 @@ class ControlFlowNode(DiNode):
 
     def __repr__(self):
         value = self.name if self.name else id(self)
-        return "CFG-node({})".format(value)
+        return f"CFG-node({value})"

@@ -16,7 +16,7 @@ class Shift(Action):
         self.to_state = to_state
 
     def __repr__(self):
-        return "Shift({})".format(self.to_state)
+        return f"Shift({self.to_state})"
 
 
 class Reduce(Action):
@@ -26,7 +26,7 @@ class Reduce(Action):
         self.rule = rule
 
     def __repr__(self):
-        return "Reduce({})".format(self.rule)
+        return f"Reduce({self.rule})"
 
 
 class Accept(Action):
@@ -34,7 +34,7 @@ class Accept(Action):
         self.rule = rule
 
     def __repr__(self):
-        return "Accept({})".format(self.rule)
+        return f"Accept({self.rule})"
 
 
 class Item:
@@ -127,7 +127,7 @@ class LrParser:
             key = (state, look_ahead.typ)
             if key not in self.action_table:
                 raise ParserException(
-                    "Error parsing at character {0}".format(look_ahead)
+                    f"Error parsing at character {look_ahead}"
                 )
             action = self.action_table[key]
             if isinstance(action, Reduce):
@@ -288,7 +288,7 @@ class LrParserBuilder:
 
     def generate_parser(self):
         """Generates a parser from the grammar"""
-        self.logger.debug("Generating parser from {}".format(self.grammar))
+        self.logger.debug(f"Generating parser from {self.grammar}")
         self.generate_tables()
         p = LrParser(self.grammar, self.action_table, self.goto_table)
         self.logger.debug("Parser generated")
@@ -339,9 +339,7 @@ class LrParserBuilder:
                     prod = self.grammar.productions[action.rule]
                     prod2 = self.grammar.productions[action2.rule]
                     raise ParserGenerationException(
-                        "LR conflict {} vs {} ({} vs {})".format(
-                            a1, a2, prod, prod2
-                        )
+                        f"LR conflict {a1} vs {a2} ({prod} vs {prod2})"
                     )
         else:
             self.action_table[key] = action
@@ -359,12 +357,12 @@ class LrParserBuilder:
 
         self.grammar.check_symbols()
         iis = self.initial_item_set()
-        self.logger.debug("Initial item set: {} items".format(len(iis)))
+        self.logger.debug(f"Initial item set: {len(iis)} items")
 
         # First generate all item sets by using the nextItemset function:
         states, transitions, indici = self.gen_canonical_set(iis)
-        self.logger.debug("Number of states: {}".format(len(states)))
-        self.logger.debug("Number of transitions: {}".format(len(transitions)))
+        self.logger.debug(f"Number of states: {len(states)}")
+        self.logger.debug(f"Number of transitions: {len(transitions)}")
 
         # Fill action table:
         for state in states:
@@ -397,6 +395,6 @@ class LrParserBuilder:
                 if key in transitions:
                     self.goto_table[key] = transitions[key]
 
-        self.logger.debug("Goto table: {}".format(len(self.goto_table)))
-        self.logger.debug("Action table: {}".format(len(self.action_table)))
+        self.logger.debug(f"Goto table: {len(self.goto_table)}")
+        self.logger.debug(f"Action table: {len(self.action_table)}")
         return self.action_table, self.goto_table

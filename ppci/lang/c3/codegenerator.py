@@ -110,7 +110,7 @@ class CodeGenerator:
             else:
                 cval = None
 
-            var_name = "{}_{}".format(module.name, var.name)
+            var_name = f"{module.name}_{var.name}"
             binding = ir.Binding.GLOBAL
             size = self.context.size_of(var.typ)
             alignment = 4
@@ -222,7 +222,7 @@ class CodeGenerator:
 
         # generate room for locals:
         for sym in function.inner_scope:
-            var_name = "var_{}".format(sym.name)
+            var_name = f"var_{sym.name}"
             size = self.context.size_of(sym.typ)
             alignment = size  # TODO: fix this somehow?
             alloc = self.emit(ir.Alloc(var_name, size, alignment))
@@ -307,7 +307,7 @@ class CodeGenerator:
         if function in self.context.function_map:
             ir_function = self.context.function_map[function]
         else:
-            name = "{}_{}".format(function.package.name, function.name)
+            name = f"{function.package.name}_{function.name}"
             if function.body is None:
                 # Functions without body are imported
                 arg_types = [
@@ -887,9 +887,7 @@ class CodeGenerator:
             # Any numeric cast
             return self.emit(ir.Cast(ar, "cast", self.get_ir_type(to_type)))
         else:  # pragma: no cover
-            raise NotImplementedError(
-                "Cannot cast {} to {}".format(from_type, to_type)
-            )
+            raise NotImplementedError(f"Cannot cast {from_type} to {to_type}")
 
     def gen_function_call(self, expr):
         """Generate code for a function call"""

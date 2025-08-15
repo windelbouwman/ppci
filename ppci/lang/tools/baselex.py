@@ -110,9 +110,7 @@ class BaseLexer(Lexer):
     """
 
     def __init__(self, tok_spec):
-        tok_re = "|".join(
-            "(?P<{}>{})".format(pair[0], pair[1]) for pair in tok_spec
-        )
+        tok_re = "|".join(f"(?P<{p[0]}>{p[1]})" for p in tok_spec)
         self.gettok = re.compile(tok_re).match
         self.func_map = {pair[0]: pair[2] for pair in tok_spec}
         self.filename = None

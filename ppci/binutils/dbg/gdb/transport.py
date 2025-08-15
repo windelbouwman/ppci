@@ -58,7 +58,7 @@ class TCP(ThreadedTransport):
         self.logger.info("Disconnected")
 
     def __str__(self):
-        return "Tcp localhost:{}".format(self._port)
+        return f"Tcp localhost:{self._port}"
 
     def rx_avail(self):
         readable, _, _ = select.select([self.sock], [], [], 0)

@@ -57,7 +57,7 @@ class BaseType(Type):
         self.byte_size = byte_size
 
     def __repr__(self):
-        return "base type size={}".format(self.byte_size)
+        return f"base type size={self.byte_size}"
 
 
 class IntegerType(BaseType):
@@ -86,7 +86,7 @@ class SubRange(IntegerType):
         self.location = location
 
     def __repr__(self):
-        return "sub-range({}..{})".format(self.lower, self.upper)
+        return f"sub-range({self.lower}..{self.upper})"
 
 
 class FloatType(BaseType):
@@ -124,7 +124,7 @@ class FunctionType(Type):
             )
         else:
             params = ""
-        return "function-type{}: {}".format(params, self.return_type)
+        return f"function-type{params}: {self.return_type}"
 
 
 class ProcedureType(Type):
@@ -139,7 +139,7 @@ class ProcedureType(Type):
             )
         else:
             params = ""
-        return "procedure-type{}".format(params)
+        return f"procedure-type{params}"
 
 
 class PointerType(Type):
@@ -152,7 +152,7 @@ class PointerType(Type):
         self.ptype = ptype
 
     def __repr__(self):
-        return "({}*)".format(self.ptype)
+        return f"({self.ptype}*)"
 
 
 class RecordField:
@@ -165,7 +165,7 @@ class RecordField:
         self.location = location
 
     def __repr__(self):
-        return "Member {}".format(self.name)
+        return f"Member {self.name}"
 
 
 class RecordVariant:
@@ -176,7 +176,7 @@ class RecordVariant:
         self.location = location
 
     def __repr__(self):
-        return "Variant record member {}".format(self.name)
+        return f"Variant record member {self.name}"
 
     def has_field(self, name: str):
         for _, fields in self.variants:
@@ -244,7 +244,7 @@ class ArrayType(Type):
         self.location = location
 
     def __repr__(self):
-        return "ARRAY {} of {}".format(self.dimensions, self.element_type)
+        return f"ARRAY {self.dimensions} of {self.element_type}"
 
     def indexed(self, count):
         """Return the resulting time when indexing this array count times."""

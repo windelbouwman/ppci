@@ -23,7 +23,7 @@ class CBuilder:
         if reporter:
             reporter.heading(2, "C builder")
             reporter.message(
-                "Welcome to the C building report for {}".format(filename)
+                f"Welcome to the C building report for {filename}"
             )
         cdialect = self.coptions["std"]
         self.logger.info("Starting C compilation (%s)", cdialect)

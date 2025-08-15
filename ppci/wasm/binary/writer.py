@@ -142,14 +142,14 @@ class BinaryFileWriter(BaseIoWriter):
         """Write signed integer value in LEB128 encoding."""
         bb = signed_leb128_encode(x)
         if not len(bb) <= 10:
-            raise ValueError("Cannot pack {} into 10 bytes".format(x))
+            raise ValueError(f"Cannot pack {x} into 10 bytes")
         self.f.write(bb)
 
     def write_vs32(self, x: int):
         """Write signed integer value in LEB128 encoding."""
         bb = signed_leb128_encode(x)
         if not len(bb) <= 5:  # 5 = ceil(32/7)
-            raise ValueError("Cannot pack {} into 5 bytes".format(x))
+            raise ValueError(f"Cannot pack {x} into 5 bytes")
         self.f.write(bb)
 
     def write_vu32(self, x: int):

@@ -67,7 +67,7 @@ def get_test_snippets(c_test_suite_directory, name_filter="*"):
 
     # Check if we have a folder:
     if not os.path.isdir(snippet_folder):
-        raise ValueError("{} is not a directory".format(snippet_folder))
+        raise ValueError(f"{snippet_folder} is not a directory")
 
     for filename in sorted(glob.iglob(os.path.join(snippet_folder, "*.c"))):
         base_name = os.path.splitext(os.path.split(filename)[1])[0]
@@ -87,7 +87,7 @@ def create_test_function(cls, filename):
         perform_test(filename)
 
     if hasattr(cls, test_function_name):
-        raise ValueError("Duplicate test case {}".format(test_function_name))
+        raise ValueError(f"Duplicate test case {test_function_name}")
     setattr(cls, test_function_name, test_function)
 
 

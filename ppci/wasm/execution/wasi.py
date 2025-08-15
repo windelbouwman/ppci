@@ -104,7 +104,7 @@ class WasiApi:
         self._encoded_args = encode_strings(self._args)
 
         self._env = {}
-        env_entries = ["{}={}".format(k, v) for k, v in self._env.items()]
+        env_entries = [f"{k}={v}" for k, v in self._env.items()]
         self._encoded_env = encode_strings(env_entries)
 
         # 0 -> stdin
@@ -280,7 +280,7 @@ class WasiApi:
         return EACCES
 
     def fd_close(self, fd: ir.i32) -> ir.i32:
-        self._trace("fd_close(fd={})".format(fd))
+        self._trace(f"fd_close(fd={fd})")
         if fd in self._available_fd:
             py_f = self._available_fd[fd]
             if hasattr(py_f, "close"):
@@ -529,9 +529,7 @@ class WasiApi:
         old_path = self._read_string(old_path_buf, old_path_len)
         new_path = self._read_string(new_path_buf, new_path_len)
         self.logger.error(
-            "TODO: path_symlink(old_path={}, fd={}, new_path={})".format(
-                old_path, fd, new_path
-            )
+            f"TODO: path_symlink(old_path={old_path}, fd={fd}, new_path={new_path})"
         )
         return EACCES
 

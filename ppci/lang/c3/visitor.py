@@ -117,7 +117,7 @@ class Visitor:
             # Those nodes do not have child nodes.
             pass
         else:  # pragma: no cover
-            raise NotImplementedError('Could not visit "{0}"'.format(node))
+            raise NotImplementedError(f'Could not visit "{node}"')
 
         # run post function
         if self.post:

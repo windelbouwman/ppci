@@ -71,7 +71,7 @@ def build_sample_to_ir(src, lang, bsp_c3, march, reporter):
         )
         ir_modules = pascal_ir_modules
     else:  # pragma: no cover
-        raise NotImplementedError("Language {} not implemented".format(lang))
+        raise NotImplementedError(f"Language {lang} not implemented")
     return ir_modules
 
 

@@ -101,7 +101,7 @@ class CContext:
     def sizeof(self, typ: types.CType):
         """Given a type, determine its size in whole bytes"""
         if not isinstance(typ, types.CType):
-            raise TypeError("typ should be CType: {}".format(typ))
+            raise TypeError(f"typ should be CType: {typ}")
 
         if isinstance(typ, types.ArrayType):
             assert typ.size is not None

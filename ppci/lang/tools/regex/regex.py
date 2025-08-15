@@ -40,17 +40,17 @@ class Regex(abc.ABC):
 
     def __or__(self, other):
         if not isinstance(other, Regex):
-            raise TypeError("Expected Regex but got {}".format(type(other)))
+            raise TypeError(f"Expected Regex but got {type(other)}")
         return logical_or(self, other)
 
     def __and__(self, other):
         if not isinstance(other, Regex):
-            raise TypeError("Expected Regex but got {}".format(type(other)))
+            raise TypeError(f"Expected Regex but got {type(other)}")
         return logical_and(self, other)
 
     def __add__(self, other):
         if not isinstance(other, Regex):
-            raise TypeError("Expected Regex but got {}".format(type(other)))
+            raise TypeError(f"Expected Regex but got {type(other)}")
 
         return concatenate(self, other)
 
@@ -132,7 +132,7 @@ class Kleene(Regex):
 
     def __init__(self, expr):
         if not isinstance(expr, Regex):
-            raise TypeError("Expected Regex but got {}".format(type(expr)))
+            raise TypeError(f"Expected Regex but got {type(expr)}")
         self.expr = expr
 
     def nu(self):
@@ -148,7 +148,7 @@ class Kleene(Regex):
         return self.__class__.__name__, self.expr
 
     def __str__(self):
-        return "{}*".format(self.expr)
+        return f"{self.expr}*"
 
 
 def concatenate(left, right):
@@ -172,7 +172,7 @@ class Concatenation(Regex):
 
     def __init__(self, lhs, rhs):
         if not isinstance(lhs, Regex):
-            raise TypeError("Expected Regex but got {}".format(type(lhs)))
+            raise TypeError(f"Expected Regex but got {type(lhs)}")
 
         if lhs == EPSILON:
             raise ValueError(
@@ -181,7 +181,7 @@ class Concatenation(Regex):
 
         self.lhs = lhs
         if not isinstance(rhs, Regex):
-            raise TypeError("Expected Regex but got {}".format(type(rhs)))
+            raise TypeError(f"Expected Regex but got {type(rhs)}")
         self.rhs = rhs
 
     def nu(self):
@@ -206,7 +206,7 @@ class Concatenation(Regex):
         return self.__class__.__name__, self.lhs, self.rhs
 
     def __str__(self):
-        return "{}{}".format(self.lhs, self.rhs)
+        return f"{self.lhs}{self.rhs}"
 
 
 def logical_or(left, right):
@@ -235,10 +235,10 @@ class LogicalOr(Regex):
 
     def __init__(self, lhs, rhs):
         if not isinstance(lhs, Regex):
-            raise TypeError("Expected Regex but got {}".format(type(lhs)))
+            raise TypeError(f"Expected Regex but got {type(lhs)}")
 
         if not isinstance(rhs, Regex):
-            raise TypeError("Expected Regex but got {}".format(type(rhs)))
+            raise TypeError(f"Expected Regex but got {type(rhs)}")
 
         if lhs == rhs:
             raise ValueError("Logical or of the same values makes no sense")
@@ -267,7 +267,7 @@ class LogicalOr(Regex):
         return self.__class__.__name__, self.lhs, self.rhs
 
     def __str__(self):
-        return "({})|({})".format(self.lhs, self.rhs)
+        return f"({self.lhs})|({self.rhs})"
 
 
 def logical_and(lhs, rhs):
@@ -291,10 +291,10 @@ class LogicalAnd(Regex):
 
     def __init__(self, lhs, rhs):
         if not isinstance(lhs, Regex):
-            raise TypeError("Expected Regex but got {}".format(type(rhs)))
+            raise TypeError(f"Expected Regex but got {type(rhs)}")
 
         if not isinstance(rhs, Regex):
-            raise TypeError("Expected Regex but got {}".format(type(rhs)))
+            raise TypeError(f"Expected Regex but got {type(rhs)}")
 
         if lhs == rhs:
             raise ValueError(
@@ -325,7 +325,7 @@ class LogicalAnd(Regex):
         return self.__class__.__name__, self.lhs, self.rhs
 
     def __str__(self):
-        return "({})&({})".format(self.lhs, self.rhs)
+        return f"({self.lhs})&({self.rhs})"
 
 
 def product_intersections(*sets):

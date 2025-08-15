@@ -219,7 +219,7 @@ class BaseAssembler:
 
         if isinstance(arg_cls, tuple):
             assert len(arg_cls) > 0
-            nt = "w00t{}".format(id(arg_cls))
+            nt = f"w00t{id(arg_cls)}"
             assert nt not in self.typ2nt.values()
             self.typ2nt[arg_cls] = nt
             for con in arg_cls:
@@ -234,7 +234,7 @@ class BaseAssembler:
             # TODO: figure a nice way for this:
 
             # create a non-terminal name:
-            nt = "$reg_cls_{}$".format(arg_cls.__name__.lower())
+            nt = f"$reg_cls_{arg_cls.__name__.lower()}$"
 
             # Store nt for later:
             self.typ2nt[arg_cls] = nt

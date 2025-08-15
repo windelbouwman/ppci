@@ -108,7 +108,7 @@ class HexFile:
                 self.start_address = struct.unpack(">I", line.data[0:4])[0]
             else:  # pragma: no cover
                 raise NotImplementedError(
-                    "record type {0} not implemented".format(line.typ)
+                    f"record type {line.typ} not implemented"
                 )
         return self
 

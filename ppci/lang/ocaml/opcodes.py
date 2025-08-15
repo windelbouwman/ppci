@@ -193,4 +193,4 @@ class Instruction:
         self.args = args
 
     def __str__(self):
-        return "{} {}".format(self.name, self.args)
+        return f"{self.name} {self.args}"

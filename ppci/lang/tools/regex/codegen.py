@@ -25,14 +25,10 @@ def generate_code(prog, f):
 
     # Create tables for transitions:
     for nr, transition in enumerate(state_transitions):
-        print(
-            "state_transition_t transitions_state_{}[] = ".format(nr), file=f
-        )
+        print(f"state_transition_t transitions_state_{nr}[] = ", file=f)
         for start_char, end_char, next_state in transition:
             print(
-                "    {{ {}, {}, {} }},".format(
-                    start_char, end_char, next_state
-                ),
+                f"    {{ {start_char}, {end_char}, {next_state} }},",
                 file=f,
             )
         print("};", file=f)
@@ -40,9 +36,7 @@ def generate_code(prog, f):
 
     # Create table with transition pointers:
     print(
-        "state_transition_t* transitions[{}] = {{".format(
-            len(state_transitions)
-        ),
+        f"state_transition_t* transitions[{len(state_transitions)}] = {{",
         file=f,
     )
     for nr, _ in enumerate(state_transitions):
@@ -51,11 +45,11 @@ def generate_code(prog, f):
     print(file=f)
 
     # Create value with error state:
-    print("int error_state = {};".format(error_state), file=f)
+    print(f"int error_state = {error_state};", file=f)
     print(file=f)
 
     # Create accepting states:
-    print("int accept_states[{}] = {{".format(len(accept_states)), file=f)
+    print(f"int accept_states[{len(accept_states)}] = {{", file=f)
     for accept in accept_states:
         if accept:
             print("    1,", file=f)

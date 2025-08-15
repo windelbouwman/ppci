@@ -41,7 +41,7 @@ def add_test(cls, filename):
     def test_func(self):
         construct(filename)
 
-    test_func.__doc__ = "Try to build example {}".format(name2)
+    test_func.__doc__ = f"Try to build example {name2}"
     setattr(cls, test_name, test_func)
 
 

@@ -51,7 +51,7 @@ class Program(Symbol):
         return self.inner_scope.functions
 
     def __repr__(self):
-        return "Program {}".format(self.name)
+        return f"Program {self.name}"
 
 
 # duplicates DefinedType?
@@ -74,7 +74,7 @@ class DefinedType(Symbol):
         self.loc = loc
 
     def __repr__(self):
-        return '"{0}" -> "{1}"'.format(self.name, self.typ)
+        return f'"{self.name}" -> "{self.typ}"'
 
 
 class Constant(Symbol):
@@ -86,7 +86,7 @@ class Constant(Symbol):
         self.location = location
 
     def __repr__(self):
-        return "CONSTANT {0} = {1}".format(self.name, self.value)
+        return f"CONSTANT {self.name} = {self.value}"
 
 
 class Variable(Symbol):
@@ -102,7 +102,7 @@ class Variable(Symbol):
         self.ival = None
 
     def __repr__(self):
-        return "Var {} [{}]".format(self.name, self.typ)
+        return f"Var {self.name} [{self.typ}]"
 
 
 class EnumValue(Symbol):
@@ -112,7 +112,7 @@ class EnumValue(Symbol):
         self.location = location
 
     def __repr__(self):
-        return "enum-value({})".format(self.value)
+        return f"enum-value({self.value})"
 
 
 class FormalParameter(Variable):
@@ -145,7 +145,7 @@ class Function(SubRoutine):
         self.location = location
 
     def __repr__(self):
-        return "Func {}".format(self.name)
+        return f"Func {self.name}"
 
 
 class Procedure(SubRoutine):
@@ -156,7 +156,7 @@ class Procedure(SubRoutine):
         self.location = location
 
     def __repr__(self):
-        return "Func {}".format(self.name)
+        return f"Func {self.name}"
 
 
 class RecordFieldProxy(Symbol):

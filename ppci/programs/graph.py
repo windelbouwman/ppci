@@ -133,13 +133,13 @@ def get_program_classes_html():
         progs = (programs1, programs2, programs3)[column]
         text = ""
         for program in progs:
-            id = "ppci-program-{}".format(program.language)
-            link = "#{}".format(program.__name__)
+            id = f"ppci-program-{program.language}"
+            link = f"#{program.__name__}"
             t = "<a id='{}' href='{}' onmouseover='ppci_show_targets(\"{}\");'"
             t += " onmouseout='ppci_hide_targets();'>{}</a>"
             text += t.format(id, link, program.language, program.language)
             text += "\n"
-        columns.append("<td>{}</td>".format(text))
+        columns.append(f"<td>{text}</td>")
 
     table_html = (
         "<table class='ppci-programs'>\n"

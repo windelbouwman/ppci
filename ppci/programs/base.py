@@ -70,9 +70,7 @@ class Program(metaclass=ProgramMeta):
         return Cls(*items, previous=self, debugdb=self.debugdb)
 
     def __repr__(self):
-        return "<{} with {} items at 0x{}>".format(
-            self.__class__, len(self.items), hex(id(self))
-        )
+        return f"<{self.__class__} with {len(self.items)} items at 0x{hex(id(self))}>"
 
     @property
     def items(self):
@@ -158,9 +156,7 @@ class Program(metaclass=ProgramMeta):
         chain = mcp(self, language)[0]
         if chain is None:
             raise ValueError(
-                "No compile chain possible from {} to {}.".format(
-                    self.language, language
-                )
+                f"No compile chain possible from {self.language} to {language}."
             )
         program = self
         for name in chain[1:-1]:  # skip ourselves

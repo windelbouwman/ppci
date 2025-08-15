@@ -16,7 +16,7 @@ class InitCursor:
         self._stack = []
 
     def __repr__(self):
-        return "InitCursor({})".format(self._stack)
+        return f"InitCursor({self._stack})"
 
     @property
     def level(self):
@@ -162,9 +162,7 @@ class StructInitLevel(InitLevel):
         self.pos = 0  # TODO: integer pos or field name?
 
     def __repr__(self):
-        return "Initializing struct {}, got so far: {}, at pos: {}".format(
-            self.typ, self.initializer, self.pos
-        )
+        return f"Initializing struct {self.typ}, got so far: {self.initializer}, at pos: {self.pos}"
 
     def element_typ(self):
         field = self.typ.fields[self.pos]
@@ -205,9 +203,7 @@ class UnionInitLevel(InitLevel):
         self._end = False
 
     def __repr__(self):
-        return "Initializing union {}, got so far: {}".format(
-            self.typ, self.initializer
-        )
+        return f"Initializing union {self.typ}, got so far: {self.initializer}"
 
     def element_typ(self):
         return self._field.typ
@@ -238,9 +234,7 @@ class ArrayInitLevel(InitLevel):
         self.pos = 0  # The position in the array
 
     def __repr__(self):
-        return "Initializing array {} at position {}, got so far: {}".format(
-            self.typ, self.pos, self.initializer
-        )
+        return f"Initializing array {self.typ} at position {self.pos}, got so far: {self.initializer}"
 
     def element_typ(self):
         return self.typ.element_type

@@ -87,11 +87,11 @@ class RspHandler:
     def rsp_unpack(pkt):
         """unpacks an RSP packet, returns the data"""
         if pkt[0] != "$" or pkt[-3] != "#":
-            raise ValueError("bad packet {}".format(pkt))
+            raise ValueError(f"bad packet {pkt}")
         crc = sum(ord(c) for c in pkt[1:-3]) % 256
         crc2 = int(pkt[-2:], 16)
         if crc != crc2:
-            raise ValueError("Checksum {} != {}".format(crc, crc2))
+            raise ValueError(f"Checksum {crc} != {crc2}")
         pkt = pkt[1:-3]
         return pkt
 
@@ -126,6 +126,6 @@ def decoder():
             byte = yield byte.decode("ascii")
         else:
             if not isinstance(byte, bytes):
-                raise TypeError("Expected byte, got{}".format(byte))
-            logger.info("skipping {}".format(byte))
+                raise TypeError(f"Expected byte, got{byte}")
+            logger.info(f"skipping {byte}")
             byte = yield

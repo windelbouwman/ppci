@@ -78,8 +78,8 @@ class Mod:
 
         if not obj.debug_info:
             raise ValueError(
-                'Unable to load "{}"'
-                " because it does not contain debug info.".format(obj)
+                f'Unable to load "{obj}"'
+                " because it does not contain debug info."
             )
 
         # Create a code page into memory:
@@ -98,7 +98,7 @@ class Mod:
                 signature = inspect.signature(imp_obj)
                 if signature.return_annotation is inspect._empty:
                     raise ValueError(
-                        '"{}" requires return type annotations'.format(name)
+                        f'"{name}" requires return type annotations'
                     )
                 return_type = signature.return_annotation
                 argument_types = [
@@ -119,7 +119,7 @@ class Mod:
                 extra_symbols[name] = imp_obj.addr
             else:
                 raise ValueError(
-                    "Cannot import {} of type {}".format(name, type(imp_obj))
+                    f"Cannot import {name} of type {type(imp_obj)}"
                 )
 
         # Link to e.g. apply offset to global literals

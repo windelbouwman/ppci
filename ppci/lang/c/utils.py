@@ -59,7 +59,7 @@ class LineInfo:
             flags = " " + " ".join(map(str, self.flags))
         else:
             flags = ""
-        return '# {} "{}"{}'.format(self.line, self.filename, flags)
+        return f'# {self.line} "{self.filename}"{flags}'
 
 
 def cnum(txt: str):

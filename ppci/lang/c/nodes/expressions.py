@@ -49,7 +49,7 @@ class TernaryOperator(CExpression):
         self.c = c
 
     def __repr__(self):
-        return "TernOp {}".format(self.op)
+        return f"TernOp {self.op}"
 
 
 class Initializer(CExpression):
@@ -73,9 +73,9 @@ class StructInitializer(InitializerList):
 
     def __repr__(self):
         if len(self.values) > 4:
-            return "Struct-initializer-with-{}-fields".format(len(self.values))
+            return f"Struct-initializer-with-{len(self.values)}-fields"
         else:
-            return "Struct initializer: {}".format(self.values)
+            return f"Struct initializer: {self.values}"
 
 
 class UnionInitializer(InitializerList):
@@ -87,7 +87,7 @@ class UnionInitializer(InitializerList):
         self.value = None
 
     def __repr__(self):
-        return "Union-initializer({}={})".format(self.field, self.value)
+        return f"Union-initializer({self.field}={self.value})"
 
 
 class ArrayInitializer(InitializerList):
@@ -99,9 +99,9 @@ class ArrayInitializer(InitializerList):
 
     def __repr__(self):
         if len(self.values) > 4:
-            return "Array-init({}, ...)".format(self.values[:4])
+            return f"Array-init({self.values[:4]}, ...)"
         else:
-            return "Array-init({})".format(self.values)
+            return f"Array-init({self.values})"
 
 
 class ImplicitInitialValue(Initializer):
@@ -124,7 +124,7 @@ class BinaryOperator(CExpression):
         self.b = b
 
     def __repr__(self):
-        return "BinaryOperator {} <{}>".format(self.op, self.typ)
+        return f"BinaryOperator {self.op} <{self.typ}>"
 
 
 class UnaryOperator(CExpression):
@@ -139,7 +139,7 @@ class UnaryOperator(CExpression):
         self.op = op
 
     def __repr__(self):
-        return "UnaryOperator {}".format(self.op)
+        return f"UnaryOperator {self.op}"
 
 
 class Cast(CExpression):
@@ -153,7 +153,7 @@ class Cast(CExpression):
         self.expr = expr
 
     def __repr__(self):
-        return "Cast {}".format(self.to_typ)
+        return f"Cast {self.to_typ}"
 
     def is_array_decay(self):
         """Test if this cast is a pointer decay."""
@@ -174,7 +174,7 @@ class Sizeof(CExpression):
         self.sizeof_typ = sizeof_typ
 
     def __repr__(self):
-        return "Sizeof {}".format(self.sizeof_typ)
+        return f"Sizeof {self.sizeof_typ}"
 
 
 class ArrayIndex(CExpression):
@@ -202,7 +202,7 @@ class FieldSelect(CExpression):
         self.field = field
 
     def __str__(self):
-        return "Field select .{} <{}>".format(self.field.name, self.typ)
+        return f"Field select .{self.field.name} <{self.typ}>"
 
 
 class VariableAccess(CExpression):
@@ -214,7 +214,7 @@ class VariableAccess(CExpression):
         self.name = variable.name
 
     def __repr__(self):
-        return "Id {} <{}>".format(self.name, self.typ)
+        return f"Id {self.name} <{self.typ}>"
 
 
 class Literal(CExpression):
@@ -227,7 +227,7 @@ class Literal(CExpression):
         self.value = value
 
     def __repr__(self):
-        return "Literal {} <{}>".format(self.value, self.typ)
+        return f"Literal {self.value} <{self.typ}>"
 
 
 class CharLiteral(Literal):
@@ -237,7 +237,7 @@ class CharLiteral(Literal):
         super().__init__(value, typ, False, location)
 
     def __repr__(self):
-        return "Char literal '{}'".format(self.value)
+        return f"Char literal '{self.value}'"
 
 
 class NumericLiteral(Literal):
@@ -247,7 +247,7 @@ class NumericLiteral(Literal):
         super().__init__(value, typ, False, location)
 
     def __repr__(self):
-        return "Numeric literal {} <{}>".format(self.value, self.typ)
+        return f"Numeric literal {self.value} <{self.typ}>"
 
 
 class StringLiteral(Literal):
@@ -257,7 +257,7 @@ class StringLiteral(Literal):
         super().__init__(value, typ, True, location)
 
     def __repr__(self):
-        return 'String literal "{}"'.format(self.value)
+        return f'String literal "{self.value}"'
 
     def to_bytes(self):
         """Convert this string literal to zero terminated byte string."""

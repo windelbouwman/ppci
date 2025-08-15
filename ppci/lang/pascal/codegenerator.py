@@ -174,7 +174,7 @@ class CodeGenerator:
                 # TODO: bit of a hack?
                 typ_name = "int"
             else:
-                typ_name = "int{}".format(size)
+                typ_name = f"int{size}"
             dbg_typ = debuginfo.DebugBaseType(typ_name, size, 1)
             self.debug_db.enter(typ, dbg_typ)
         elif typ is None:
@@ -226,9 +226,7 @@ class CodeGenerator:
 
         for nr, subroutine in enumerate(subroutines, 1):
             self.logger.debug(
-                "Generating IR-code for {} ({}/{})".format(
-                    subroutine.name, nr, len(subroutines)
-                )
+                f"Generating IR-code for {subroutine.name} ({nr}/{len(subroutines)})"
             )
             self.gen_subroutine(subroutine)
 
@@ -300,14 +298,14 @@ class CodeGenerator:
         if subroutine.is_function:
             # Create room for return value:
             return_value = self.emit_local(
-                "result_{}".format(subroutine.name), subroutine.typ.return_type
+                f"result_{subroutine.name}", subroutine.typ.return_type
             )
             self.var_map[(subroutine, "result")] = return_value
 
         # generate room for locals:
         for sym in subroutine.inner_scope:
             if isinstance(sym, symbols.Variable):
-                var_name = "var_{}".format(sym.name)
+                var_name = f"var_{sym.name}"
                 variable = self.emit_local(var_name, sym.typ)
                 if sym in param_map:
                     # Get the parameter from earlier:
@@ -975,9 +973,7 @@ class CodeGenerator:
             # Any numeric cast
             value = self.emit(ir.Cast(ar, "cast", self.get_ir_type(to_type)))
         else:  # pragma: no cover
-            raise NotImplementedError(
-                "Cannot cast {} to {}".format(from_type, to_type)
-            )
+            raise NotImplementedError(f"Cannot cast {from_type} to {to_type}")
         return value, lvalue
 
     def gen_function_call(self, expr: expressions.FunctionCall):

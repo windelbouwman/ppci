@@ -52,7 +52,7 @@ class Module(Symbol):
         return self.inner_scope.functions
 
     def __repr__(self):
-        return "MODULE {}".format(self.name)
+        return f"MODULE {self.name}"
 
 
 class Type(Node):
@@ -78,7 +78,7 @@ class BaseType(NamedType):
         self.byte_size = byte_size
 
     def __repr__(self):
-        return "{}".format(self.name)
+        return f"{self.name}"
 
 
 class IntegerType(BaseType):
@@ -120,7 +120,7 @@ class FunctionType(Type):
 
     def __repr__(self):
         params = ", ".join([str(v) for v in self.parametertypes])
-        return "{1} f({0})".format(params, self.returntype)
+        return f"{self.returntype} f({params})"
 
 
 class PointerType(Type):
@@ -131,7 +131,7 @@ class PointerType(Type):
         self.ptype = ptype
 
     def __repr__(self):
-        return "({}*)".format(self.ptype)
+        return f"({self.ptype}*)"
 
 
 class StructField:
@@ -143,7 +143,7 @@ class StructField:
         self.typ = typ
 
     def __repr__(self):
-        return "Member {}".format(self.name)
+        return f"Member {self.name}"
 
 
 class StructureType(Type):
@@ -184,7 +184,7 @@ class ArrayType(Type):
         self.size = size
 
     def __repr__(self):
-        return "ARRAY {}".format(self.size)
+        return f"ARRAY {self.size}"
 
 
 class DefinedType(NamedType):
@@ -197,7 +197,7 @@ class DefinedType(NamedType):
         self.loc = loc
 
     def __repr__(self):
-        return '"{0}" -> "{1}"'.format(self.name, self.typ)
+        return f'"{self.name}" -> "{self.typ}"'
 
 
 class Constant(Symbol):
@@ -210,7 +210,7 @@ class Constant(Symbol):
         self.loc = loc
 
     def __repr__(self):
-        return "CONSTANT {0} = {1}".format(self.name, self.value)
+        return f"CONSTANT {self.name} = {self.value}"
 
 
 class Variable(Symbol):
@@ -225,7 +225,7 @@ class Variable(Symbol):
         self.ival = None
 
     def __repr__(self):
-        return "Var {} [{}]".format(self.name, self.typ)
+        return f"Var {self.name} [{self.typ}]"
 
 
 class FormalParameter(Variable):
@@ -243,7 +243,7 @@ class Function(Symbol):
         self.loc = loc
 
     def __repr__(self):
-        return "Func {}".format(self.name)
+        return f"Func {self.name}"
 
 
 # Operations / Expressions:
@@ -273,7 +273,7 @@ class Deref(Expression):
         self.ptr = ptr
 
     def __repr__(self):
-        return "DEREF {}".format(self.ptr)
+        return f"DEREF {self.ptr}"
 
 
 class TypeCast(Expression):
@@ -285,7 +285,7 @@ class TypeCast(Expression):
         self.a = x
 
     def __repr__(self):
-        return "TYPECAST {}".format(self.to_type)
+        return f"TYPECAST {self.to_type}"
 
 
 class Member(Expression):
@@ -299,7 +299,7 @@ class Member(Expression):
         self.field = field
 
     def __repr__(self):
-        return "{}.{}".format(self.base, self.field)
+        return f"{self.base}.{self.field}"
 
 
 class Index(Expression):
@@ -311,7 +311,7 @@ class Index(Expression):
         self.i = i
 
     def __repr__(self):
-        return "Index {}".format(self.i)
+        return f"Index {self.i}"
 
 
 class Unop(Expression):
@@ -332,7 +332,7 @@ class Unop(Expression):
         self.op = op
 
     def __repr__(self):
-        return "UNOP {}".format(self.op)
+        return f"UNOP {self.op}"
 
     @property
     def is_bool(self):
@@ -360,7 +360,7 @@ class Binop(Expression):
         self.op = op  # Operation: '+', '-', '*', '/', 'mod'
 
     def __repr__(self):
-        return "BINOP {}".format(self.op)
+        return f"BINOP {self.op}"
 
     @property
     def is_bool(self):
@@ -378,7 +378,7 @@ class Identifier(Expression):
         self.target = target
 
     def __repr__(self):
-        return "ID {}".format(self.target)
+        return f"ID {self.target}"
 
 
 class Literal(Expression):
@@ -389,7 +389,7 @@ class Literal(Expression):
         self.val = val
 
     def __repr__(self):
-        return "LITERAL {}".format(self.val)
+        return f"LITERAL {self.val}"
 
 
 class ExpressionList(Expression):
@@ -400,7 +400,7 @@ class ExpressionList(Expression):
         self.expressions = expressions
 
     def __repr__(self):
-        return "List [{}]".format(self.expressions)
+        return f"List [{self.expressions}]"
 
 
 class NamedExpressionList(Expression):
@@ -411,7 +411,7 @@ class NamedExpressionList(Expression):
         self.expressions = expressions
 
     def __repr__(self):
-        return "NamedList [{}]".format(self.expressions)
+        return f"NamedList [{self.expressions}]"
 
 
 class FunctionCall(Expression):
@@ -423,7 +423,7 @@ class FunctionCall(Expression):
         self.args = args
 
     def __repr__(self):
-        return "CALL {0} ".format(self.proc)
+        return f"CALL {self.proc} "
 
 
 # Statements

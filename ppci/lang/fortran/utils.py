@@ -37,7 +37,7 @@ class Visitor:
             for c in node.clist:
                 self.visit(c)
         else:
-            raise NotImplementedError("VISIT:{} {}".format(node, type(node)))
+            raise NotImplementedError(f"VISIT:{node} {type(node)}")
 
 
 class Printer(Visitor):

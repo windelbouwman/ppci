@@ -99,11 +99,11 @@ class WhitespaceParser:
             elif self.has_consumed("\n"):
                 return self.parse_io()
             else:
-                self.error("Expected  , \t or \n but got {}".format(self.peak))
+                self.error(f"Expected  , \t or \n but got {self.peak}")
         elif self.has_consumed("\n"):
             return self.parse_flow_control()
         else:
-            self.error("Expected  , \t or \n but got {}".format(self.peak))
+            self.error(f"Expected  , \t or \n but got {self.peak}")
 
     def parse_stack_manipulation(self):
         if self.has_consumed(" "):
@@ -198,7 +198,7 @@ class Push:
         self.value = value
 
     def __repr__(self):
-        return "Push({})".format(self.value)
+        return f"Push({self.value})"
 
     def execute(self, context):
         context.stack.append(self.value)

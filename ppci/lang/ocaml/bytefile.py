@@ -51,7 +51,7 @@ class ByteCodeReader:
         magic = self.reader.read_bytes(magic_len)
         magic = magic.decode("ascii")
         if magic != self.MAGIC_V023:
-            raise ValueError("Unexpected magic value {}".format(magic))
+            raise ValueError(f"Unexpected magic value {magic}")
         return num_sections
 
     def read_section_descriptions(self, num_sections):

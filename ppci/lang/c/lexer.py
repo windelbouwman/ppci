@@ -15,7 +15,7 @@ class SourceFile:
         self.row = 1
 
     def __repr__(self):
-        return "<SourceFile at {}:{}>".format(self.filename, self.row)
+        return f"<SourceFile at {self.filename}:{self.row}>"
 
 
 tri_map = {

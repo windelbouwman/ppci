@@ -89,7 +89,7 @@ class CmoReader:
         magic = self.reader.read_bytes(magic_len)
         magic = magic.decode("ascii")
         if magic != self.MAGIC_V023:
-            raise ValueError("Unexpected magic value {}".format(magic))
+            raise ValueError(f"Unexpected magic value {magic}")
 
     def read_value(self, typ):
         """Read arbitrary ocaml object.

@@ -61,7 +61,7 @@ class SourceLocation:
         if filename is None:
             filename = self.filename
         if filename:
-            print('File : "{}"'.format(filename), file=file)
+            print(f'File : "{filename}"', file=file)
 
         print_message(
             lines, self.row, self.col, self.length, message, file=file
@@ -86,7 +86,7 @@ def print_message(
         # Render source line:
         if r in range(len(lines)):
             txt = lines[r - 1]
-            print("{:5} :{}".format(r, txt), file=file)
+            print(f"{r:5} :{txt}", file=file)
 
         # print source line containing error:
         if r == row:

@@ -11,9 +11,7 @@ class Grammar:
         self.start_symbol = None
 
     def __repr__(self):
-        return "Grammar with {} rules and {} terminals".format(
-            len(self.productions), len(self.terminals)
-        )
+        return f"Grammar with {len(self.productions)} rules and {len(self.terminals)} terminals"
 
     def add_terminals(self, terminals):
         """Add all terminals to terminals for this grammar"""
@@ -24,7 +22,7 @@ class Grammar:
         """Add a terminal name"""
         if name in self.nonterminals:
             raise ParserGenerationException(
-                "Cannot redefine non-terminal {0} as terminal".format(name)
+                f"Cannot redefine non-terminal {name} as terminal"
             )
         self.terminals.add(name)
 
@@ -33,9 +31,7 @@ class Grammar:
         production = Production(name, symbols, semantics, priority=priority)
         self.productions.append(production)
         if name in self.terminals:
-            raise ParserGenerationException(
-                "Cannot redefine terminal {0}".format(name)
-            )
+            raise ParserGenerationException(f"Cannot redefine terminal {name}")
         self.nonterminals.add(name)
 
     def dump(self):
@@ -141,7 +137,7 @@ class Grammar:
             for symbol in production.symbols:
                 if symbol not in self.symbols:
                     raise ParserGenerationException(
-                        "Symbol {0} undefined".format(symbol)
+                        f"Symbol {symbol} undefined"
                     )
 
 
@@ -159,7 +155,7 @@ class Production:
         self.priority = priority
 
     def __repr__(self):
-        return "{} -> {} P_{}".format(self.name, self.symbols, self.priority)
+        return f"{self.name} -> {self.symbols} P_{self.priority}"
 
     @property
     def is_epsilon(self):

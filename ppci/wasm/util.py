@@ -95,10 +95,10 @@ class SlugTable:
                 return chr(item)
             else:
                 # Format the character as A + the hex code point value
-                return "A{:02X}".format(item)
+                return f"A{item:02X}"
         else:
             # Format the character as U + the hex code point value
-            return "U{:04X}".format(item)
+            return f"U{item:04X}"
 
 
 def sanitize_name(name: str):

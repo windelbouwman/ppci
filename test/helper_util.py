@@ -160,13 +160,13 @@ def qemu(args):
     ser_port = qemu_serial_serve.getsockname()[1]
     qemu_serial_serve.listen(1)
 
-    logger.debug("Listening on {} for data".format(ser_port))
+    logger.debug(f"Listening on {ser_port} for data")
 
     args = args + [
         "-monitor",
-        "tcp:localhost:{}".format(ctrl_port),
+        f"tcp:localhost:{ctrl_port}",
         "-serial",
-        "tcp:localhost:{}".format(ser_port),
+        f"tcp:localhost:{ser_port}",
         "-S",
     ]
     logger.debug("Starting qemu like this: %s", args)
@@ -202,7 +202,7 @@ def qemu(args):
             logger.warning("Timeout on socket")
             break
     data = data.decode("ascii", errors="ignore")
-    logger.debug("Received {} characters".format(len(data)))
+    logger.debug(f"Received {len(data)} characters")
     # print('data', data)
 
     # Send quit command:
@@ -285,7 +285,7 @@ def run_msp430(pmem):
             "-c",
             "args.f",
             "-D",
-            'MEM_FILENAME="{}"'.format(pmem),
+            f'MEM_FILENAME="{pmem}"',
             "-D",
             "SEED=123",
         ]
@@ -332,7 +332,7 @@ def run_picorv32(pmem):
             "-c",
             "args.f",
             "-D",
-            'MEM_FILENAME="{}"'.format(pmem),
+            f'MEM_FILENAME="{pmem}"',
         ]
         print(cmd)
         subprocess.check_call(cmd, cwd=workdir)
@@ -376,18 +376,18 @@ def run_avr(hexfile):
 def gnu_assemble(source, as_args=(), prefix="arm-none-eabi-"):
     """Helper function to feed source through gnu assembling tools"""
     prefix = "arm-none-eabi-"
-    gas = "{}as".format(prefix)
+    gas = f"{prefix}as"
     objdump = prefix + "objdump"
     print("assembling...")
     p_as = subprocess.Popen([gas] + list(as_args), stdin=subprocess.PIPE)
     p_as.communicate(input=source.encode("ascii"))
     if p_as.returncode != 0:
-        raise Exception("{}".format(p_as.returncode))
+        raise Exception(f"{p_as.returncode}")
 
     p_objdump = subprocess.Popen([objdump, "-d"], stdout=subprocess.PIPE)
     output = p_objdump.communicate()[0].decode("ascii")
     if p_objdump.returncode != 0:
-        raise Exception("{}".format(p_objdump.returncode))
+        raise Exception(f"{p_objdump.returncode}")
     print(output)
 
     p_objdump = subprocess.Popen(
@@ -395,6 +395,6 @@ def gnu_assemble(source, as_args=(), prefix="arm-none-eabi-"):
     )
     output = p_objdump.communicate()[0].decode("ascii")
     if p_objdump.returncode != 0:
-        raise Exception("{}".format(p_objdump.returncode))
+        raise Exception(f"{p_objdump.returncode}")
     print(output)
     return output

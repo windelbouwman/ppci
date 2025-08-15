@@ -87,7 +87,7 @@ class Builder:
         """Create a new block and add it to the current function"""
         assert self.function is not None
         if name is None:
-            name = "{}_block{}".format(self.function.name, self.block_number)
+            name = f"{self.function.name}_block{self.block_number}"
             self.block_number += 1
         block = ir.Block(name)
         self.function.add_block(block)

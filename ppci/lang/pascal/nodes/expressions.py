@@ -33,7 +33,7 @@ class Deref(Expression):
         self.ptr = ptr
 
     def __repr__(self):
-        return "DEREF {}".format(self.ptr)
+        return f"DEREF {self.ptr}"
 
 
 class TypeCast(Expression):
@@ -45,7 +45,7 @@ class TypeCast(Expression):
         self.a = x
 
     def __repr__(self):
-        return "TYPECAST {}".format(self.to_type)
+        return f"TYPECAST {self.to_type}"
 
 
 class Member(Expression):
@@ -59,7 +59,7 @@ class Member(Expression):
         self.field = field
 
     def __repr__(self):
-        return "{}.{}".format(self.base, self.field)
+        return f"{self.base}.{self.field}"
 
 
 class Index(Expression):
@@ -71,7 +71,7 @@ class Index(Expression):
         self.index = index
 
     def __repr__(self):
-        return "Index {}".format(self.index)
+        return f"Index {self.index}"
 
 
 class VariableAccess(Expression):
@@ -82,7 +82,7 @@ class VariableAccess(Expression):
         self.variable = variable
 
     def __repr__(self):
-        return "Read from {}".format(self.variable)
+        return f"Read from {self.variable}"
 
 
 class Unop(Expression):
@@ -103,7 +103,7 @@ class Unop(Expression):
         self.op = op
 
     def __repr__(self):
-        return "UNOP {}".format(self.op)
+        return f"UNOP {self.op}"
 
     @property
     def is_bool(self):
@@ -144,7 +144,7 @@ class Binop(Expression):
         self.op = op  # Operation: '+', '-', '*', '/', 'mod'
 
     def __repr__(self):
-        return "BINOP {}".format(self.op)
+        return f"BINOP {self.op}"
 
     @property
     def is_bool(self):
@@ -160,7 +160,7 @@ class Literal(Expression):
         self.val = val
 
     def __repr__(self):
-        return "LITERAL {}".format(self.val)
+        return f"LITERAL {self.val}"
 
 
 class ExpressionList(Expression):
@@ -171,7 +171,7 @@ class ExpressionList(Expression):
         self.expressions = expressions
 
     def __repr__(self):
-        return "List [{}]".format(self.expressions)
+        return f"List [{self.expressions}]"
 
 
 class NamedExpressionList(Expression):
@@ -182,7 +182,7 @@ class NamedExpressionList(Expression):
         self.expressions = expressions
 
     def __repr__(self):
-        return "NamedList [{}]".format(self.expressions)
+        return f"NamedList [{self.expressions}]"
 
 
 class FunctionCall(Expression):
@@ -194,7 +194,7 @@ class FunctionCall(Expression):
         self.args = args
 
     def __repr__(self):
-        return "function-call {0} ".format(self.callee)
+        return f"function-call {self.callee} "
 
 
 class BuiltInFunctionCall(Expression):

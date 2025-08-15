@@ -238,7 +238,7 @@ class TextWriter:
         if a0 == "emptyblock":
             subtext = ""
         else:
-            subtext = " (result {})".format(a0)
+            subtext = f" (result {a0})"
         return opcode + idtext + subtext
 
     def _get_sub_string(self, subs, multiline=False):

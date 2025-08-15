@@ -14,7 +14,7 @@ class CfgInfo:
         self._calculate_df()
 
     def __repr__(self):
-        return "CfgInfo(function={})".format(self.function)
+        return f"CfgInfo(function={self.function})"
 
     def get_node(self, block):
         return self._block_map[block]

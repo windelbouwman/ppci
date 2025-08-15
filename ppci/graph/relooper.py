@@ -198,9 +198,7 @@ class StructureDetector:
             if len(reachable_outside_loop) != 1:
                 reachables = ", ".join(map(str, reachable_outside_loop))
                 raise ValueError(
-                    "Loop followed by more then one node: {}".format(
-                        reachables
-                    )
+                    f"Loop followed by more then one node: {reachables}"
                 )
             return list(reachable_outside_loop)[0]
 
@@ -231,7 +229,7 @@ class BreakShape(Shape):
         self.level = level
 
     def __repr__(self):
-        return "Break-shape {}".format(self.level)
+        return f"Break-shape {self.level}"
 
 
 class ContinueShape(Shape):
@@ -240,7 +238,7 @@ class ContinueShape(Shape):
         self.level = level
 
     def __repr__(self):
-        return "Continue-shape {}".format(self.level)
+        return f"Continue-shape {self.level}"
 
 
 class SequenceShape(Shape):
@@ -249,7 +247,7 @@ class SequenceShape(Shape):
         self.shapes = shapes
 
     def __repr__(self):
-        return "Sequence of {}".format(len(self.shapes))
+        return f"Sequence of {len(self.shapes)}"
 
 
 class LoopShape(Shape):

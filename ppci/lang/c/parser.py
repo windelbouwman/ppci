@@ -266,9 +266,7 @@ class CParser(RecursiveDescentParser):
         if type_specifiers:
             if typ:
                 self.error(
-                    "Type specifiers {} given in addition to type '{}'".format(
-                        type_specifiers, type_to_str(typ)
-                    ),
+                    f"Type specifiers {type_specifiers} given in addition to type '{type_to_str(typ)}'",
                     location,
                 )
             else:
@@ -296,7 +294,7 @@ class CParser(RecursiveDescentParser):
         else:
             # print(self.typedefs)
             self.error(
-                'Expected tag name or "{{", but got {}'.format(self.peek),
+                f'Expected tag name or "{{", but got {self.peek}',
                 keyword.loc,
             )
 
@@ -362,9 +360,7 @@ class CParser(RecursiveDescentParser):
             tag = None
         else:
             self.error(
-                "Expected tag name or enum declaration, but got {}".format(
-                    self.peek
-                ),
+                f"Expected tag name or enum declaration, but got {self.peek}",
                 keyword.loc,
             )
 
@@ -1260,9 +1256,7 @@ class DeclSpec:
         self.typ = typ  # The later determined type!
 
     def __repr__(self):
-        return "[decl-spec storage={}, type={}]".format(
-            self.storage_class, self.typ
-        )
+        return f"[decl-spec storage={self.storage_class}, type={self.typ}]"
 
 
 class Declarator:

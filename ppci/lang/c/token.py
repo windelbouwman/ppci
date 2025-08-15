@@ -13,9 +13,7 @@ class CToken(Token):
         # self.hideset = set()
 
     def __repr__(self):
-        return 'CToken({}, {}, {}, "{}", {})'.format(
-            self.typ, self.val, self.first, self.space, self.loc
-        )
+        return f'CToken({self.typ}, {self.val}, {self.first}, "{self.space}", {self.loc})'
 
     def __str__(self):
         return self.space + self.val

@@ -37,8 +37,8 @@ class IntegerSet:
         self.ranges = ranges
 
     def __repr__(self):
-        inner = ",".join("{}..{}".format(a, b) for a, b in self.ranges)
-        return "{{{}}}".format(inner)
+        inner = ",".join(f"{a}..{b}" for a, b in self.ranges)
+        return f"{{{inner}}}"
 
     def __len__(self):
         return self.cardinality()

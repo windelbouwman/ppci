@@ -69,7 +69,7 @@ class TypeChecker:
 
         # Check for recursion:
         if typ in self.got_types:
-            raise SemanticError("Recursive data type {}".format(typ), None)
+            raise SemanticError(f"Recursive data type {typ}", None)
 
         if isinstance(typ, ast.BaseType):
             pass
@@ -91,7 +91,7 @@ class TypeChecker:
         elif isinstance(typ, ast.DefinedType):
             pass
         else:  # pragma: no cover
-            raise NotImplementedError("{} not implemented".format(type(typ)))
+            raise NotImplementedError(f"{type(typ)} not implemented")
 
     def check_variable(self, var):
         """Check a variable and especially its initial value"""
@@ -110,9 +110,7 @@ class TypeChecker:
             size = self.context.eval_const(typ.size)
             if len(ival.expressions) != size:
                 raise SemanticError(
-                    "{} initial values given, expected {}".format(
-                        len(ival.expressions), size
-                    ),
+                    f"{len(ival.expressions)} initial values given, expected {size}",
                     ival.loc,
                 )
             new_expressions = []
@@ -271,15 +269,13 @@ class TypeChecker:
         # Check that the left hand side is a simple type:
         if not self.context.is_simple_type(code.lval.typ):
             raise SemanticError(
-                "Cannot assign to complex type {}".format(code.lval.typ),
+                f"Cannot assign to complex type {code.lval.typ}",
                 code.location,
             )
 
         # Check that left hand is an lvalue:
         if not code.lval.lvalue:
-            raise SemanticError(
-                "No valid lvalue {}".format(code.lval), code.lval.loc
-            )
+            raise SemanticError(f"No valid lvalue {code.lval}", code.lval.loc)
 
         # Evaluate right hand side (and make it rightly typed):
         self.check_expr(code.rval, rvalue=True)
@@ -300,7 +296,7 @@ class TypeChecker:
                 expr.a = self.do_coerce(expr.a, common_type)
                 expr.b = self.do_coerce(expr.b, common_type)
             else:
-                raise SemanticError("non-bool: {}".format(expr.op), expr.loc)
+                raise SemanticError(f"non-bool: {expr.op}", expr.loc)
             expr.typ = self.context.get_type("bool")
         elif isinstance(expr, ast.Literal):
             self.check_expr(expr)
@@ -389,7 +385,7 @@ class TypeChecker:
 
         ptr_typ = self.context.get_type(expr.ptr.typ)
         if not isinstance(ptr_typ, ast.PointerType):
-            raise SemanticError("Cannot deref {}".format(ptr_typ), expr.loc)
+            raise SemanticError(f"Cannot deref {ptr_typ}", expr.loc)
         expr.typ = ptr_typ.ptype
 
     def check_unop(self, expr):
@@ -443,9 +439,7 @@ class TypeChecker:
             expr.lvalue = False
             expr.typ = target.typ
         else:
-            raise SemanticError(
-                "Cannot use {} in expression".format(target), expr.loc
-            )
+            raise SemanticError(f"Cannot use {target} in expression", expr.loc)
 
     def check_member_expr(self, expr):
         """Check expressions such as struc.mem"""
@@ -471,16 +465,12 @@ class TypeChecker:
                 expr.typ = basetype.field_type(expr.field)
             else:
                 raise SemanticError(
-                    "{} does not contain field {}".format(
-                        basetype, expr.field
-                    ),
+                    f"{basetype} does not contain field {expr.field}",
                     expr.loc,
                 )
         else:
             raise SemanticError(
-                "Cannot select {} of non-structure type {}".format(
-                    expr.field, basetype
-                ),
+                f"Cannot select {expr.field} of non-structure type {basetype}",
                 expr.loc,
             )
 
@@ -505,7 +495,7 @@ class TypeChecker:
         base_typ = self.context.get_type(expr.base.typ)
         if not isinstance(base_typ, ast.ArrayType):
             raise SemanticError(
-                "Cannot index non-array type {}".format(base_typ),
+                f"Cannot index non-array type {base_typ}",
                 expr.base.loc,
             )
 
@@ -536,7 +526,7 @@ class TypeChecker:
         # Lookup the function in question:
         target_func = self.context.resolve_symbol(expr.proc)
         if not isinstance(target_func, ast.Function):
-            raise SemanticError("cannot call {}".format(target_func), expr.loc)
+            raise SemanticError(f"cannot call {target_func}", expr.loc)
         ftyp = target_func.typ
         fname = target_func.package.name + "_" + target_func.name
 
@@ -544,9 +534,7 @@ class TypeChecker:
         ptypes = ftyp.parametertypes
         if len(expr.args) != len(ptypes):
             raise SemanticError(
-                "{} requires {} arguments, {} given".format(
-                    fname, len(ptypes), len(expr.args)
-                ),
+                f"{fname} requires {len(ptypes)} arguments, {len(expr.args)} given",
                 expr.loc,
             )
 
@@ -651,7 +639,7 @@ class TypeChecker:
             auto_cast = True
         else:
             raise SemanticError(
-                "Cannot use '{}' as '{}'".format(from_type, to_type), expr.loc
+                f"Cannot use '{from_type}' as '{to_type}'", expr.loc
             )
         if auto_cast:
             expr = ast.TypeCast(typ, expr, expr.loc)

@@ -36,7 +36,7 @@ class TmpValue:
         self.typ = typ
 
     def __repr__(self):
-        return "TMP[0x{:X} {} {}]".format(self.value, self.lval, self.typ)
+        return f"TMP[0x{self.value:X} {self.lval} {self.typ}]"
 
 
 class Debugger:
@@ -62,7 +62,7 @@ class Debugger:
         self.addr_map = {}
 
     def __repr__(self):
-        return "Debugger for {} using {}".format(self.arch, self.driver)
+        return f"Debugger for {self.arch} using {self.driver}"
 
     # Start stop parts:
     def run(self):
@@ -241,7 +241,7 @@ class Debugger:
         raise NotImplementedError()
 
     def set_register(self, register, value):
-        self.logger.info("Setting register {} to {}".format(register, value))
+        self.logger.info(f"Setting register {register} to {value}")
         # TODO!
 
     # Memory:
@@ -295,14 +295,14 @@ class Debugger:
             if isinstance(expr.val, int):
                 val = TmpValue(expr.val, False, int_type)
             else:
-                raise CompilerError("Cannot use {}".format(expr))
+                raise CompilerError(f"Cannot use {expr}")
         elif isinstance(expr, c3nodes.Binop):
             a = self.eval_c3_expr(expr.a)
             b = self.eval_c3_expr(expr.b)
             if not isinstance(a.typ, DebugBaseType):
-                raise CompilerError("{} of wrong type".format(a))
+                raise CompilerError(f"{a} of wrong type")
             if not isinstance(b.typ, DebugBaseType):
-                raise CompilerError("{} of wrong type".format(b))
+                raise CompilerError(f"{b} of wrong type")
             opmp = {
                 "+": operator.add,
                 "-": operator.sub,
@@ -315,25 +315,23 @@ class Debugger:
         elif isinstance(expr, c3nodes.Index):
             index = self.eval_c3_expr(expr.i)
             if not isinstance(index.typ, DebugBaseType):
-                raise CompilerError("{} of wrong type".format(index))
+                raise CompilerError(f"{index} of wrong type")
             base = self.eval_c3_expr(expr.base, rval=False)
             if not base.lval:
-                raise CompilerError("{} is no location".format(base))
+                raise CompilerError(f"{base} is no location")
             if not isinstance(base.typ, DebugArrayType):
-                raise CompilerError("{} is no array".format(base))
+                raise CompilerError(f"{base} is no array")
             element_size = self.sizeof(base.typ.element_type)
             addr = base.value + index.value * element_size
             val = TmpValue(addr, True, base.typ.element_type)
         elif isinstance(expr, c3nodes.Member):
             base = self.eval_c3_expr(expr.base, rval=False)
             if not base.lval:
-                raise CompilerError("{} is no location".format(base))
+                raise CompilerError(f"{base} is no location")
             if not isinstance(base.typ, DebugStructType):
-                raise CompilerError("{} is no struct".format(base))
+                raise CompilerError(f"{base} is no struct")
             if not base.typ.has_field(expr.field):
-                raise CompilerError(
-                    "{} has no member {}".format(base, expr.field)
-                )
+                raise CompilerError(f"{base} has no member {expr.field}")
             field = base.typ.get_field(expr.field)
             addr = base.value + field[2]
             val = TmpValue(addr, True, field[1])
@@ -341,22 +339,20 @@ class Debugger:
             ptr = self.eval_c3_expr(expr.ptr)
             if not isinstance(ptr.typ, DebugPointerType):
                 raise CompilerError(
-                    "Cannot dereference non-pointer type {}".format(ptr)
+                    f"Cannot dereference non-pointer type {ptr}"
                 )
             val = TmpValue(ptr.value, True, ptr.typ.pointed_type)
         elif isinstance(expr, c3nodes.Unop):
             if expr.op == "&":
                 rhs = self.eval_c3_expr(expr.a, rval=False)
                 if not rhs.lval:
-                    raise CompilerError(
-                        "Cannot take address of {}".format(expr.a)
-                    )
+                    raise CompilerError(f"Cannot take address of {expr.a}")
                 typ = DebugPointerType(rhs.typ)
                 val = TmpValue(rhs.value, False, typ)
             elif expr.op in ["+", "-"]:
                 rhs = self.eval_c3_expr(expr.a)
                 if not isinstance(rhs.typ, (DebugBaseType, DebugPointerType)):
-                    raise CompilerError("{} of wrong type".format(rhs))
+                    raise CompilerError(f"{rhs} of wrong type")
                 opmp = {"-": operator.neg, "+": operator.pos}
                 v = opmp[expr.op](rhs.value)
                 val = TmpValue(v, False, rhs.typ)
@@ -375,11 +371,9 @@ class Debugger:
                 addr = self.calc_address(var.address)
                 val = TmpValue(addr, True, var.typ)
             else:
-                raise CompilerError("Cannot evaluate {}".format(expr), None)
+                raise CompilerError(f"Cannot evaluate {expr}", None)
         else:  # pragma: no cover
-            raise NotImplementedError(
-                "Cannot evaluate constant {}".format(expr), None
-            )
+            raise NotImplementedError(f"Cannot evaluate constant {expr}", None)
         if rval and val.lval:
             # Load variable now!
             loaded_val = self.load_value(val.value, val.typ)
@@ -390,7 +384,7 @@ class Debugger:
         """Load specific type from an address"""
         # Load variable now!
         if not isinstance(typ, (DebugBaseType, DebugPointerType)):
-            raise CompilerError("Cannot load {}".format(typ))
+            raise CompilerError(f"Cannot load {typ}")
         if isinstance(typ, DebugBaseType):
             size = typ.size
         else:

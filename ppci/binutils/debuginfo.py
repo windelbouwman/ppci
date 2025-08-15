@@ -25,7 +25,7 @@ class DebugDb:
     def new_label(self):
         """Create a new label name that is unique"""
         self.label_nr += 1
-        return ".LDBG_{}".format(self.label_nr)
+        return f".LDBG_{self.label_nr}"
 
     def enter(self, src, info):
         """Register debug info as a result of something"""
@@ -124,7 +124,7 @@ class DebugType:
         pass
 
     def __repr__(self):
-        return "DBGTYP[ {} ]".format(type(self))
+        return f"DBGTYP[ {type(self)} ]"
 
     def sizeof(self):
         """Determine the size of a debug type"""
@@ -186,7 +186,7 @@ class DebugPointerType(DebugType):
         self.pointed_type = pointed_type
 
     def __repr__(self):
-        return "*{}".format(self.pointed_type)
+        return f"*{self.pointed_type}"
 
 
 class DebugArrayType(DebugType):
@@ -198,7 +198,7 @@ class DebugArrayType(DebugType):
         self.size = size
 
     def __repr__(self):
-        return "{}[{}]".format(self.element_type, self.size)
+        return f"{self.element_type}[{self.size}]"
 
     def sizeof(self):
         """Determine the size of a debug type"""
@@ -229,9 +229,7 @@ class DebugFunction(DebugBaseInfo):
         self.variables = list(variables)
 
     def __repr__(self):
-        return "DBGFNC[ {} {} begin={}, end={} ]".format(
-            self.name, self.loc, self.begin, self.end
-        )
+        return f"DBGFNC[ {self.name} {self.loc} begin={self.begin}, end={self.end} ]"
 
     def add_variable(self, variable):
         self.variables.append(variable)
@@ -252,7 +250,7 @@ class FpOffsetAddress:
         self.offset = offset
 
     def __repr__(self):
-        return "@(FP + {})".format(self.offset)
+        return f"@(FP + {self.offset})"
 
 
 class UnknownAddress:
@@ -278,7 +276,7 @@ class DebugLocation(DebugBaseInfo):
         self.address = address
 
     def __repr__(self):
-        return "DBGLOC[ {} addr={} ]".format(self.loc, self.address)
+        return f"DBGLOC[ {self.loc} addr={self.address} ]"
 
 
 class DebugVariable(DebugBaseInfo):
@@ -296,7 +294,7 @@ class DebugVariable(DebugBaseInfo):
         self.address = address
 
     def __repr__(self):
-        return "DBGVAR[ {} {} {} ]".format(self.name, self.typ, self.address)
+        return f"DBGVAR[ {self.name} {self.typ} {self.address} ]"
 
 
 class DebugParameter(DebugBaseInfo):
@@ -307,7 +305,7 @@ class DebugParameter(DebugBaseInfo):
         self.typ = typ
 
     def __repr__(self):
-        return "DBGPARAM[ {} {} ]".format(self.name, self.typ)
+        return f"DBGPARAM[ {self.name} {self.typ} ]"
 
 
 def serialize(debug_info):

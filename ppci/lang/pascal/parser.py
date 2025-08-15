@@ -43,9 +43,7 @@ class Parser(RecursiveDescentParser):
     def add_symbol(self, sym):
         """Add a symbol to the current scope"""
         if self.current_scope.has_symbol(sym.name, include_parent=False):
-            self.error(
-                "Redefinition of {0}".format(sym.name), loc=sym.location
-            )
+            self.error(f"Redefinition of {sym.name}", loc=sym.location)
         else:
             self.current_scope.add_symbol(sym)
 
@@ -162,7 +160,7 @@ class Parser(RecursiveDescentParser):
             symbol = self.current_scope.get_symbol(name.val)
             return symbol, name.loc
         else:
-            self.error("Unknown identifier {}".format(name.val), name.loc)
+            self.error(f"Unknown identifier {name.val}", name.loc)
 
     def parse_id_sequence(self):
         """Parse one or more identifiers seperated by ','"""
@@ -871,9 +869,7 @@ class Parser(RecursiveDescentParser):
         self.consume(")")
         if len(expressions) != len(parameter_types):
             self.error(
-                "Expected {} parameters, got {}".format(
-                    len(parameter_types), len(expressions)
-                ),
+                f"Expected {len(parameter_types)} parameters, got {len(expressions)}",
                 loc=location,
             )
         parameters = [
@@ -919,7 +915,7 @@ class Parser(RecursiveDescentParser):
             ),
         ):
             self.error(
-                "Expected a variable here, got: {}".format(symbol),
+                f"Expected a variable here, got: {symbol}",
                 loc=location,
             )
 
@@ -934,7 +930,7 @@ class Parser(RecursiveDescentParser):
                 for index in indici:
                     if not lhs.typ.is_array:
                         self.error(
-                            "Expected array type, got: {}".format(lhs.typ),
+                            f"Expected array type, got: {lhs.typ}",
                             loc=location,
                         )
                     array_typ = lhs.typ
@@ -951,7 +947,7 @@ class Parser(RecursiveDescentParser):
                 location = self.consume(".").loc
                 if not lhs.typ.is_record:
                     self.error(
-                        "Expected record type, got: {}".format(lhs.typ),
+                        f"Expected record type, got: {lhs.typ}",
                         loc=location,
                     )
                 field_name = self.parse_id().val
@@ -961,14 +957,12 @@ class Parser(RecursiveDescentParser):
                         lhs, field_name, field.typ, location
                     )
                 else:
-                    self.error(
-                        "No such field {}".format(field_name), loc=location
-                    )
+                    self.error(f"No such field {field_name}", loc=location)
             elif self.peek == "^":
                 location = self.consume("^").loc
                 if not lhs.typ.is_pointer:
                     self.error(
-                        "Expected pointer type, got {}".format(lhs.typ),
+                        f"Expected pointer type, got {lhs.typ}",
                         loc=location,
                     )
                 typ = lhs.typ.ptype
@@ -1124,9 +1118,7 @@ class Parser(RecursiveDescentParser):
             expr = expressions.Literal(elements, typ, location)
         else:
             self.error(
-                "Expected number, identifier or (expr), got {0}".format(
-                    self.peek
-                )
+                f"Expected number, identifier or (expr), got {self.peek}"
             )
         return expr
 
@@ -1309,9 +1301,7 @@ class Parser(RecursiveDescentParser):
                 expr, [], from_type.return_type, expr.location
             )
         else:
-            self.error(
-                "Cannot use '{}' as '{}'".format(from_type, to_type), loc=loc
-            )
+            self.error(f"Cannot use '{from_type}' as '{to_type}'", loc=loc)
 
         # Perform the coercion:
         if auto_cast:

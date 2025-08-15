@@ -58,7 +58,7 @@ class CompilerError(Exception):
 
     def render(self, lines):
         """Render this error in some lines of context"""
-        self.loc.print_message("Error: {0}".format(self.msg), lines=lines)
+        self.loc.print_message(f"Error: {self.msg}", lines=lines)
         for hint in self.hints:
             print(hint)
 
@@ -110,7 +110,7 @@ class DiagnosticsManager:
     def print_errors(self):
         """Print all errors reported"""
         if len(self.diags) > 0:
-            print("{0} Errors".format(len(self.diags)))
+            print(f"{len(self.diags)} Errors")
             for d in self.diags:
                 self.print_error(d)
 
@@ -125,13 +125,13 @@ class DiagnosticsManager:
         print("==============")
         if e.loc:
             if e.loc.filename not in self.sources:
-                print("Error: {0}".format(e))
+                print(f"Error: {e}")
                 return
             print("File: {}".format(e.loc.filename))
             source = self.sources[e.loc.filename]
             lines = source.split("\n")
             e.render(lines)
         else:
-            print("Error: {0}".format(e))
+            print(f"Error: {e}")
 
         print("==============")

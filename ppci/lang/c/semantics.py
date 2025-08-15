@@ -258,7 +258,7 @@ class CSemantics:
         if typ.has_field(field_name):
             init_cursor.select_field(field_name, location)
         else:
-            self.error("No such field {}".format(field_name), location)
+            self.error(f"No such field {field_name}", location)
 
     # Declarations:
     def on_typedef(self, typ, name, modifiers, location):
@@ -336,11 +336,7 @@ class CSemantics:
 
         # Prevent change of static-ness after first declaration
         if is_static and not was_static:
-            message = (
-                "Invalid redefine of storage class. Was {}, but now {}".format(
-                    prev_storage_class, new_storage_class
-                )
-            )
+            message = f"Invalid redefine of storage class. Was {prev_storage_class}, but now {new_storage_class}"
             self.invalid_redeclaration(sym, declaration, message)
 
         # update current declarations storage class
@@ -427,9 +423,7 @@ class CSemantics:
             # Bit fields must be of integer type:
             if not ctyp.is_integer:
                 self.error(
-                    "Invalid type ({}) for bit-field".format(
-                        type_to_str(ctyp)
-                    ),
+                    f"Invalid type ({type_to_str(ctyp)}) for bit-field",
                     location,
                 )
 
@@ -624,9 +618,7 @@ class CSemantics:
                 )
             else:
                 raise NotImplementedError(
-                    "Inline asm constraint not implemented: {}".format(
-                        constraint
-                    )
+                    f"Inline asm constraint not implemented: {constraint}"
                 )
             input_operands2.append((constraint, asm_input_expr))
 
@@ -639,9 +631,7 @@ class CSemantics:
                 clobbers2.append(clobber_register)
             else:
                 self.error(
-                    "target machine does not have register {}".format(
-                        clobber_register_name
-                    ),
+                    f"target machine does not have register {clobber_register_name}",
                     location,
                 )
 
@@ -691,7 +681,7 @@ class CSemantics:
         max_value = self.context.limit_max(typ)
         if value > max_value:
             self.error(
-                "Integer value too big for type ({})".format(max_value),
+                f"Integer value too big for type ({max_value})",
                 location,
             )
         return expressions.NumericLiteral(value, typ, location)
@@ -801,9 +791,7 @@ class CSemantics:
                     ):
                         self.error(
                             "Operands must point to compatible types,"
-                            " got {} and {}".format(
-                                type_to_str(lhs.typ), type_to_str(rhs.typ)
-                            ),
+                            f" got {type_to_str(lhs.typ)} and {type_to_str(rhs.typ)}",
                             location,
                         )
 
@@ -889,7 +877,7 @@ class CSemantics:
             a = self.pointer(a)
             if not a.typ.is_pointer:
                 self.error(
-                    "Cannot dereference type {}".format(type_to_str(a.typ)),
+                    f"Cannot dereference type {type_to_str(a.typ)}",
                     a.location,
                 )
             a = self.ensure_no_void_ptr(a)
@@ -945,7 +933,7 @@ class CSemantics:
 
         if not isinstance(base.typ, types.IndexableType):
             self.error(
-                "Cannot index non array type {}".format(type_to_str(base.typ)),
+                f"Cannot index non array type {type_to_str(base.typ)}",
                 location,
             )
 
@@ -964,14 +952,10 @@ class CSemantics:
             ):
                 lhs = expr_to_str(base)
                 hints.append(
-                    'Did you mean "{0}->{1}" instead of "{0}.{1}"?'.format(
-                        lhs, field_name
-                    )
+                    f'Did you mean "{lhs}->{field_name}" instead of "{lhs}.{field_name}"?'
                 )
             self.error(
-                "Selecting a field of non-struct type ({})".format(
-                    type_to_str(base.typ)
-                ),
+                f"Selecting a field of non-struct type ({type_to_str(base.typ)})",
                 location,
                 hints=hints,
             )
@@ -982,9 +966,9 @@ class CSemantics:
 
         if not self.context.has_field(base.typ, field_name):
             valid_field_names = base.typ.get_field_names()
-            hint = "This type has those fields: {}".format(valid_field_names)
+            hint = f"This type has those fields: {valid_field_names}"
             self.error(
-                "Field {} not part of struct".format(field_name),
+                f"Field {field_name} not part of struct",
                 location,
                 hints=[hint],
             )
@@ -1028,15 +1012,13 @@ class CSemantics:
 
         # Test if member is a member of the given type now?
         if not self.context.has_field(typ, member_name):
-            self.error("Cannot find member {}".format(member_name), location)
+            self.error(f"Cannot find member {member_name}", location)
 
         # Test if field is a bitfield:
         field = self.context.get_field(typ, member_name)
         if field.is_bitfield:
             self.error(
-                'Attempt to take address of bit-field "{}"'.format(
-                    member_name
-                ),
+                f'Attempt to take address of bit-field "{member_name}"',
                 location,
             )
 
@@ -1061,17 +1043,13 @@ class CSemantics:
         if function_type.is_vararg:
             if num_given < num_expected:
                 self.error(
-                    "Expected at least {} arguments, but got {}".format(
-                        num_expected, num_given
-                    ),
+                    f"Expected at least {num_expected} arguments, but got {num_given}",
                     location,
                 )
         else:
             if num_given != num_expected:
                 self.error(
-                    "Expected {} arguments, but got {}".format(
-                        num_expected, num_given
-                    ),
+                    f"Expected {num_expected} arguments, but got {num_given}",
                     location,
                 )
 
@@ -1112,12 +1090,10 @@ class CSemantics:
             hints = []
             for suggestion in suggestions:
                 hints.append(
-                    '"{}" was not defined, did you mean "{}"?'.format(
-                        name, suggestion
-                    )
+                    f'"{name}" was not defined, did you mean "{suggestion}"?'
                 )
             self.error(
-                'Undeclared identifier: "{}"'.format(name),
+                f'Undeclared identifier: "{name}"',
                 location,
                 hints=hints,
             )
@@ -1135,7 +1111,7 @@ class CSemantics:
         elif isinstance(declaration, declarations.FunctionDeclaration):
             lvalue = False
         else:  # pragma: no cover
-            self.not_impl("Access to {}".format(declaration), location)
+            self.not_impl(f"Access to {declaration}", location)
 
         expr = expressions.VariableAccess(symbol, typ, lvalue, location)
         return expr
@@ -1175,7 +1151,7 @@ class CSemantics:
             do_cast = True
         else:
             self.error(
-                "Cannot convert {} to {}".format(from_type, to_type),
+                f"Cannot convert {from_type} to {to_type}",
                 expr.location,
             )
 
@@ -1227,9 +1203,7 @@ class CSemantics:
         """Ensure typ is of any integer type."""
         if not expr.typ.is_integer_or_enum:
             self.error(
-                "integer or enum type expected but got {}".format(
-                    type_to_str(expr.typ)
-                ),
+                f"integer or enum type expected but got {type_to_str(expr.typ)}",
                 expr.location,
             )
 
@@ -1281,9 +1255,7 @@ class CSemantics:
                 return self.basic_ranks[typ.type_id]
             else:
                 self.error(
-                    "Cannot determine type rank for '{}'".format(
-                        type_to_str(typ)
-                    ),
+                    f"Cannot determine type rank for '{type_to_str(typ)}'",
                     location,
                 )
         elif isinstance(typ, types.EnumType):
@@ -1294,7 +1266,7 @@ class CSemantics:
             return 83
         else:
             self.error(
-                "Cannot determine type rank for '{}'".format(type_to_str(typ)),
+                f"Cannot determine type rank for '{type_to_str(typ)}'",
                 location,
             )
 

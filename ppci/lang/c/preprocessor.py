@@ -97,7 +97,7 @@ class CPreProcessor:
     def special_macro_file(self, macro_token):
         """Invoked when the __FILE__ macro is expanded"""
         filename = self.files[-1].source_file.filename
-        value = '"{}"'.format(filename)
+        value = f'"{filename}"'
         return [self.make_token(macro_token, "STRING", value)]
 
     def special_macro_date(self, macro_token):
@@ -143,7 +143,7 @@ class CPreProcessor:
         """Register a macro"""
         if self.is_defined(macro.name):
             if self.get_define(macro.name).protected:
-                raise CompilerError("Cannot redefine {}".format(macro.name))
+                raise CompilerError(f"Cannot redefine {macro.name}")
         self.macros[macro.name] = macro
 
     def undefine(self, name: str):
@@ -181,10 +181,10 @@ class CPreProcessor:
         if self.files[-1].if_stack:
             hints = []
             for if_clause in self.files[-1].if_stack:
-                hints.append("This if is not terminated: {}".format(if_clause))
+                hints.append(f"This if is not terminated: {if_clause}")
             amount = len(self.files[-1].if_stack)
             self.error(
-                "{} #if/ifdef/ifndef directives not closed.".format(amount),
+                f"{amount} #if/ifdef/ifndef directives not closed.",
                 hints=hints,
                 loc=self.files[-1].if_stack[-1].location,
             )
@@ -210,9 +210,7 @@ class CPreProcessor:
                 self.logger.debug("Absolute path, not searching include paths")
                 return filename
             else:
-                self.error(
-                    "Absolute filename {} not found".format(filename), loc
-                )
+                self.error(f"Absolute filename {filename} not found", loc)
 
         # Determine search paths:
         search_directories = []
@@ -235,7 +233,7 @@ class CPreProcessor:
                     return full_path
 
         self.logger.error("File not found: %s", filename)
-        raise CompilerError("Could not find {}".format(filename), loc)
+        raise CompilerError(f"Could not find {filename}", loc)
 
     def include(
         self, filename, loc, use_current_dir=False, include_next=False
@@ -293,7 +291,7 @@ class CPreProcessor:
 
         # Check for end of file:
         if not token:
-            self.error("Expecting here: {}, but got nothing".format(typ))
+            self.error(f"Expecting here: {typ}, but got nothing")
 
         # Check certain type
         if typ:
@@ -301,13 +299,13 @@ class CPreProcessor:
                 if token.typ not in typ:
                     expected = ", ".join(typ)
                     self.error(
-                        "Expected {} but got {}".format(expected, token.typ),
+                        f"Expected {expected} but got {token.typ}",
                         loc=token.loc,
                     )
             else:
                 if token.typ != typ:
                     self.error(
-                        "Expected {} but got {}".format(typ, token.typ),
+                        f"Expected {typ} but got {token.typ}",
                         loc=token.loc,
                     )
         return token
@@ -432,10 +430,8 @@ class CPreProcessor:
             req_args = len(macro.args)
             if len(args) < req_args:
                 self.error(
-                    "Macro {} got {} arguments ({})"
-                    ", but required at least {}".format(
-                        macro.name, len(args), args, req_args
-                    )
+                    f"Macro {macro.name} got {len(args)} arguments ({args})"
+                    f", but required at least {req_args}"
                 )
 
             # Split args:
@@ -458,16 +454,12 @@ class CPreProcessor:
             if len(macro.args) > 0:
                 if len(args) != len(macro.args):
                     self.error(
-                        "Macro {} got {} arguments, but expected {}".format(
-                            macro.name, len(args), len(macro.args)
-                        )
+                        f"Macro {macro.name} got {len(args)} arguments, but expected {len(macro.args)}"
                     )
             else:
                 assert len(args) > 0
                 if args[0] or len(args) > 1:
-                    self.error(
-                        "Macro {} got unexpected arguments".format(macro.name)
-                    )
+                    self.error(f"Macro {macro.name} got unexpected arguments")
                 args = []
 
         self.normalize_space(args)
@@ -561,9 +553,7 @@ class CPreProcessor:
                     )
                 else:
                     self.error(
-                        "{} does not refer a macro argument".format(
-                            arg_name.val
-                        )
+                        f"{arg_name.val} does not refer a macro argument"
                     )
             elif token.typ == "ID" and token.val in repl_map:
                 # TODO: maybe figure out a better way for this peaking at '##'
@@ -620,7 +610,7 @@ class CPreProcessor:
         if len(tokens) == 1:
             return tokens[0].copy(space=lhs.space, first=lhs.first)
         else:
-            self.error('Invalidly glued "{}"'.format(total_text), loc=lhs.loc)
+            self.error(f'Invalidly glued "{total_text}"', loc=lhs.loc)
 
     def concatenate(self, tokens):
         """Handle the '##' token concatenation operator"""
@@ -682,7 +672,7 @@ class CPreProcessor:
                 yield from self.handle_pragma_directive(directive_token)
             else:  # pragma: no cover
                 self.error(
-                    "not implemented: {}".format(directive),
+                    f"not implemented: {directive}",
                     loc=directive_token.loc,
                 )
         self.files[-1].in_directive = False
@@ -1151,9 +1141,7 @@ class FileExpander:
         self.paren_level = 0  # Nesting of parenthesis in #if expression.
 
     def __repr__(self):
-        return "<File expander source={}, macro={}>".format(
-            self.source_file, self.macro_expansions
-        )
+        return f"<File expander source={self.source_file}, macro={self.macro_expansions}>"
 
     @property
     def peek(self):
@@ -1296,7 +1284,7 @@ class LineParser(LineEater):
                 typ = self.peak
 
         if self.peak != typ:
-            self.error("Expected {} but got {}".format(typ, self.peak))
+            self.error(f"Expected {typ} but got {self.peak}")
 
         return self.next_token()
 
@@ -1316,7 +1304,7 @@ class IfState:
         self.in_else = False  # Indicator whether we are in the else clause.
 
     def __str__(self):
-        return "If-state(loc={})".format(self.location)
+        return f"If-state(loc={self.location})"
 
 
 def skip_ws(tokens):

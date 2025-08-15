@@ -56,7 +56,7 @@ class WasmInstantiationTestCase(unittest.TestCase):
 
         # print('root ', bits, 'instance', inst, 'for target', target)
 
-        funcname = "f{}.mul_sqrts".format(bits)
+        funcname = f"f{bits}.mul_sqrts"
         res = instance.exports[funcname](a, b)
 
         # print('Result:', res, 'expected=', expected_result, 'python says', python_result)

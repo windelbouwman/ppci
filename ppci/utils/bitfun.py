@@ -134,7 +134,7 @@ def encode_imm32(v):
             val = v2 & 0xFF
             x = (rotation << 8) | val
             return x
-    raise ValueError("Invalid value {}".format(v))
+    raise ValueError(f"Invalid value {v}")
 
 
 def align(value, m):
@@ -150,9 +150,7 @@ def wrap_negative(value, bits):
     lower_limit = -(1 << (bits - 1))
     if value not in range(lower_limit, upper_limit + 1):
         raise ValueError(
-            "Cannot encode {} in {} bits [{},{}]".format(
-                value, bits, lower_limit, upper_limit
-            )
+            f"Cannot encode {value} in {bits} bits [{lower_limit},{upper_limit}]"
         )
     mask = (1 << bits) - 1
     bit_value = value & mask  # Performing bitwise and makes it 2 complement.

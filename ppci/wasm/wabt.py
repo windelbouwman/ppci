@@ -137,12 +137,12 @@ def _get_wabt_lib():
     # specific commit
     # to avoid unexpected regressions as the wabt API changes.
     commit = "409d61ef"
-    filename = os.path.join(THIS_DIR, "libwabt_{}.js".format(commit))
+    filename = os.path.join(THIS_DIR, f"libwabt_{commit}.js")
     if not os.path.isfile(filename):
         print("Downloading libwabt.js ...")
         url = (
             "https://raw.githubusercontent.com/WebAssembly"
-            "/wabt/{}/demo/libwabt.js".format(commit)
+            f"/wabt/{commit}/demo/libwabt.js"
         )
         with urlopen(url, timeout=5) as f:
             bb = f.read()

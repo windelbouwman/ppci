@@ -27,7 +27,7 @@ def create_test_function(cls, filename):
         # TODO: check output for correct values:
 
     if hasattr(cls, test_function_name):
-        raise ValueError("Duplicate test {}".format(test_function_name))
+        raise ValueError(f"Duplicate test {test_function_name}")
 
     setattr(cls, test_function_name, test_function)
 

@@ -12,7 +12,7 @@ from ...graph import relooper
 
 def literal_label(lit):
     """Invent a nice label name for the given literal"""
-    return "{}_{}".format(lit.function.name, lit.name)
+    return f"{lit.function.name}_{lit.name}"
 
 
 def ir_to_python(ir_modules, f, reporter=None, runtime=True):
@@ -394,9 +394,7 @@ class IrToPythonCompiler:
             self.emit(f"{ins.name} = {op}{a}")
             if ins.ty.is_integer:
                 self.emit(
-                    "{0} = rt.correct({0}, {1}, {2})".format(
-                        ins.name, ins.ty.bits, ins.ty.signed
-                    )
+                    f"{ins.name} = rt.correct({ins.name}, {ins.ty.bits}, {ins.ty.signed})"
                 )
         elif isinstance(ins, ir.Binop):
             self.gen_binop(ins)
@@ -418,14 +416,14 @@ class IrToPythonCompiler:
             pass  # Phi is filled by predecessor
         elif isinstance(ins, ir.Return):
             self.reset_stack()
-            self.emit("return {}".format(self.fetch_value(ins.result)))
+            self.emit(f"return {self.fetch_value(ins.result)}")
         elif isinstance(ins, ir.Exit):
             self.reset_stack()
             self.emit("return")
         elif isinstance(ins, ir.Undefined):
             self.emit(f"{ins.name} = 0")
         else:  # pragma: no cover
-            self.emit("not implemented: {}".format(ins))
+            self.emit(f"not implemented: {ins}")
             raise NotImplementedError(str(type(ins)))
 
     def gen_cjump(self, ins):
@@ -454,14 +452,12 @@ class IrToPythonCompiler:
     def gen_cast(self, ins):
         if ins.ty.is_integer:
             self.emit(
-                "{} = rt.correct(int(round({})), {}, {})".format(
-                    ins.name, ins.src.name, ins.ty.bits, ins.ty.signed
-                )
+                f"{ins.name} = rt.correct(int(round({ins.src.name})), {ins.ty.bits}, {ins.ty.signed})"
             )
         elif ins.ty is ir.ptr:
-            self.emit("{} = int(round({}))".format(ins.name, ins.src.name))
+            self.emit(f"{ins.name} = int(round({ins.src.name}))")
         elif ins.ty in [ir.f32, ir.f64]:
-            self.emit("{} = float({})".format(ins.name, ins.src.name))
+            self.emit(f"{ins.name} = float({ins.src.name})")
         else:  # pragma: no cover
             raise NotImplementedError(str(ins))
 
@@ -476,7 +472,7 @@ class IrToPythonCompiler:
 
         if op in int_ops and ins.ty.is_integer:
             fname = int_ops[op]
-            self.emit("{} = {}({}, {})".format(ins.name, fname, a, b))
+            self.emit(f"{ins.name} = {fname}({a}, {b})")
         elif op in shift_ops and ins.ty.is_integer:
             fname = shift_ops[op]
             self.emit(f"{ins.name} = {fname}({a}, {b}, {ins.ty.bits})")

@@ -35,14 +35,14 @@ class Item:
         return self.rule.symbols[self.dot]
 
     def __repr__(self):
-        symbols = ["'{}'".format(symbol) for symbol in self.rule.symbols]
+        symbols = [f"'{symbol}'" for symbol in self.rule.symbols]
         if self.is_shift:
             dot_part1 = " ".join(symbols[: self.dot])
             dot_part2 = " ".join(symbols[self.dot :])
             dot_part = dot_part1 + " . " + dot_part2
         else:
             dot_part = " ".join(symbols) + " ."
-        return "{} -> {}, {}".format(self.rule.name, dot_part, self.origin)
+        return f"{self.rule.name} -> {dot_part}, {self.origin}"
 
     def __eq__(self, other):
         return self.__hash__() == other.__hash__()
@@ -70,7 +70,7 @@ class Column:
         return iter(self.item_list)
 
     def __repr__(self):
-        return "Column at {}".format(self.token)
+        return f"Column at {self.token}"
 
     def add(self, item):
         if item not in self.items:
@@ -215,6 +215,6 @@ class EarleyParser:
     def dump_parse(self, columns):
         print("Parse result:")
         for col in columns:
-            print("  {}".format(col))
+            print(f"  {col}")
             for item in col:
-                print("    {}".format(item))
+                print(f"    {item}")

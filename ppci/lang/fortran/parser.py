@@ -109,7 +109,7 @@ class FortranLexer:
         self.mode_progs = {}
 
         def mk(spec):
-            tok_re = "|".join("(?P<{}>{})".format(s[0], s[1]) for s in spec)
+            tok_re = "|".join(f"(?P<{s[0]}>{s[1]})" for s in spec)
             return re.compile(tok_re).match
 
         # String handlers:
@@ -251,9 +251,7 @@ class FortranLexer:
             mo = self.gettok(txt, self.pos)
         if len(txt) != self.pos:
             char = txt[self.pos]
-            raise CompilerError(
-                "Unexpected char: {0} (0x{1:X})".format(char, ord(char))
-            )
+            raise CompilerError(f"Unexpected char: {char} (0x{ord(char):X})")
 
     def split_line(self, line):
         """Split fortran source line depending on column"""

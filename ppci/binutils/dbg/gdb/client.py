@@ -90,7 +90,7 @@ class GdbDebugDriver(DebugDriver):
         self._rsp.on_message = self._handle_message
 
     def __str__(self):
-        return "Gdb debug driver via {}".format(self.transport)
+        return f"Gdb debug driver via {self.transport}"
 
     def connect(self):
         """Connect to the target"""
@@ -330,10 +330,10 @@ class GdbDebugDriver(DebugDriver):
             endian_fmt = "<"
 
         fmts = {
-            8: "{}Q".format(endian_fmt),
-            4: "{}I".format(endian_fmt),
-            2: "{}H".format(endian_fmt),
-            1: "{}B".format(endian_fmt),
+            8: f"{endian_fmt}Q",
+            4: f"{endian_fmt}I",
+            2: f"{endian_fmt}H",
+            1: f"{endian_fmt}B",
         }
 
         size = register.bitsize // 8

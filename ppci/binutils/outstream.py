@@ -71,7 +71,7 @@ class TextOutputStream(OutputStream):
         else:
             if self.add_binary:
                 b = binascii.hexlify(item.encode()).decode("ascii")
-                prefix = "{:16}  ".format(b)
+                prefix = f"{b:16}  "
             else:
                 prefix = "      "
         print(prefix, txt, file=self.output_file)

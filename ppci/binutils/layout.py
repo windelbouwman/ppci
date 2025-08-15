@@ -58,9 +58,10 @@ class Memory:
         self.inputs.append(inp)
 
     def __repr__(self):
-        return "MEM {} loc={:08X} size={:08X}".format(
-            self.name, self.location, self.size
-        ) + str(self.inputs)
+        return (
+            f"MEM {self.name} loc={self.location:08X} size={self.size:08X}"
+            + str(self.inputs)
+        )
 
     def __eq__(self, other):
         return str(self) == str(other)
@@ -77,7 +78,7 @@ class Section(Input):
         self.section_name = section_name
 
     def __repr__(self):
-        return "Section({})".format(self.section_name)
+        return f"Section({self.section_name})"
 
 
 class SectionData(Input):
@@ -87,7 +88,7 @@ class SectionData(Input):
         self.section_name = section_name
 
     def __repr__(self):
-        return "SectionData({})".format(self.section_name)
+        return f"SectionData({self.section_name})"
 
 
 class Align(Input):
@@ -97,7 +98,7 @@ class Align(Input):
         self.alignment = alignment
 
     def __repr__(self):
-        return "Align({})".format(self.alignment)
+        return f"Align({self.alignment})"
 
 
 class SymbolDefinition(Input):
@@ -105,7 +106,7 @@ class SymbolDefinition(Input):
         self.symbol_name = symbol_name
 
     def __repr__(self):
-        return "Symbol define: {}".format(self.symbol_name)
+        return f"Symbol define: {self.symbol_name}"
 
 
 class LayoutLexer(BaseLexer):

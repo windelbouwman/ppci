@@ -186,7 +186,7 @@ class Ref:
             if self.name in id_map:
                 return id_map[self.name]
             else:
-                raise ValueError("Cannot resolve {}".format(repr(self)))
+                raise ValueError(f"Cannot resolve {repr(self)}")
         else:
             return self.index
 
@@ -343,11 +343,11 @@ class Module:
                 params_s = ", ".join([p[1] for p in sig.params])
                 result_s = ", ".join([r for r in sig.results])
                 print(
-                    "  {}.{}:".format(c.modname, c.name).ljust(20),
-                    "[{}] -> [{}]".format(params_s, result_s),
+                    f"  {c.modname}.{c.name}:".ljust(20),
+                    f"[{params_s}] -> [{result_s}]",
                 )
             else:
-                print("  {}:".format(c.kind).ljust(20), '"{}"'.format(c.name))
+                print(f"  {c.kind}:".ljust(20), f'"{c.name}"')
 
         print("Exports:")
         for c in exports:
@@ -357,11 +357,11 @@ class Module:
                 params_s = ", ".join([p[1] for p in sig.params])
                 result_s = ", ".join([r for r in sig.results])
                 print(
-                    "  {}:".format(c.name).ljust(20),
-                    "[{}] -> [{}]".format(params_s, result_s),
+                    f"  {c.name}:".ljust(20),
+                    f"[{params_s}] -> [{result_s}]",
                 )
             else:
-                print("  {}:".format(c.kind).ljust(20), '"{}"'.format(c.name))
+                print(f"  {c.kind}:".ljust(20), f'"{c.name}"')
 
 
 class Instruction(WASMComponent):

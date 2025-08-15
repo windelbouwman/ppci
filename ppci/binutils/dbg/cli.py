@@ -45,9 +45,9 @@ def clearaftercursor(stdout):
 
 def print_file_line(stdout, filename, lineno):
     lines = open(filename).read().splitlines()
-    s = "\033[37m\033[1mFile:{}\n".format(filename)
+    s = f"\033[37m\033[1mFile:{filename}\n"
     stdout.write(s)
-    s = "Line: [{} of {}]\n".format(lineno, len(lines))
+    s = f"Line: [{lineno} of {len(lines)}]\n"
     stdout.write(s)
     s = "\033[0m\n"
     stdout.write(s)
@@ -61,14 +61,10 @@ def print_file_line(stdout, filename, lineno):
         elif i > len(lines):
             stdout.write("\n")
         elif i == lineno:
-            s = "\033[33m\033[1m{}\033[32m->{}\033[0m\033[39m\n".format(
-                str(i).rjust(4), lines[i - 1]
-            )
+            s = f"\033[33m\033[1m{str(i).rjust(4)}\033[32m->{lines[i - 1]}\033[0m\033[39m\n"
             stdout.write(s)
         else:
-            s = "\033[33m\033[1m{}\033[0m\033[39m  {}\n".format(
-                str(i).rjust(4), lines[i - 1]
-            )
+            s = f"\033[33m\033[1m{str(i).rjust(4)}\033[0m\033[39m  {lines[i - 1]}\n"
             stdout.write(s)
 
 
@@ -187,7 +183,7 @@ class DebugCli(cmd.Cmd):
         data = self.debugger.read_mem(address, size)
         if data:
             data = binascii.hexlify(data).decode("ascii")
-            print("Data @ 0x{:016X}: {}".format(address, data))
+            print(f"Data @ 0x{address:016X}: {data}")
 
     def do_write(self, arg):
         """Write data to memory: write address,hexdata"""
@@ -202,7 +198,7 @@ class DebugCli(cmd.Cmd):
         try:
             tmp = self.debugger.eval_c3_str(arg)
             res = tmp.value
-            print("$ = 0x{:X} [{}]".format(res, tmp.typ))
+            print(f"$ = 0x{res:X} [{tmp.typ}]")
         except CompilerError as ex:
             print(ex)
 

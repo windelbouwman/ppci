@@ -59,7 +59,7 @@ class Parser:
         elif actual == c:
             return actual
         else:
-            raise ValueError("Expected {} but got {}".format(c, actual))
+            raise ValueError(f"Expected {c} but got {actual}")
 
     def did_eat(self, c):
         if self.peek(c):

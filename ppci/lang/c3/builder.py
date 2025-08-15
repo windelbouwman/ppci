@@ -39,8 +39,8 @@ def c3_to_ir(sources, includes, march, reporter=None):
         diag.print_errors()
         raise TaskError("Compile errors") from ex
 
-    reporter.message("C3 compilation listings for {}".format(sources))
-    reporter.message("{} {}".format(ir_module, ir_module.stats()))
+    reporter.message(f"C3 compilation listings for {sources}")
+    reporter.message(f"{ir_module} {ir_module.stats()}")
     reporter.dump_ir(ir_module)
     return ir_module
 

@@ -46,7 +46,7 @@ class Typ:
         return isinstance(self, BlobDataTyp)
 
     def __repr__(self):
-        return "ir-typ {}".format(str(self))
+        return f"ir-typ {str(self)}"
 
 
 class PointerTyp(Typ):
@@ -131,7 +131,7 @@ class BlobDataTyp(Typ):
 
     def __str__(self):
         # More or less the same as 'u8[size]'.
-        return "blob<{}:{}>".format(self.size, self.alignment)
+        return f"blob<{self.size}:{self.alignment}>"
 
 
 # The builtin types:
@@ -169,7 +169,7 @@ class Module:
         self._variables = []
 
     def __str__(self):
-        return "module {0}".format(self.name)
+        return f"module {self.name}"
 
     def __getitem__(self, i):
         if isinstance(i, str):
@@ -223,9 +223,7 @@ class Module:
         num_functions = len(self.functions)
         num_blocks = sum(len(f.blocks) for f in self.functions)
         num_instructions = sum(f.num_instructions() for f in self.functions)
-        return "functions: {}, blocks: {}, instructions: {}".format(
-            num_functions, num_blocks, num_instructions
-        )
+        return f"functions: {num_functions}, blocks: {num_blocks}, instructions: {num_instructions}"
 
 
 class Value:
@@ -300,7 +298,7 @@ class External(GlobalValue):
         super().__init__(name, Binding.GLOBAL)
 
     def __repr__(self):
-        return "external {}".format(self.name)
+        return f"external {self.name}"
 
 
 class ExternalSubRoutine(External):
@@ -328,9 +326,7 @@ class ExternalFunction(ExternalSubRoutine):
 
     def __repr__(self):
         args = ", ".join(map(str, self.argument_types))
-        return "external function {} {}({})".format(
-            self.return_ty, self.name, args
-        )
+        return f"external function {self.return_ty} {self.name}({args})"
 
 
 class ExternalVariable(External):
@@ -374,7 +370,7 @@ class SubRoutine(GlobalValue):
         Also add it to the used names"""
         name = dut.name
         while dut.name in self.defined_names:
-            dut.name = "{}_{}".format(name, self.unique_counter)
+            dut.name = f"{name}_{self.unique_counter}"
             self.unique_counter += 1
         self.defined_names.add(dut.name)
 
@@ -505,8 +501,8 @@ class Procedure(SubRoutine):
     """
 
     def __str__(self):
-        args = ", ".join("{} {}".format(a.ty, a.name) for a in self.arguments)
-        return "{} procedure {}({})".format(self.binding, self.name, args)
+        args = ", ".join(f"{a.ty} {a.name}" for a in self.arguments)
+        return f"{self.binding} procedure {self.name}({args})"
 
 
 class Function(SubRoutine):
@@ -527,11 +523,9 @@ class Function(SubRoutine):
         self.return_ty = return_ty
 
     def __str__(self):
-        args = ", ".join("{} {}".format(a.ty, a.name) for a in self.arguments)
+        args = ", ".join(f"{a.ty} {a.name}" for a in self.arguments)
         ret_typ = self.return_ty
-        return "{} function {} {}({})".format(
-            self.binding, ret_typ, self.name, args
-        )
+        return f"{self.binding} function {ret_typ} {self.name}({args})"
 
 
 class Block:
@@ -553,7 +547,7 @@ class Block:
             print("    ", instruction)
 
     def __str__(self):
-        return "{0}:".format(self.name)
+        return f"{self.name}:"
 
     def __repr__(self):
         return str(self)
@@ -683,9 +677,7 @@ def value_use(name):
     def setter(self, value):
         """Sets the value"""
         if not isinstance(value, Value):
-            raise TypeError(
-                "Expecting a Value instance, but got {}".format(value)
-            )
+            raise TypeError(f"Expecting a Value instance, but got {value}")
         # If value was already set, remove usage
         if name in self._var_map:
             self.del_use(self._var_map[name])
@@ -717,7 +709,7 @@ class Instruction:
     def add_use(self, value):
         """Add v to the list of values used by this instruction"""
         if not isinstance(value, Value):
-            raise TypeError("Expected Value, but got {}".format(value))
+            raise TypeError(f"Expected Value, but got {value}")
         self.uses.add(value)
         value.add_user(self)
 
@@ -732,9 +724,7 @@ class Instruction:
         if self.uses:
             uses = ", ".join(map(str, self.uses))
             raise ValueError(
-                "Cannot delete {} since it is still used by {}".format(
-                    self, uses
-                )
+                f"Cannot delete {self} since it is still used by {uses}"
             )
 
     def replace_use(self, old, new):
@@ -817,7 +807,7 @@ class AddressOf(LocalValue):
         self.src = src
 
     def __repr__(self):
-        return "{} {} = &{}".format(self.ty, self.name, self.src.name)
+        return f"{self.ty} {self.name} = &{self.src.name}"
 
 
 class Cast(LocalValue):
@@ -830,14 +820,14 @@ class Cast(LocalValue):
         self.src = value
 
     def __str__(self):
-        return "{} {} = cast {}".format(self.ty, self.name, self.src.name)
+        return f"{self.ty} {self.name} = cast {self.src.name}"
 
 
 class Undefined(LocalValue):
     """Undefined value, this value must never be used."""
 
     def __str__(self):
-        return "{} = undefined".format(self.name)
+        return f"{self.name} = undefined"
 
 
 class Const(LocalValue):
@@ -849,7 +839,7 @@ class Const(LocalValue):
         assert isinstance(value, (int, float)), str(value)
 
     def __str__(self):
-        return "{} {} = {}".format(self.ty, self.name, self.value)
+        return f"{self.ty} {self.name} = {self.value}"
 
 
 class LiteralData(LocalValue):
@@ -864,7 +854,7 @@ class LiteralData(LocalValue):
 
     def __str__(self):
         data = hexlify(self.data).decode("ascii")
-        return "{} {} = literal '{}'".format(self.ty, self.name, data)
+        return f"{self.ty} {self.name} = literal '{data}'"
 
 
 class FunctionCall(LocalValue):
@@ -876,12 +866,10 @@ class FunctionCall(LocalValue):
         super().__init__(name, ty)
 
         if not isinstance(callee, Value):
-            raise TypeError(
-                "Callee must be a Value, not {}".format(type(callee))
-            )
+            raise TypeError(f"Callee must be a Value, not {type(callee)}")
 
         if callee.ty is not ptr:
-            raise ValueError("Callee must be ptr, not {}".format(callee.ty))
+            raise ValueError(f"Callee must be ptr, not {callee.ty}")
 
         self.callee = callee
 
@@ -899,9 +887,7 @@ class FunctionCall(LocalValue):
 
     def __str__(self):
         args = ", ".join(arg.name for arg in self.arguments)
-        return "{} {} = call {}({})".format(
-            self.ty, self.name, self.callee.name, args
-        )
+        return f"{self.ty} {self.name} = call {self.callee.name}({args})"
 
 
 class ProcedureCall(Instruction):
@@ -912,12 +898,10 @@ class ProcedureCall(Instruction):
     def __init__(self, callee, arguments):
         super().__init__()
         if not isinstance(callee, Value):
-            raise TypeError(
-                "Callee must be a Value, not {}".format(type(callee))
-            )
+            raise TypeError(f"Callee must be a Value, not {type(callee)}")
 
         if callee.ty is not ptr:
-            raise ValueError("Pointer must be ptr, not {}".format(callee.ty))
+            raise ValueError(f"Pointer must be ptr, not {callee.ty}")
         self.callee = callee
 
         self.arguments = arguments
@@ -934,7 +918,7 @@ class ProcedureCall(Instruction):
 
     def __str__(self):
         args = ", ".join(arg.name for arg in self.arguments)
-        return "call {}({})".format(self.callee.name, args)
+        return f"call {self.callee.name}({args})"
 
 
 class Unop(LocalValue):
@@ -955,9 +939,7 @@ class Unop(LocalValue):
         self.a = a
 
     def __str__(self):
-        return "{} {} = {} {}".format(
-            self.ty, self.name, self.operation, self.a.name
-        )
+        return f"{self.ty} {self.name} = {self.operation} {self.a.name}"
 
 
 class Binop(LocalValue):
@@ -983,9 +965,7 @@ class Binop(LocalValue):
         self.operation = operation
 
     def __str__(self):
-        return "{} {} = {} {} {}".format(
-            self.ty, self.name, self.a.name, self.operation, self.b.name
-        )
+        return f"{self.ty} {self.name} = {self.a.name} {self.operation} {self.b.name}"
 
 
 def add(a, b, name, ty):
@@ -1025,10 +1005,9 @@ class Phi(LocalValue):
         ]
         pairs.sort()
         inputs = ", ".join(
-            "{}: {}".format(block_name, value_name)
-            for block_name, value_name in pairs
+            f"{block_name}: {value_name}" for block_name, value_name in pairs
         )
-        return "{} {} = phi {}".format(self.ty, self.name, inputs)
+        return f"{self.ty} {self.name} = phi {inputs}"
 
     def replace_use(self, old, new):
         """Replace old value reference by new value reference"""
@@ -1080,9 +1059,7 @@ class Alloc(LocalValue):
         self.alignment = alignment
 
     def __str__(self):
-        return "{} {} = alloc {} bytes aligned at {}".format(
-            self.ty, self.name, self.amount, self.alignment
-        )
+        return f"{self.ty} {self.name} = alloc {self.amount} bytes aligned at {self.alignment}"
 
 
 class CopyBlob(Instruction):
@@ -1100,9 +1077,7 @@ class CopyBlob(Instruction):
         self.amount = amount
 
     def __str__(self):
-        return "memcpy({}, {}, {})".format(
-            self.dst.name, self.src.name, self.amount
-        )
+        return f"memcpy({self.dst.name}, {self.src.name}, {self.amount})"
 
 
 class Variable(GlobalValue):
@@ -1130,9 +1105,7 @@ class Variable(GlobalValue):
         self.value = value
 
     def __str__(self):
-        return "{} variable {} ({} bytes aligned at {})".format(
-            self.binding, self.name, self.amount, self.alignment
-        )
+        return f"{self.binding} variable {self.name} ({self.amount} bytes aligned at {self.alignment})"
 
 
 class Parameter(LocalValue):
@@ -1142,7 +1115,7 @@ class Parameter(LocalValue):
         super().__init__(name, ty)
 
     def __str__(self):
-        return "Parameter {} {}".format(self.ty, self.name)
+        return f"Parameter {self.ty} {self.name}"
 
 
 class Load(LocalValue):
@@ -1227,7 +1200,7 @@ class InlineAsm(Instruction):
             self.add_use(new)
 
     def __str__(self):
-        return "asm ({})".format(self.template)
+        return f"asm ({self.template})"
 
 
 class FinalInstruction(Instruction):
@@ -1364,13 +1337,7 @@ class CJump(JumpBase):
         self.lab_no = lab_no
 
     def __str__(self):
-        return "cjmp {} {} {} ? {} : {}".format(
-            self.a.name,
-            self.cond,
-            self.b.name,
-            self.lab_yes.name,
-            self.lab_no.name,
-        )
+        return f"cjmp {self.a.name} {self.cond} {self.b.name} ? {self.lab_yes.name} : {self.lab_no.name}"
 
 
 class JumpTable(JumpBase):

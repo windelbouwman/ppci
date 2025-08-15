@@ -18,7 +18,7 @@ class Program(Node):
         self.statements = statements
 
     def __repr__(self):
-        return "PROGRAM {}".format(self.name)
+        return f"PROGRAM {self.name}"
 
 
 class Variable(Node):
@@ -28,7 +28,7 @@ class Variable(Node):
         self.name = name
 
     def __repr__(self):
-        return "VAR {} {}".format(self.typ, self.name)
+        return f"VAR {self.typ} {self.name}"
 
 
 class Statement(Node):
@@ -44,7 +44,7 @@ class Assignment(Statement):
         self.expr = expr
 
     def __repr__(self):
-        return "{} = {}".format(self.var, self.expr)
+        return f"{self.var} = {self.expr}"
 
 
 class Continue(Statement):
@@ -63,7 +63,7 @@ class Data(Statement):
         self.clist = clist
 
     def __repr__(self):
-        return "Data {} = {}".format(self.nlist, self.clist)
+        return f"Data {self.nlist} = {self.clist}"
 
 
 class Format(Statement):
@@ -79,7 +79,7 @@ class GoTo(Statement):
         self.x = x
 
     def __repr__(self):
-        return "GO TO {}".format(self.x)
+        return f"GO TO {self.x}"
 
 
 class IfArith(Statement):
@@ -104,7 +104,7 @@ class Print(Statement):
 
     def __repr__(self):
         args2 = ", ".join(map(str, self.args))
-        return "PRINT {}, {}".format(self.fmt, args2)
+        return f"PRINT {self.fmt}, {args2}"
 
 
 class Read(Statement):
@@ -115,7 +115,7 @@ class Read(Statement):
 
     def __repr__(self):
         args2 = ", ".join(map(str, self.args))
-        return "READ {}, {}".format(self.fmt, args2)
+        return f"READ {self.fmt}, {args2}"
 
 
 class Stop(Statement):
@@ -137,7 +137,7 @@ class Write(Statement):
 
     def __repr__(self):
         args2 = ", ".join(map(str, self.args))
-        return "WRITE {}, {}".format(self.fmt, args2)
+        return f"WRITE {self.fmt}, {args2}"
 
 
 class For(Statement):
@@ -158,7 +158,7 @@ class Binop(Expression):
         self.b = b
 
     def __repr__(self):
-        return "({} {} {})".format(self.a, self.op, self.b)
+        return f"({self.a} {self.op} {self.b})"
 
 
 class Unop(Expression):
@@ -168,7 +168,7 @@ class Unop(Expression):
         self.a = a
 
     def __repr__(self):
-        return "({} {})".format(self.op, self.a)
+        return f"({self.op} {self.a})"
 
 
 class VarRef(Expression):
@@ -187,4 +187,4 @@ class Const(Expression):
         self.typ = typ
 
     def __repr__(self):
-        return "{}<{}>".format(self.typ, self.val)
+        return f"{self.typ}<{self.val}>"

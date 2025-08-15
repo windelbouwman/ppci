@@ -73,4 +73,4 @@ class Scope:
         self.symbols[sym.name] = sym
 
     def __repr__(self):
-        return "Scope with {} symbols".format(len(self.symbols))
+        return f"Scope with {len(self.symbols)} symbols"

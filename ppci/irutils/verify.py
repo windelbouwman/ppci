@@ -46,12 +46,8 @@ class Verifier:
                 assert isinstance(function, ir.Function)
                 if block.last_instruction.result.ty is not function.return_ty:
                     raise IrFormError(
-                        "Last instruction returns {}, while function {}"
-                        "returns {}".format(
-                            block.last_instruction.result.ty,
-                            function,
-                            function.return_ty,
-                        )
+                        f"Last instruction returns {block.last_instruction.result.ty}, while function {function}"
+                        f"returns {function.return_ty}"
                     )
             elif isinstance(block.last_instruction, ir.Exit):
                 assert isinstance(function, ir.Procedure)
@@ -101,7 +97,7 @@ class Verifier:
     def verify_block_termination(self, block):
         """Verify that the block is terminated correctly"""
         if block.is_empty:
-            raise ValueError("Block is empty: {}".format(block))
+            raise ValueError(f"Block is empty: {block}")
         if not block.last_instruction.is_terminator:
             raise ValueError(
                 f"Last instruction of {block} is not a terminator"
@@ -131,29 +127,21 @@ class Verifier:
             # Check that binop operands are of same type:
             if instruction.ty is not instruction.a.ty:
                 raise TypeError(
-                    "Binary operand a's type ({}) is not {}".format(
-                        instruction.a.ty, instruction.ty
-                    )
+                    f"Binary operand a's type ({instruction.a.ty}) is not {instruction.ty}"
                 )
             if instruction.ty is not instruction.b.ty:
                 raise TypeError(
-                    "Binary operand b's type({}) is not {}".format(
-                        instruction.b.ty, instruction.ty
-                    )
+                    f"Binary operand b's type({instruction.b.ty}) is not {instruction.ty}"
                 )
         elif isinstance(instruction, ir.Load):
             if instruction.address.ty is not ir.ptr:
                 raise TypeError(
-                    "Load instruction requires ptr type, not {}".format(
-                        instruction.address.ty
-                    )
+                    f"Load instruction requires ptr type, not {instruction.address.ty}"
                 )
         elif isinstance(instruction, ir.Store):
             if instruction.address.ty is not ir.ptr:
                 raise TypeError(
-                    "Store instruction requires ptr type, not {}".format(
-                        instruction.address.ty
-                    )
+                    f"Store instruction requires ptr type, not {instruction.address.ty}"
                 )
         elif isinstance(instruction, ir.Phi):
             for inp_val in instruction.inputs.values():
@@ -161,9 +149,7 @@ class Verifier:
         elif isinstance(instruction, ir.CJump):
             if instruction.a.ty is not instruction.b.ty:
                 raise IrFormError(
-                    "Type {} is not {} in {}".format(
-                        instruction.a.ty, instruction.b.ty, instruction
-                    )
+                    f"Type {instruction.a.ty} is not {instruction.b.ty} in {instruction}"
                 )
         elif isinstance(instruction, (ir.FunctionCall, ir.ProcedureCall)):
             if isinstance(
@@ -178,9 +164,7 @@ class Verifier:
 
             # Check that a value is not undefined:
             if isinstance(value, ir.Undefined):
-                self.logger.warning(
-                    "Undefined value '{}' is used".format(value)
-                )
+                self.logger.warning(f"Undefined value '{value}' is used")
                 # TODO: usage of undefined data is not good
                 # raise error or warning here?
                 # To enable compilation with optimization, this occurs
@@ -194,24 +178,18 @@ class Verifier:
         if isinstance(instruction, ir.FunctionCall):
             if not isinstance(callee, (ir.Function, ir.ExternalFunction)):
                 raise IrFormError(
-                    "{} expected a function, but got: {}".format(
-                        instruction, callee
-                    )
+                    f"{instruction} expected a function, but got: {callee}"
                 )
 
             # Check return type:
             if callee.return_ty is not instruction.ty:
                 raise IrFormError(
-                    "Function returns {}, expected {}".format(
-                        callee.return_ty, instruction.ty
-                    )
+                    f"Function returns {callee.return_ty}, expected {instruction.ty}"
                 )
         else:
             if not isinstance(callee, (ir.Procedure, ir.ExternalProcedure)):
                 raise IrFormError(
-                    "{} expected a procedure, got: {}".format(
-                        instruction, callee
-                    )
+                    f"{instruction} expected a procedure, got: {callee}"
                 )
 
         # Check arguments:
@@ -225,17 +203,13 @@ class Verifier:
         # Check amount of arguments:
         if len(passed_types) != len(arg_types):
             raise IrFormError(
-                "{} expects {} arguments, but called with {}".format(
-                    name, len(arg_types), len(passed_types)
-                )
+                f"{name} expects {len(arg_types)} arguments, but called with {len(passed_types)}"
             )
 
         for passed_type, arg_type in zip(passed_types, arg_types):
             if passed_type is not arg_type:
                 raise IrFormError(
-                    "{} expects {}, but got {}".format(
-                        name, arg_type, passed_type
-                    )
+                    f"{name} expects {arg_type}, but got {passed_type}"
                 )
 
     def instruction_dominates(self, one, another):
@@ -247,7 +221,7 @@ class Verifier:
 
         # All other instructions must have a containing block:
         if one.block is None:
-            raise ValueError("{} has no block".format(one))
+            raise ValueError(f"{one} has no block")
         assert one in one.block.instructions
 
         # Phis are special case:

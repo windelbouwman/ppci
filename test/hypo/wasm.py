@@ -43,7 +43,7 @@ def i64_load(draw):
     opcode = draw(i64_load_opcode)
     base = draw(st.integers(min_value=0, max_value=9))
     offset = draw(st.integers(min_value=0, max_value=11))
-    return (opcode, "offset={}".format(offset), ("i32.const", base))
+    return (opcode, f"offset={offset}", ("i32.const", base))
 
 
 @composite
@@ -54,7 +54,7 @@ def i64_store(draw):
     offset = draw(st.integers(min_value=0, max_value=11))
     return (
         opcode,
-        "offset={}".format(offset),
+        f"offset={offset}",
         ("i32.const", base),
         value,
     )
@@ -153,7 +153,7 @@ def i32_load(draw):
     opcode = draw(i32_load_opcodes)
     base = draw(st.integers(min_value=0, max_value=9))
     offset = draw(st.integers(min_value=0, max_value=11))
-    return (opcode, "offset={}".format(offset), ("i32.const", base))
+    return (opcode, f"offset={offset}", ("i32.const", base))
 
 
 @composite
@@ -164,7 +164,7 @@ def i32_store(draw):
     offset = draw(st.integers(min_value=0, max_value=11))
     return (
         opcode,
-        "offset={}".format(offset),
+        f"offset={offset}",
         ("i32.const", base),
         value,
     )

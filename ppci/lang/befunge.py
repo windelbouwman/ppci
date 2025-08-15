@@ -169,7 +169,7 @@ class BefungeInterpreter:
         elif op == " ":  # no-op
             pass
         else:
-            raise NotImplementedError("Invalid opcode: {}".format(op))
+            raise NotImplementedError(f"Invalid opcode: {op}")
 
     def go_left(self):
         self.dx, self.dy = -1, 0

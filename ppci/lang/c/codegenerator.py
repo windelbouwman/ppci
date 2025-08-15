@@ -203,7 +203,7 @@ class CCodeGenerator:
         value_data = expr.to_bytes()
         amount = len(value_data)
         alignment = 1
-        name = "__txt_const_{}".format(self.static_counter)
+        name = f"__txt_const_{self.static_counter}"
         self.static_counter += 1
         text_var = ir.Variable(
             name, ir.Binding.LOCAL, amount, alignment, value=value_data
@@ -221,7 +221,7 @@ class CCodeGenerator:
         value_data = self.gen_global_ival(expr.typ, expr.init)
 
         # Create name:
-        name = "__compound_{}".format(self.static_counter)
+        name = f"__compound_{self.static_counter}"
         self.static_counter += 1
 
         compound_literal_variable = self.emit_global_variable(
@@ -463,9 +463,7 @@ class CCodeGenerator:
                     self.emit(ir.Return(zero))
                 else:
                     self.error(
-                        "Function does not return an {}".format(
-                            function.typ.return_type
-                        ),
+                        f"Function does not return an {function.typ.return_type}",
                         function,
                     )
 
@@ -541,7 +539,7 @@ class CCodeGenerator:
             ivalue = self.gen_global_ival(var_decl.typ, var_decl.initial_value)
         else:
             ivalue = None
-        name = "{}_{}".format(var_decl.name, self.static_counter)
+        name = f"{var_decl.name}_{self.static_counter}"
         self.static_counter += 1
 
         binding = ir.Binding.LOCAL

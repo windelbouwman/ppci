@@ -35,11 +35,11 @@ class Writer:
         assert isinstance(module, ir.Module)
         if verify:
             verify_module(module)
-        self._print(0, "{};".format(module))
+        self._print(0, f"{module};")
 
         for external in module.externals:
             self._print(0, "")
-            self._print(0, "{};".format(external))
+            self._print(0, f"{external};")
 
         for variable in module.variables:
             self._print(0, "")
@@ -50,11 +50,11 @@ class Writer:
             self.write_function(function)
 
     def write_function(self, function):
-        self._print(0, "{} {{".format(function))
+        self._print(0, f"{function} {{")
         for block in function.blocks:
-            self._print(1, "{} {{".format(block))
+            self._print(1, f"{block} {{")
             for ins in block:
-                self._print(2, "{};".format(ins))
+                self._print(2, f"{ins};")
             self._print(1, "}")
             self._print(0, "")
         self._print(0, "}")

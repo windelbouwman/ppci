@@ -18,7 +18,7 @@ class ReadelfTestCase(unittest.TestCase):
         self.assertEqual(0, cm.exception.code)
 
     @unittest.skipUnless(
-        os.path.exists(bash_path), "{} does not exist".format(bash_path)
+        os.path.exists(bash_path), f"{bash_path} does not exist"
     )
     @patch("sys.stdout", new_callable=io.StringIO)
     def test_bash(self, mock_stdout):

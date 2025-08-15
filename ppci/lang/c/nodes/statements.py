@@ -160,7 +160,7 @@ class Label(CStatement):
         self.statement = statement
 
     def __repr__(self):
-        return "{}:".format(self.name)
+        return f"{self.name}:"
 
 
 class Goto(CStatement):
@@ -173,7 +173,7 @@ class Goto(CStatement):
         self.label = label
 
     def __repr__(self):
-        return "Goto {}".format(self.label)
+        return f"Goto {self.label}"
 
 
 class Return(CStatement):

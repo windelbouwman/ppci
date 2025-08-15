@@ -192,7 +192,7 @@ class TextReportGenerator(TextWritingReporter):
         for dag in dags:
             self.print("Dag:")
             for root in dag:
-                self.print("- {}".format(root))
+                self.print(f"- {root}")
 
     def dump_exception(self, einfo):
         self.print(str(einfo))
@@ -200,23 +200,23 @@ class TextReportGenerator(TextWritingReporter):
     def dump_trees(self, trees):
         self.print("Selection trees:")
         for tree in trees:
-            self.print("  {}".format(tree))
+            self.print(f"  {tree}")
 
     def dump_frame(self, frame):
         """Dump frame to file for debug purposes"""
         self.print(frame)
         for ins in frame.instructions:
-            self.print("$ {}".format(ins))
+            self.print(f"$ {ins}")
 
     def dump_cfg_nodes(self, frame):
         for ins in frame.instructions:
             if frame.cfg.has_node(ins):
                 nde = frame.cfg.get_node(ins)
-                self.print("ins: {} {}".format(ins, nde.longrepr))
+                self.print(f"ins: {ins} {nde.longrepr}")
 
     def function_header(self, irfunc, target):
-        self.print("========= Log for {} ==========".format(irfunc))
-        self.print("Target: {}".format(target))
+        self.print(f"========= Log for {irfunc} ==========")
+        self.print(f"Target: {target}")
         # Writer().write_function(irfunc, f)
 
     def function_footer(self, instruction_list):
@@ -229,7 +229,7 @@ class TextReportGenerator(TextWritingReporter):
 def collapseable(html_generator, title):
     html_generator.print('<div><div class="button">')
     html_generator.print('<input type="checkbox" class="expand" />')
-    html_generator.print("<h4>{}</h4>".format(title))
+    html_generator.print(f"<h4>{title}</h4>")
     html_generator.print("<div>")
     html_generator.print("<hr>")
     yield html_generator
@@ -364,7 +364,7 @@ class HtmlReportGenerator(TextWritingReporter):
 
     def new_guid(self):
         self.nr += 1
-        return "guid_{}".format(self.nr)
+        return f"guid_{self.nr}"
 
     def flush_log(self):
         if self.backlog:
@@ -377,9 +377,7 @@ class HtmlReportGenerator(TextWritingReporter):
     def header(self):
         self.print(HTML_HEADER)
         self.message(
-            "Generated on {} by ppci version {}".format(
-                datetime.today().ctime(), __version__
-            )
+            f"Generated on {datetime.today().ctime()} by ppci version {__version__}"
         )
 
     def footer(self):
@@ -390,21 +388,21 @@ class HtmlReportGenerator(TextWritingReporter):
         self.flush_log()
         html_tags = {1: "h1", 2: "h2", 3: "h3"}
         html_tag = html_tags[level]
-        self.print("<{0}>{1}</{0}>".format(html_tag, title))
+        self.print(f"<{html_tag}>{title}</{html_tag}>")
 
     def message(self, msg):
-        self.print("<p>{}</p>".format(msg))
+        self.print(f"<p>{msg}</p>")
 
     def dump_ir(self, ir_module):
         if isinstance(ir_module, ir.Module):
-            title = "Module {}".format(ir_module.name)
+            title = f"Module {ir_module.name}"
             with collapseable(self, title):
                 f = io.StringIO()
                 writer = Writer(f)
                 writer.write(ir_module, verify=False)
                 self.dump_raw_text(f.getvalue())
         elif isinstance(ir_module, ir.SubRoutine):
-            title = "Function {}".format(ir_module.name)
+            title = f"Function {ir_module.name}"
             with collapseable(self, title):
                 f = io.StringIO()
                 writer = Writer(f)
@@ -454,7 +452,7 @@ class HtmlReportGenerator(TextWritingReporter):
         for dag in dags:
             self.print("Dag:")
             for root in dag:
-                self.print("- {}".format(root))
+                self.print(f"- {root}")
 
     def dump_exception(self, einfo):
         self.print(str(einfo))
@@ -464,7 +462,7 @@ class HtmlReportGenerator(TextWritingReporter):
             self.print("<hr>")
             self.print("<pre>")
             for tree in trees:
-                self.print("  {}".format(tree))
+                self.print(f"  {tree}")
             self.print("</pre>")
 
     def dump_frame(self, frame):
@@ -473,8 +471,8 @@ class HtmlReportGenerator(TextWritingReporter):
             used_regs = list(sorted(frame.used_regs, key=lambda r: r.name))
             self.print('<p><div class="codeblock">')
             self.print(frame)
-            self.print("<p>stack size: {}</p>".format(frame.stacksize))
-            self.print("<p>Used: {}</p>".format(used_regs))
+            self.print(f"<p>stack size: {frame.stacksize}</p>")
+            self.print(f"<p>Used: {used_regs}</p>")
             self.print('<table border="1">')
             self.print("<tr>")
             self.print("<th>#</th><th>instruction</th>")
@@ -483,7 +481,7 @@ class HtmlReportGenerator(TextWritingReporter):
             self.print("<th>gen</th><th>kill</th>")
             self.print("<th>live_in</th><th>live_out</th>")
             for ur in used_regs:
-                self.print("<th>{}</th>".format(ur))
+                self.print(f"<th>{ur}</th>")
             self.print("</tr>")
             for idx, ins in enumerate(frame.instructions):
                 self.print("<tr>")
@@ -535,7 +533,7 @@ class HtmlReportGenerator(TextWritingReporter):
         for ins in frame.instructions:
             if frame.cfg.has_node(ins):
                 nde = frame.cfg.get_node(ins)
-                self.print("ins: {} {}".format(ins, nde.longrepr))
+                self.print(f"ins: {ins} {nde.longrepr}")
 
     def dump_ig(self, ig):
         ig.to_dot()
@@ -585,7 +583,7 @@ class HtmlReportGenerator(TextWritingReporter):
     def tcell(self, txt, indent=0):
         """Inject a html table cell."""
         if indent:
-            style = ' style="padding-left: {}px;"'.format(indent)
+            style = f' style="padding-left: {indent}px;"'
         else:
             style = ""
-        self.print("<td{}>{}</td>".format(style, txt))
+        self.print(f"<td{style}>{txt}</td>")

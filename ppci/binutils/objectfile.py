@@ -63,16 +63,7 @@ class Symbol:
         return self.typ == "func"
 
     def __repr__(self):
-        return (
-            "Symbol({}, binding={}, val={} section={} typ={} size={})".format(
-                self.name,
-                self.binding,
-                self.value,
-                self.section,
-                self.typ,
-                self.size,
-            )
-        )
+        return f"Symbol({self.name}, binding={self.binding}, val={self.value} section={self.section} typ={self.typ} size={self.size})"
 
     def __eq__(self, other):
         return (
@@ -134,9 +125,7 @@ class Section:
         return len(self.data)
 
     def __repr__(self):
-        return "SECTION {} size=0x{:x} address=0x{:x}".format(
-            self.name, self.size, self.address
-        )
+        return f"SECTION {self.name} size=0x{self.size:x} address=0x{self.address:x}"
 
     def __eq__(self, other):
         return (
@@ -169,12 +158,10 @@ class Image:
         )
 
     def __repr__(self):
-        return "IMG {} {} 0x{:08X}".format(self.name, self.size, self.address)
+        return f"IMG {self.name} {self.size} 0x{self.address:08X}"
 
     def __str__(self):
-        return "Image {} of {} bytes at 0x{:X}".format(
-            self.name, self.size, self.address
-        )
+        return f"Image {self.name} of {self.size} bytes at 0x{self.address:X}"
 
     def __hash__(self):
         return id(self)
@@ -238,7 +225,7 @@ class ObjectFile:
         self.entry_symbol_id = None  # object file entry point
 
     def __repr__(self):
-        return "CodeObject of {} bytes".format(self.byte_size)
+        return f"CodeObject of {self.byte_size} bytes"
 
     @property
     def is_executable(self):
@@ -264,7 +251,7 @@ class ObjectFile:
         # If the symbol has a global binding, its name must be unique:
         if binding == "global":
             if self.has_symbol(name):
-                raise CompilerError("{} already defined".format(name))
+                raise CompilerError(f"{name} already defined")
             self.symbol_map[name] = symbol
 
         assert id not in self.symbols_by_id
@@ -279,7 +266,7 @@ class ObjectFile:
         """Lookup a symbol and determine its value"""
         symbol = self.symbols_by_id[symbol_id]
         if symbol.undefined:
-            raise ValueError("Undefined reference {}".format(symbol.name))
+            raise ValueError(f"Undefined reference {symbol.name}")
 
         if symbol.section is None:
             return symbol.value
@@ -336,7 +323,7 @@ class ObjectFile:
     def create_section(self, name):
         """Create and add a section with the given name."""
         if name in self.section_map:
-            raise ValueError("section {} already exists!".format(name))
+            raise ValueError(f"section {name} already exists!")
         section = Section(name)
         self.add_section(section)
         return section

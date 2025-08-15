@@ -53,7 +53,7 @@ class Gen:
         if label in self._blocks:
             block = self._blocks[label]
         else:
-            name = "block{}".format(label)
+            name = f"block{label}"
             block = ir.Block(name)
             self._blocks[label] = block
         return block

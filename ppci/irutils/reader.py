@@ -64,9 +64,7 @@ def tokenize(lines):
             pos = mo.end()
             mo = gettok(line, pos)
         if len(line) != pos:
-            raise IrParseException(
-                "Lex fault at row {}, column {}".format(row, pos)
-            )
+            raise IrParseException(f"Lex fault at row {row}, column {pos}")
     yield ("eof", "eof", 0, 0)
 
 
@@ -110,15 +108,13 @@ class Reader:
         if self.peek == typ:
             return self.next_token()
         else:
-            self.error('Expected "{}" got "{}"'.format(typ, self.peek))
+            self.error(f'Expected "{typ}" got "{self.peek}"')
 
     def error(self, msg):
         """Something went wrong."""
         row = self.token[2]
         column = self.token[3]
-        raise IrParseException(
-            msg + " at row {}, column {}".format(row, column)
-        )
+        raise IrParseException(msg + f" at row {row}, column {column}")
 
     def at_keyword(self, keyword):
         """Test if we are at some keyword."""
@@ -128,7 +124,7 @@ class Reader:
         """Consume a specific identifier."""
         val = self.parse_id()
         if val != keyword:
-            self.error('Expected "{}" got "{}"'.format(keyword, val))
+            self.error(f'Expected "{keyword}" got "{val}"')
 
     # Top level contraptions:
 
@@ -199,7 +195,7 @@ class Reader:
         elif self.at_keyword("function") or self.at_keyword("procedure"):
             module.add_function(self.parse_function(binding))
         else:
-            self.error("Expected function got {}".format(self.peek))
+            self.error(f"Expected function got {self.peek}")
 
     def parse_variable(self, binding):
         self.consume_keyword("variable")

@@ -113,7 +113,7 @@ class Graph:
         # Render graph:
         width = self.width
         height = self.height
-        self.print('<svg width="{}" height="{}">'.format(width, height))
+        self.print(f'<svg width="{width}" height="{height}">')
 
         # Define an arrow marker:
         self.print(
@@ -123,7 +123,7 @@ class Graph:
             '<path d="M 0 0 L 10 5 L 0 10 z"/>'
             "</marker>"
         )
-        self.print('<rect width="{}" height="{}"'.format(width, height))
+        self.print(f'<rect width="{width}" height="{height}"')
         self.print(' x="0" y="0" style="fill:green;opacity:0.1" />')
 
         for node in self.nodes:
@@ -135,12 +135,12 @@ class Graph:
                 continue
 
             # Render box:
-            self.print('<rect x="{}" y="{}" rx="3" ry="3"'.format(x, y))
-            self.print(' width="{}" height="{}"'.format(width, height))
+            self.print(f'<rect x="{x}" y="{y}" rx="3" ry="3"')
+            self.print(f' width="{width}" height="{height}"')
             self.print(' style="fill:red;opacity:0.1;stroke-width:1" />')
             # Render text:
-            self.print('<text x="{0}" y="{1}" '.format(x + 3, y + height - 3))
-            self.print('fill="black">{0}</text>'.format(node.label))
+            self.print(f'<text x="{x + 3}" y="{y + height - 3}" ')
+            self.print(f'fill="black">{node.label}</text>')
 
         for edge in self.edges:
             self.draw_path(edge)
@@ -152,9 +152,9 @@ class Graph:
         x1, y1 = src.x + src.width // 2, src.y + src.height
         x2, y2 = dst.x + dst.width // 2, dst.y
         path = [Point(x1, y1)] + edge.path + [Point(x2, y2)]
-        point_string = " ".join("{},{}".format(p.x, p.y) for p in path)
-        self.print('<polyline points="{}"'.format(point_string))
-        self.print(' stroke="{}" stroke-width="3"'.format(edge.color))
+        point_string = " ".join(f"{p.x},{p.y}" for p in path)
+        self.print(f'<polyline points="{point_string}"')
+        self.print(f' stroke="{edge.color}" stroke-width="3"')
         self.print(' fill="none"')
         self.print(' marker-end="url(#arrow)" />')
 
@@ -171,13 +171,13 @@ class Path:
     def __init__(self, points=()):
         self.points = list(points)
         if not all(isinstance(p, Point) for p in points):
-            raise TypeError("All elements must be points in {}".format(points))
+            raise TypeError(f"All elements must be points in {points}")
 
     def __radd__(self, other):
         if isinstance(other, list):
             return Path(other + self.points)
         else:
-            raise TypeError("Cannot radd {} to this Path object".format(other))
+            raise TypeError(f"Cannot radd {other} to this Path object")
 
     def __add__(self, other):
         if isinstance(other, Path):
@@ -185,7 +185,7 @@ class Path:
         elif isinstance(other, list):
             return Path(self.points + other)
         else:
-            raise TypeError("Cannot add {} to this Path object".format(other))
+            raise TypeError(f"Cannot add {other} to this Path object")
 
     def __iter__(self):
         return iter(self.points)

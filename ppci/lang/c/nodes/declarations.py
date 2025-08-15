@@ -41,7 +41,7 @@ class Typedef(CDeclaration):
         super().__init__("typedef", typ, name, location)
 
     def __repr__(self):
-        return "Typedef {}".format(self.name)
+        return f"Typedef {self.name}"
 
 
 class VariableDeclaration(CDeclaration):
@@ -55,9 +55,7 @@ class VariableDeclaration(CDeclaration):
         return self.initial_value is not None
 
     def __repr__(self):
-        return "Variable [storage={} typ={} name={}]".format(
-            self.storage_class, self.typ, self.name
-        )
+        return f"Variable [storage={self.storage_class} typ={self.typ} name={self.name}]"
 
 
 class ConstantDeclaration(CDeclaration):
@@ -66,9 +64,7 @@ class ConstantDeclaration(CDeclaration):
         self.value = value
 
     def __repr__(self):
-        return "Constant [typ={} name={}, {}]".format(
-            self.typ, self.name, self.value
-        )
+        return f"Constant [typ={self.typ} name={self.name}, {self.value}]"
 
 
 class EnumDeclaration(CDeclaration):
@@ -85,16 +81,14 @@ class EnumConstantDeclaration(CDeclaration):
         self.value = value
 
     def __repr__(self):
-        return "Value [typ={} name={}, {}]".format(
-            self.typ, self.name, self.value
-        )
+        return f"Value [typ={self.typ} name={self.name}, {self.value}]"
 
 
 class ParameterDeclaration(CDeclaration):
     """Function parameter declaration"""
 
     def __repr__(self):
-        return "Parameter [typ={} name={}]".format(self.typ, self.name)
+        return f"Parameter [typ={self.typ} name={self.name}]"
 
 
 class FunctionDeclaration(CDeclaration):
@@ -105,9 +99,7 @@ class FunctionDeclaration(CDeclaration):
         self.body = None
 
     def __repr__(self):
-        return "Function storage={} typ={} name={}".format(
-            self.storage_class, self.typ, self.name
-        )
+        return f"Function storage={self.storage_class} typ={self.typ} name={self.name}"
 
     def is_definition(self):
         return self.body is not None
