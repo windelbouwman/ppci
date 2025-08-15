@@ -68,7 +68,7 @@ def get_arch(arch):
             return create_arch(parts[0], options=tuple(parts[1:]))
         else:
             return create_arch(arch)
-    raise ValueError("Invalid architecture {}".format(arch))
+    raise ValueError(f"Invalid architecture {arch}")
 
 
 __all__ = ["Architecture", "Frame", "Isa", "get_arch", "get_current_arch"]

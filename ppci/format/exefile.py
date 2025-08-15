@@ -106,7 +106,7 @@ def read_exe(f):
         for i in range(16):
             ddh = DataDirectoryHeader.deserialize(f)
             data_directories.append(ddh)
-            print("directory {}".format(i))
+            print(f"directory {i}")
             ddh.print()
         print()
 
@@ -115,7 +115,7 @@ def read_exe(f):
         for i in range(coff_header.e_number_of_sections):
             ish = ImageSectionHeader.deserialize(f)
             section_headers.append(ish)
-            print("Section {} {}".format(i, ish.e_name))
+            print(f"Section {i} {ish.e_name}")
             ish.print()
             print()
 
@@ -223,7 +223,7 @@ class ExeWriter:
                 symbol_id = len(obj.symbols)
                 obj.add_symbol(
                     symbol_id,
-                    "imp_{}".format(symbol_name),
+                    f"imp_{symbol_name}",
                     "global",
                     f.tell(),
                     "import",

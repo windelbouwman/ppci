@@ -120,7 +120,7 @@ class AdvancePc(Opcode):
         self.amount = amount
 
     def __str__(self):
-        return "DW_LNS_advance_pc <{}>".format(self.amount)
+        return f"DW_LNS_advance_pc <{self.amount}>"
 
     def execute(self, context):
         context.address += self.amount
@@ -134,7 +134,7 @@ class AdvanceLine(Opcode):
         self.amount = amount
 
     def __str__(self):
-        return "DW_LNS_advance_line <{}>".format(self.amount)
+        return f"DW_LNS_advance_line <{self.amount}>"
 
     def execute(self, context):
         context.line += self.amount
@@ -150,7 +150,7 @@ class SetFile(Opcode):
         self.file = file
 
     def __str__(self):
-        return "DW_LNS_set_file <{}>".format(self.file)
+        return f"DW_LNS_set_file <{self.file}>"
 
     def execute(self, context):
         context.file = self.file
@@ -166,7 +166,7 @@ class SetColumn(Opcode):
         self.column = column
 
     def __str__(self):
-        return "DW_LNS_set_column <{}>".format(self.column)
+        return f"DW_LNS_set_column <{self.column}>"
 
     def execute(self, context):
         context.column = self.column
@@ -223,7 +223,7 @@ class SetIsa(Opcode):
         self.isa = isa
 
     def __str__(self):
-        return "DW_LNS_set_isa {}".format(self.isa)
+        return f"DW_LNS_set_isa {self.isa}"
 
     def execute(self, context):
         context.isa = self.isa

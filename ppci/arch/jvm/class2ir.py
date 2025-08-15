@@ -130,12 +130,12 @@ class Generator:
         logger.debug("Signature: %s", signature.parameter_types)
         for index, parameter_type in enumerate(signature.parameter_types):
             ir_typ = self.get_ir_type(parameter_type)
-            parameter_name = "param{}".format(index)
+            parameter_name = f"param{index}"
             ir_parameter = ir.Parameter(parameter_name, ir_typ)
             ir_func.add_parameter(ir_parameter)
             dbg_arg_types.append(
                 debuginfo.DebugParameter(
-                    "arg{}".format(index), self.get_debug_type(parameter_type)
+                    f"arg{index}", self.get_debug_type(parameter_type)
                 )
             )
 

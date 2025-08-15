@@ -92,7 +92,7 @@ class DagSplitter:
             else:  # inp.node.name.startswith('CONST'):
                 # If the node is a constant, use that
                 if inp.wants_vreg:
-                    raise ValueError("{} does require vreg".format(inp))
+                    raise ValueError(f"{inp} does require vreg")
                 children = [mk_tr(i) for i in inp.node.data_inputs]
                 child_tree = Tree(
                     str(inp.node.name), *children, value=inp.node.value
@@ -138,7 +138,7 @@ class DagSplitter:
     def make_op(self, op, typ):
         """Construct a string opcode from an operation and a type"""
         assert isinstance(typ, ir.Typ), str(typ)
-        return "{}{}".format(op, typ).upper()
+        return f"{op}{typ}".upper()
 
     def get_reg_class(self, data_flow):
         """Determine the register class suited for this data flow line"""

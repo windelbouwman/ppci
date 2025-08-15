@@ -11,7 +11,7 @@ class ClassFilePrinter:
         self.class_file = class_file
         class_info = class_file.get_constant(class_file.this_class)
         class_name = class_file.get_name(class_info.value)
-        print("class {}".format(class_name))
+        print(f"class {class_name}")
         print("  minor version:", class_file.minor_version)
         print("  major version:", class_file.major_version)
         print("  flags:", class_file.access_flags)
@@ -20,7 +20,7 @@ class ClassFilePrinter:
         for i, value in enumerate(class_file.constant_pool):
             if not value:
                 continue
-            print("  #{} = {}  {}".format(i, value.tag.name, value.value))
+            print(f"  #{i} = {value.tag.name}  {value.value}")
 
         print("{")
 
@@ -29,7 +29,7 @@ class ClassFilePrinter:
             self.print_attributes("  ", field.attributes)
 
         for method in class_file.methods:
-            print("  {};".format(method.name))
+            print(f"  {method.name};")
             print("    descriptor:", method.descriptor)
             print("    flags:", method.access_flags)
             self.print_attributes("    ", method.attributes)
@@ -41,4 +41,4 @@ class ClassFilePrinter:
         for attribute in attributes:
             name = attribute.name
             value = attribute
-            print("{}{}: {}".format(indent, name, value))
+            print(f"{indent}{name}: {value}")

@@ -165,7 +165,7 @@ class TreeSelector:
         self.burm_label(tree)
 
         if not tree.state.has_goal("stm"):  # pragma: no cover
-            raise RuntimeError("Tree {} not covered".format(tree))
+            raise RuntimeError(f"Tree {tree} not covered")
         return self.apply_rules(context, tree, "stm")
 
     def burm_label(self, tree):
@@ -315,7 +315,7 @@ class InstructionSelector1:
             return r
 
         self.sys.add_rule(
-            reg_class_name, Tree("UND{}".format(suffix)), 0, None, und_pattern
+            reg_class_name, Tree(f"UND{suffix}"), 0, None, und_pattern
         )
 
     def call_function(self, context, tree):

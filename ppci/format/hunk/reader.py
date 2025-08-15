@@ -49,7 +49,7 @@ class Reader:
                 break
             else:
                 raise NotImplementedError(
-                    "hunk type not implemented: 0x{:X}".format(hunk_id)
+                    f"hunk type not implemented: 0x{hunk_id:X}"
                 )
 
     def read_header(self):

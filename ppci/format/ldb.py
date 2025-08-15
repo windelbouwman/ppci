@@ -19,7 +19,7 @@ def write_ldb(obj, output_file):
         row = debug_location.loc.row
         address = fx(debug_location.address)
         print(
-            'line: "{}":{} @ 0x{:08X}'.format(filename, row, address),
+            f'line: "{filename}":{row} @ 0x{address:08X}',
             file=output_file,
         )
 
@@ -27,13 +27,11 @@ def write_ldb(obj, output_file):
         name = func.name
         address = fx(func.begin)
         print(
-            "function: {} <0> @ 0x{:08X}".format(name, address),
+            f"function: {name} <0> @ 0x{address:08X}",
             file=output_file,
         )
 
     for var in debug_info.variables:
         name = var.name
         address = fx(var.address)
-        print(
-            "global: {} <0> @ 0x{:08X}".format(name, address), file=output_file
-        )
+        print(f"global: {name} <0> @ 0x{address:08X}", file=output_file)

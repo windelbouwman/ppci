@@ -113,7 +113,7 @@ class Stm8Arch(Architecture):
                     register = v8_registers.pop()
                 else:
                     raise NotImplementedError(
-                        "Argument type {} not implemented".format(arg_type)
+                        f"Argument type {arg_type} not implemented"
                     )
                 location.append(register)
                 live_in.add(register)
@@ -128,7 +128,7 @@ class Stm8Arch(Architecture):
             location = registers.vrw0
         else:
             raise NotImplementedError(
-                "Return type {} not implemented".format(ret_type)
+                f"Return type {ret_type} not implemented"
             )
         live_out.add(location)
         return location, tuple(live_out)

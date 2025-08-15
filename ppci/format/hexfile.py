@@ -114,7 +114,7 @@ class HexFile:
 
     def __repr__(self):
         size = sum(r.size for r in self.regions)
-        return "Hexfile containing {} bytes".format(size)
+        return f"Hexfile containing {size} bytes"
 
     def dump(self, contents=False):
         """Print info about this hexfile"""
@@ -186,9 +186,7 @@ class HexFileRegion:
         self.data = data
 
     def __repr__(self):
-        return "Region at 0x{:08X} of {} bytes".format(
-            self.address, len(self.data)
-        )
+        return f"Region at 0x{self.address:08X} of {len(self.data)} bytes"
 
     def __eq__(self, other):
         return (self.address, self.data) == (other.address, other.data)

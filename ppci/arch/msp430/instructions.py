@@ -501,7 +501,7 @@ def call(label, clobbers=()):
     elif isinstance(label, Msp430Register):
         return Call(RegSrc(label), clobbers=clobbers)
     else:
-        raise TypeError("Expected str or register, got {}".format(label))
+        raise TypeError(f"Expected str or register, got {label}")
 
 
 def mov(src, dst):

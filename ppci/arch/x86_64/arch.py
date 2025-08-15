@@ -151,7 +151,7 @@ class X86_64Arch(Architecture):
             type_infos["int"] = ir.i32
             type_infos["long"] = ir.i32
         else:
-            raise ValueError("Unknown data model: {}".format(data_model))
+            raise ValueError(f"Unknown data model: {data_model}")
 
         self.info = ArchInfo(
             type_infos=type_infos,
@@ -653,7 +653,7 @@ class X86_64Arch(Architecture):
                 for byte in value:
                     yield Db(byte)
             else:  # pragma: no cover
-                raise NotImplementedError("Constant of type {}".format(value))
+                raise NotImplementedError(f"Constant of type {value}")
 
     def get_callee_saved(self, frame):
         saved_registers = []

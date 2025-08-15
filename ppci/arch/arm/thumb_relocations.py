@@ -9,7 +9,7 @@ class Lit8Relocation(Relocation):
     token = ThumbToken
 
     def apply(self, sym_value, data, reloc_value):
-        assert sym_value % 4 == 0, "{} not multiple of 4".format(sym_value)
+        assert sym_value % 4 == 0, f"{sym_value} not multiple of 4"
         offset = sym_value - (align(reloc_value + 2, 4))
         assert offset in range(0, 1024, 4), str(offset)
         rel8 = offset >> 2

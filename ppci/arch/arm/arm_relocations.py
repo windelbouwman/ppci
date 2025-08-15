@@ -42,7 +42,7 @@ class LdrImm12Relocation(Relocation):
         if offset < 0:
             offset = -offset
             U = 0
-        assert offset < 4096, "{} < 4096 {} {}".format(offset, sym_value, data)
+        assert offset < 4096, f"{offset} < 4096 {sym_value} {data}"
         data[2] |= U << 7
         data[1] |= (offset >> 8) & 0xF
         data[0] = offset & 0xFF

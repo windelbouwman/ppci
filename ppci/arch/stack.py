@@ -22,13 +22,13 @@ class StackLocation:
         self.size = size
 
     def __repr__(self):
-        return "Stack[{} bytes at {}]".format(self.size, self.offset)
+        return f"Stack[{self.size} bytes at {self.offset}]"
 
 
 def generate_temps():
     n = 0
     while True:
-        yield "vreg{}".format(n)
+        yield f"vreg{n}"
         n = n + 1
 
 
@@ -61,7 +61,7 @@ class Frame:
         self.literal_number = 0
 
     def __repr__(self):
-        return "Frame {}".format(self.name)
+        return f"Frame {self.name}"
 
     def alloc(self, size: int, alignment: int):
         """Allocate space on the stack frame and return a stacklocation"""
@@ -101,7 +101,7 @@ class Frame:
 
     def new_name(self, salt):
         """Generate a new unique name"""
-        name = "{}_{}_{}".format(self.name, salt, self.literal_number)
+        name = f"{self.name}_{salt}_{self.literal_number}"
         self.literal_number += 1
         return name
 

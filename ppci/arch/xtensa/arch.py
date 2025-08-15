@@ -99,7 +99,7 @@ class XtensaArch(Architecture):
             elif isinstance(value, str):
                 yield Dcd2(value)
             else:  # pragma: no cover
-                raise NotImplementedError("Constant {}".format(value))
+                raise NotImplementedError(f"Constant {value}")
 
         # Label indication function:
         yield Alignment(4)  # Must be 32 bit aligned for call0 instruction

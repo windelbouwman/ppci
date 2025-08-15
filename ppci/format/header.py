@@ -47,9 +47,7 @@ class Header:
 
             if ty in "IiHh" and not isinstance(value, int):
                 raise TypeError(
-                    "Field {} is set to {} which is not of type int".format(
-                        name, value
-                    )
+                    f"Field {name} is set to {value} which is not of type int"
                 )
             values.append(value)
         return self.s.pack(*values)
@@ -64,7 +62,7 @@ class Header:
             name = field[0]
             if name:
                 value = getattr(self, name)
-                print("{}: {}".format(name, hex(value)))
+                print(f"{name}: {hex(value)}")
 
     @classmethod
     def deserialize(cls, f):
@@ -95,7 +93,7 @@ def mk_header(name, fields):
             members[field.name] = field
         size += field.size
     members["size"] = size
-    type_name = "{}Header".format(name)
+    type_name = f"{name}Header"
     return type(type_name, (BaseHeader,), members)
 
 
@@ -126,7 +124,7 @@ class BaseHeader:
         for field in self._fields:
             if field.name:
                 value = getattr(self, field.name)
-                print("{}: {}".format(field.name, hex(value)))
+                print(f"{field.name}: {hex(value)}")
 
     def serialize(self):
         data = bytearray()

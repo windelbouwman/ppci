@@ -14,7 +14,7 @@ class SRecord:
     def __init__(self, typ, address, data):
         self.typ = typ
         if typ not in self.address_byte_sizes:
-            raise ValueError("Invalid s-record type {}".format(typ))
+            raise ValueError(f"Invalid s-record type {typ}")
         self.address = address
         self.data = data
 
@@ -32,7 +32,7 @@ class SRecord:
         crc = (~crc) & 0xFF
         data += bytes([crc])
         txt_data = binascii.hexlify(data).decode("ascii").upper()
-        line = "S{}{}".format(self.typ, txt_data)
+        line = f"S{self.typ}{txt_data}"
         return line
 
 

@@ -150,7 +150,7 @@ class Token(metaclass=TokenMeta):
             # assert value >= 0, value
             if value >= limit:
                 raise ValueError(
-                    "value {} cannot be fit into {} bits".format(value, bits)
+                    f"value {value} cannot be fit into {bits} bits"
                 )
             # TODO: move negative value to field property?
             if value < 0:

@@ -12,19 +12,14 @@ from ..utils.reporting import HtmlReportGenerator, DummyReportGenerator
 from ..utils.reporting import TextReportGenerator
 
 
-version_text = "ppci {} on {} {} on {}".format(
-    __version__,
-    platform.python_implementation(),
-    platform.python_version(),
-    platform.platform(),
-)
+version_text = f"ppci {__version__} on {platform.python_implementation()} {platform.python_version()} on {platform.platform()}"
 
 
 def log_level(s):
     """Converts a string to a valid logging level"""
     numeric_level = getattr(logging, s.upper(), None)
     if not isinstance(numeric_level, int):
-        raise ValueError("Invalid log level: {}".format(s))
+        raise ValueError(f"Invalid log level: {s}")
     return numeric_level
 
 

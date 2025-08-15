@@ -10,7 +10,7 @@ class VirtualInstruction(Instruction):
     """
 
     def encode(self):  # pragma: no cover
-        raise RuntimeError("Cannot encode virtual {}".format(self))
+        raise RuntimeError(f"Cannot encode virtual {self}")
 
 
 class ArtificialInstruction(VirtualInstruction):
@@ -114,7 +114,7 @@ class Comment(PseudoInstruction):
         self.comment = comment
 
     def __repr__(self):
-        return "; {}".format(self.comment)
+        return f"; {self.comment}"
 
 
 class Label(PseudoInstruction):
@@ -125,7 +125,7 @@ class Label(PseudoInstruction):
         self.name = name
 
     def __repr__(self):
-        return "{}:".format(self.name)
+        return f"{self.name}:"
 
     def symbols(self):
         return [self.name]
@@ -142,7 +142,7 @@ class Global(PseudoInstruction):
         self.name = name
 
     def __repr__(self):
-        return "global {}".format(self.name)
+        return f"global {self.name}"
 
 
 class SetSymbolType(PseudoInstruction):
@@ -153,7 +153,7 @@ class SetSymbolType(PseudoInstruction):
         self.typ = typ
 
     def __repr__(self):
-        return "type {} {}".format(self.name, self.typ)
+        return f"type {self.name} {self.typ}"
 
 
 class Alignment(PseudoInstruction):
@@ -172,7 +172,7 @@ class Alignment(PseudoInstruction):
         if self.rep:
             return self.rep
         else:
-            return "ALIGN({})".format(self.align)
+            return f"ALIGN({self.align})"
 
 
 class SectionInstruction(PseudoInstruction):
@@ -187,7 +187,7 @@ class SectionInstruction(PseudoInstruction):
         if self.rep:
             return self.rep
         else:
-            return "section {}".format(self.name)
+            return f"section {self.name}"
 
 
 class DebugData(PseudoInstruction):
@@ -198,4 +198,4 @@ class DebugData(PseudoInstruction):
         self.data = data
 
     def __repr__(self):
-        return ".debug_data( {} )".format(self.data)
+        return f".debug_data( {self.data} )"

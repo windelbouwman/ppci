@@ -79,7 +79,7 @@ class Mem2RegPromotor(FunctionPass):
                 if frontier_block not in has_phi:
                     has_phi.add(frontier_block)
                     block_backlog.add(frontier_block)
-                    phi_name = "phi_{}_{}".format(name, idx)
+                    phi_name = f"phi_{name}_{idx}"
                     idx += 1
                     phi = ir.Phi(phi_name, phi_ty)
                     phis.append(phi)
@@ -175,7 +175,7 @@ class Mem2RegPromotor(FunctionPass):
                 self.debug_db.map(alloc, phi)
 
             # Create undefined value at start:
-            initial_value = ir.Undefined("und_{}".format(name), phi_ty)
+            initial_value = ir.Undefined(f"und_{name}", phi_ty)
             alloc.function.entry.insert_instruction(initial_value)
 
             self.rename(initial_value, phis, loads, stores, cfg_info)

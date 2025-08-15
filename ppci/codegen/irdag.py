@@ -106,7 +106,7 @@ class Operation:
         if self.ty is None or self.op in ["LABEL", "CALL"]:
             return self.op.upper()
         else:
-            return "{}{}".format(self.op, str(self.ty)).upper()
+            return f"{self.op}{str(self.ty)}".upper()
 
 
 def make_map(cls):
@@ -489,7 +489,7 @@ class SelectionGraphBuilder:
             self.add_map(node, src_value)
         else:
             # Determine if cast is required.
-            op = "{}TO".format(str(from_ty).upper())
+            op = f"{str(from_ty).upper()}TO"
             a = self.get_value(node.src)
             sgnode = self.new_node(op, node.ty, a)
             self.add_map(node, sgnode.new_output(node.name))
@@ -553,7 +553,7 @@ class SelectionGraphBuilder:
         # New register for copy of result:
         ret_val = self.function_info.frame.new_reg(
             self.arch.info.value_classes[node.ty],
-            "{}_result".format(node.name),
+            f"{node.name}_result",
         )
 
         rv = (node.ty, ret_val)

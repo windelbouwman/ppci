@@ -98,7 +98,7 @@ class SGValue:
         return self.node.name.ty
 
     def __repr__(self):
-        return "SGValue(name={},vreg={})".format(self.name, self.vreg)
+        return f"SGValue(name={self.name},vreg={self.vreg})"
 
 
 class SGNode:
@@ -119,7 +119,7 @@ class SGNode:
         self.outputs = []
 
     def __repr__(self):
-        return "{} [{}]".format(self.name, self.value)
+        return f"{self.name} [{self.value}]"
 
     def is_machine_instruction(self):
         return False
@@ -166,7 +166,7 @@ class SGNode:
         """Create a new output value with a name and the given kind"""
         if self.name.ty is None and kind == SGValue.DATA:
             # self.name.op not in ['ENTRY', 'EXIT'] and \
-            raise ValueError("{} cannot produce output".format(self))
+            raise ValueError(f"{self} cannot produce output")
         val = SGValue(name, kind, self)
         self.add_output(val)
         return val

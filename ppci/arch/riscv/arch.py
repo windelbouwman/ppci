@@ -54,7 +54,7 @@ class RiscvAssembler(BaseAssembler):
         # Invent some label for the literal and store it.
         assert type(v) is str
         self.lit_counter += 1
-        label_name = "_lit_{}".format(self.lit_counter)
+        label_name = f"_lit_{self.lit_counter}"
         self.lit_pool.append(Label(label_name))
         self.lit_pool.append(dcd(v))
         return label_name
@@ -396,7 +396,7 @@ class RiscvArch(Architecture):
                     yield DByte(byte)
                 yield Align(4)  # Align at 4 bytes
             else:  # pragma: no cover
-                raise NotImplementedError("Constant of type {}".format(value))
+                raise NotImplementedError(f"Constant of type {value}")
 
         yield Section("code")
 

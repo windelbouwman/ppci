@@ -139,7 +139,7 @@ class CodeGenerator:
             ir_function.name,
         )
 
-        self.reporter.heading(3, "Log for {}".format(ir_function))
+        self.reporter.heading(3, f"Log for {ir_function}")
         self.reporter.dump_ir(ir_function)
 
         # Split too large basic blocks in smaller chunks (for literal pools):
@@ -149,9 +149,7 @@ class CodeGenerator:
             max_block_len = 200
             while len(block) > max_block_len:
                 self.logger.debug("%s too large, splitting up", str(block))
-                newname = "{}_splitted_block_{}".format(
-                    ir_function.name, split_block_nr
-                )
+                newname = f"{ir_function.name}_splitted_block_{split_block_nr}"
                 split_block_nr += 1
                 _, block = split_block(
                     block, pos=max_block_len, newname=newname
@@ -295,7 +293,7 @@ class CodeGenerator:
 
         # Replace template variables with actual registers:
         mapping = {
-            "%{}".format(index): str(register.get_real())
+            f"%{index}": str(register.get_real())
             for index, register in enumerate(
                 output_registers + input_registers
             )

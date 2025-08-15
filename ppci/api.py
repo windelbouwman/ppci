@@ -202,8 +202,8 @@ def optimize(ir_module, level=0, reporter=None):
     logger.info("Optimizing module %s level %s", ir_module.name, level)
 
     if reporter:
-        reporter.message("{} before optimization:".format(ir_module))
-        reporter.message("{} {}".format(ir_module, ir_module.stats()))
+        reporter.message(f"{ir_module} before optimization:")
+        reporter.message(f"{ir_module} {ir_module.stats()}")
         reporter.dump_ir(ir_module)
 
     assert level in OPT_LEVELS
@@ -236,8 +236,8 @@ def optimize(ir_module, level=0, reporter=None):
 
     if reporter:
         # Dump report:
-        reporter.message("{} after optimization:".format(ir_module))
-        reporter.message("{} {}".format(ir_module, ir_module.stats()))
+        reporter.message(f"{ir_module} after optimization:")
+        reporter.message(f"{ir_module} {ir_module.stats()}")
         reporter.dump_ir(ir_module)
 
     verify_module(ir_module)
@@ -291,7 +291,7 @@ def ir_to_object(
         reporter = DummyReportGenerator()
 
     reporter.heading(2, "Code generation")
-    reporter.message("Target: {}".format(march))
+    reporter.message(f"Target: {march}")
 
     # Construct output object:
     obj = ObjectFile(march)
@@ -358,7 +358,7 @@ def cc(
         coptions = COptions()
 
     ir_module = c_to_ir(source, march, coptions=coptions, reporter=reporter)
-    reporter.message("{} {}".format(ir_module, ir_module.stats()))
+    reporter.message(f"{ir_module} {ir_module.stats()}")
     reporter.dump_ir(ir_module)
     optimize(ir_module, level=opt_level, reporter=reporter)
     return ir_to_object([ir_module], march, debug=debug, reporter=reporter)
@@ -509,7 +509,7 @@ def objcopy(obj: ObjectFile, image_name: str, fmt: str, output_filename):
     fmts = ["bin", "hex", "elf", "exe", "ldb", "uimage"]
     if fmt not in fmts:
         formats = ", ".join(fmts[:-1]) + " and " + fmts[-1]
-        raise TaskError("Only {} are supported".format(formats))
+        raise TaskError(f"Only {formats} are supported")
 
     obj = get_object(obj)
     if fmt == "bin":

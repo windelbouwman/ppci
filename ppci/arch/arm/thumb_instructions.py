@@ -664,7 +664,7 @@ def push_bit_pos(n):
     elif n == 14:
         return 8
     else:  # pragma: no cover
-        raise NotImplementedError("not implemented for {}".format(n))
+        raise NotImplementedError(f"not implemented for {n}")
 
 
 def pop_bit_pos(n):
@@ -673,7 +673,7 @@ def pop_bit_pos(n):
     elif n == 15:
         return 8
     else:  # pragma: no cover
-        raise NotImplementedError("not implemented for {}".format(n))
+        raise NotImplementedError(f"not implemented for {n}")
 
 
 class Push(ThumbInstruction):
@@ -681,7 +681,7 @@ class Push(ThumbInstruction):
     syntax = Syntax(["push", " ", regs])
 
     def __repr__(self):
-        return "Push {{{}}}".format(self.regs)
+        return f"Push {{{self.regs}}}"
 
     def encode(self):
         tokens = self.get_tokens()
@@ -701,7 +701,7 @@ class Pop(ThumbInstruction):
     syntax = Syntax(["pop", " ", regs])
 
     def __repr__(self):
-        return "Pop {{{}}}".format(self.regs)
+        return f"Pop {{{self.regs}}}"
 
     def encode(self):
         tokens = self.get_tokens()

@@ -98,7 +98,7 @@ def readelf(args=None):
 def print_elf_header(elf):
     """Print the ELF header fields"""
     print("ELF Header:")
-    magic = " ".join("{:02x}".format(v) for v in elf.e_ident)
+    magic = " ".join(f"{v:02x}" for v in elf.e_ident)
     print("  Magic:", magic)
     print("  Class:", elf.ei_class)
     print("  Data:", elf.e_ident[5])  # EI_DATA = 5
@@ -205,7 +205,7 @@ def print_symbol_table(elf_file):
 
 
 def print_symbols(elf_file, sym_section, name_section):
-    print("Symbol table {}:".format(sym_section.name))
+    print(f"Symbol table {sym_section.name}:")
     print("  Num: Value             Size Type    Bind     Vis   Ndx Name")
     table = elf_file.read_symbol_table(sym_section)
     for idx, row in enumerate(table):
@@ -229,7 +229,7 @@ def print_symbols(elf_file, sym_section, name_section):
 
 
 def print_hex_dump(elf, section_number):
-    print("Hex dump of section {}:".format(section_number))
+    print(f"Hex dump of section {section_number}:")
     data = elf.sections[section_number].data
     hexdump(data)
     print()

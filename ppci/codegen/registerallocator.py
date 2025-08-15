@@ -154,8 +154,8 @@ class MiniGen:
         fmt = self.make_fmt(vreg)
 
         t = Tree(
-            "MOV{}".format(fmt),
-            Tree("LDR{}".format(fmt), at),
+            f"MOV{fmt}",
+            Tree(f"LDR{fmt}", at),
             value=vreg,
         )
         return self.gen(frame, t)
@@ -165,9 +165,9 @@ class MiniGen:
         at = self.make_at(slot)
         fmt = self.make_fmt(vreg)
         t = Tree(
-            "STR{}".format(fmt),
+            f"STR{fmt}",
             at,
-            Tree("REG{}".format(fmt), value=vreg),
+            Tree(f"REG{fmt}", value=vreg),
         )
         return self.gen(frame, t)
 
@@ -181,12 +181,12 @@ class MiniGen:
         """Determine the type suffix, such as I32 or F64."""
         # TODO: hack to retrieve register type (U, I or F):
         ty = getattr(vreg, "ty", "I")
-        fmt = "{}{}".format(ty, vreg.bitsize)
+        fmt = f"{ty}{vreg.bitsize}"
         return fmt
 
     def make_at(self, slot):
         bitsize = self.arch.get_size("ptr") * 8
-        offset_tree = Tree("FPRELU{}".format(bitsize), value=slot)
+        offset_tree = Tree(f"FPRELU{bitsize}", value=slot)
         return offset_tree
 
 
@@ -264,9 +264,7 @@ class GraphColoringRegisterAllocator:
                 max_spill_rounds = 30
                 if spill_rounds > max_spill_rounds:
                     raise RuntimeError(
-                        "Give up: more than {} spill rounds done!".format(
-                            max_spill_rounds
-                        )
+                        f"Give up: more than {max_spill_rounds} spill rounds done!"
                     )
 
                 # Rewrite program now.
@@ -623,9 +621,7 @@ class GraphColoringRegisterAllocator:
             cc = v
         else:
             raise RuntimeError(
-                "Cannot determine common registerclass for {} and {}".format(
-                    u, v
-                )
+                f"Cannot determine common registerclass for {u} and {v}"
             )
 
         if self.verbose:
@@ -698,9 +694,9 @@ class GraphColoringRegisterAllocator:
     def rewrite_program(self, node):
         """Rewrite program by creating a load and a store for each use"""
         # Generate spill code:
-        self.logger.debug("Placing {} on stack".format(node))
+        self.logger.debug(f"Placing {node} on stack")
         if self.verbose:
-            self.reporter.message("Placing {} on stack".format(node))
+            self.reporter.message(f"Placing {node} on stack")
 
         size = node.reg_class.bitsize // 8
         alignment = size
@@ -715,24 +711,20 @@ class GraphColoringRegisterAllocator:
             for instruction in instructions:
                 if self.verbose:
                     self.reporter.message(
-                        "Updating instruction: {}".format(instruction)
+                        f"Updating instruction: {instruction}"
                     )
 
                 vreg2 = self.frame.new_reg(type(tmp))
                 self.logger.debug("tmp: %s, new: %s", tmp, vreg2)
                 if self.verbose:
-                    self.reporter.message(
-                        "Replace {} by {}".format(tmp, vreg2)
-                    )
+                    self.reporter.message(f"Replace {tmp} by {vreg2}")
                 instruction.replace_register(tmp, vreg2)
 
                 if instruction.reads_register(vreg2):
                     code = self.spill_gen.gen_load(self.frame, vreg2, slot)
                     if self.verbose:
                         self.reporter.message(
-                            "Load code before instruction: {}".format(
-                                list(map(str, code))
-                            )
+                            f"Load code before instruction: {list(map(str, code))}"
                         )
                     self.frame.insert_code_before(instruction, code)
 
@@ -740,9 +732,7 @@ class GraphColoringRegisterAllocator:
                     code = self.spill_gen.gen_store(self.frame, vreg2, slot)
                     if self.verbose:
                         self.reporter.message(
-                            "Store code after instruction: {}".format(
-                                list(map(str, code))
-                            )
+                            f"Store code after instruction: {list(map(str, code))}"
                         )
                     self.frame.insert_code_after(instruction, code)
 

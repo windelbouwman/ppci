@@ -118,7 +118,7 @@ class Rule:
         self.nr = 0
 
     def __repr__(self):
-        return "{} -> {} ${}".format(self.non_term, self.tree, self.cost)
+        return f"{self.non_term} -> {self.tree} ${self.cost}"
 
 
 class Symbol:
@@ -246,7 +246,7 @@ class BurgSystem:
         """Check if all names in a tree are defined"""
         for name in tree.get_defined_names():
             if name not in self.symbols:
-                raise BurgError("{} not defined".format(name))
+                raise BurgError(f"{name} not defined")
 
     def check(self):
         """Run sanity checks on this burg system"""
@@ -298,72 +298,64 @@ class BurgGenerator:
             kids, dummy = self.compute_kids(rule.tree, "t")
             rule.num_nts = len(dummy)
             lf = "lambda t: [{}]".format(", ".join(kids))
-            pf = "self.P{}".format(rule.nr)
+            pf = f"self.P{rule.nr}"
             self.print(0)
-            self.print(2, "# {}: {}".format(rule.nr, rule))
-            self.print(2, "self.kid_functions[{}] = {}".format(rule.nr, lf))
-            self.print(2, "self.nts_map[{}] = {}".format(rule.nr, dummy))
-            self.print(2, "self.pat_f[{}] = {}".format(rule.nr, pf))
+            self.print(2, f"# {rule.nr}: {rule}")
+            self.print(2, f"self.kid_functions[{rule.nr}] = {lf}")
+            self.print(2, f"self.nts_map[{rule.nr}] = {dummy}")
+            self.print(2, f"self.pat_f[{rule.nr}] = {pf}")
         self.print(0)
         for rule in self.system.rules:
             if rule.num_nts > 0:
-                args = ", ".join("c{}".format(x) for x in range(rule.num_nts))
+                args = ", ".join(f"c{x}" for x in range(rule.num_nts))
                 args = ", " + args
             else:
                 args = ""
             # Create template function:
             self.print(0)
-            self.print(1, "def P{}(self, tree{}):".format(rule.nr, args))
+            self.print(1, f"def P{rule.nr}(self, tree{args}):")
             template = rule.template
             for t in template.split(";"):
-                self.print(2, "{}".format(t.strip()))
+                self.print(2, f"{t.strip()}")
             # Create acceptance function:
             if rule.acceptance:
                 self.print(0)
-                self.print(1, "def A{}(self, tree):".format(rule.nr))
+                self.print(1, f"def A{rule.nr}(self, tree):")
                 for t in rule.acceptance.split(";"):
-                    self.print(2, "{}".format(t.strip()))
+                    self.print(2, f"{t.strip()}")
         self.emit_state()
         self.print(1, "def gen(self, tree):")
         self.print(2, "self.burm_label(tree)")
-        self.print(
-            2, 'if not tree.state.has_goal("{}"):'.format(self.system.goal)
-        )
+        self.print(2, f'if not tree.state.has_goal("{self.system.goal}"):')
         self.print(3, 'raise Exception("Tree {} not covered".format(tree))')
-        self.print(
-            2, 'return self.apply_rules(tree, "{}")'.format(self.system.goal)
-        )
+        self.print(2, f'return self.apply_rules(tree, "{self.system.goal}")')
 
     def emit_record(self, rule, state_var):
         # TODO: check for rules fullfilled (by not using 999999)
         acc = ""
         if rule.acceptance:
-            acc = " and self.A{}(tree)".format(rule.nr)
-        self.print(3, "nts = self.nts({})".format(rule.nr))
-        self.print(3, "kids = self.kids(tree, {})".format(rule.nr))
+            acc = f" and self.A{rule.nr}(tree)"
+        self.print(3, f"nts = self.nts({rule.nr})")
+        self.print(3, f"kids = self.kids(tree, {rule.nr})")
         self.print(
             3,
-            "if all(x.state.has_goal(y) for x, y in zip(kids, nts)){}:".format(
-                acc
-            ),
+            f"if all(x.state.has_goal(y) for x, y in zip(kids, nts)){acc}:",
         )
         self.print(
             4,
             (
-                "c = sum(x.state.get_cost(y) for x, y in zip(kids, nts)) + {}"
-            ).format(rule.cost),
+                f"c = sum(x.state.get_cost(y) for x, y in zip(kids, nts)) + {rule.cost}"
+            ),
         )
         self.print(
             4,
-            'tree.state.set_cost("{}", c, {})'.format(rule.non_term, rule.nr),
+            f'tree.state.set_cost("{rule.non_term}", c, {rule.nr})',
         )
         for cr in self.system.symbols[rule.non_term].chain_rules:
-            self.print(4, "# Chain rule: {}".format(cr))
+            self.print(4, f"# Chain rule: {cr}")
             self.print(
                 4,
-                'tree.state.set_cost("{}", c + {}, {})'.format(
-                    cr.non_term, cr.cost, cr.nr
-                ),
+                f'tree.state.set_cost("{cr.non_term}", c + {cr.cost}, {cr.nr})',
             )
 
     def emit_state(self):
@@ -378,7 +370,7 @@ class BurgGenerator:
         rules = [rule for rule in self.system.rules if rule.tree.name == term]
         for rule in rules:
             condition = self.emittest(rule.tree, "tree")
-            self.print(2, "if {}:".format(condition))
+            self.print(2, f"if {condition}:")
             self.emit_record(rule, "state")
 
     def compute_kids(self, t, root_name):
@@ -390,7 +382,7 @@ class BurgGenerator:
             k = []
             nts = []
             for i, c in enumerate(t.children):
-                pfx = root_name + ".children[{}]".format(i)
+                pfx = root_name + f".children[{i}]"
                 kf, dummy = self.compute_kids(c, pfx)
                 nts.extend(dummy)
                 k.extend(kf)
@@ -402,13 +394,13 @@ class BurgGenerator:
             c for c in tree.children if c.name not in self.system.non_terminals
         )
         child_tests = (
-            self.emittest(c, prefix + ".children[{}]".format(i))
+            self.emittest(c, prefix + f".children[{i}]")
             for i, c in enumerate(ct)
         )
-        child_tests = ("({})".format(ct) for ct in child_tests)
+        child_tests = (f"({ct})" for ct in child_tests)
         child_tests = " and ".join(child_tests)
         child_tests = " and " + child_tests if child_tests else ""
-        tst = '{}.name == "{}"'.format(prefix, tree.name)
+        tst = f'{prefix}.name == "{tree.name}"'
         return tst + child_tests
 
 

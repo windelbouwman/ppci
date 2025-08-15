@@ -35,7 +35,7 @@ def get_os_name(value):
     if OsAbi.has_value(value):
         name = OsAbi(value).name
     else:
-        name = "Unknown: {}".format(value)
+        name = f"Unknown: {value}"
     return name
 
 
@@ -128,7 +128,7 @@ def get_machine_name(value):
     if ElfMachine.has_value(value):
         name = ElfMachine(value).name
     else:
-        name = "Unknown: {}".format(value)
+        name = f"Unknown: {value}"
     return name
 
 
@@ -158,11 +158,11 @@ class SymbolTableBinding(enum.IntEnum):
 
 def get_symbol_table_binding_name(value):
     if value in range(SymbolTableBinding.LOOS, SymbolTableBinding.HIOS + 1):
-        name = "OS: {}".format(value)
+        name = f"OS: {value}"
     elif value in range(
         SymbolTableBinding.LOPROC, SymbolTableBinding.HIPROC + 1
     ):
-        name = "PROC: {}".format(value)
+        name = f"PROC: {value}"
     else:
         name = SymbolTableBinding(value).name
     return name
@@ -184,9 +184,9 @@ class SymbolTableType(enum.IntEnum):
 
 def get_symbol_table_type_name(value):
     if value in range(SymbolTableType.LOOS, SymbolTableType.HIOS + 1):
-        name = "OS: {}".format(value)
+        name = f"OS: {value}"
     elif value in range(SymbolTableType.LOPROC, SymbolTableType.HIPROC + 1):
-        name = "PROC: {}".format(value)
+        name = f"PROC: {value}"
     else:
         name = SymbolTableType(value).name
     return name

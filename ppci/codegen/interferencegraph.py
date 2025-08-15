@@ -27,9 +27,7 @@ class InterferenceGraphNode(Node):
         return self.reg is not None
 
     def __repr__(self):
-        return "{}(reg={},class={})".format(
-            self.temps, self.reg, self.reg_class
-        )
+        return f"{self.temps}(reg={self.reg},class={self.reg_class})"
 
 
 class InterferenceGraph(MaskableGraph):

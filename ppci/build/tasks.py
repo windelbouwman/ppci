@@ -47,19 +47,19 @@ class Project:
     def get_property(self, name):
         """Get a property in this project"""
         if name not in self.properties:
-            raise TaskError('Property "{}" not found'.format(name))
+            raise TaskError(f'Property "{name}" not found')
         return self.properties[name]
 
     def add_target(self, target):
         """Add a target to the project"""
         if target.name in self.targets:
-            raise TaskError("Duplicate target '{}'".format(target.name))
+            raise TaskError(f"Duplicate target '{target.name}'")
         self.targets[target.name] = target
 
     def get_target(self, target_name):
         assert isinstance(target_name, str)
         if target_name not in self.targets:
-            raise TaskError('target "{}" not found'.format(target_name))
+            raise TaskError(f'target "{target_name}" not found')
         return self.targets[target_name]
 
     def expand_macros(self, txt):
@@ -79,9 +79,7 @@ class Project:
         for dep in target.dependencies:
             if dep in state:
                 raise TaskError(
-                    "Dependency loop detected {} -> {}".format(
-                        target_name, dep
-                    )
+                    f"Dependency loop detected {target_name} -> {dep}"
                 )
             self.dfs(dep, state)
 
@@ -117,7 +115,7 @@ class Target:
         return other.name in self.project.dependencies(self.name)
 
     def __repr__(self):
-        return 'Target "{}"'.format(self.name)
+        return f'Target "{self.name}"'
 
 
 class Task:
@@ -161,7 +159,7 @@ class Task:
         for part in s.split(";"):
             new_files = glob.glob(self.relpath(part))
             if not new_files:
-                raise TaskError("{} not found".format(part))
+                raise TaskError(f"{part} not found")
             for filename in new_files:
                 file_names.append(os.path.normpath(filename))
         return file_names
@@ -218,16 +216,16 @@ class TaskRunner:
         ]
         target_list.sort()
 
-        self.logger.info("Target sequence: {}".format(target_list))
+        self.logger.info(f"Target sequence: {target_list}")
 
         # Run tasks:
         for target in target_list:
-            self.logger.info("Target {} Started".format(target.name))
+            self.logger.info(f"Target {target.name} Started")
             for tname, props in target.tasks:
                 for arg in props:
                     props[arg] = project.expand_macros(props[arg])
                 task = self.get_task(tname)(target, props)
-                self.logger.info("Running {}".format(task))
+                self.logger.info(f"Running {task}")
                 task.run()
-            self.logger.info("Target {} Ready".format(target.name))
+            self.logger.info(f"Target {target.name} Ready")
         self.logger.info("All targets done!")

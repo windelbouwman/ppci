@@ -33,7 +33,7 @@ class Operand(property):
         # if isinstance(cls, type) or isinstance(cls, tuple)
 
         # Construct a private backing field for the property:
-        private_field = "_{}".format(name)
+        private_field = f"_{name}"
 
         if isinstance(cls, type) and issubclass(cls, Register):
             assert read or write
@@ -48,7 +48,7 @@ class Operand(property):
         super().__init__(getter, setter)
 
     def __repr__(self):
-        return "operand name={}, cls={}".format(self._name, self._cls)
+        return f"operand name={self._name}, cls={self._cls}"
 
     @property
     def is_constructor(self):
@@ -140,17 +140,13 @@ class Constructor:
             # Set parameters:
             if len(args) != len(formal_args):
                 raise TypeError(
-                    "{} arguments given, but {} expects {}".format(
-                        len(args), self.__class__, len(formal_args)
-                    )
+                    f"{len(args)} arguments given, but {self.__class__} expects {len(formal_args)}"
                 )
             for farg, arg in zip(formal_args, args):
                 if not isinstance(arg, farg._cls):  # pragma: no cover
                     # Create some nice looking error:
                     raise TypeError(
-                        '{} expected {}, but got "{}" of type {}'.format(
-                            type(self), farg._cls, arg, type(arg)
-                        )
+                        f'{type(self)} expected {farg._cls}, but got "{arg}" of type {type(arg)}'
                     )
                 setattr(self, farg._name, arg)
 
@@ -205,7 +201,7 @@ class Constructor:
             v = tokens.get_field(pattern.field)
             if isinstance(pattern, FixedPattern):
                 if v != pattern.value:
-                    raise ValueError("Cannot decode {}".format(cls))
+                    raise ValueError(f"Cannot decode {cls}")
             elif isinstance(pattern, VariablePattern):
                 prop_map[pattern.prop.source] = pattern.prop.from_value(v)
             else:  # pragma: no cover
@@ -290,7 +286,7 @@ class InsMeta(type):
         for name, val in member_list:
             if isinstance(val, Operand):
                 if name in members:  # pragma: no cover
-                    raise ValueError("{} already defined!".format(name))
+                    raise ValueError(f"{name} already defined!")
                 members[name] = val
         name = cls.__name__ + other.__name__
         return InsMeta(name, (Instruction,), members)
@@ -495,14 +491,14 @@ class Syntax:
                 if element.isidentifier():
                     if not element.islower():
                         raise TypeError(
-                            'element "{}" must be lower case'.format(element)
+                            f'element "{element}" must be lower case'
                         )
                 elif element.isspace():
                     pass
                 elif element in self.GLYPHS:
                     pass
                 else:  # pragma: no cover
-                    raise TypeError('Invalid element "{}"'.format(element))
+                    raise TypeError(f'Invalid element "{element}"')
             elif isinstance(element, Operand):
                 pass
             else:  # pragma: no cover
@@ -525,7 +521,7 @@ class Syntax:
         return Syntax(syntax)
 
     def __repr__(self):
-        return "{}".format(self.syntax)
+        return f"{self.syntax}"
 
     def get_args(self):
         """Return all non-whitespace elements"""
@@ -607,7 +603,7 @@ class Relocation:
         self.offset = offset
 
     def __repr__(self):
-        return "Reloc[{} offset={}]".format(self.name, self.offset)
+        return f"Reloc[{self.name} offset={self.offset}]"
 
     def __eq__(self, other):
         return (

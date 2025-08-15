@@ -68,7 +68,7 @@ class Architecture(MachineArchitecture):
         for n in self.option_names:
             if self.option_settings[n]:
                 opstring += ":" + n
-        return "{}{}-arch".format(self.name, opstring)
+        return f"{self.name}{opstring}-arch"
 
     def make_id_str(self):
         """Return a string uniquely identifying this machine"""

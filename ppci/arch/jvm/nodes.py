@@ -84,7 +84,7 @@ class Constant:
         self.value = value
 
     def __repr__(self):
-        return "Constant {}: {}".format(self.tag, self.value)
+        return f"Constant {self.tag}: {self.value}"
 
 
 class MethodRef:
@@ -92,7 +92,7 @@ class MethodRef:
         self.class_name = ""
 
     def __repr__(self):
-        return "MethodRef({})".format(self.class_name)
+        return f"MethodRef({self.class_name})"
 
 
 class Method:
@@ -109,7 +109,7 @@ class Attribute:
         self.data = data
 
     def __repr__(self):
-        return "Attribute(name={}, data={})".format(self.name, self.data)
+        return f"Attribute(name={self.name}, data={self.data})"
 
 
 class CodeAttribute:
@@ -129,9 +129,7 @@ class Instruction:
         self.args = args
 
     def __repr__(self):
-        return "instruction(opcode={} (0x{:0X}), args={})".format(
-            self.mnemonic, self.opcode, self.args
-        )
+        return f"instruction(opcode={self.mnemonic} (0x{self.opcode:0X}), args={self.args})"
 
 
 class Manifest:

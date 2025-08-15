@@ -215,9 +215,7 @@ class Or1kArch(Architecture):
                         yield Db(byte)
                     yield Alignment(4)  # Align at 4 bytes
                 else:  # pragma: no cover
-                    raise NotImplementedError(
-                        "Constant of type {}".format(value)
-                    )
+                    raise NotImplementedError(f"Constant of type {value}")
 
             yield SectionInstruction("code")
 

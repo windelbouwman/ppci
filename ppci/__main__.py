@@ -58,7 +58,7 @@ def print_help_message():
     print()
     print("Please use one of the subcommands below:")
     for cmd in valid_programs:
-        print("  $ python -m ppci {} -h".format(cmd))
+        print(f"  $ python -m ppci {cmd} -h")
     print()
 
 

@@ -199,7 +199,7 @@ class Msp430Arch(Architecture):
                     yield Db(byte)
                 yield Alignment(2)  # Align at 4 bytes
             else:  # pragma: no cover
-                raise NotImplementedError("Constant of type {}".format(value))
+                raise NotImplementedError(f"Constant of type {value}")
 
     def determine_arg_locations(self, arg_types):
         """

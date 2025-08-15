@@ -131,9 +131,7 @@ class MicroBlazeArch(Architecture):
                         yield Db(byte)
                     yield Alignment(4)  # Align at 4 bytes
                 else:  # pragma: no cover
-                    raise NotImplementedError(
-                        "Constant of type {}".format(value)
-                    )
+                    raise NotImplementedError(f"Constant of type {value}")
 
     def gen_function_enter(self, args):
         arg_types = [a[0] for a in args]

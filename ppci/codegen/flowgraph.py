@@ -29,7 +29,7 @@ class FlowGraphNode(DiNode):
         self.kill = self.kill | ins.kill
 
     def __repr__(self):
-        r = "CFG-node({})".format(len(self.instructions))
+        r = f"CFG-node({len(self.instructions)})"
         return r
 
     @property
@@ -39,8 +39,8 @@ class FlowGraphNode(DiNode):
             r += " gen:" + ", ".join(str(u) for u in self.gen)
         if self.kill:
             r += " kill:" + ", ".join(str(d) for d in self.kill)
-        r += " live_out={}, live_in={}".format(self.live_out, self.live_in)
-        r += ", Succ={}, Pred={}".format(self.successors, self.predecessors)
+        r += f" live_out={self.live_out}, live_in={self.live_in}"
+        r += f", Succ={self.successors}, Pred={self.predecessors}"
         return r
 
 

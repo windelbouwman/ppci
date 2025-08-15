@@ -37,7 +37,7 @@ def get_file(f, mode="r"):
     elif isinstance(f, str):
         return open(f, mode)
     else:
-        raise FileNotFoundError("Cannot open {}".format(f))
+        raise FileNotFoundError(f"Cannot open {f}")
 
 
 class CompilerError(Exception):
@@ -54,7 +54,7 @@ class CompilerError(Exception):
         self.hints = hints
 
     def __repr__(self):
-        return '"{}"'.format(self.msg)
+        return f'"{self.msg}"'
 
     def render(self, lines):
         """Render this error in some lines of context"""
@@ -118,7 +118,7 @@ class DiagnosticsManager:
         """Print a single source line"""
         if row in range(len(lines)):
             txt = lines[row - 1]
-            print("{:5}:{}".format(row, txt))
+            print(f"{row:5}:{txt}")
 
     def print_error(self, e):
         """Print a single error in a nice formatted way"""
@@ -127,7 +127,7 @@ class DiagnosticsManager:
             if e.loc.filename not in self.sources:
                 print(f"Error: {e}")
                 return
-            print("File: {}".format(e.loc.filename))
+            print(f"File: {e.loc.filename}")
             source = self.sources[e.loc.filename]
             lines = source.split("\n")
             e.render(lines)

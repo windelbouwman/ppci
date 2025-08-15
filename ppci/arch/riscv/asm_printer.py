@@ -7,6 +7,6 @@ class RiscvAsmPrinter(AsmPrinter):
 
     def print_instruction(self, instruction):
         if isinstance(instruction, SectionInstruction):
-            return ".section {}".format(instruction.name)
+            return f".section {instruction.name}"
         else:
             return str(instruction)
