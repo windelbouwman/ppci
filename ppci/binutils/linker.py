@@ -462,9 +462,7 @@ class Linker:
                 size = reloc.size()
                 end = begin + size
                 data = reloc_section.data[begin:end]
-                assert len(data) == size, (
-                    f"len({data}) ({begin}-{end}) != {size}"
-                )
+                assert len(data) == size
 
                 # Apply code patch:
                 self.logger.debug("Applying patch for %s", reloc)

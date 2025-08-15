@@ -4,4 +4,6 @@ set -eu
 
 ruff format --check
 ruff check ppci test
+black --check .
+flake8 ppci test
 pytest
