@@ -223,8 +223,7 @@ class AvrArch(Architecture):
         yield Ret()
 
         # Add final literal pool:
-        for instruction in self.litpool(frame):
-            yield instruction
+        yield from self.litpool(frame)
         yield Alignment(4)  # Align at 4 bytes
 
     def gen_call(self, frame, label, args, rv):
@@ -311,8 +310,7 @@ class AvrArch(Architecture):
             yield SectionInstruction("code")
 
     def between_blocks(self, frame):
-        for instruction in self.litpool(frame):
-            yield instruction
+        yield from self.litpool(frame)
 
     def move(self, dst, src):
         """Generate a move from src to dst"""

@@ -71,17 +71,13 @@ class DebugInfo:
         self.variables = []
 
     def all_items(self):
-        for location in self.locations:
-            yield location
+        yield from self.locations
 
-        for function in self.functions:
-            yield function
+        yield from self.functions
 
-        for typ in self.types:
-            yield typ
+        yield from self.types
 
-        for variable in self.variables:
-            yield variable
+        yield from self.variables
 
     def add(self, di):
         if isinstance(di, DebugLocation):

@@ -112,6 +112,5 @@ def dfs_alias(register):
     This can be used to find aliases of aliases.
     """
     for r2 in register.aliases:
-        for r3 in dfs_alias(r2):
-            yield r3
+        yield from dfs_alias(r2)
         yield r2

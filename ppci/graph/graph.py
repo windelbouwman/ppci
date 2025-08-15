@@ -45,8 +45,7 @@ class BaseGraph(abc.ABC):
         self.adj_map = defaultdict(OrderedSet)
 
     def __iter__(self):
-        for node in self.nodes:
-            yield node
+        yield from self.nodes
 
     def __len__(self):
         return len(self.nodes)

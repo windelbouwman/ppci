@@ -245,8 +245,7 @@ class Constructor:
         """
         for prop in self.properties:
             if prop.is_constructor:
-                for propcls in prop.__get__(self).leaves:
-                    yield propcls
+                yield from prop.__get__(self).leaves
             else:
                 yield prop, self
 
@@ -261,8 +260,7 @@ class Constructor:
             if prop.is_constructor:
                 s2 = prop.__get__(self)
                 # yield s2
-                for nl in s2.non_leaves:
-                    yield nl
+                yield from s2.non_leaves
 
     def gen_relocations(self):
         """Override this method to generate relocation information"""
@@ -273,7 +271,7 @@ class InsMeta(type):
     """Meta class to register an instruction within an isa class."""
 
     def __init__(cls, name, bases, attrs):
-        super(InsMeta, cls).__init__(name, bases, attrs)
+        super().__init__(name, bases, attrs)
 
         # Register instruction with isa:
         if hasattr(cls, "isa"):

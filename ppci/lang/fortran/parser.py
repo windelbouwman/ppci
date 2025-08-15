@@ -217,8 +217,7 @@ class FortranLexer:
                 loc = SourceLocation(self.filename, self.row, 1, 1)
                 yield Token("LABEL", label, loc)
             if statements:
-                for token in self.tokenize_line(statements):
-                    yield token
+                yield from self.tokenize_line(statements)
             col = len(line)
             loc = SourceLocation(self.filename, self.row, col, 1)
             yield Token("EOL", "EOL", loc)

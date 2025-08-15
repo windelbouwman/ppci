@@ -467,8 +467,7 @@ class X86_64Arch(Architecture):
                 raise NotImplementedError("Parameters in memory not impl")
 
         for dst, src, count in cps:
-            for instruction in self.gen_memcpy(dst, src, count):
-                yield instruction
+            yield from self.gen_memcpy(dst, src, count)
 
     def gen_function_exit(self, rv):
         live_out = set()
@@ -528,8 +527,7 @@ class X86_64Arch(Architecture):
                 yield SubImm(rsp, push_reg.size)
                 dst = instructions.RmMemDisp(rsp, 0)
                 src = instructions.RmMemDisp(rbp, push_reg.offset)
-                for memcpy_ins in self.gen_memcpy(dst, src, push_reg.size):
-                    yield memcpy_ins
+                yield from self.gen_memcpy(dst, src, push_reg.size)
             else:  # pragma: no cover
                 raise NotImplementedError(str(push_reg))
 

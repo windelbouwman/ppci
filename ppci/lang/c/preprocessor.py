@@ -175,8 +175,7 @@ class CPreProcessor:
         ex = FileExpander(source_file, tokens)
         self.files.append(ex)
         yield LineInfo(1, source_file.filename)
-        for token in self.process_tokens():
-            yield token
+        yield from self.process_tokens()
 
         # Test for empty if-stack:
         if self.files[-1].if_stack:
@@ -248,9 +247,8 @@ class CPreProcessor:
         self.logger.debug("Including %s", full_path)
         source_file = SourceFile(full_path)
         self.files[-1].dependencies.append(source_file)
-        with open(full_path, "r") as f:
-            for token in self.process_file(f, full_path):
-                yield token
+        with open(full_path) as f:
+            yield from self.process_file(f, full_path)
 
     # Token consume / peeking:
     @property
@@ -352,8 +350,7 @@ class CPreProcessor:
         while token:
             if token.first and token.typ == "#":
                 # We are inside a directive!
-                for token2 in self.handle_directive(token.loc):
-                    yield token2
+                yield from self.handle_directive(token.loc)
 
                 # Ensure end of line!
                 if not self.at_line_start:
@@ -810,12 +807,11 @@ class CPreProcessor:
         """Process the `#include` directive."""
         use_current_dir, include_filename = self.parse_included_filename()
 
-        for token in self.include(
+        yield from self.include(
             include_filename,
             directive_token.loc,
             use_current_dir=use_current_dir,
-        ):
-            yield token
+        )
 
         yield LineInfo(
             directive_token.loc.row + 1,
@@ -827,13 +823,12 @@ class CPreProcessor:
         """Process the `#include_next` directive."""
         use_current_dir, include_filename = self.parse_included_filename()
 
-        for token in self.include(
+        yield from self.include(
             include_filename,
             directive_token.loc,
             use_current_dir=use_current_dir,
             include_next=True,
-        ):
-            yield token
+        )
 
         yield LineInfo(
             directive_token.loc.row + 1,

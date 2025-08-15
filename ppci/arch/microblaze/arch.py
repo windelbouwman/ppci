@@ -107,8 +107,7 @@ class MicroBlazeArch(Architecture):
         yield instructions.nop()  # Fill delay slot.
 
         # Add final literal pool:
-        for instruction in self.gen_litpool(frame):
-            yield instruction
+        yield from self.gen_litpool(frame)
         yield Alignment(4)  # Align at 4 bytes
 
     def get_callee_saved(self, frame):

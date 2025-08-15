@@ -196,6 +196,6 @@ class ImageSectionHeader(Header):
     @classmethod
     def deserialize(cls, f):
         name = f.read(8)
-        d = super(ImageSectionHeader, cls).deserialize(f)
+        d = super().deserialize(f)
         d.e_name = name
         return d

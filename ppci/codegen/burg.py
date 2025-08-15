@@ -102,8 +102,7 @@ class BurgLexer(baselex.BaseLexer):
                 else:
                     # we could use yield from below, but python 3.2 does not
                     # work then:
-                    for tk in super().tokenize(line):
-                        yield tk
+                    yield from super().tokenize(line)
 
 
 class Rule:

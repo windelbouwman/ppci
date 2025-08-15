@@ -285,7 +285,7 @@ class PtDebugCli:
 
     def get_file_source(self, filename):
         if filename not in self.sources:
-            with open(filename, "r") as f:
+            with open(filename) as f:
                 source = f.read()
             self.sources[filename] = source
         return self.sources[filename]

@@ -74,7 +74,7 @@ def get_reporter(reporter):
         return DummyReportGenerator()
     elif isinstance(reporter, str):
         if reporter.endswith(".html"):
-            f = open(reporter, "wt", encoding="utf8")
+            f = open(reporter, "w", encoding="utf8")
             r = HtmlReportGenerator(f)
             r.header()
             return r
@@ -528,11 +528,11 @@ def objcopy(obj: ObjectFile, image_name: str, fmt: str, output_filename):
         image = obj.get_image(image_name)
         hexfile = HexFile()
         hexfile.add_region(image.address, image.data)
-        with open(output_filename, "wt", encoding="utf8") as output_file:
+        with open(output_filename, "w", encoding="utf8") as output_file:
             hexfile.save(output_file)
     elif fmt == "ldb":
         # TODO: fix this some other way to extract debug info
-        with open(output_filename, "wt", encoding="utf8") as output_file:
+        with open(output_filename, "w", encoding="utf8") as output_file:
             write_ldb(obj, output_file)
     elif fmt == "uimage":
         image = obj.get_image(image_name)

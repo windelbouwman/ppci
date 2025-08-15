@@ -212,8 +212,7 @@ class ArmArch(Architecture):
             yield arm_instructions.Pop(RegisterSet({PC, R11}))
 
         # Add final literal pool
-        for instruction in self.litpool(frame):
-            yield instruction
+        yield from self.litpool(frame)
 
         if not self.has_option("thumb"):
             yield Alignment(4)  # Align at 4 bytes
@@ -274,10 +273,7 @@ class ArmArch(Architecture):
                         )
                         # Source location:
                         yield arm_instructions.SubImm(p2, self.fp, -arg.offset)
-                        for instruction in self.gen_arm_memcpy(
-                            p1, p2, v3, arg.size
-                        ):
-                            yield instruction
+                        yield from self.gen_arm_memcpy(p1, p2, v3, arg.size)
 
                 else:  # pragma: no cover
                     raise NotImplementedError(str(arg))
@@ -356,8 +352,7 @@ class ArmArch(Architecture):
                 raise NotImplementedError("Constant of type {}".format(value))
 
     def between_blocks(self, frame):
-        for instruction in self.litpool(frame):
-            yield instruction
+        yield from self.litpool(frame)
 
     def determine_arg_locations(self, arg_types):
         """

@@ -31,8 +31,6 @@ Common attribute names:
 
 from io import BytesIO
 import logging
-import sys
-from collections import OrderedDict
 
 from ..lang.sexpr import parse_sexpr, SExpression
 
@@ -61,9 +59,6 @@ SECTION_IDS = {  # Note: order matters!
     "data": 11,
     "datacount": 12,
 }
-
-if sys.version_info < (3, 6):
-    SECTION_IDS = OrderedDict(sorted(SECTION_IDS.items(), key=lambda i: i[1]))
 
 
 def check_id(id):

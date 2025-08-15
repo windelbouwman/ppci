@@ -58,8 +58,7 @@ class IntegerSet:
 
     def __iter__(self):
         for r in self.ranges:
-            for x in range(r[0], r[1] + 1):
-                yield x
+            yield from range(r[0], r[1] + 1)
 
     def __contains__(self, item):
         return self.contains(item)

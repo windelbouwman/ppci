@@ -82,7 +82,7 @@ def bit_concat(*partials):
 
 class TokenMeta(type):
     def __init__(cls, name, bases, attrs):
-        super(TokenMeta, cls).__init__(name, bases, attrs)
+        super().__init__(name, bases, attrs)
 
         # 'Inherit' info attributes
         if "Info" in attrs:

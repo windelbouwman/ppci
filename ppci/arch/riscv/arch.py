@@ -241,10 +241,7 @@ class RiscvArch(Architecture):
                         self.fp,
                         arg.offset + round_up(frame.stacksize + 8) - 8,
                     )
-                    for instruction in self.gen_riscv_memcpy(
-                        p1, p2, v3, arg.size
-                    ):
-                        yield instruction
+                    yield from self.gen_riscv_memcpy(p1, p2, v3, arg.size)
             else:  # pragma: no cover
                 raise NotImplementedError("Parameters in memory not impl")
 
@@ -407,8 +404,7 @@ class RiscvArch(Architecture):
         yield Section("code")
 
     def between_blocks(self, frame):
-        for ins in self.litpool(frame):
-            yield ins
+        yield from self.litpool(frame)
 
     def gen_epilogue(self, frame):
         """Return epilogue sequence for a frame. Adjust frame pointer
@@ -461,8 +457,7 @@ class RiscvArch(Architecture):
             yield Blr(R0, LR, 0)
 
         # Add final literal pool:
-        for instruction in self.litpool(frame):
-            yield instruction
+        yield from self.litpool(frame)
         yield Align(4)  # Align at 4 bytes
 
     def get_callee_saved(self, frame):

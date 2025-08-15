@@ -386,8 +386,7 @@ class SubRoutine(GlobalValue):
 
     def __iter__(self):
         """Iterate over all blocks in this function"""
-        for block in self.blocks:
-            yield block
+        yield from self.blocks
 
     @property
     def block_names(self):
@@ -425,8 +424,7 @@ class SubRoutine(GlobalValue):
     def get_instructions(self):
         """Get all instructions in this routine."""
         for block in self:
-            for instruction in block:
-                yield instruction
+            yield from block
 
     def calc_reachable_blocks(self):
         """Determine all blocks that can be reached"""
@@ -561,8 +559,7 @@ class Block:
         return str(self)
 
     def __iter__(self):
-        for instruction in self.instructions:
-            yield instruction
+        yield from self.instructions
 
     def __len__(self):
         return len(self.instructions)

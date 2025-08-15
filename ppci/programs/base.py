@@ -27,7 +27,7 @@ class ProgramMeta(type):
             _program_subclasses[cls.language] = cls
 
 
-class Program(object, metaclass=ProgramMeta):
+class Program(metaclass=ProgramMeta):
     """
     Abstract base class to represent a computer program. Subclasses represent
     languages (i.e. code representations), e.g. Python, IR, or X86. Program

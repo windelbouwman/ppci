@@ -72,7 +72,7 @@ def print_file_line(stdout, filename, lineno):
             stdout.write(s)
 
 
-class Proxy(object):
+class Proxy:
     logger = logging.getLogger("dbg")
 
     def __init__(self, debugger):

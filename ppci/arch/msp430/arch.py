@@ -116,8 +116,7 @@ class Msp430Arch(Architecture):
         yield Ret()
 
         # Add final literal pool:
-        for instruction in self.litpool(frame):
-            yield instruction
+        yield from self.litpool(frame)
 
     def get_callee_saved(self, frame):
         saved_registers = []

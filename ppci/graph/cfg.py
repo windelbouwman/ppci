@@ -369,8 +369,7 @@ class ControlFlowGraph(DiGraph):
 def bottom_up_recursive(tree):
     """Generator that yields all nodes in bottom up way"""
     for c in tree.children:
-        for cc in bottom_up_recursive(c):
-            yield cc
+        yield from bottom_up_recursive(c)
     yield tree
 
 

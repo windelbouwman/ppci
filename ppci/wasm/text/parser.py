@@ -66,8 +66,7 @@ def _tuple_generator_inner(s: tuple, loc):
     yield s_token("(", loc)
     for e in s:
         if isinstance(e, tuple):
-            for e2 in _tuple_generator_inner(e, loc):
-                yield e2
+            yield from _tuple_generator_inner(e, loc)
         elif isinstance(e, (str, int)) or e is None:
             yield Token("word", e, loc)
         else:
@@ -76,8 +75,7 @@ def _tuple_generator_inner(s: tuple, loc):
 
 
 def s_expr_to_tokens(s_expr: SList):
-    for e in _s_expr_generator_inner(s_expr):
-        yield e
+    yield from _s_expr_generator_inner(s_expr)
     yield s_token("EOF", s_expr.loc)
 
 
@@ -85,8 +83,7 @@ def _s_expr_generator_inner(s_expr: SList):
     yield s_token("(", s_expr.loc)
     for e in s_expr:
         if isinstance(e, SList):
-            for e2 in _s_expr_generator_inner(e):
-                yield e2
+            yield from _s_expr_generator_inner(e)
         elif isinstance(e, SSymbol):
             yield Token("word", e.value, e.loc)
         elif isinstance(e, SString):

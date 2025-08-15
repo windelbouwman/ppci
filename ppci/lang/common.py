@@ -39,7 +39,7 @@ class SourceLocation:
         """Return the source line indicated by this location"""
         if not self.source and self.filename:
             if os.path.exists(self.filename):
-                with open(self.filename, "r") as f:
+                with open(self.filename) as f:
                     self.source = f.read()
 
         if self.source:
@@ -53,7 +53,7 @@ class SourceLocation:
     ):
         """Print a message at this location in the given source lines"""
         if lines is None:
-            with open(self.filename, "r") as f:
+            with open(self.filename) as f:
                 src = f.read()
             lines = src.splitlines()
 

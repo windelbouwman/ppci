@@ -137,8 +137,7 @@ class Or1kArch(Architecture):
         yield instructions.Nop(0)
 
         # Add final literal pool:
-        for instruction in self.litpool(frame):
-            yield instruction
+        yield from self.litpool(frame)
         yield Alignment(4)  # Align at 4 bytes
 
     def get_callee_saved(self, frame):
