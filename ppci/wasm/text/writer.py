@@ -25,9 +25,8 @@ class TextWriter:
         # to strings.
         id_str = " " + module.id if module.id else ""
         if module.definitions:
-            defs_str = "\n%s\n" % self._get_sub_string(
-                module.definitions, True
-            )
+            defs_str = self._get_sub_string(module.definitions, True)
+            defs_str = f"\n{defs_str}\n"
         else:
             defs_str = ""
         return "(module" + id_str + defs_str + ")\n"
@@ -64,8 +63,8 @@ class TextWriter:
         self.emit(")", ")")
 
     def write_import_definition(self, imp: components.Import):
-        self.emit("(", "import", '"%s"' % imp.modname, '"%s"' % imp.name)
-        self.emit("(", "%s" % imp.kind)
+        self.emit("(", "import", f'"{imp.modname}"', f'"{imp.name}"')
+        self.emit("(", f"{imp.kind}")
         # Get description
         if imp.kind == "func":
             self.gen_id(imp.id)
@@ -103,19 +102,19 @@ class TextWriter:
         self.gen_id(table.id)
         if table.max is None:
             if table.min != 0:
-                self.emit("%i" % table.min)
+                self.emit(f"{table.min:d}")
         else:
-            self.emit("%i" % table.min)
-            self.emit("%i" % table.max)
+            self.emit(f"{table.min:d}")
+            self.emit(f"{table.max:d}")
         self.emit(table.kind)
         self.emit(")")
 
     def write_memory_definition(self, memory: components.Memory):
         self.emit("(", "memory")
         self.gen_id(memory.id)
-        self.emit("%i" % memory.min)
+        self.emit(f"{memory.min:d}")
         if memory.max is not None:
-            self.emit("%i" % memory.max)
+            self.emit(f"{memory.max:d}")
         self.emit(")")
 
     def write_global_definition(self, definition: components.Global):
@@ -199,10 +198,10 @@ class TextWriter:
             align, offset = args
             args = []
             if offset:
-                args.append("offset=%i" % offset)
+                args.append(f"offset={offset:d}")
 
             if align != default_alignment(opcode):
-                args.append("align=%i" % 2**align)
+                args.append(f"align={2**align:d}")
 
             args = tuple(args)
 
@@ -216,7 +215,7 @@ class TextWriter:
 
         elif opcode == "call_indirect":
             if args[1].index == 0:  # zero'th table
-                args = ("(type %s)" % args[0],)
+                args = (f"(type {args[0]})",)
             else:
                 args = (
                     f"(type {args[0]})",

@@ -275,7 +275,7 @@ class YaccTestCase(unittest.TestCase):
         grammar_file = relpath("..", "ppci", "codegen", "burg.grammar")
         file1 = new_temp_file(".py")
         yacc([grammar_file, "-o", file1])
-        with open(file1, "r") as f:
+        with open(file1) as f:
             content = f.read()
         self.assertIn("Automatically generated", content)
 
@@ -318,7 +318,7 @@ class DiagnosticsTestCase(unittest.TestCase):
         """Simulate some errors into the diagnostics system"""
         filename = relpath("..", "examples", "src", "snake", "game.c3")
         diag = DiagnosticsManager()
-        with open(filename, "r") as f:
+        with open(filename) as f:
             src = f.read()
         diag.add_source(filename, src)
         diag.error("Test1", SourceLocation(filename, 1, 2, 1))

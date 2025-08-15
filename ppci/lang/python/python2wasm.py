@@ -62,7 +62,7 @@ def _python_to_wasm_funcdefs(source):
         if getattr(source, "__name__", "") in ("", "<lambda>"):
             raise ValueError(
                 "Got anonymous function from "
-                '"%s", line %i, %r.' % (filename, linenr, source)
+                f'"{filename}", line {linenr:d}, {source!r}.'
             )
         # Normalize indentation, based on first line
         indent = len(lines[0]) - len(lines[0].lstrip())
@@ -240,7 +240,7 @@ class PythonFuncToWasmCompiler:
                 self.instructions.append(("f64.div",))
                 self.instructions.append(("f64.floor",))  # not trunc
             else:
-                self.syntax_error(node, "Unsuppored binary op: %s" % node.op)
+                self.syntax_error(node, f"Unsuppored binary op: {node.op}")
 
             if not push_stack:
                 self.instructions.append(("drop",))
@@ -266,7 +266,7 @@ class PythonFuncToWasmCompiler:
             elif isinstance(op, ast.LtE):
                 self.instructions.append(("f64.le",))
             else:
-                self.syntax_error(node, "Unsupported operand: %s" % op)
+                self.syntax_error(node, f"Unsupported operand: {op}")
 
         elif isinstance(node, ast.If):
             self._compile_expr(node.test, True)
@@ -403,7 +403,7 @@ class PythonFuncToWasmCompiler:
             self.instructions.append(("call", "$" + name))
         else:
             self.syntax_error(
-                node, "Unsupported syntax: %s" % node.__class__.__name__
+                node, f"Unsupported syntax: {node.__class__.__name__}"
             )
 
     def syntax_error(self, node, message):

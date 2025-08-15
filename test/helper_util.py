@@ -7,6 +7,7 @@ import time
 import shutil
 import logging
 import string
+from contextlib import suppress
 from functools import lru_cache
 
 # Store testdir for safe switch back to directory:
@@ -53,10 +54,8 @@ iverilog_app = "iverilog"
 
 
 def tryrm(fn):
-    try:
+    with suppress(OSError):
         os.remove(fn)
-    except OSError:
-        pass
 
 
 def do_long_tests(arch):
@@ -64,10 +63,7 @@ def do_long_tests(arch):
     if "LONGTESTS" not in os.environ:
         return False
     val = os.environ["LONGTESTS"]
-    if arch in val or val == "all":
-        return True
-    else:
-        return False
+    return bool(arch in val or val == "all")
 
 
 def do_iverilog():

@@ -101,10 +101,7 @@ class ElfFile:
         return self.strtab[offset:end].decode("utf8")
 
     def has_section(self, name):
-        for section in self.sections:
-            if section.name == name:
-                return True
-        return False
+        return any(section.name == name for section in self.sections)
 
     def get_section(self, name):
         for section in self.sections:

@@ -192,7 +192,7 @@ class Debugger:
         minkey = min(self.addr_map.keys(), key=lambda k: abs(k - pc))
         debug = self.addr_map[minkey]
         self.logger.info(
-            "Found program counter at %s with delta %i" % (debug, minkey - pc)
+            f"Found program counter at {debug!s} with delta {minkey - pc}"
         )
         # debug = self.addr_map[pc]
         loc = debug.loc

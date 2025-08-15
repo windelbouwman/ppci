@@ -59,7 +59,7 @@ def build_sample_to_ir(src, lang, bsp_c3, march, reporter):
         include_path1 = os.path.join(libc_path, "include")
         lib = relpath("..", "librt", "libc", "lib.c")
         coptions.add_include_path(include_path1)
-        with open(lib, "r") as f:
+        with open(lib) as f:
             mod1 = api.c_to_ir(f, march, coptions=coptions, reporter=reporter)
         mod2 = api.c_to_ir(
             io.StringIO(src), march, coptions=coptions, reporter=reporter
@@ -98,7 +98,7 @@ def build_sample_to_code(src, lang, bsp_c3, opt_level, march, debug, reporter):
         libc_path = relpath("..", "librt", "libc")
         include_path1 = os.path.join(libc_path, "include")
         coptions.add_include_path(include_path1)
-        with open(relpath("..", "librt", "libc", "lib.c"), "r") as f:
+        with open(relpath("..", "librt", "libc", "lib.c")) as f:
             o3 = api.cc(
                 f, march, coptions=coptions, debug=debug, reporter=reporter
             )

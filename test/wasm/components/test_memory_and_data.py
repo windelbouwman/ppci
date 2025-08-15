@@ -86,7 +86,7 @@ def test_memory1():
         }
     }
     instantiate(m0, imports=imports, target="python")
-    assert [4, 3] == printed_numbers
+    assert printed_numbers == [4, 3]
 
     if has_node():
         assert run_wasm_in_node(m0, True) == "4\n3"

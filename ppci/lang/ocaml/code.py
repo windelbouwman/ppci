@@ -36,7 +36,7 @@ class CodeReader:
         label = self.nr
         opcode = self.read_word()
         if opcode not in Instrs:
-            raise ValueError("Unknown opcode %s" % opcode)
+            raise ValueError("Unknown opcode {opcode!s}")
 
         name, arg_names = Instrs[opcode]
         if opcode == Opcode.SWITCH:

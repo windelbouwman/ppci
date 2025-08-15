@@ -85,9 +85,7 @@ class TestSamplesOnRiscv(unittest.TestCase):
             for i in range(filewordsize):
                 if i < datawordlen:
                     w = rom_data[4 * i : 4 * i + 4]
-                    print(
-                        "%02x%02x%02x%02x" % (w[3], w[2], w[1], w[0]), file=f
-                    )
+                    print(f"{w[3]:02x}{w[2]:02x}{w[1]:02x}{w[0]:02x}", file=f)
                 else:
                     print("00000000", file=f)
         f.close()

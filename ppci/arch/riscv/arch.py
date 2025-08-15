@@ -30,13 +30,10 @@ from .rvc_instructions import CAddi16sp, CAddi4spn
 from . import instructions
 
 
-def isinsrange(bits, val):
+def isinsrange(bits, val) -> bool:
     msb = 1 << (bits - 1)
     ll = -msb
-    if val <= (msb - 1) and (val >= ll):
-        return True
-    else:
-        return False
+    return bool(val <= (msb - 1) and (val >= ll))
 
 
 class RiscvAssembler(BaseAssembler):

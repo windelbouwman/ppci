@@ -11,6 +11,7 @@ import tempfile
 import struct
 import subprocess
 import keyword
+from contextlib import suppress
 import shutil
 from functools import lru_cache
 
@@ -213,7 +214,7 @@ def export_wasm_example(filename, code, wasm, main_js=""):
         "var wasm_data = new Uint8Array(" + wasm_text + ");",
     )
     js = js.replace("MAIN_JS_PLACEHOLDER", main_js)
-    html = html.replace("<title></title>", "<title>%s</title>" % fname)
+    html = html.replace("<title></title>", f"<title>{fname}</title>")
     html = html.replace("CODE_PLACEHOLDER", code)
     html = html.replace("JS_PLACEHOLDER", js)
 
@@ -249,7 +250,7 @@ def run_wasm_in_notebook(wasm):
     # Get id
     global _nb_output
     _nb_output += 1
-    id = "wasm_output_%u" % _nb_output
+    id = f"wasm_output_{_nb_output}"
 
     # Produce JS
     js = js.replace("wasm_output", id)
@@ -258,10 +259,10 @@ def run_wasm_in_notebook(wasm):
         "WASM_PLACEHOLDER",
         "var wasm_data = new Uint8Array(" + wasm_text + ");",
     )
-    js = "(function() {\n%s;\ncompile_my_wasm();\n})();" % js
+    js = "(function() {\n" + js + ";\ncompile_my_wasm();\n})();"
 
     # Output in current cell
-    display(HTML("<div style='border: 2px solid blue;' id='%s'></div>" % id))
+    display(HTML(f"<div style='border: 2px solid blue;' id='{id}'></div>"))
     display(Javascript(js))
 
 
@@ -310,7 +311,7 @@ def run_wasm_in_node(wasm, silent=False):
 
     # Write temporary file
     filename = os.path.join(
-        tempfile.gettempdir(), "pyscript_%i.js" % os.getpid()
+        tempfile.gettempdir(), f"pyscript_{os.getpid():d}.js"
     )
     with open(filename, "wb") as f:
         f.write(js.encode())
@@ -325,10 +326,8 @@ def run_wasm_in_node(wasm, silent=False):
         err = err[:200] + "..." if len(err) > 200 else err
         raise Exception(err) from ex
     finally:
-        try:
+        with suppress(Exception):
             os.remove(filename)
-        except Exception:
-            pass
 
     # Process output
     output = res.decode()

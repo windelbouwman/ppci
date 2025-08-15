@@ -64,7 +64,7 @@ class OrderedSet(MutableSet):
             curr = curr[1]
 
     def __repr__(self):
-        return "%s(%r)" % (self.__class__.__name__, list(self))
+        return f"{self.__class__.__name__}({list(self)!r})"
 
 
 __all__ = ("OrderedSet", "OrderedDict")

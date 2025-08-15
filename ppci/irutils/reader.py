@@ -36,7 +36,7 @@ def tokenize(lines):
             r"[,:;\-\?\+*%\[\]/\(\)]|<<|>>|!=|==|<=|>=|>|<|=|{|}|&|\^|\|",
         ),
     ]
-    tok_re = "|".join("(?P<%s>%s)" % pair for pair in tok_spec)
+    tok_re = "|".join(f"(?P<{name}>{pat})" for name, pat in tok_spec)
     gettok = re.compile(tok_re).match
     for row, line in enumerate(lines, 1):
         if not line:

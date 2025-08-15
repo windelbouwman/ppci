@@ -144,7 +144,7 @@ class GdbDebugDriver(DebugDriver):
         """Single step `count` times"""
         if self.status == DebugState.STOPPED:
             self._prepare_continue()
-            self._send_message("n %x" % count)
+            self._send_message(f"n {count:x}")
             self._start()
         else:
             self.logger.warning("Cannot step, still running!")
@@ -284,7 +284,7 @@ class GdbDebugDriver(DebugDriver):
                 data[offset : offset + size] = reg_data
                 offset += size
             data = binascii.b2a_hex(data).decode("ascii")
-            res = self._send_command("G %s" % data)
+            res = self._send_command(f"G {data}")
             if res == "OK":
                 self.logger.debug("Register written")
             else:
@@ -297,7 +297,7 @@ class GdbDebugDriver(DebugDriver):
                 value = self._register_value_cache[register]
             else:
                 idx = self.arch.gdb_registers.index(register)
-                data = self._send_command("p %x" % idx)
+                data = self._send_command(f"p {idx:x}")
                 data = binascii.a2b_hex(data.encode("ascii"))
                 value = self._unpack_register(register, data)
                 self._register_value_cache[register] = value
@@ -314,7 +314,7 @@ class GdbDebugDriver(DebugDriver):
             idx = self.arch.gdb_registers.index(register)
             value = self._pack_register(register, value)
             value = binascii.b2a_hex(value).decode("ascii")
-            res = self._send_command("P %x=%s" % (idx, value))
+            res = self._send_command(f"P {idx:x}={value}")
             if res == "OK":
                 self.logger.debug("Register written")
             else:
@@ -359,7 +359,7 @@ class GdbDebugDriver(DebugDriver):
     def set_breakpoint(self, address: int):
         """Set a breakpoint"""
         if self.status == DebugState.STOPPED:
-            res = self._send_command("Z0,%x,4" % address)
+            res = self._send_command(f"Z0,{address:x},4")
             if res == "OK":
                 self.logger.debug("Breakpoint set")
             else:
@@ -370,7 +370,7 @@ class GdbDebugDriver(DebugDriver):
     def clear_breakpoint(self, address: int):
         """Clear a breakpoint"""
         if self.status == DebugState.STOPPED:
-            res = self._send_command("z0,%x,4" % address)
+            res = self._send_command(f"z0,{address:x},4")
             if res == "OK":
                 self.logger.debug("Breakpoint cleared")
             else:
@@ -381,7 +381,7 @@ class GdbDebugDriver(DebugDriver):
     def read_mem(self, address: int, size: int):
         """Read memory from address"""
         if self.status == DebugState.STOPPED:
-            res = self._send_command("m %x,%x" % (address, size))
+            res = self._send_command(f"m {address:x},{size:x}")
             ret = binascii.a2b_hex(res.encode("ascii"))
             return ret
         else:
@@ -393,7 +393,7 @@ class GdbDebugDriver(DebugDriver):
         if self.status == DebugState.STOPPED:
             length = len(data)
             data = binascii.b2a_hex(data).decode("ascii")
-            res = self._send_command("M %x,%x:%s" % (address, length, data))
+            res = self._send_command(f"M {address:x},{length:x}:{data}")
             if res == "OK":
                 self.logger.debug("Memory written")
             else:

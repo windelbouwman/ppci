@@ -60,7 +60,7 @@ class Leb128TestCase(unittest.TestCase):
             self.assertEqual(value, decoded_value)
 
     def test_unsigned_range(self):
-        for x in range(0, 1000):
+        for x in range(1000):
             data = signed_leb128_encode(x)
             y = signed_leb128_decode(iter(data))
             self.assertEqual(x, y)

@@ -45,16 +45,13 @@ def is_alloc_promotable(alloc_inst: ir.Alloc):
     store_types = [store.value.ty for store in stores]
     all_types = load_types + store_types
     assert all_types
-    if not all(all_types[0] is ty for ty in all_types):
-        return False
+    return all(all_types[0] is ty for ty in all_types)
 
     # Check that the alloc has the right amount of bytes:
     # phi_type = all_types[0]
     # TODO: re-enable this check, but it requires target knowledge?
     # if alloc_inst.amount != phi_type.byte_size:
     #    return False
-
-    return True
 
 
 class Mem2RegPromotor(FunctionPass):

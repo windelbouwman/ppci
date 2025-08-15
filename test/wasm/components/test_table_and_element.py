@@ -77,7 +77,7 @@ def test_table1():
             },
         }
         instantiate(m0, imports=imports, target="python", reporter=reporter)
-        assert [101, 102] == printed_numbers
+        assert printed_numbers == [101, 102]
 
         if is_platform_supported():
             printed_numbers = []
@@ -93,7 +93,7 @@ def test_table1():
             instantiate(
                 m0, imports=imports, target="native", reporter=reporter
             )
-            assert [101, 102] == printed_numbers
+            assert printed_numbers == [101, 102]
 
     if has_node():
         assert run_wasm_in_node(m0, True) == "101\n102"

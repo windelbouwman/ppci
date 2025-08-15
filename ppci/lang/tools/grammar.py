@@ -130,10 +130,7 @@ class Grammar:
         - No empty productions (epsilon productions)
         """
         # If the grammar contains an epsilon production, it is not normal:
-        if any(rule.is_epsilon for rule in self.productions):
-            return False
-
-        return True
+        return not any(rule.is_epsilon for rule in self.productions)
 
     def check_symbols(self):
         """Checks no symbols are undefined"""

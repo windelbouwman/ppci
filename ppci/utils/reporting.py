@@ -176,7 +176,7 @@ class TextReportGenerator(TextWritingReporter):
         self.print()
         self.print(title)
         markers = {1: "=", 2: "-"}
-        marker = markers[level] if level in markers else "~"
+        marker = markers.get(level, "~")
         self.print(marker * len(title))
         self.print()
 

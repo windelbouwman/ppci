@@ -38,7 +38,7 @@ def pascal(args=None):
                 entry_function_name = "hello1_hello1_main"
                 create_linux_exe(entry_function_name, "w00t", obj)
             else:
-                raise CompilerError("System %s not supported" % my_system)
+                raise CompilerError(f"System {my_system} not supported")
 
 
 if __name__ == "__main__":

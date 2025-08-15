@@ -355,7 +355,7 @@ class CSemantics:
         self, sym, declaration, message="Invalid redefinition"
     ):
         """Raise an invalid redeclaration error."""
-        hint = "First defined here %s" % sym.location
+        hint = f"First defined here {sym.location}"
         self.logger.info(hint)
         self.error(message, declaration.location, hints=[hint])
 

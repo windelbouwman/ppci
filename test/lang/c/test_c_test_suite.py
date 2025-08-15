@@ -108,18 +108,17 @@ def perform_test(filename):
     coptions.add_define("__LP64__", "1")
     # coptions.enable('freestanding')
 
-    with html_reporter(html_report) as reporter:
-        with open(filename, "r") as f:
-            try:
-                obj1 = api.cc(f, march, coptions=coptions, reporter=reporter)
-            except CompilerError as ex:
-                ex.print()
-                raise
+    with html_reporter(html_report) as reporter, open(filename) as f:
+        try:
+            obj1 = api.cc(f, march, coptions=coptions, reporter=reporter)
+        except CompilerError as ex:
+            ex.print()
+            raise
     logger.info("Compilation complete, %s", obj1)
 
     obj0 = api.asm(io.StringIO(STARTERCODE), march)
     obj2 = api.c3c([io.StringIO(BSP_C3_SRC)], [], march)
-    with open(os.path.join(libc_include, "lib.c"), "r") as f:
+    with open(os.path.join(libc_include, "lib.c")) as f:
         obj3 = api.cc(f, march, coptions=coptions)
 
     obj = api.link([obj0, obj1, obj2, obj3], layout=io.StringIO(ARCH_MMAP))
@@ -137,7 +136,7 @@ def perform_test(filename):
     assert exit_code == 0
     captured_stdout = test_prog.stdout.read().decode("ascii")
 
-    with open(filename + ".expected", "r") as f:
+    with open(filename + ".expected") as f:
         expected_stdout = f.read()
 
     # Compare stdout:

@@ -59,8 +59,8 @@ class BinaryFileReader:
                 self.read_section(section_id)
 
         logger.info(
-            "Loaded WASM module from binary with %i definitions"
-            % len(self._definitions)
+            "Loaded WASM module from binary"
+            f" with {len(self._definitions)} definitions"
         )
         module.definitions = self._definitions
         module.id = None

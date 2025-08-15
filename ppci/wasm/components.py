@@ -105,7 +105,7 @@ class WASMComponent:
         self._from_args(*input)
 
     def __repr__(self):
-        return "<WASM-%s>" % (self.__class__.__name__)
+        return f"<WASM-{self.__class__.__name__}>"
 
     def show(self):
         """Print the S-expression of the component."""
@@ -377,7 +377,7 @@ class Instruction(WASMComponent):
         self.args = args
 
     def __repr__(self):
-        return "<Instruction %s>" % self.opcode
+        return f"<Instruction {self.opcode}>"
 
     def __getitem__(self, i):
         # Make it feel a bit like a named tuple
@@ -655,7 +655,7 @@ class Export(Definition):
         self.ref = ref
 
     def to_string(self):
-        return '(export "%s" (%s %s))' % (self.name, self.kind, self.ref)
+        return f'(export "{self.name}" ({self.kind} {self.ref!s}))'
 
 
 class Start(Definition):
@@ -675,7 +675,7 @@ class Start(Definition):
         self.ref = check_id(ref)
 
     def to_string(self):
-        return "(start %s)" % self.ref
+        return f"(start {self.ref!s})"
 
 
 class Func(Definition):
@@ -725,7 +725,7 @@ class Func(Definition):
             ]
 
     def __repr__(self):
-        return "<WASM-Func %s>" % (self.id)
+        return f"<WASM-Func {self.id}>"
 
     def to_string(self):
         """Render function def as text"""
@@ -867,8 +867,8 @@ def _validate():
     if names1 != names2:
         raise RuntimeError(
             "Class validation failed:"
-            + "\n  Unknown field clases: %s" % names1.difference(names2)
-            + "\n  Missing field classes: %s" % names2.difference(names1)
+            + f"\n  Unknown field clases: {names1.difference(names2)!s}"
+            + f"\n  Missing field classes: {names2.difference(names1)!s}"
         )
 
 

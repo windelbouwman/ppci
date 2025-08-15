@@ -89,7 +89,7 @@ black_list_expr = {
 def perform_test(filename, target):
     logger.info(f"Loading {filename}")
     base_name = os.path.splitext(os.path.split(filename)[1])[0]
-    with open(filename, "rt", encoding="utf-8") as f:
+    with open(filename, encoding="utf-8") as f:
         source_text = f.read()
 
     html_report = os.path.splitext(filename)[0] + "_" + target + ".html"

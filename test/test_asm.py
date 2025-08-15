@@ -99,7 +99,9 @@ class AsmTestCaseBase(unittest.TestCase):
         self.assembler.assemble(line, self.ostream, self.diag)
         print(line, file=self.source)
 
-    def check(self, hexstr, layout=Layout()):
+    def check(self, hexstr, layout=None):
+        if layout is None:
+            layout = Layout()
         self.assembler.flush()
         self.obj = link([self.obj], layout)
         data = bytes(self.obj.get_section("code").data)

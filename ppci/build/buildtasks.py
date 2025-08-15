@@ -213,11 +213,8 @@ class WasmCompileTask(OutputtingTask):
             reporter = DummyReportGenerator()
 
         self.logger.debug("loading %s", source[0])
-        with reporter:
-            with open(source[0], "rb") as f:
-                obj = api.wasmcompile(
-                    f, arch, opt_level=opt, reporter=reporter
-                )
+        with reporter, open(source[0], "rb") as f:
+            obj = api.wasmcompile(f, arch, opt_level=opt, reporter=reporter)
         self.store_object(obj)
 
 

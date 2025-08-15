@@ -43,7 +43,7 @@ def create_test_function(cls, filename):
         coptions.add_include_path(libc_dir)
 
         output_file = io.StringIO()
-        with open(filename, "r") as f:
+        with open(filename) as f:
             preprocess(f, output_file, coptions)
         # TODO: check output for correct values:
         print(output_file.getvalue())

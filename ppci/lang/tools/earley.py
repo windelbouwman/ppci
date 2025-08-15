@@ -209,10 +209,7 @@ class EarleyParser:
                 end -= 1
 
         # Apply semantics, if any!
-        if item.rule.f:
-            res = item.rule.f(*r)
-        else:
-            res = None
+        res = item.rule.f(*r) if item.rule.f else None
         return res, end
 
     def dump_parse(self, columns):

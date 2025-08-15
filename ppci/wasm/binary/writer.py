@@ -87,7 +87,7 @@ class BinaryFileWriter(BaseIoWriter):
             # Write this section to our main file object
             payload = f2.f.getvalue()
             logger.debug(
-                "Writing section %s of %s bytes" % (section_id, len(payload))
+                f"Writing section {section_id} of {len(payload)} bytes"
             )
             if section_name != "custom":
                 self.write_vu7(section_id)
@@ -232,7 +232,7 @@ class BinaryFileWriter(BaseIoWriter):
                     for x in arg:
                         self.write_type(x)
             else:
-                raise TypeError("Unknown instruction arg %r" % o)
+                raise TypeError("Unknown instruction arg {o!r}")
 
     def write_type_definition(self, type_definition):
         """Write out a `type` definition entry."""

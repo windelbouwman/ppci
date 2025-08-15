@@ -73,7 +73,7 @@ def test_func1():
         },
     }
     instantiate(m0, imports=imports, target="python")
-    assert [7] == printed_numbers
+    assert printed_numbers == [7]
 
     if has_node():
         assert run_wasm_in_node(m0, True) == "7"

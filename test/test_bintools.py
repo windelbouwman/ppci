@@ -184,7 +184,7 @@ class ObjectFileTestCase(unittest.TestCase):
         obj.get_image("x").add_section(obj.get_section("s1"))
         obj.get_image("x").add_section(obj.get_section("s2"))
         with self.assertRaisesRegex(ValueError, "overlap"):
-            obj.get_image("x").data
+            _ = obj.get_image("x").data
 
 
 class LayoutFileTestCase(unittest.TestCase):

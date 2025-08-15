@@ -79,9 +79,9 @@ class RspHandler:
     def rsp_pack(data):
         """formats data into a RSP packet"""
         for a, b in [(x, chr(ord(x) ^ 0x20)) for x in ("}", "*", "#", "$")]:
-            data = data.replace(a, "}%s" % b)
+            data = data.replace(a, "}" + b)
         crc = sum(ord(c) for c in data) % 256
-        return "$%s#%02X" % (data, crc)
+        return f"${data}#{crc:02X}"
 
     @staticmethod
     def rsp_unpack(pkt):

@@ -42,7 +42,7 @@ def get_program_graph():
     subclasses = get_program_classes()
 
     g = graph.DiGraph()
-    for name in subclasses.keys():
+    for name in subclasses:
         if name not in IGNORE:
             g.add_node(name)
     for name, programClass in subclasses.items():

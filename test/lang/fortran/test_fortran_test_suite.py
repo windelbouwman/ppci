@@ -22,7 +22,7 @@ def create_test_function(cls, filename):
 
     def test_function(self):
         march = get_arch("arm")
-        with open(filename, "r") as f:
+        with open(filename) as f:
             fortrancompile([f.read()], march)
         # TODO: check output for correct values:
 

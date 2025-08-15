@@ -176,12 +176,12 @@ class IrDagTestCase(unittest.TestCase):
         dag_builder.build(function, function_info, debug_db)
 
         # print(function_info.value_map)
-        for b in function:
-            # root = function_info.block_roots[b]
-            # print('root=', root)
-            # for tree in dag_splitter.split_into_trees(root, frame):
-            #    print('tree=', tree)
-            pass
+        # for b in function:
+        # root = function_info.block_roots[b]
+        # print('root=', root)
+        # for tree in dag_splitter.split_into_trees(root, frame):
+        #    print('tree=', tree)
+        #    pass
         # sg_value = function_info.value_map[binop]
         # print(function_info.value_map)
         # self.assertTrue(sg_value.vreg)

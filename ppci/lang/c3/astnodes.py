@@ -127,7 +127,7 @@ class PointerType(Type):
     """A type that points to data of some other type"""
 
     def __init__(self, ptype):
-        assert isinstance(ptype, Type) or isinstance(ptype, Expression)
+        assert isinstance(ptype, (Type, Expression))
         self.ptype = ptype
 
     def __repr__(self):
@@ -155,10 +155,7 @@ class StructureType(Type):
 
     def has_field(self, name):
         """Check if the struct type has a member with name"""
-        for mem in self.fields:
-            if name == mem.name:
-                return True
-        return False
+        return any(name == mem.name for mem in self.fields)
 
     def field_type(self, name):
         """Get the field type of field name"""

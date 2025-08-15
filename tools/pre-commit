@@ -1,0 +1,7 @@
+#!/bin/sh
+
+set -eu
+
+ruff format --check
+ruff check ppci test
+pytest

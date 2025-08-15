@@ -108,7 +108,7 @@ class TestSamplesOnMsp430(unittest.TestCase):
         with open(mem_file, "w") as f:
             for i in range(len(rom_data) // 2):
                 w = rom_data[2 * i : 2 * i + 2]
-                print("%02x%02x" % (w[1], w[0]), file=f)
+                print(f"{w[1]:02x}{w[0]:02x}", file=f)
         if has_iverilog() and do_iverilog():
             res = run_msp430(mem_file)
             self.assertEqual(expected_output, res)

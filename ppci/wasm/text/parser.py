@@ -264,10 +264,7 @@ class WatParser(RecursiveDescentParser):
         self.add_definition(components.Type(id, params, results))
 
     def _parse_optional_id(self, default=None):
-        if self._at_id():
-            id = self.take()
-        else:
-            id = default
+        id = self.take() if self._at_id() else default
         return id
 
     def _parse_use_or_default(self, space, default=None):
@@ -445,11 +442,7 @@ class WatParser(RecursiveDescentParser):
             ref = self._parse_use_or_default("table")
             offset = self.parse_offset_expression()
             mode = ref, offset
-        elif self.match("(", "offset"):
-            ref = components.Ref("table", index=0)
-            offset = self.parse_offset_expression()
-            mode = ref, offset
-        elif self.at_instruction():
+        elif self.match("(", "offset") or self.at_instruction():
             ref = components.Ref("table", index=0)
             offset = self.parse_offset_expression()
             mode = ref, offset
@@ -849,9 +842,7 @@ class WatParser(RecursiveDescentParser):
                 arg = make_int(self.take(), bits=32)
             elif op == ArgType.I64:
                 arg = make_int(self.take(), bits=64)
-            elif op == ArgType.F32:
-                arg = make_float(self.take())
-            elif op == ArgType.F64:
+            elif op == ArgType.F32 or op == ArgType.F64:
                 arg = make_float(self.take())
             elif op == ArgType.U32:
                 arg = self.take()

@@ -16,7 +16,7 @@ if os.name == "nt":
 
 
 def pos(stdout, y, x):
-    stdout.write("\x1b[%d;%dH" % (y, x))
+    stdout.write(f"\x1b[{y};{x}H")
 
 
 def savepos(stdout):
