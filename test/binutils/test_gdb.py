@@ -121,7 +121,7 @@ class GdbClientTestCase(unittest.TestCase):
         regs = self.arch.gdb_registers
         reg_vals = self.gdbc.get_registers(regs)
         self.check_send(b"$g#67+")
-        self.assertEqual({reg: 0 for reg in regs}, reg_vals)
+        self.assertEqual(dict.fromkeys(regs, 0), reg_vals)
 
     def test_set_breakpoint(self):
         self.prepare_response(b"+$OK#9a")

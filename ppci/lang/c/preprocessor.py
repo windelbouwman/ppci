@@ -529,7 +529,7 @@ class CPreProcessor:
         # print(args)
         # expanded_args = [self.expand_token_sequence(a) for a in args]
         # Create two variants: expanded and not expanded:
-        repl_map = {fp: a for fp, a in zip(macro.args, args)}
+        repl_map = dict(zip(macro.args, args))
 
         # Spiffy variadic macro!
         if macro.variadic:

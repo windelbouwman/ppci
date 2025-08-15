@@ -196,7 +196,7 @@ class BurgSystem:
             else:
                 assert t is Nonterm
                 self.non_terminals.add(name)
-            self.rule_map[name] = list()
+            self.rule_map[name] = []
         return self.symbols[name]
 
     def add_terminal(self, terminal):

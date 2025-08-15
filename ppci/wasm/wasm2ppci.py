@@ -748,23 +748,23 @@ class WasmToIrCompiler:
 
         ppci_function.delete_unreachable()
 
-    OPMAP = dict(
-        eqz="==",
-        eq="==",
-        ne="!=",
-        ge=">=",
-        ge_u=">=",
-        ge_s=">=",
-        le="<=",
-        le_u="<=",
-        le_s="<=",
-        gt=">",
-        gt_u=">",
-        gt_s=">",
-        lt="<",
-        lt_u="<",
-        lt_s="<",
-    )
+    OPMAP = {
+        "eqz": "==",
+        "eq": "==",
+        "ne": "!=",
+        "ge": ">=",
+        "ge_u": ">=",
+        "ge_s": ">=",
+        "le": "<=",
+        "le_u": "<=",
+        "le_s": "<=",
+        "gt": ">",
+        "gt_u": ">",
+        "gt_s": ">",
+        "lt": "<",
+        "lt_u": "<",
+        "lt_s": "<",
+    }
 
     def get_block_signature(self, instruction):
         block_type = instruction.args[0]

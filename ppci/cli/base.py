@@ -101,10 +101,7 @@ march_parser.add_argument(
 
 def get_arch_from_args(args):
     """Determine the intended machine target and select the proper options"""
-    if args.machine:
-        machine = args.machine
-    else:
-        machine = platform.machine()
+    machine = args.machine if args.machine else platform.machine()
     options = tuple(args.mtune)
     return create_arch(machine, options=options)
 

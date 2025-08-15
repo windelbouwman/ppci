@@ -127,7 +127,7 @@ class CLexerTestCase(unittest.TestCase):
         src = "212 215u 0xFeeL 073 032U 30l 30ul"
         tokens = self.tokenize(src)
         self.assertTrue(all(t.typ == "NUMBER" for t in tokens))
-        numbers = list(map(lambda t: cnum(t.val)[0], tokens))
+        numbers = [cnum(t.val)[0] for t in tokens]
         self.assertSequenceEqual([212, 215, 4078, 59, 26, 30, 30], numbers)
 
     def test_assignment_operators(self):

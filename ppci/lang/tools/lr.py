@@ -184,7 +184,7 @@ def calculate_first_sets(grammar):
     first = {}
     nullable = {}
     for terminal in grammar.terminals | {EOF, EPS}:
-        first[terminal] = set([terminal])
+        first[terminal] = {terminal}
         nullable[terminal] = False
 
     for nt in grammar.nonterminals:

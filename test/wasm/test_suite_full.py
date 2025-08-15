@@ -212,7 +212,7 @@ class WastExecutor:
             pass
 
         # fetch data from last tuple elements:
-        strings = map(lambda e: e.get_string(), elems)
+        strings = (e.get_string() for e in elems)
         data = reduce(add, map(datastring2bytes, strings))
 
         # Load module from binary data:
@@ -571,10 +571,7 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    if args.verbose:
-        loglevel = logging.DEBUG
-    else:
-        loglevel = logging.INFO
+    loglevel = logging.DEBUG if args.verbose else logging.INFO
 
     logging.basicConfig(level=loglevel, format=logformat)
 

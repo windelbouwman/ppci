@@ -203,7 +203,7 @@ registers64 = [
 ]
 Register64.registers = registers64
 
-all_registers = list(sorted(full_registers, key=lambda r: r.num)) + [rip]
+all_registers = sorted(full_registers, key=lambda r: r.num) + [rip]
 
 num2regmap = {r.num: r for r in full_registers}
 

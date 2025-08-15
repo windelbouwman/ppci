@@ -90,7 +90,7 @@ class Project:
     def dependencies(self, target_name):
         assert type(target_name) is str
         target = self.get_target(target_name)
-        cdst = list(self.dependencies(dep) for dep in target.dependencies)
+        cdst = [self.dependencies(dep) for dep in target.dependencies]
         cdst.append(target.dependencies)
         return set.union(*cdst)
 

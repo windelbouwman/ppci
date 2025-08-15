@@ -23,7 +23,7 @@ class C3Program(SourceCodeProgram):
         return items
 
     def _copy(self):
-        return self._new("c3", [item for item in self.items])
+        return self._new("c3", list(self.items))
 
     def _get_report(self, html):
         return "\n\n## ==========\n\n".join(self.items)

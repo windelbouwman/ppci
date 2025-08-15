@@ -308,9 +308,9 @@ class ArmArch(Architecture):
         arg_types = [a[0] for a in args]
         arg_locs = self.determine_arg_locations(arg_types)
 
-        arg_regs = set(
+        arg_regs = {
             arg_loc for arg_loc in arg_locs if isinstance(arg_loc, ArmRegister)
-        )
+        }
         yield RegisterUseDef(defs=arg_regs)
 
         for arg_loc, arg2 in zip(arg_locs, args):
@@ -478,7 +478,7 @@ class ThumbAssembler(BaseAssembler):
         # 'reg_list_inner',
         # ['reg_or_range', ',', 'reg_list_inner'], lambda rhs: rhs[0] | rhs[2])
 
-        self.add_rule("reg_or_range", [reg_nt], lambda rhs: set([rhs[0]]))
+        self.add_rule("reg_or_range", [reg_nt], lambda rhs: {rhs[0]})
         self.add_rule(
             "reg_or_range",
             [reg_nt, "-", reg_nt],

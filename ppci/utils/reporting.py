@@ -468,7 +468,7 @@ class HtmlReportGenerator(TextWritingReporter):
     def dump_frame(self, frame):
         """Dump frame to file for debug purposes"""
         with collapseable(self, "Frame"):
-            used_regs = list(sorted(frame.used_regs, key=lambda r: r.name))
+            used_regs = sorted(frame.used_regs, key=lambda r: r.name)
             self.print('<p><div class="codeblock">')
             self.print(frame)
             self.print(f"<p>stack size: {frame.stacksize}</p>")

@@ -77,6 +77,8 @@ extend-select = [
     "B",     # bugbear
     "PIE",   # flake8-pie
     "UP",    # pyupgrade
+    # "I",     # isort
+    "C4",    # flake8-comprehensions
 ]
 extend-ignore = [
     "E203",  # Conflicts with black formatting

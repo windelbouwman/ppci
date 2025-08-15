@@ -64,7 +64,7 @@ class Column:
         self.i = i
         self.token = token
         self.items = set()
-        self.item_list = list()
+        self.item_list = []
 
     def __iter__(self):
         return iter(self.item_list)

@@ -172,7 +172,7 @@ def process_opcode_table():
         if len(opcode) > 2:
             args = opcode[2]
         else:
-            args = tuple()
+            args = ()
         assert isinstance(args, tuple)
         mp[code] = name, args
         attrs[name] = code

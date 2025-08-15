@@ -221,9 +221,9 @@ class WatParser(RecursiveDescentParser):
             # Fill map with local id's:
             type_idx = func.ref.resolve(id_maps)
             func_type = self.definitions["type"][type_idx]
-            id_maps["local"] = dict(
-                (param[0], i) for i, param in enumerate(func_type.params)
-            )
+            id_maps["local"] = {
+                param[0]: i for i, param in enumerate(func_type.params)
+            }
             for i, lokal in enumerate(
                 func.locals, start=len(func_type.params)
             ):

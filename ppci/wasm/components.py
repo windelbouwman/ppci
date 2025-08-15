@@ -320,7 +320,7 @@ class Module:
         Note that the 'code' section is named 'func'.
         Note that one can also use e.g. ``module['type']`` to get all typedefs.
         """
-        definitions = dict((name, []) for name in SECTION_IDS)
+        definitions = {name: [] for name in SECTION_IDS}
         for d in self.definitions:
             definitions[d.__name__].append(d)
         assert not definitions.pop("code")  # use func instead
@@ -341,7 +341,7 @@ class Module:
             if c.kind == "func":
                 sig = types[c.info[0].index]
                 params_s = ", ".join([p[1] for p in sig.params])
-                result_s = ", ".join([r for r in sig.results])
+                result_s = ", ".join(list(sig.results))
                 print(
                     f"  {c.modname}.{c.name}:".ljust(20),
                     f"[{params_s}] -> [{result_s}]",
@@ -355,7 +355,7 @@ class Module:
                 func = functions[c.ref.index - n_func_imports]
                 sig = types[func.ref.index]
                 params_s = ", ".join([p[1] for p in sig.params])
-                result_s = ", ".join([r for r in sig.results])
+                result_s = ", ".join(list(sig.results))
                 print(
                     f"  {c.name}:".ljust(20),
                     f"[{params_s}] -> [{result_s}]",

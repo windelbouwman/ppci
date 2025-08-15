@@ -22,7 +22,7 @@ class PythonProgram(SourceCodeProgram):
 
     def _copy(self):
         return PythonProgram(
-            *[item for item in self.items],
+            *list(self.items),
             previous=self.previous,
             debugdb=self.debugdb,
         )

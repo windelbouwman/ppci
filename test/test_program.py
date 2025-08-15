@@ -86,23 +86,23 @@ class ProgramTestCase(unittest.TestCase):
 
     def test_get_targets(self):
         # get_targers works on classes
-        self.assertEqual(get_targets(MyTest1Program), set(["mytest2"]))
+        self.assertEqual(get_targets(MyTest1Program), {"mytest2"})
         self.assertEqual(
-            get_targets(MyTest2Program), set(["mytest1", "python"])
+            get_targets(MyTest2Program), {"mytest1", "python"}
         )  # not nonexistent
 
         # and on instances
         p1 = MyTest1Program()
         p2 = MyTest2Program()
-        self.assertEqual(get_targets(p1), set(["mytest2"]))
+        self.assertEqual(get_targets(p1), {"mytest2"})
         self.assertEqual(
-            get_targets(p2), set(["mytest1", "python"])
+            get_targets(p2), {"mytest1", "python"}
         )  # not nonexistent
 
         # and on strings
-        self.assertEqual(get_targets("mytest1"), set(["mytest2"]))
+        self.assertEqual(get_targets("mytest1"), {"mytest2"})
         self.assertEqual(
-            get_targets("mytest2"), set(["mytest1", "python"])
+            get_targets("mytest2"), {"mytest1", "python"}
         )  # not nonexistent
 
     def test_reporting(self):

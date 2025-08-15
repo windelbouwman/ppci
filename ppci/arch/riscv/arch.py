@@ -245,9 +245,9 @@ class RiscvArch(Architecture):
         # Record that certain amount of stack is required:
         frame.add_out_call(stack_size)
 
-        arg_regs = set(
+        arg_regs = {
             arg_loc for arg_loc in arg_locs if isinstance(arg_loc, Register)
-        )
+        }
         yield RegisterUseDef(uses=arg_regs)
 
         yield self.branch(LR, label)
@@ -261,9 +261,9 @@ class RiscvArch(Architecture):
         arg_types = [a[0] for a in args]
         arg_locs = self.determine_arg_locations(arg_types)
 
-        arg_regs = set(
+        arg_regs = {
             arg_loc for arg_loc in arg_locs if isinstance(arg_loc, Register)
-        )
+        }
         yield RegisterUseDef(defs=arg_regs)
 
         for arg_loc, arg2 in zip(arg_locs, args):

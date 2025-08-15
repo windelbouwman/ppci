@@ -64,14 +64,14 @@ class Mem2RegPromotor(FunctionPass):
         Each node in the df(x) requires a phi function,
         where x is a block where the variable is defined.
         """
-        defining_blocks = set(st.block for st in stores)
+        defining_blocks = {st.block for st in stores}
 
         # Create worklist:
         block_backlog = set(defining_blocks)
 
         has_phi = set()
 
-        phis = list()
+        phis = []
         idx = 0
         while block_backlog:
             defining_block = block_backlog.pop()

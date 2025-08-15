@@ -240,7 +240,7 @@ class AvrArch(Architecture):
             else:  # pragma: no cover
                 raise NotImplementedError("Parameters in memory not impl")
 
-        arg_regs = set(loc for loc in arg_locs if isinstance(loc, Register))
+        arg_regs = {loc for loc in arg_locs if isinstance(loc, Register)}
         yield RegisterUseDef(uses=arg_regs)
 
         if isinstance(label, AvrWordRegister):
@@ -267,7 +267,7 @@ class AvrArch(Architecture):
         """Copy arguments into local temporaries and mark registers live"""
         arg_types = [a[0] for a in args]
         arg_locs = self.determine_arg_locations(arg_types)
-        arg_regs = set(loc for loc in arg_locs if isinstance(loc, Register))
+        arg_regs = {loc for loc in arg_locs if isinstance(loc, Register)}
         yield RegisterUseDef(defs=arg_regs)
 
         # Copy parameters:

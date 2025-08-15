@@ -538,7 +538,7 @@ class Block:
     def __init__(self, name):
         self.name = name
         self.function = None
-        self.instructions = list()
+        self.instructions = []
         self.references = OrderedSet()
 
     def dump(self):

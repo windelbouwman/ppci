@@ -159,9 +159,9 @@ class MipsArch(Architecture):
         arg_types = [a[0] for a in args]
         arg_locs = self.determine_arg_locations(arg_types)
 
-        arg_regs = set(
+        arg_regs = {
             loc for loc in arg_locs if isinstance(loc, registers.MipsRegister)
-        )
+        }
         yield RegisterUseDef(defs=arg_regs)
 
         for arg_loc, arg2 in zip(arg_locs, args):

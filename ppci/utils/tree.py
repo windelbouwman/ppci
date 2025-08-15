@@ -46,7 +46,7 @@ class Tree:
 
     def get_defined_names(self):
         """Returns a set of all names defined by this tree"""
-        names = set([self.name])
+        names = {self.name}
         for child in self.children:
             names = names | child.get_defined_names()
         return names

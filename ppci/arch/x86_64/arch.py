@@ -399,9 +399,9 @@ class X86_64Arch(Architecture):
         """Copy arguments into local temporaries and mark registers live"""
         arg_types = [a[0] for a in args]
         arg_locs = self.determine_arg_locations(arg_types)
-        arg_regs = set(
+        arg_regs = {
             arg_loc for arg_loc in arg_locs if isinstance(arg_loc, Register)
-        )
+        }
         yield RegisterUseDef(defs=arg_regs)
 
         stack_offset = 0
@@ -573,9 +573,9 @@ class X86_64Arch(Architecture):
             stack_size += 32
 
         # Mark all dedicated registers as used:
-        arg_regs = set(
+        arg_regs = {
             arg_loc for arg_loc in arg_locs if isinstance(arg_loc, Register)
-        )
+        }
         yield RegisterUseDef(uses=arg_regs)
 
         if isinstance(label, Register64):

@@ -47,7 +47,7 @@ class IrProgram(IntermediateProgram):
             arch = get_arch("x86_64")
 
         # todo: don't we want to be able to pass debug_db here?
-        ppci_modules = [m for m in self.items]
+        ppci_modules = list(self.items)
         if self.debugdb:
             ob = ir_to_object(ppci_modules, arch, debug=True)
         else:
@@ -63,7 +63,7 @@ class IrProgram(IntermediateProgram):
         arch = get_arch("arm")
 
         # todo: don't we want to be able to pass debug_db here?
-        ppci_modules = [m for m in self.items]
+        ppci_modules = list(self.items)
         if self.debugdb:
             ob = ir_to_object(ppci_modules, arch, debug=True)
         else:

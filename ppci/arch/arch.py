@@ -51,7 +51,7 @@ class Architecture(MachineArchitecture):
         """
         super().__init__()
         self.logger.debug("Creating %s arch", self.name)
-        self.option_settings = {o: False for o in self.option_names}
+        self.option_settings = dict.fromkeys(self.option_names, False)
         if options:
             assert isinstance(options, tuple)
             for option_name in options:

@@ -4,7 +4,7 @@ from ...common import CompilerError
 
 
 def make_comma_or(parts):
-    parts = list(map(lambda x: f'"{x}"', parts))
+    parts = [f'"{x}"' for x in parts]
     if len(parts) > 1:
         last = parts[-1]
         first = parts[:-1]

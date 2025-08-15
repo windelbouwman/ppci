@@ -16,7 +16,7 @@ def calculate_dominators(nodes, entry_node):
         for node in nodes:
             # A node is dominated by itself and by the intersection of
             # the dominators of its predecessors
-            pred_doms = list(_dom[p] for p in node.predecessors)
+            pred_doms = [_dom[p] for p in node.predecessors]
             if pred_doms:
                 new_dom_n = set.union({node}, set.intersection(*pred_doms))
                 if new_dom_n != _dom[node]:
@@ -47,7 +47,7 @@ def calculate_post_dominators(nodes, exit_node):
         for node in nodes:
             # A node is post dominated by itself and by the intersection
             # of the post dominators of its successors
-            succ_pdoms = list(_pdom[s] for s in node.successors)
+            succ_pdoms = [_pdom[s] for s in node.successors]
             if succ_pdoms:
                 new_pdom_n = set.union({node}, set.intersection(*succ_pdoms))
                 if new_pdom_n != _pdom[node]:

@@ -158,9 +158,7 @@ class Msp430Arch(Architecture):
         arg_types = [a[0] for a in args]
         arg_locs = self.determine_arg_locations(arg_types)
 
-        arg_regs = set(
-            loc for loc in arg_locs if isinstance(loc, Msp430Register)
-        )
+        arg_regs = {loc for loc in arg_locs if isinstance(loc, Msp430Register)}
         yield RegisterUseDef(defs=arg_regs)
 
         ofs = 0

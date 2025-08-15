@@ -22,7 +22,7 @@ class LexerTestCase(unittest.TestCase):
 
     def check(self, snippet, toks):
         """Convenience function"""
-        toks2 = list(tok.typ for tok in self.lexer.lex(io.StringIO(snippet)))
+        toks2 = [tok.typ for tok in self.lexer.lex(io.StringIO(snippet))]
         self.assertSequenceEqual(toks, toks2)
 
     def test_block_comment(self):

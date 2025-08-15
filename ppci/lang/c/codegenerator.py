@@ -235,9 +235,9 @@ class CCodeGenerator:
         assert ival.typ is typ
 
         element_size = self.sizeof(typ.element_type)
-        implicit_value = tuple([bytes([0] * element_size)])
+        implicit_value = (bytes([0] * element_size),)
 
-        mem = tuple()
+        mem = ()
         for value in ival.values:
             # TODO: handle alignment
             if value is None:
@@ -260,7 +260,7 @@ class CCodeGenerator:
         """Initialize a union type"""
         assert isinstance(ival, expressions.UnionInitializer)
         assert ival.typ is typ
-        mem = tuple()
+        mem = ()
         # Initialize the first field!
         field = ival.field
         mem = mem + self.gen_global_ival(field.typ, ival.value)
@@ -274,7 +274,7 @@ class CCodeGenerator:
         """Properly fill global struct variable with content"""
         assert isinstance(ival, expressions.StructInitializer)
         assert ival.typ is typ
-        mem = tuple()
+        mem = ()
         bits = []  # A working list of bytes
 
         field_offsets = self.context.get_field_offsets(typ)[1]

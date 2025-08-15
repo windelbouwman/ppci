@@ -55,7 +55,7 @@ class Debugger:
         self.driver = driver
         self.registers = self.get_registers()
         self.num2regmap = {r.num: r for r in self.registers}
-        self.register_values = {rn: 0 for rn in self.registers}
+        self.register_values = dict.fromkeys(self.registers, 0)
         self.debug_info = None
         self.events = driver.events
         self.variable_map = {}

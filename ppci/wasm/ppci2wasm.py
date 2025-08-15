@@ -708,7 +708,7 @@ class IrToWasmCompiler:
                 # Handle function pointers:
                 self.emit("local.get", self.get_value(function_name))
                 arg_types = tuple(t for t, a in argv)
-                ret_types = (rv[0],) if rv else tuple()
+                ret_types = (rv[0],) if rv else ()
                 type_ref = self.get_type_id(arg_types, ret_types)
                 table_ref = components.Ref("table", index=0)
                 self.emit("call_indirect", type_ref, table_ref)

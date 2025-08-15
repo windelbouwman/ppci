@@ -28,9 +28,9 @@ class CfgInfo:
     def _calculate_df(self):
         self.cfg.calculate_dominance_frontier()
         self.df = {
-            self._node_map[n]: set(
+            self._node_map[n]: {
                 self.get_block(o) for o in m if self.has_block(o)
-            )
+            }
             for n, m in self.cfg.df.items()
             if self.has_block(n)
         }

@@ -24,7 +24,7 @@ class DummyDebugDriver(DebugDriver):
         return self.status
 
     def get_registers(self, registers):
-        return {r: 0 for r in registers}
+        return dict.fromkeys(registers, 0)
 
     def get_pc(self):
         return 0

@@ -214,7 +214,7 @@ class ControlFlowGraph(DiGraph):
 
         self.tree_map = {}
         for node in self.nodes:
-            self.tree_map[node] = DomTreeNode(node, list(), None)
+            self.tree_map[node] = DomTreeNode(node, [], None)
 
         # Add all nodes except for the root node into the tree:
         for node in self.nodes:
