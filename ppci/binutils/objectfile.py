@@ -377,10 +377,6 @@ class ObjectFile:
     @staticmethod
     def load(input_file):
         """Load object file from file"""
-        # if is_json(input_file):
-        #    return deserialize(json.load(input_file))
-        # else:
-        #    return deserialize(ElfFile.load(input_file))
         if isinstance(input_file, (io.StringIO)):
             return deserialize(json.load(input_file))
 
