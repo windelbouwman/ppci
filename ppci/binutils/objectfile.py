@@ -17,15 +17,17 @@ The hierarchy is as follows:
 """
 
 import json
+import io
 from ..common import CompilerError, make_num, get_file
 from ..utils.binary_txt import bin2asc, asc2bin
 from . import debuginfo
+from ..format.elf.file import ElfFile
 
 
 def get_object(obj):
     """Try hard to load an object"""
     if not isinstance(obj, ObjectFile):
-        f = get_file(obj)
+        f = get_file(obj, mode="rb")
         obj = ObjectFile.load(f)
         f.close()
     return obj
@@ -369,7 +371,19 @@ class ObjectFile:
     @staticmethod
     def load(input_file):
         """Load object file from file"""
-        return deserialize(json.load(input_file))
+        if isinstance(input_file, (io.StringIO)):
+            return deserialize(json.load(input_file))
+
+        if hasattr(input_file, "mode") and input_file.mode == "r":
+            input_file.close()
+            input_file = open(input_file.name, "rb")
+
+        start = input_file.read(4)
+        input_file.seek(0)
+        if b"ELF" in start:
+            return deserialize(ElfFile.load(input_file))
+        else:
+            return deserialize(json.load(input_file))
 
 
 def print_object(obj):
