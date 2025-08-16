@@ -529,7 +529,7 @@ class WasiApi:
         old_path = self._read_string(old_path_buf, old_path_len)
         new_path = self._read_string(new_path_buf, new_path_len)
         self.logger.error(
-            f"TODO: path_symlink(old_path={old_path}, fd={fd}, new_path={new_path})"
+            f"TODO: path_symlink({old_path=}, {fd=}, {new_path=})"
         )
         return EACCES
 
@@ -537,7 +537,7 @@ class WasiApi:
         self, fd: ir.i32, path_buf: ir.i32, path_len: ir.i32
     ) -> ir.i32:
         path = self._read_string(path_buf, path_len)
-        self.logger.error(f"TODO: path_unlink_file({fd=}, path={path=})")
+        self.logger.error(f"TODO: path_unlink_file({fd=}, {path=})")
 
         # Check if we have a base folder:
         if fd not in self._available_fd:

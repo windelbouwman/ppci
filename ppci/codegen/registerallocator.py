@@ -264,7 +264,7 @@ class GraphColoringRegisterAllocator:
                 max_spill_rounds = 30
                 if spill_rounds > max_spill_rounds:
                     raise RuntimeError(
-                        f"Give up: more than {max_spill_rounds} spill rounds done!"
+                        f"Give up after {max_spill_rounds} spill rounds!"
                     )
 
                 # Rewrite program now.
@@ -724,7 +724,7 @@ class GraphColoringRegisterAllocator:
                     code = self.spill_gen.gen_load(self.frame, vreg2, slot)
                     if self.verbose:
                         self.reporter.message(
-                            f"Load code before instruction: {list(map(str, code))}"
+                            f"Load code before: {list(map(str, code))}"
                         )
                     self.frame.insert_code_before(instruction, code)
 
@@ -732,7 +732,7 @@ class GraphColoringRegisterAllocator:
                     code = self.spill_gen.gen_store(self.frame, vreg2, slot)
                     if self.verbose:
                         self.reporter.message(
-                            f"Store code after instruction: {list(map(str, code))}"
+                            f"Store code after: {list(map(str, code))}"
                         )
                     self.frame.insert_code_after(instruction, code)
 

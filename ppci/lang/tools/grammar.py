@@ -11,7 +11,10 @@ class Grammar:
         self.start_symbol = None
 
     def __repr__(self):
-        return f"Grammar with {len(self.productions)} rules and {len(self.terminals)} terminals"
+        return (
+            f"Grammar with {len(self.productions)} rules and "
+            + f"{len(self.terminals)} terminals"
+        )
 
     def add_terminals(self, terminals):
         """Add all terminals to terminals for this grammar"""

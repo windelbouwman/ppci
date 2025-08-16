@@ -79,10 +79,12 @@ extend-select = [
     "UP",    # pyupgrade
     # "I",     # isort
     "C4",    # flake8-comprehensions
+    # "LOG",
+    # "N",
+    # "PTH",
 ]
 extend-ignore = [
     "E203",  # Conflicts with black formatting
-    "E501",  # line too long, already checked with black
     "B009",  # allow getattr usage
     "B010",  # allow setattr usage
     "B019",  # Allow lru_cache on methods

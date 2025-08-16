@@ -377,7 +377,8 @@ class HtmlReportGenerator(TextWritingReporter):
     def header(self):
         self.print(HTML_HEADER)
         self.message(
-            f"Generated on {datetime.today().ctime()} by ppci version {__version__}"
+            f"Generated on {datetime.today().ctime()} by "
+            + f"ppci version {__version__}"
         )
 
     def footer(self):

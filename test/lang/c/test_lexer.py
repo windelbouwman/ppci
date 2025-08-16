@@ -157,7 +157,8 @@ class CLexerTestCase(unittest.TestCase):
         # src = ". .. ... ....."
         src = ". ... ...."
         dots = [t.typ for t in self.tokenize(src)]
-        # self.assertSequenceEqual([".", ".", ".", "...", "...", ".", "."], dots)
+        # self.assertSequenceEqual([".", ".", ".", "...", "...", ".", "."],
+        #  dots)
         self.assertSequenceEqual([".", "...", "...", "."], dots)
 
     def test_character_literals(self):

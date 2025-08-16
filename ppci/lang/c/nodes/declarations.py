@@ -55,7 +55,10 @@ class VariableDeclaration(CDeclaration):
         return self.initial_value is not None
 
     def __repr__(self):
-        return f"Variable [storage={self.storage_class} typ={self.typ} name={self.name}]"
+        return (
+            f"Variable [storage={self.storage_class} "
+            + f"typ={self.typ} name={self.name}]"
+        )
 
 
 class ConstantDeclaration(CDeclaration):
@@ -99,7 +102,10 @@ class FunctionDeclaration(CDeclaration):
         self.body = None
 
     def __repr__(self):
-        return f"Function storage={self.storage_class} typ={self.typ} name={self.name}"
+        return (
+            f"Function storage={self.storage_class} "
+            + f"typ={self.typ} name={self.name}"
+        )
 
     def is_definition(self):
         return self.body is not None

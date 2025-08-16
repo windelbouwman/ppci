@@ -43,12 +43,15 @@ class ProgramTestCase(unittest.TestCase):
                     yield ob
 
     def test_namespace1(self):
-        """Test that all public program classes are either sourcecode, ir or machinecode."""
+        """Test that all public program classes are either sourcecode,
+        ir or machinecode.
+        """
         for cls in self.get_public_program_classes():
             assert issubclass(cls, main_classes)
 
     def test_namespace2(self):
-        """Test that at least all public classes are known by Program itself."""
+        """Test that at least all public classes are known by
+        Program itself."""
         classes_that_program_knows = get_program_classes().values()
         for cls in self.get_public_program_classes():
             self.assertIn(cls, classes_that_program_knows)
@@ -117,7 +120,9 @@ class ProgramTestCase(unittest.TestCase):
         self.assertEqual(p2.get_report(True), "<b>test</b> program")
 
     def test_mcp(self):
-        return  # this needs networkx, so wont work on CI right now, plus its rather experimental
+        return
+        # this needs networkx, so wont work on CI right now
+        # plus its rather experimental
         p1 = MyTest1Program()
         p2 = p1.to("x86")
         self.assertIsInstance(p2, programs.X86Program)

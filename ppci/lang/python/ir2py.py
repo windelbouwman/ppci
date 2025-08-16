@@ -394,7 +394,8 @@ class IrToPythonCompiler:
             self.emit(f"{ins.name} = {op}{a}")
             if ins.ty.is_integer:
                 self.emit(
-                    f"{ins.name} = rt.correct({ins.name}, {ins.ty.bits}, {ins.ty.signed})"
+                    f"{ins.name} = rt.correct({ins.name}, {ins.ty.bits}, "
+                    + f"{ins.ty.signed})"
                 )
         elif isinstance(ins, ir.Binop):
             self.gen_binop(ins)
@@ -452,7 +453,8 @@ class IrToPythonCompiler:
     def gen_cast(self, ins):
         if ins.ty.is_integer:
             self.emit(
-                f"{ins.name} = rt.correct(int(round({ins.src.name})), {ins.ty.bits}, {ins.ty.signed})"
+                f"{ins.name} = rt.correct(int(round({ins.src.name})), "
+                + f"{ins.ty.bits}, {ins.ty.signed})"
             )
         elif ins.ty is ir.ptr:
             self.emit(f"{ins.name} = int(round({ins.src.name}))")
@@ -495,7 +497,8 @@ class IrToPythonCompiler:
         address = ins.address.name
         if isinstance(ins.value.ty, ir.BlobDataTyp):
             self.emit(
-                f"rt.write_mem({address}, {ins.value.ty.size}, {ins.value.name})"
+                f"rt.write_mem({address}, {ins.value.ty.size}, "
+                + f"{ins.value.name})"
             )
         else:
             value = self.fetch_value(ins.value)

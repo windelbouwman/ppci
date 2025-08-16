@@ -224,9 +224,10 @@ class CodeGenerator:
         for subroutine in subroutines:
             self.create_subroutine(subroutine)
 
+        n = len(subroutines)
         for nr, subroutine in enumerate(subroutines, 1):
             self.logger.debug(
-                f"Generating IR-code for {subroutine.name} ({nr}/{len(subroutines)})"
+                f"Generating IR-code for {subroutine.name} ({nr}/{n})"
             )
             self.gen_subroutine(subroutine)
 

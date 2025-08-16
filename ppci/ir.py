@@ -223,7 +223,10 @@ class Module:
         num_functions = len(self.functions)
         num_blocks = sum(len(f.blocks) for f in self.functions)
         num_instructions = sum(f.num_instructions() for f in self.functions)
-        return f"functions: {num_functions}, blocks: {num_blocks}, instructions: {num_instructions}"
+        return (
+            f"functions: {num_functions}, blocks: {num_blocks}, "
+            + f"instructions: {num_instructions}"
+        )
 
 
 class Value:
@@ -965,7 +968,10 @@ class Binop(LocalValue):
         self.operation = operation
 
     def __str__(self):
-        return f"{self.ty} {self.name} = {self.a.name} {self.operation} {self.b.name}"
+        return (
+            f"{self.ty} {self.name} = "
+            + f"{self.a.name} {self.operation} {self.b.name}"
+        )
 
 
 def add(a, b, name, ty):
@@ -1059,7 +1065,10 @@ class Alloc(LocalValue):
         self.alignment = alignment
 
     def __str__(self):
-        return f"{self.ty} {self.name} = alloc {self.amount} bytes aligned at {self.alignment}"
+        return (
+            f"{self.ty} {self.name} = "
+            + f"alloc {self.amount} bytes aligned at {self.alignment}"
+        )
 
 
 class CopyBlob(Instruction):
@@ -1105,7 +1114,10 @@ class Variable(GlobalValue):
         self.value = value
 
     def __str__(self):
-        return f"{self.binding} variable {self.name} ({self.amount} bytes aligned at {self.alignment})"
+        return (
+            f"{self.binding} variable {self.name} "
+            + f"({self.amount} bytes aligned at {self.alignment})"
+        )
 
 
 class Parameter(LocalValue):
@@ -1337,7 +1349,10 @@ class CJump(JumpBase):
         self.lab_no = lab_no
 
     def __str__(self):
-        return f"cjmp {self.a.name} {self.cond} {self.b.name} ? {self.lab_yes.name} : {self.lab_no.name}"
+        return (
+            f"cjmp {self.a.name} {self.cond} {self.b.name} ? "
+            + f"{self.lab_yes.name} : {self.lab_no.name}"
+        )
 
 
 class JumpTable(JumpBase):

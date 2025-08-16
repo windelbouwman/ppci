@@ -61,10 +61,16 @@ def print_file_line(stdout, filename, lineno):
         elif i > len(lines):
             stdout.write("\n")
         elif i == lineno:
-            s = f"\033[33m\033[1m{str(i).rjust(4)}\033[32m->{lines[i - 1]}\033[0m\033[39m\n"
+            s = (
+                f"\033[33m\033[1m{str(i).rjust(4)}\033[32m->"
+                + f"{lines[i - 1]}\033[0m\033[39m\n"
+            )
             stdout.write(s)
         else:
-            s = f"\033[33m\033[1m{str(i).rjust(4)}\033[0m\033[39m  {lines[i - 1]}\n"
+            s = (
+                f"\033[33m\033[1m{str(i).rjust(4)}\033[0m\033[39m  "
+                + f"{lines[i - 1]}\n"
+            )
             stdout.write(s)
 
 

@@ -6,9 +6,7 @@ from prompt_toolkit import __version__ as ptk_version
 
 # Check version of prompt toolkit:
 if not ptk_version.startswith("3."):
-    print(
-        f"We require prompt toolkit version 3.x, we currently have: {ptk_version}"
-    )
+    print(f"We require prompt toolkit 3.x, we have: {ptk_version}")
 
 from prompt_toolkit import Application
 from prompt_toolkit.buffer import Buffer

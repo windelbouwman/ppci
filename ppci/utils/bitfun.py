@@ -150,7 +150,8 @@ def wrap_negative(value, bits):
     lower_limit = -(1 << (bits - 1))
     if value not in range(lower_limit, upper_limit + 1):
         raise ValueError(
-            f"Cannot encode {value} in {bits} bits [{lower_limit},{upper_limit}]"
+            f"Cannot encode {value} in {bits} bits "
+            + f"[{lower_limit},{upper_limit}]"
         )
     mask = (1 << bits) - 1
     bit_value = value & mask  # Performing bitwise and makes it 2 complement.

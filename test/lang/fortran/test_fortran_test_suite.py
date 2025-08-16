@@ -1,6 +1,7 @@
 """
 
-This adapter can check the fortrans suite: '1978 FORTRAN COMPILER VALIDATION SYSTEM' (fcvs21.tar.Z)
+This adapter can check the fortrans suite:
+'1978 FORTRAN COMPILER VALIDATION SYSTEM' (fcvs21.tar.Z)
 
 See:
 

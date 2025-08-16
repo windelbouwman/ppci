@@ -46,8 +46,10 @@ class Verifier:
                 assert isinstance(function, ir.Function)
                 if block.last_instruction.result.ty is not function.return_ty:
                     raise IrFormError(
-                        f"Last instruction returns {block.last_instruction.result.ty}, while function {function}"
-                        f"returns {function.return_ty}"
+                        "Last instruction "
+                        + f"returns {block.last_instruction.result.ty}"
+                        + f", while function {function}"
+                        + f"returns {function.return_ty}"
                     )
             elif isinstance(block.last_instruction, ir.Exit):
                 assert isinstance(function, ir.Procedure)
@@ -127,21 +129,25 @@ class Verifier:
             # Check that binop operands are of same type:
             if instruction.ty is not instruction.a.ty:
                 raise TypeError(
-                    f"Binary operand a's type ({instruction.a.ty}) is not {instruction.ty}"
+                    f"Binary operand a's type ({instruction.a.ty}) "
+                    + f"is not {instruction.ty}"
                 )
             if instruction.ty is not instruction.b.ty:
                 raise TypeError(
-                    f"Binary operand b's type({instruction.b.ty}) is not {instruction.ty}"
+                    f"Binary operand b's type({instruction.b.ty}) "
+                    + f"is not {instruction.ty}"
                 )
         elif isinstance(instruction, ir.Load):
             if instruction.address.ty is not ir.ptr:
                 raise TypeError(
-                    f"Load instruction requires ptr type, not {instruction.address.ty}"
+                    "Load instruction requires ptr type, "
+                    + f"not {instruction.address.ty}"
                 )
         elif isinstance(instruction, ir.Store):
             if instruction.address.ty is not ir.ptr:
                 raise TypeError(
-                    f"Store instruction requires ptr type, not {instruction.address.ty}"
+                    "Store instruction requires ptr type, "
+                    + f"not {instruction.address.ty}"
                 )
         elif isinstance(instruction, ir.Phi):
             for inp_val in instruction.inputs.values():
@@ -149,7 +155,8 @@ class Verifier:
         elif isinstance(instruction, ir.CJump):
             if instruction.a.ty is not instruction.b.ty:
                 raise IrFormError(
-                    f"Type {instruction.a.ty} is not {instruction.b.ty} in {instruction}"
+                    f"Type {instruction.a.ty} is not {instruction.b.ty} "
+                    + f"in {instruction}"
                 )
         elif isinstance(instruction, (ir.FunctionCall, ir.ProcedureCall)):
             if isinstance(
@@ -184,7 +191,8 @@ class Verifier:
             # Check return type:
             if callee.return_ty is not instruction.ty:
                 raise IrFormError(
-                    f"Function returns {callee.return_ty}, expected {instruction.ty}"
+                    f"Function returns {callee.return_ty}, "
+                    + f"expected {instruction.ty}"
                 )
         else:
             if not isinstance(callee, (ir.Procedure, ir.ExternalProcedure)):
@@ -203,7 +211,8 @@ class Verifier:
         # Check amount of arguments:
         if len(passed_types) != len(arg_types):
             raise IrFormError(
-                f"{name} expects {len(arg_types)} arguments, but called with {len(passed_types)}"
+                f"{name} expects {len(arg_types)} arguments, "
+                + f"but called with {len(passed_types)}"
             )
 
         for passed_type, arg_type in zip(passed_types, arg_types):

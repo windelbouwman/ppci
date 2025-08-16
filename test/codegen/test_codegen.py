@@ -64,13 +64,21 @@ class IrDagTestCase(unittest.TestCase):
           MOVI64[vreg4](LABEL[main_main_literal_1])
           MOVI64[vreg5](REGI64[vreg0phi_var_i_0])
           CALL[('io_print2', [ptr, i64], [vreg4, vreg5])]
-          MOVI64[vreg0phi_var_i_0](ADDI64(REGI64[vreg0phi_var_i_0], CONSTI64[1]))
-          MOVI64[vreg1phi_var_b_0](MULI64(REGI64[vreg1phi_var_b_0], ADDI64(REGI64[vreg0phi_var_i_0], CONSTI64[1])))  <---- Here vreg0phi_var_i_0 is re-defined!
+          MOVI64[vreg0phi_var_i_0](
+            ADDI64(REGI64[vreg0phi_var_i_0], CONSTI64[1]))
+
+          Here vreg0phi_var_i_0 is re-defined!
+          MOVI64[vreg1phi_var_b_0](
+            MULI64(
+              REGI64[vreg1phi_var_b_0],
+              ADDI64(REGI64[vreg0phi_var_i_0], CONSTI64[1])))
+
           JMP[main_main_block_block2:]
         block2:
           MOVI64[vreg0phi_var_i_0](REGI64[vreg0phi_var_i_0])
           MOVI64[vreg1phi_var_b_0](REGI64[vreg1phi_var_b_0])
-          CJMP[('<', main_main_block_block1:, main_main_block_block3:)](REGI64[vreg0phi_var_i_0], CONSTI64[10])
+          CJMP[('<', main_main_block_block1:, main_main_block_block3:)](
+            REGI64[vreg0phi_var_i_0], CONSTI64[10])
         block3:
           MOVI64[vreg2](LABEL[main_main_literal_0])
           MOVI64[vreg3](REGI64[vreg1phi_var_b_0])

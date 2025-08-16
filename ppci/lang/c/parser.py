@@ -266,7 +266,8 @@ class CParser(RecursiveDescentParser):
         if type_specifiers:
             if typ:
                 self.error(
-                    f"Type specifiers {type_specifiers} given in addition to type '{type_to_str(typ)}'",
+                    f"Type specifiers {type_specifiers} given in addition to "
+                    + f"type '{type_to_str(typ)}'",
                     location,
                 )
             else:

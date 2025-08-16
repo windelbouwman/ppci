@@ -452,9 +452,12 @@ class CPreProcessor:
         else:
             # Fixed parameter count macro.
             if len(macro.args) > 0:
-                if len(args) != len(macro.args):
+                n_given = len(args)
+                n_expected = len(macro.args)
+                if n_given != n_expected:
                     self.error(
-                        f"Macro {macro.name} got {len(args)} arguments, but expected {len(macro.args)}"
+                        f"Macro {macro.name} got {n_given} arguments, "
+                        + f"expected {n_expected}"
                     )
             else:
                 assert len(args) > 0
@@ -1141,7 +1144,10 @@ class FileExpander:
         self.paren_level = 0  # Nesting of parenthesis in #if expression.
 
     def __repr__(self):
-        return f"<File expander source={self.source_file}, macro={self.macro_expansions}>"
+        return (
+            f"<File expander source={self.source_file}, "
+            + f"macro={self.macro_expansions}>"
+        )
 
     @property
     def peek(self):

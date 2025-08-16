@@ -149,7 +149,8 @@ class XaccGenerator:
         for rule_number, rule in enumerate(self.grammar.productions):
             rule.f_name = f"action_{rule.name}_{rule_number}"
             self.print(
-                f'        grammar.add_production("{rule.name}", {rule.symbols}, self.{rule.f_name})'
+                f'        grammar.add_production("{rule.name}", '
+                + f"{rule.symbols}, self.{rule.f_name})"
             )
         # Fill action table:
         self.print("        action_table = {}")

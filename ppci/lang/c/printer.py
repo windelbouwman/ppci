@@ -52,14 +52,12 @@ class CPrinter:
     def gen_declaration(self, declaration):
         """Spit out a declaration"""
         if isinstance(declaration, declarations.VariableDeclaration):
+            target = self.render_type(declaration.typ, declaration.name)
             if declaration.initial_value:
-                self._print(
-                    f"{self.render_type(declaration.typ, declaration.name)} = {self.gen_expr(declaration.initial_value)};"
-                )
+                value = self.gen_expr(declaration.initial_value)
+                self._print(f"{target} = {value};")
             else:
-                self._print(
-                    f"{self.render_type(declaration.typ, declaration.name)};"
-                )
+                self._print(f"{target};")
         elif isinstance(declaration, declarations.FunctionDeclaration):
             if declaration.body:
                 self._print(
@@ -72,9 +70,8 @@ class CPrinter:
                     f"{self.render_type(declaration.typ, declaration.name)};"
                 )
         elif isinstance(declaration, declarations.Typedef):
-            self._print(
-                f"typedef {self.render_type(declaration.typ, declaration.name)};"
-            )
+            target = self.render_type(declaration.typ, declaration.name)
+            self._print(f"typedef {target};")
         else:  # pragma: no cover
             raise NotImplementedError(str(declaration))
 
@@ -167,7 +164,9 @@ class CPrinter:
             self._print("continue;")
         elif isinstance(statement, statements.For):
             self._print(
-                f"for ({self.gen_expr(statement.init)}; {self.gen_expr(statement.condition)}; {self.gen_expr(statement.post)})"
+                f"for ({self.gen_expr(statement.init)}; "
+                + f"{self.gen_expr(statement.condition)}; "
+                + f"{self.gen_expr(statement.post)})"
             )
             self.gen_statement(statement.body)
             self._print()
@@ -209,7 +208,10 @@ class CPrinter:
                 f"({self.gen_expr(expr.a)} {expr.op} {self.gen_expr(expr.b)})"
             )
         elif isinstance(expr, expressions.TernaryOperator):
-            return f"({self.gen_expr(expr.a)} ? {self.gen_expr(expr.b)} : {self.gen_expr(expr.c)})"
+            a = self.gen_expr(expr.a)
+            b = self.gen_expr(expr.b)
+            c = self.gen_expr(expr.c)
+            return f"({a} ? {b} : {c})"
         elif isinstance(expr, expressions.UnaryOperator):
             return f"({self.gen_expr(expr.a)}){expr.op}"
         elif isinstance(expr, expressions.VariableAccess):
@@ -246,9 +248,11 @@ class CPrinter:
             thing = f".{expr.field}={self.gen_expr(expr.value)}"
             return "{" + thing + "}"
         elif isinstance(expr, expressions.Cast):
-            return f"({self.render_type(expr.to_typ)})({self.gen_expr(expr.expr)})"
+            to_type = self.render_type(expr.to_typ)
+            return f"({to_type})({self.gen_expr(expr.expr)})"
         elif isinstance(expr, expressions.CompoundLiteral):
-            return f"({self.render_type(expr.typ)}) {{ {self.gen_expr(expr.init)} }}"
+            typ = self.render_type(expr.typ)
+            return f"({typ}) {{ {self.gen_expr(expr.init)} }}"
         elif isinstance(expr, expressions.BuiltInOffsetOf):
             return (
                 f"offsetof({self.render_type(expr.query_typ)}, {expr.member})"

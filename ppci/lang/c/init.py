@@ -162,7 +162,10 @@ class StructInitLevel(InitLevel):
         self.pos = 0  # TODO: integer pos or field name?
 
     def __repr__(self):
-        return f"Initializing struct {self.typ}, got so far: {self.initializer}, at pos: {self.pos}"
+        return (
+            f"Initializing struct {self.typ}, "
+            + f"got so far: {self.initializer}, at pos: {self.pos}"
+        )
 
     def element_typ(self):
         field = self.typ.fields[self.pos]
@@ -234,7 +237,10 @@ class ArrayInitLevel(InitLevel):
         self.pos = 0  # The position in the array
 
     def __repr__(self):
-        return f"Initializing array {self.typ} at position {self.pos}, got so far: {self.initializer}"
+        return (
+            f"Initializing array {self.typ} "
+            + f"at position {self.pos}, got so far: {self.initializer}"
+        )
 
     def element_typ(self):
         return self.typ.element_type

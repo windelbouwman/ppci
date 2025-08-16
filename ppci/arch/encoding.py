@@ -140,13 +140,15 @@ class Constructor:
             # Set parameters:
             if len(args) != len(formal_args):
                 raise TypeError(
-                    f"{len(args)} arguments given, but {self.__class__} expects {len(formal_args)}"
+                    f"{len(args)} arguments given, but "
+                    + f"{self.__class__} expects {len(formal_args)}"
                 )
             for farg, arg in zip(formal_args, args):
                 if not isinstance(arg, farg._cls):  # pragma: no cover
                     # Create some nice looking error:
                     raise TypeError(
-                        f'{type(self)} expected {farg._cls}, but got "{arg}" of type {type(arg)}'
+                        f"{type(self)} expected {farg._cls}, "
+                        + f'but got "{arg}" of type {type(arg)}'
                     )
                 setattr(self, farg._name, arg)
 

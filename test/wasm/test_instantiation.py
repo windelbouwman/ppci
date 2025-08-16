@@ -54,12 +54,8 @@ class WasmInstantiationTestCase(unittest.TestCase):
         # , reporter=reporter)
         instance = instantiate(module, target=target)
 
-        # print('root ', bits, 'instance', inst, 'for target', target)
-
         funcname = f"f{bits}.mul_sqrts"
         res = instance.exports[funcname](a, b)
-
-        # print('Result:', res, 'expected=', expected_result, 'python says', python_result)
 
         assert math.isclose(
             res, expected_result, rel_tol=0.0001, abs_tol=0.0000001

@@ -6,7 +6,8 @@ from ppci.api import ir_to_object, get_current_arch
 from ppci.utils import codepage
 
 # Example Python code
-# A bit silly; they are assumed to be "main functions" so they can return a value
+# A bit silly; they are assumed to be "main functions"
+# so they can return a value
 
 py1 = """
 return 42

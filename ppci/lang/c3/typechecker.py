@@ -107,10 +107,11 @@ class TypeChecker:
                 raise SemanticError("Invalid array initialization", ival.loc)
 
             # TODO: can we do legit constant evaluation here?
-            size = self.context.eval_const(typ.size)
-            if len(ival.expressions) != size:
+            n_expected = self.context.eval_const(typ.size)
+            n_given = len(ival.expressions)
+            if n_given != n_expected:
                 raise SemanticError(
-                    f"{len(ival.expressions)} initial values given, expected {size}",
+                    f"{n_given} initial values given, expected {n_expected}",
                     ival.loc,
                 )
             new_expressions = []
@@ -532,9 +533,11 @@ class TypeChecker:
 
         # Check arguments:
         ptypes = ftyp.parametertypes
-        if len(expr.args) != len(ptypes):
+        n_expected = len(ptypes)
+        n_given = len(expr.args)
+        if n_given != n_expected:
             raise SemanticError(
-                f"{fname} requires {len(ptypes)} arguments, {len(expr.args)} given",
+                f"{fname} requires {n_expected} arguments, {n_given} given",
                 expr.loc,
             )
 

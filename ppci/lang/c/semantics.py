@@ -336,7 +336,10 @@ class CSemantics:
 
         # Prevent change of static-ness after first declaration
         if is_static and not was_static:
-            message = f"Invalid redefine of storage class. Was {prev_storage_class}, but now {new_storage_class}"
+            message = (
+                "Invalid redefine of storage class."
+                + f" Was {prev_storage_class}, but now {new_storage_class}"
+            )
             self.invalid_redeclaration(sym, declaration, message)
 
         # update current declarations storage class
@@ -631,7 +634,7 @@ class CSemantics:
                 clobbers2.append(clobber_register)
             else:
                 self.error(
-                    f"target machine does not have register {clobber_register_name}",
+                    f"Invalid register {clobber_register_name}",
                     location,
                 )
 
@@ -791,7 +794,8 @@ class CSemantics:
                     ):
                         self.error(
                             "Operands must point to compatible types,"
-                            f" got {type_to_str(lhs.typ)} and {type_to_str(rhs.typ)}",
+                            f" got {type_to_str(lhs.typ)} "
+                            + f"and {type_to_str(rhs.typ)}",
                             location,
                         )
 
@@ -952,10 +956,12 @@ class CSemantics:
             ):
                 lhs = expr_to_str(base)
                 hints.append(
-                    f'Did you mean "{lhs}->{field_name}" instead of "{lhs}.{field_name}"?'
+                    f'Did you mean "{lhs}->{field_name}" '
+                    + f' instead of "{lhs}.{field_name}"?'
                 )
             self.error(
-                f"Selecting a field of non-struct type ({type_to_str(base.typ)})",
+                "Selecting a field of"
+                + f" non-struct type ({type_to_str(base.typ)})",
                 location,
                 hints=hints,
             )
@@ -1043,7 +1049,8 @@ class CSemantics:
         if function_type.is_vararg:
             if num_given < num_expected:
                 self.error(
-                    f"Expected at least {num_expected} arguments, but got {num_given}",
+                    f"Expected at least {num_expected} arguments, "
+                    + f"but got {num_given}",
                     location,
                 )
         else:
@@ -1203,7 +1210,8 @@ class CSemantics:
         """Ensure typ is of any integer type."""
         if not expr.typ.is_integer_or_enum:
             self.error(
-                f"integer or enum type expected but got {type_to_str(expr.typ)}",
+                "integer or enum type expected "
+                + f"but got {type_to_str(expr.typ)}",
                 expr.location,
             )
 

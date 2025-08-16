@@ -129,7 +129,10 @@ class Instruction:
         self.args = args
 
     def __repr__(self):
-        return f"instruction(opcode={self.mnemonic} (0x{self.opcode:0X}), args={self.args})"
+        return (
+            f"instruction(opcode={self.mnemonic} (0x{self.opcode:0X}), "
+            + f"args={self.args})"
+        )
 
 
 class Manifest:

@@ -63,7 +63,11 @@ class Symbol:
         return self.typ == "func"
 
     def __repr__(self):
-        return f"Symbol({self.name}, binding={self.binding}, val={self.value} section={self.section} typ={self.typ} size={self.size})"
+        return (
+            f"Symbol({self.name}, binding={self.binding}, "
+            + f"val={self.value} section={self.section} "
+            + f"typ={self.typ} size={self.size})"
+        )
 
     def __eq__(self, other):
         return (
@@ -125,7 +129,10 @@ class Section:
         return len(self.data)
 
     def __repr__(self):
-        return f"SECTION {self.name} size=0x{self.size:x} address=0x{self.address:x}"
+        return (
+            f"SECTION {self.name} size=0x{self.size:x} "
+            + f"address=0x{self.address:x}"
+        )
 
     def __eq__(self, other):
         return (

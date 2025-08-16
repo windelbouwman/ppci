@@ -463,7 +463,7 @@ class CCodeGenerator:
                     self.emit(ir.Return(zero))
                 else:
                     self.error(
-                        f"Function does not return an {function.typ.return_type}",
+                        f"Function does not return {function.typ.return_type}",
                         function,
                     )
 

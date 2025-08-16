@@ -229,7 +229,10 @@ class DebugFunction(DebugBaseInfo):
         self.variables = list(variables)
 
     def __repr__(self):
-        return f"DBGFNC[ {self.name} {self.loc} begin={self.begin}, end={self.end} ]"
+        return (
+            f"DBGFNC[ {self.name} {self.loc} "
+            + f"begin={self.begin}, end={self.end} ]"
+        )
 
     def add_variable(self, variable):
         self.variables.append(variable)

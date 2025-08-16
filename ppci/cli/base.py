@@ -12,7 +12,11 @@ from ..utils.reporting import HtmlReportGenerator, DummyReportGenerator
 from ..utils.reporting import TextReportGenerator
 
 
-version_text = f"ppci {__version__} on {platform.python_implementation()} {platform.python_version()} on {platform.platform()}"
+version_text = (
+    f"ppci {__version__}"
+    + f" on {platform.python_implementation()} {platform.python_version()}"
+    + f" on {platform.platform()}"
+)
 
 
 def log_level(s):

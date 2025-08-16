@@ -869,7 +869,8 @@ class Parser(RecursiveDescentParser):
         self.consume(")")
         if len(expressions) != len(parameter_types):
             self.error(
-                f"Expected {len(parameter_types)} parameters, got {len(expressions)}",
+                f"Expected {len(parameter_types)} parameters, "
+                + f"got {len(expressions)}",
                 loc=location,
             )
         parameters = [

@@ -343,9 +343,8 @@ class BurgGenerator:
         )
         self.print(
             4,
-            (
-                f"c = sum(x.state.get_cost(y) for x, y in zip(kids, nts)) + {rule.cost}"
-            ),
+            "c = sum(x.state.get_cost(y) for x, y in zip(kids, nts)) "
+            + f"+ {rule.cost}",
         )
         self.print(
             4,
@@ -355,7 +354,8 @@ class BurgGenerator:
             self.print(4, f"# Chain rule: {cr}")
             self.print(
                 4,
-                f'tree.state.set_cost("{cr.non_term}", c + {cr.cost}, {cr.nr})',
+                f'tree.state.set_cost("{cr.non_term}", c'
+                + f" + {cr.cost}, {cr.nr})",
             )
 
     def emit_state(self):
