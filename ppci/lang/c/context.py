@@ -114,18 +114,18 @@ class CContext:
         elif isinstance(typ, types.BasicType):
             size = self.type_size_map[typ.type_id][0]
         elif isinstance(typ, types.StructType):
-            if not typ.complete:
+            if not typ.is_complete:
                 self.error("Storage size unknown", typ.location)
             size = self.get_field_offsets(typ)[0]
         elif isinstance(typ, types.UnionType):
-            if not typ.complete:
+            if not typ.is_complete:
                 self.error("Type is incomplete, size unknown", typ)
             if typ.fields:
                 size = max(self.sizeof(part.typ) for part in typ.fields)
             else:
                 size = 0
         elif isinstance(typ, types.EnumType):
-            if not typ.complete:
+            if not typ.is_complete:
                 self.error("Storage size unknown", typ)
             # For enums take int as the type
             size = self.arch_info.get_size("int")
@@ -146,7 +146,7 @@ class CContext:
         elif isinstance(typ, types.BasicType):
             alignment = self.type_size_map[typ.type_id][1]
         elif isinstance(typ, types.StructType):
-            if not typ.complete:
+            if not typ.is_complete:
                 self.error("Storage size unknown", typ.location)
             if typ.fields:
                 alignment = max(
@@ -155,7 +155,7 @@ class CContext:
             else:
                 alignment = 1
         elif isinstance(typ, types.UnionType):
-            if not typ.complete:
+            if not typ.is_complete:
                 self.error("Type is incomplete, size unknown", typ)
             if typ.fields:
                 alignment = max(
@@ -164,7 +164,7 @@ class CContext:
             else:
                 alignment = 1
         elif isinstance(typ, types.EnumType):
-            if not typ.complete:
+            if not typ.is_complete:
                 self.error("Storage size unknown", typ)
             # For enums take int as the type
             alignment = self.arch_info.get_alignment("int")

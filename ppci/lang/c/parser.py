@@ -467,7 +467,6 @@ class CParser(RecursiveDescentParser):
             declarator.type_modifiers,
             declarator.location,
         )
-        self.semantics.register_declaration(function)
         self.semantics.enter_function(function)
         body = self.parse_compound_statement()
         self.semantics.end_function(body)
@@ -483,12 +482,12 @@ class CParser(RecursiveDescentParser):
             declarator.location,
         )
 
-        self.semantics.register_declaration(variable)
-
         # Handle the initial value:
         if self.has_consumed("="):
             initializer = self.parse_initializer(variable.typ)
             self.semantics.on_variable_initialization(variable, initializer)
+
+        self.semantics.on_variable_finished(variable, declarator.location)
 
     def parse_typedef(self, decl_spec, declarator):
         """Process typedefs"""

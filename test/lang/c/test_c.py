@@ -862,6 +862,15 @@ class CFrontendTestCase(unittest.TestCase):
         """
         self.do(src)
 
+    def test_incomplete_typed_var(self):
+        """Test variable with incomplete type raises an error."""
+        src = """
+        typedef int A[];
+        A a1 = {1,2,3};
+        A a3;
+        """
+        self.expect_error(src, 4, "Type of variable 'a3' is incomplete")
+
     def test_function_pointer_passing(self):
         """Test passing of function pointers"""
         src = """

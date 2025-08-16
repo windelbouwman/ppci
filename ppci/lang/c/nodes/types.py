@@ -167,6 +167,16 @@ class CType:
         """Check if this type is either struct or union type."""
         return is_struct_or_union(self)
 
+    @property
+    def is_incomplete(self):
+        """Check if this type is incomplete"""
+        return False
+
+    @property
+    def is_complete(self):
+        """Test if this type is complete"""
+        return not self.is_incomplete
+
     def pointer_to(self):
         """Create a new pointer type to this type."""
         return PointerType(self)
@@ -216,6 +226,13 @@ class ArrayType(IndexableType):
         """Decay into pointer type."""
         return PointerType(self.element_type)
 
+    @property
+    def is_incomplete(self):
+        """Check if this type is incomplete"""
+        if self.size is None:
+            return True
+        return self.element_type.is_incomplete
+
 
 class PointerType(IndexableType):
     """The famous pointer!"""
@@ -236,9 +253,9 @@ class EnumType(TaggedType):
         self.constants = constants
 
     @property
-    def complete(self):
-        """Test if this enum is complete (values are defined)"""
-        return self.constants is not None
+    def is_incomplete(self):
+        """Check if this type is incomplete"""
+        return self.constants is None
 
     def __repr__(self):
         return "Enum-type"
@@ -255,14 +272,9 @@ class StructOrUnionType(TaggedType):
         self.fields = fields
 
     @property
-    def incomplete(self):
+    def is_incomplete(self):
         """Check whether this type is incomplete or not"""
         return self.fields is None
-
-    @property
-    def complete(self):
-        """Test if this type is complete"""
-        return not self.incomplete
 
     def _get_fields(self):
         return self._fields
@@ -319,7 +331,7 @@ class StructType(StructOrUnionType):
     """Structure type"""
 
     def __repr__(self):
-        if self.complete:
+        if self.is_complete:
             field_names = self.get_field_names()
             return f"Structured-type field_names={field_names}"
         else:

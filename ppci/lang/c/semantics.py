@@ -160,6 +160,7 @@ class CSemantics:
                 storage_class, typ, name, None, location
             )
 
+        self.register_declaration(declaration)
         return declaration
 
     # Variable initialization!
@@ -173,19 +174,34 @@ class CSemantics:
         if self.scope.is_definition(variable.name):
             self.error("Invalid redefinition.", variable.location)
 
-        self.patch_size_from_initializer(variable.typ, expression)
+        variable.typ = self.patch_size_from_initializer(
+            variable.typ, expression
+        )
         variable.initial_value = expression
 
-    def patch_size_from_initializer(self, typ, initializer):
-        """Fill array size from elements!"""
+    def on_variable_finished(self, variable, location):
+        if variable.typ.is_incomplete:
+            self.error(
+                f"Type of variable '{variable.name}' is incomplete",
+                location,
+            )
+
+    def patch_size_from_initializer(
+        self, typ: types.CType, initializer
+    ) -> types.CType:
+        """Create new type with size from number of elements!"""
 
         if typ.is_array and typ.size is None:
             if isinstance(initializer, expressions.ArrayInitializer):
-                typ.size = len(initializer.values)
+                size = len(initializer.values)
+                typ = types.ArrayType(typ.element_type, size)
+                initializer.typ = typ
             else:  # pragma: no cover
                 raise NotImplementedError(
                     "What else could be used to init an array?"
                 )
+
+        return typ
 
     def new_init_cursor(self):
         return init.InitCursor(self.context)
@@ -282,7 +298,7 @@ class CSemantics:
         declaration = declarations.FunctionDeclaration(
             storage_class, typ, name, location
         )
-
+        self.register_declaration(declaration)
         return declaration
 
     # declaration insertion into symbol table.
@@ -480,7 +496,7 @@ class CSemantics:
             if not isinstance(ctyp, klass):
                 self.error("Wrong tag kind", location)
 
-            if ctyp.complete:
+            if ctyp.is_complete:
                 self.error("Multiple definitions", location)
 
         else:
@@ -947,7 +963,7 @@ class CSemantics:
 
     def on_compound_literal(self, typ, init, location):
         """Check the consistency of compound literals."""
-        self.patch_size_from_initializer(typ, init)
+        typ = self.patch_size_from_initializer(typ, init)
         expr = expressions.CompoundLiteral(typ, init, location)
         return expr
 
