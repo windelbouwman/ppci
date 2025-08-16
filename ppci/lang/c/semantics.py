@@ -23,6 +23,7 @@ from .nodes import nodes, types, declarations, statements, expressions
 from . import utils, init
 from .scope import Scope, RootScope
 from .printer import expr_to_str, type_to_str
+from ...utils.integer_set import IntegerSet
 
 
 class CSemantics:
@@ -110,10 +111,7 @@ class CSemantics:
             elif modifier[0] == "ARRAY":
                 size = modifier[1]
                 if size and size != "vla":
-                    if not self._root_scope.is_const_expr(size):
-                        self.error(
-                            "Array dimension must be constant", size.location
-                        )
+                    self.ensure_constant(size, "Array dimension")
                     size = self.coerce(size, self.get_type(["int"]))
                 typ = types.ArrayType(typ, size)
             elif modifier[0] == "FUNCTION":
@@ -232,7 +230,7 @@ class CSemantics:
         """Handle array designator."""
         # TODO: Handle things like [4..30] = 23
         # Calculate position:
-        pos = self.context.eval_expr(index)
+        pos = self.eval_expr(index)
 
         # Array index must be positive:
         if pos < 0:
@@ -454,8 +452,7 @@ class CSemantics:
     def on_enum_value(self, ctyp, name, value, location):
         """Handle a single enum value definition"""
         if value:
-            if not self._root_scope.is_const_expr(value):
-                self.error("Enum value must be constant value", value.location)
+            self.ensure_constant(value, "enum value")
         declaration = declarations.EnumConstantDeclaration(
             ctyp, name, value, location
         )
@@ -539,32 +536,59 @@ class CSemantics:
         condition = self.check_condition(condition)
         return statements.If(condition, then_statement, no, location)
 
-    def on_switch_enter(self, expression):
-        self.switch_stack.append(expression.typ)
+    def on_switch_enter(self, expression: expressions.CExpression):
+        self.ensure_integer(expression)
+        expression = self.promote(expression)
+        self.switch_stack.append(CSwitchContext(expression))
 
-    def on_switch_exit(self, expression, statement, location):
+    def on_switch_exit(self, statement, location):
         """Handle switch statement"""
-        self.switch_stack.pop(-1)
-        return statements.Switch(expression, statement, location)
+        context = self.switch_stack.pop(-1)
+        return statements.Switch(context.expression, statement, location)
 
     def on_case(self, value, statement, location):
         """Handle a case statement"""
-        if not self.switch_stack:
+        if self.switch_stack:
+            context = self.switch_stack[-1]
+        else:
             self.error("Case statement outside of a switch!", location)
 
         if isinstance(value, tuple):
             value1, value2 = value
-            value1 = self.coerce(value1, self.switch_stack[-1])
-            value2 = self.coerce(value2, self.switch_stack[-1])
+            self.ensure_constant(value1, "case value")
+            value1 = self.coerce(value1, context.typ)
+            self.ensure_constant(value2, "case value")
+            value2 = self.coerce(value2, context.typ)
+            v1 = self.eval_expr(value1)
+            v2 = self.eval_expr(value2)
+            if v1 > v2:
+                self.error("Invalid case range", location)
+            if context.contains_range(v1, v2):
+                self.error(f"Overlapping range {v1} ... {v2}", location)
+            else:
+                context.add_range(v1, v2)
             return statements.RangeCase(value1, value2, statement, location)
         else:
-            value = self.coerce(value, self.switch_stack[-1])
+            self.ensure_constant(value, "case value")
+            value = self.coerce(value, context.typ)
+            v = self.eval_expr(value)
+            if context.contains(v):
+                self.error(f"Duplicate case value {v}", value.location)
+            else:
+                context.add(v)
             return statements.Case(value, statement, location)
 
     def on_default(self, statement, location):
         """Handle a default label"""
-        if not self.switch_stack:
+        if self.switch_stack:
+            context = self.switch_stack[-1]
+        else:
             self.error("Default statement outside of a switch!", location)
+
+        if context.default_seen:
+            self.error("Duplicate default case", location)
+        else:
+            context.default_seen = True
 
         return statements.Default(statement, location)
 
@@ -1215,6 +1239,13 @@ class CSemantics:
                 expr.location,
             )
 
+    def ensure_constant(self, expr: expressions.CExpression, what: str):
+        if not self._root_scope.is_const_expr(expr):
+            self.error(f"{what} must be constant", expr.location)
+
+    def eval_expr(self, expr):
+        return self.context.eval_expr(expr)
+
     def ensure_no_void_ptr(self, expr):
         """Test if expr has type void*, and if so, generate
         a warning and an implicit cast statement.
@@ -1290,3 +1321,28 @@ class CSemantics:
         """Call this function to mark unimplemented code"""
         self.error(message, location)
         raise NotImplementedError(message)
+
+
+class CSwitchContext:
+    """Switch statement context"""
+
+    def __init__(self, expression: expressions.CExpression):
+        self.expression = expression
+        self.typ = expression.typ
+        self.default_seen = False
+        self.values = IntegerSet()
+
+    def contains(self, value: int) -> bool:
+        return self.values.contains(value)
+
+    def add(self, value: int):
+        self.values = self.values | IntegerSet(value)
+
+    def contains_range(self, lower: int, upper: int) -> bool:
+        new = IntegerSet((lower, upper))
+        overlap = self.values.intersection(new)
+        return bool(overlap)
+
+    def add_range(self, lower: int, upper: int):
+        new = IntegerSet((lower, upper))
+        self.values = self.values | new

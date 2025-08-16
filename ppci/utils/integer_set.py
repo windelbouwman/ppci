@@ -27,7 +27,7 @@ class IntegerSet:
             elif isinstance(value, tuple):
                 ranges.append((int(value[0]), int(value[1])))
             else:
-                raise TypeError("Expected int or tuple")
+                raise TypeError(f"Expected int or tuple, not {type(value)}")
 
         # Sort intervals:
         ranges = sorted(filter(lambda r: r[0] <= r[1], ranges))

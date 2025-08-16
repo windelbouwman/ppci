@@ -47,6 +47,9 @@ class CFrontendTestCase(unittest.TestCase):
             self.assertEqual(row, cm.exception.loc.row)
             self.assertRegex(cm.exception.msg, message)
 
+    def expect_error(self, src, row, message):
+        self.expect_errors(src, [(row, message)])
+
     def test_hello_world(self):
         src = r"""
         void printf(char*, ...);
@@ -312,7 +315,7 @@ class CFrontendTestCase(unittest.TestCase):
         src = """
         struct z { float foo : 3; };
         """
-        self.expect_errors(src, [(2, r"Invalid type \(float\) for bit-field")])
+        self.expect_error(src, 2, r"Invalid type \(float\) for bit-field")
 
     def test_offsetof(self):
         """Test offsetof"""
@@ -347,7 +350,7 @@ class CFrontendTestCase(unittest.TestCase):
          __builtin_offsetof(struct z, foo);
         }
         """
-        self.expect_errors(src, [(4, 'address of bit-field "foo"')])
+        self.expect_error(src, 4, 'address of bit-field "foo"')
 
     def test_union(self):
         """Test union usage"""
@@ -418,7 +421,7 @@ class CFrontendTestCase(unittest.TestCase):
         src = """
          int b:2+5, c:9, d;
         """
-        self.expect_errors(src, [(2, 'Expected ";"')])
+        self.expect_error(src, 2, 'Expected ";"')
 
     def test_wrong_tag_kind(self):
         """Assert error when using wrong tag kind"""
@@ -426,7 +429,7 @@ class CFrontendTestCase(unittest.TestCase):
         union S { int x;};
         int B = sizeof(struct S);
         """
-        self.expect_errors(src, [(3, "Wrong tag kind")])
+        self.expect_error(src, 3, "Wrong tag kind")
 
     def test_enum(self):
         """Test enum usage"""
@@ -596,6 +599,70 @@ class CFrontendTestCase(unittest.TestCase):
         """
         self.do(src)
 
+    def test_non_const_case_value(self):
+        """Test non constant case value gives an error"""
+        src = """
+        void foo(int a, int b) {
+          switch (a) {
+            case b:
+              break;
+          }
+        }
+        """
+        self.expect_error(src, 4, "case value must be constant")
+
+    def test_duplicate_case_value(self):
+        """Test duplicate case value gives an error"""
+        src = """
+        void foo(int a) {
+          switch (a) {
+            case 33:
+            case 5:
+            case 33:
+              break;
+          }
+        }
+        """
+        self.expect_error(src, 4, "Duplicate case value")
+
+    def test_duplicate_case_range(self):
+        """Test duplicate case range gives an error"""
+        src = """
+        void foo(int a) {
+          switch (a) {
+            case 33 ... 45:
+            case 38:
+              break;
+          }
+        }
+        """
+        self.expect_error(src, 4, "Overlapping range")
+
+    def test_switch_bad_value_type(self):
+        """Test switch on non-integer gives an error"""
+        src = """
+        void foo(char* bar) {
+          switch (bar) {
+            default:
+              break;
+          }
+        }
+        """
+        self.expect_error(src, 3, "integer or enum type expected")
+
+    def test_duplicate_default(self):
+        """Test duplicate default case in switch statement"""
+        src = """
+        void main() {
+          switch (2) {
+            default:
+            default:
+              break;
+          }
+        }
+        """
+        self.expect_error(src, 4, "Duplicate default case")
+
     def test_loose_case(self):
         """Test loose case statement"""
         src = """
@@ -603,7 +670,7 @@ class CFrontendTestCase(unittest.TestCase):
           case 34: break;
         }
         """
-        self.expect_errors(src, [(3, "Case statement outside")])
+        self.expect_error(src, 3, "Case statement outside")
 
     def test_loose_default(self):
         """Test loose default statement"""
@@ -612,7 +679,7 @@ class CFrontendTestCase(unittest.TestCase):
           default: break;
         }
         """
-        self.expect_errors(src, [(3, "Default statement outside")])
+        self.expect_error(src, 3, "Default statement outside")
 
     def test_void_function(self):
         """Test calling of a void function"""
@@ -677,7 +744,7 @@ class CFrontendTestCase(unittest.TestCase):
         char a = 2;
         char a = 3; // Not cool!
         """
-        self.expect_errors(src, [(3, "Invalid redefinition")])
+        self.expect_error(src, 3, "Invalid redefinition")
 
     def test_function_double_definition(self):
         """Test double definition raises an error."""
@@ -689,7 +756,7 @@ class CFrontendTestCase(unittest.TestCase):
           return a + b;
         }
         """
-        self.expect_errors(src, [(5, "invalid redefinition")])
+        self.expect_error(src, 5, "invalid redefinition")
 
     def test_softfloat_bug(self):
         """Bug encountered in softfloat library"""
