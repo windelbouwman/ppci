@@ -179,7 +179,7 @@ def print_section_headers(elf_file):
         print(
             "  [{:2d}] {:16s}  {:16} {:016x}  {:016x}".format(
                 index,
-                elf_file.get_str(section.header["sh_name"]),
+                elf_file.strtab.get_str(section.header["sh_name"]),
                 sh_type,
                 section.header["sh_addr"],
                 section.header["sh_offset"],

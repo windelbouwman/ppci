@@ -8,9 +8,55 @@ import io
 import logging
 
 from ...arch.arch_info import Endianness
-from .headers import ElfMachine, HeaderTypes
+from .headers import ElfMachine, HeaderTypes, SectionHeaderType
+
+from functools import cache
 
 logger = logging.getLogger("elf")
+
+
+class StringTable:
+    def __init__(self, data):
+        self.data = data
+
+    @staticmethod
+    @cache
+    def read_strtab(f, section):
+        return StringTable(section.read_data(f))
+
+    def get_str(self, offset):
+        end = self.data.find(0, offset)
+        return self.data[offset:end].decode("utf8")
+
+
+class ElfRelocation:
+    def __init__(self, header, bits=64):
+        self.header = header
+        self.bits = bits
+        self.parse_info()
+
+    def parse_info(self):
+        if self.bits == 64:
+            self.symbol_id = self.header.r_info >> 32
+            self.type = self.header.r_info & 0xFFFFFFFF
+        else:
+            self.symbol_id = self.header.r_info >> 8
+            self.type = self.header.r_info & 0xFF
+
+    def connect_section(self, symbole_table, sections):
+        symbole = symbole_table[self.symbol_id].header
+        self.section = sections[symbole.st_shndx].name
+
+
+class ElfSymbol:
+    def __init__(self, header, i):
+        self.header = header
+        self.i = i
+        self.parse_info()
+
+    def parse_info(self):
+        self.binding = self.header.st_info >> 4
+        self.type = self.header.st_info & 0xF
 
 
 class ElfSection:
@@ -39,9 +85,10 @@ class ElfFile:
 
     def __init__(self, bits=64, endianness=Endianness.LITTLE):
         self.bits = bits
-        self.e_machine = ElfMachine.X86_64.value  # x86-64 machine
+        self.e_machine = ElfMachine.X86_64  # x86-64 machine
         self.header_types = HeaderTypes(bits=bits, endianness=endianness)
         self.sections = []
+        self.relocations = []
 
     @staticmethod
     def load(f):
@@ -62,6 +109,7 @@ class ElfFile:
 
         # Read elf header:
         elf_file.elf_header = elf_file.header_types.ElfHeader.read(f)
+        elf_file.e_machine = ElfMachine(elf_file.elf_header.e_machine)
 
         # Read program headers:
         elf_file.program_headers = []
@@ -75,29 +123,70 @@ class ElfFile:
             sh = elf_file.header_types.SectionHeader.read(f)
             elf_file.sections.append(ElfSection(sh))
 
-        elf_file.read_strtab(f)
+        # elf_file.read_strtab(f)
+        elf_file.strtab = StringTable.read_strtab(
+            f, elf_file.sections[elf_file.elf_header.e_shstrndx]
+        )
         for section in elf_file.sections:
             section.read_data(f)
-            section.name = elf_file.get_str(section.header["sh_name"])
+            section.name = elf_file.strtab.get_str(section.header["sh_name"])
+            typ = SectionHeaderType(section.header["sh_type"])
+            if typ == SectionHeaderType.REL:
+                f.seek(section.header["sh_offset"])
+                rh = elf_file.header_types.RelTableEntry.read(f)
+                elf_file.relocations.append(ElfRelocation(rh, bits=bits))
+            elif typ == SectionHeaderType.RELA:
+                f.seek(section.header.sh_offset)
+                rh = elf_file.header_types.RelaTableEntry.read(f)
+                elf_file.relocations.append(ElfRelocation(rh, bits=bits))
+            elif typ in [SectionHeaderType.SYMTAB, SectionHeaderType.DYNSYM]:
+                elf_file.symbole_table = elf_file.read_symtab(section)
+            elif typ == SectionHeaderType.STRTAB and section.name in [
+                ".strtab",
+                ".dynstr",
+            ]:
+                elf_file.symstrtab = StringTable.read_strtab(f, section)
+
+        if "symbole_table" in vars(elf_file):
+            for relocation in elf_file.relocations:
+                relocation.connect_section(
+                    elf_file.symbole_table, elf_file.sections
+                )
+            for symbol in elf_file.symbole_table:
+                symbol.name = elf_file.symstrtab.get_str(
+                    symbol.header["st_name"]
+                )
+                if symbol.header.st_shndx < len(elf_file.sections):
+                    symbol.section = elf_file.sections[symbol.header.st_shndx]
+                else:
+                    symbol.section = elf_file.sections[0]
         return elf_file
 
     def read_strtab(self, f):
         self.strtab = self.sections[self.elf_header.e_shstrndx].read_data(f)
 
-    def read_symbol_table(self, sym_section):
+    def read_symtab(self, sym_section):
         f = io.BytesIO(sym_section.data)
         count = (
             len(sym_section.data) // self.header_types.SymbolTableEntry.size
         )
         table = [
-            self.header_types.SymbolTableEntry.read(f) for _ in range(count)
+            ElfSymbol(self.header_types.SymbolTableEntry.read(f), i)
+            for i in range(count)
         ]
         return table
 
-    def get_str(self, offset):
+    def read_symbol_table(self, f):
+        return [s.header for s in self.symbole_table]
+
+    def get_str(self, offset, *strtab):
         """Get a string indicated by numeric value"""
-        end = self.strtab.find(0, offset)
-        return self.strtab[offset:end].decode("utf8")
+        if len(strtab) == 0:
+            strtab = self.strtab
+        else:
+            strtab = strtab[0]
+        end = strtab.find(0, offset)
+        return strtab[offset:end].decode("utf8")
 
     def has_section(self, name):
         return any(section.name == name for section in self.sections)

@@ -27,5 +27,7 @@ def asc2bin(data) -> bytes:
         for part in data:
             res.extend(binascii.unhexlify(part.encode("ascii")))
         return bytes(res)
+    elif isinstance(data, bytes):
+        return data
     else:  # pragma: no cover
         raise NotImplementedError(str(type(data)))

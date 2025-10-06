@@ -17,8 +17,7 @@ The hierarchy is as follows:
 """
 
 import json
-
-from ..common import CompilerError, get_file, make_num
+from ..common import CompilerError, make_num, get_file
 from ..utils.binary_txt import asc2bin, bin2asc
 from . import debuginfo
 
@@ -26,7 +25,7 @@ from . import debuginfo
 def get_object(obj):
     """Try hard to load an object"""
     if not isinstance(obj, ObjectFile):
-        f = get_file(obj)
+        f = get_file(obj, mode="rb")
         obj = ObjectFile.load(f)
         f.close()
     return obj

@@ -31,3 +31,15 @@ class BaseIoWriter:
     def write_fmt(self, fmt, value):
         data = struct.pack(fmt, value)
         self.f.write(data)
+
+
+class FormatError(Exception):
+    def __init__(self, msg):
+        super.__init__(msg)
+        self.msg = msg
+
+    def __repr__(self):
+        return "FormatError(" + self.msg + ")"
+
+    def print(self):
+        print("FormatError: " + self.msg)
