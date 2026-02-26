@@ -3,13 +3,19 @@ ARCH=atalla
 PPCI=python3 -m ppci
 INPUT=examples/c/sample2.c
 
-SRC1=instructtest2.c
+# SRC1=instructtest2.c
+SRC1=instructtest3.c
+# SRC1=instructtest4.c
 SRC2=helper.c
 
-OBJ1=instructtest2.o
+# OBJ1=instructtest2.o
+OBJ1=instructtest3.o
+# OBJ1=instructtest4.o
 OBJ2=helper.o
 
-OBJ3=instructtest2.s
+# OBJ3=instructtest2.s
+OBJ3=instructtest3.s
+# OBJ3=instructtest4.s
 OBJ4=helper.s
 
 ELF=output.elf

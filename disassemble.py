@@ -123,6 +123,7 @@ def disassemble_instruction(insn_int, offset):
     
     elif fmt == "BR":
         # BR-type: opcode incr_imm7 i1 rs1 rs2 imm9
+        print("BR")
         incr_imm7 = extract_bits(insn_int, 7, 14)
         i1 = extract_bits(insn_int, 14, 15)
         rs1 = extract_bits(insn_int, 15, 23)
@@ -169,6 +170,37 @@ def disassemble_instruction(insn_int, offset):
     
     return f"UNIMPLEMENTED FORMAT: {fmt}"
 
+# In disassemble.py, replace hardcoded bounds with:
+def get_code_section_bounds(elf_path):
+    """Extract code section start and size from ELF"""
+    with open(elf_path, 'rb') as f:
+        data = f.read()
+    
+    shoff = int.from_bytes(data[0x20:0x24], 'little')
+    shentsize = int.from_bytes(data[0x2E:0x30], 'little')
+    shnum = int.from_bytes(data[0x30:0x32], 'little')
+    shstrndx = int.from_bytes(data[0x32:0x34], 'little')
+    
+    strtab_header_off = shoff + shstrndx * shentsize
+    strtab_header = data[strtab_header_off : strtab_header_off + shentsize]
+    strtab_offset = int.from_bytes(strtab_header[16:20], 'little')
+    
+    for i in range(shnum):
+        sh_offset = shoff + i * shentsize
+        sh = data[sh_offset : sh_offset + shentsize]
+        
+        name_offset = int.from_bytes(sh[0:4], 'little')
+        name_start = strtab_offset + name_offset
+        name_end = data.index(b'\x00', name_start)
+        section_name = data[name_start:name_end].decode('ascii')
+        
+        if section_name == "code":
+            code_offset = int.from_bytes(sh[16:20], 'little')
+            code_size = int.from_bytes(sh[20:24], 'little')
+            return code_offset, code_offset + code_size
+    
+    return 0x34, 0xF0  # Fallback
+
 def disassemble_elf(input_file, output_file):
     """Disassemble Atalla code from ELF file"""
     
@@ -180,8 +212,10 @@ def disassemble_elf(input_file, output_file):
         out.write("=" * 100 + "\n\n")
         
         # Code section starts around 0x30, ends around 0xF0
-        code_start = 0x34  # Adjust if needed
-        code_end = 0xF0
+        # code_start = 0x34  # Adjust if needed
+        # code_end = 0xF0
+        # Then use it:
+        code_start, code_end = get_code_section_bounds(input_file)
         
         out.write("=== CODE SECTION ===\n\n")
         out.write(f"{'Offset':<10} {'Bytes':<30} {'Instruction'}\n")

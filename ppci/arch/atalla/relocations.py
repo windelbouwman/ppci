@@ -13,6 +13,11 @@ class AtallaBR_Imm10_Relocation(Relocation):
         offset = (sym_value - reloc_value) // ATALLA_INSN_ALIGNMENT
         return wrap_negative(offset, 10)
 
+    # def calc(self, sym_value, reloc_value):
+    #     pc_next = reloc_value + ATALLA_INSN_ALIGNMENT
+    #     offset = (sym_value - pc_next) // ATALLA_INSN_ALIGNMENT
+    #     return wrap_negative(offset, 10)
+
     def apply(self, sym_value, data, reloc_value):
         imm10 = self.calc(sym_value, reloc_value)
         token = self.token.from_data(data)
